@@ -28,3 +28,21 @@ Homestead.json
 .env.production
 .phpactor.json
 auth.json
+
+# IDE/editor
+/.idea/
+/.vscode/
+*.code-workspace
+
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Tooling caches & logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.php-cs-fixer.cache
+/.env.*.backup
+
