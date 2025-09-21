@@ -52,7 +52,7 @@ NGINX_SVC=""
 RELEASE=""
 KEEP="${KEEP:-5}"
 WEB_USER="${WEB_USER:-www-data}"
-WEB_GROUP=""
+WEB_GROUP="${WEB_GROUP:-www-data}"
 
 usage() {
   cat <<EOF
@@ -89,9 +89,10 @@ RELEASE_DIR="$RELEASES_DIR/$RELEASE"
 
 log "Deploying release $RELEASE to $BASE (web user: $WEB_USER:$WEB_GROUP)"
 
+# releases dimiliki user deploy (agar tar bisa nulis)
 maybe_sudo install -d -m 2775 -o "$(id -un)" -g "$WEB_GROUP" "$RELEASES_DIR"
-# --- prepare dirs (shared) ---
-log "Prepare directories"
+
+# shared dimiliki web user (FPM)
 maybe_sudo install -d -m 2775 -o "$WEB_USER" -g "$WEB_GROUP" \
   "$SHARED_DIR" \
   "$SHARED_DIR/storage" \
@@ -105,6 +106,7 @@ maybe_sudo touch "$SHARED_DIR/storage/logs/laravel.log"
 maybe_sudo chown -R "$WEB_USER:$WEB_GROUP" "$SHARED_DIR"
 maybe_sudo chmod -R ug+rwX "$SHARED_DIR"
 
+# saat buat RELEASE_DIR, jangan pakai sudo
 install -d -m 0755 "$RELEASE_DIR"
 
 # --- extract release ---
