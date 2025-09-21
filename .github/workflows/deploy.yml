@@ -4,7 +4,6 @@ on:
   push:
     branches: [ "main" ]
 
-# Cegah deploy bertumpuk kalau push cepat-beruntun
 concurrency:
   group: deploy-icpos
   cancel-in-progress: true
@@ -12,7 +11,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,8 +27,7 @@ jobs:
         with:
           path: ~/.composer/cache/files
           key: composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: |
-            composer-
+          restore-keys: composer-
 
       - name: Install Composer deps (no-dev, no-scripts)
         run: |
@@ -46,8 +43,7 @@ jobs:
         with:
           path: ~/.npm
           key: npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            npm-
+          restore-keys: npm-
 
       - name: Build assets
         run: |
@@ -79,10 +75,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo (for deploy.sh)
-      - uses: actions/checkout@v4
+        uses: actions/checkout@v4
 
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -122,7 +117,6 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # pastikan line endings unix
             sed -i 's/\r$//' /tmp/deploy.sh || true
             bash /tmp/deploy.sh \
               --base "${{ secrets.DEPLOY_BASE }}" \
