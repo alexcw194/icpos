@@ -18,10 +18,9 @@ jobs:
           extensions: mbstring, bcmath, curl, zip, xml, mysql
           coverage: none
 
-      - name: Install Composer deps (no-dev)
+      - name: Install Composer deps (no-dev, no-scripts)
         run: |
-          composer install --no-dev --prefer-dist --optimize-autoloader
-          php artisan vendor:publish --force --all || true
+           composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
