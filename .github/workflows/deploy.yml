@@ -1,0 +1,96 @@
+name: Deploy ICPOS
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, bcmath, curl, zip, xml, mysql
+          coverage: none
+
+      - name: Install Composer deps (no-dev)
+        run: |
+          composer install --no-dev --prefer-dist --optimize-autoloader
+          php artisan vendor:publish --force --all || true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build assets
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm run build || npm run prod || true
+
+      - name: Pack release (tar.gz)
+        run: |
+          tar -czf release.tar.gz \
+            --exclude=".git" \
+            --exclude=".github" \
+            --exclude="node_modules" \
+            --exclude="storage" \
+            --exclude=".env" \
+            .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: icpos-release
+          path: release.tar.gz
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: icpos-release
+          path: .
+
+      - name: Upload release to server (/tmp)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "release.tar.gz"
+          target: "/tmp"
+
+      - name: Upload deploy script
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "deploy/deploy.sh"
+          target: "/tmp"
+
+      - name: Remote deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            bash /tmp/deploy.sh \
+              --base "${{ secrets.DEPLOY_BASE }}" \
+              --tar "/tmp/release.tar.gz" \
+              --php "/usr/bin/php" \
+              --fpm "${{ secrets.PHP_FPM_SERVICE }}" \
+              --nginx "${{ secrets.NGINX_SERVICE }}" \
+              --release "${{ github.sha }}"
