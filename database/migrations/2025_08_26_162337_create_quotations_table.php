@@ -1,15 +1,20 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up(): void
     {
-        // no-op: table already exists
+        Schema::create('quotations', function (Blueprint $t) {
+            $t->id();
+            $t->timestamps();
+        });
     }
 
     public function down(): void
     {
-        // no-op
+        Schema::dropIfExists('quotations');
     }
 };
