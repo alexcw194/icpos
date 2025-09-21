@@ -4,7 +4,6 @@ on:
   push:
     branches: [ "main" ]
 
-# cegah deploy bertumpuk saat push cepat-beruntun
 concurrency:
   group: deploy-icpos
   cancel-in-progress: true
@@ -12,7 +11,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,7 +75,6 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo (for deploy.sh)
         uses: actions/checkout@v4
@@ -114,7 +111,16 @@ jobs:
           strip_components: 1
           overwrite: true
 
-      - name: Remote deploy
+      - name: Debug: list /tmp on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: ls -la /tmp
+
+      - name: Remote deploy (with fallback path)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -122,8 +128,18 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            sed -i 's/\r$//' /tmp/deploy.sh || true
-            bash /tmp/deploy.sh \
+            # pilih path yang ada
+            DEPLOY_SCRIPT="/tmp/deploy.sh"
+            if [ ! -f "$DEPLOY_SCRIPT" ] && [ -f "/tmp/deploy/deploy.sh" ]; then
+              DEPLOY_SCRIPT="/tmp/deploy/deploy.sh"
+            fi
+            if [ ! -f "$DEPLOY_SCRIPT" ]; then
+              echo "deploy.sh not found in /tmp"; ls -la /tmp; exit 127
+            fi
+
+            # normalisasi CRLF lalu eksekusi
+            sed -i 's/\r$//' "$DEPLOY_SCRIPT" || true
+            bash "$DEPLOY_SCRIPT" \
               --base "${{ secrets.DEPLOY_BASE }}" \
               --tar "/tmp/release.tar.gz" \
               --php "/usr/bin/php" \
