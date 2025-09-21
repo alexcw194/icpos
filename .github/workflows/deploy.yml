@@ -4,9 +4,15 @@ on:
   push:
     branches: [ "main" ]
 
+# Cegah deploy bertumpuk kalau push cepat-beruntun
+concurrency:
+  group: deploy-icpos
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,19 +24,39 @@ jobs:
           extensions: mbstring, bcmath, curl, zip, xml, mysql
           coverage: none
 
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            composer-
+
       - name: Install Composer deps (no-dev, no-scripts)
         run: |
-           composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+          composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            npm-
+
       - name: Build assets
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          npm run build || npm run prod || true
+          if [ -f package.json ]; then
+            if [ -f package-lock.json ]; then npm ci; else npm install; fi
+            npm run build || npm run prod || true
+          else
+            echo "No package.json found, skipping asset build."
+          fi
 
       - name: Pack release (tar.gz)
         run: |
@@ -53,12 +79,17 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: icpos-release
           path: .
+
+      - name: Verify deploy script exists
+        run: |
+          test -f ./deploy/deploy.sh || (echo "ERROR: deploy/deploy.sh missing"; ls -la; exit 1)
 
       - name: Upload release to server (/tmp)
         uses: appleboy/scp-action@v0.1.7
@@ -77,7 +108,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           port: ${{ secrets.SSH_PORT }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "deploy/deploy.sh"
+          source: "./deploy/deploy.sh"
           target: "/tmp"
 
       - name: Remote deploy
@@ -88,6 +119,8 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # pastikan line endings unix
+            sed -i 's/\r$//' /tmp/deploy.sh || true
             bash /tmp/deploy.sh \
               --base "${{ secrets.DEPLOY_BASE }}" \
               --tar "/tmp/release.tar.gz" \
