@@ -89,10 +89,10 @@ RELEASE_DIR="$RELEASES_DIR/$RELEASE"
 
 log "Deploying release $RELEASE to $BASE (web user: $WEB_USER:$WEB_GROUP)"
 
+maybe_sudo install -d -m 2775 -o "$(id -un)" -g "$WEB_GROUP" "$RELEASES_DIR"
 # --- prepare dirs (shared) ---
 log "Prepare directories"
 maybe_sudo install -d -m 2775 -o "$WEB_USER" -g "$WEB_GROUP" \
-  "$RELEASES_DIR" \
   "$SHARED_DIR" \
   "$SHARED_DIR/storage" \
   "$SHARED_DIR/storage/app/public" \
@@ -101,11 +101,11 @@ maybe_sudo install -d -m 2775 -o "$WEB_USER" -g "$WEB_GROUP" \
   "$SHARED_DIR/storage/framework/views" \
   "$SHARED_DIR/storage/logs" \
   "$SHARED_DIR/bootstrap/cache"
-
-# pastikan file log ada
 maybe_sudo touch "$SHARED_DIR/storage/logs/laravel.log"
 maybe_sudo chown -R "$WEB_USER:$WEB_GROUP" "$SHARED_DIR"
 maybe_sudo chmod -R ug+rwX "$SHARED_DIR"
+
+install -d -m 0755 "$RELEASE_DIR"
 
 # --- extract release ---
 log "Extracting archive"
