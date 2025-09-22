@@ -2,18 +2,16 @@
 
 @section('content')
 <div class="container-xl">
-  <form method="POST" action="{{ route('items.variants.update', [$item, $variant]) }}">
-    @csrf
-    @method('PUT')
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Edit Varian - {{ $item->name }}</div>
-        <div class="ms-auto btn-list">
-          <a href="{{ route('items.variants.index', $item) }}" class="btn btn-secondary">Batal</a>
-          <button type="submit" class="btn btn-primary">Simpan</button>
-        </div>
+  <form method="post" action="{{ route('variants.update', $variant) }}" class="card">
+    @csrf @method('PUT')
+    <div class="card-header">
+      <div class="card-title">Edit Variant - {{ $item->name }}</div>
+      <div class="ms-auto btn-list">
+        <a href="{{ route('items.variants.index', $item) }}" class="btn btn-secondary">Back</a>
+        <button class="btn btn-primary">Update</button>
       </div>
-
+    </div>
+    <div class="card-body">
       @include('items.variants._form')
     </div>
   </form>
