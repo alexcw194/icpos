@@ -129,7 +129,7 @@
             </li>
 
             {{-- ============ ADMIN MENU — hanya Super Admin ============ --}}
-            @role('SuperAdmin')
+            @hasanyrole('SuperAdmin|Super Admin')
               @php
                 $isAdminArea = request()->routeIs('users.*')
                               || request()->routeIs('permissions.*')
@@ -190,7 +190,7 @@
                   </li>
                 </ul>
               </li>
-            @endrole
+            @endhasanyrole
 
 
             {{-- User dropdown --}}
