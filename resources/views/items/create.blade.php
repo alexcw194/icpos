@@ -8,6 +8,9 @@
 
     <div class="card-header">
       <div class="card-title">Tambah Item</div>
+      <div class="ms-auto text-muted small">
+        Kelola varian tersedia setelah item disimpan.
+      </div>
     </div>
 
     {{-- Teruskan $defaultUnitId ke _form supaya select Unit default ke PCS --}}
@@ -19,8 +22,9 @@
       'cancelLabel'  => 'Batal',
       'cancelInline' => true,
       'buttons' => [
-        ['type'=>'submit','name'=>'action','value'=>'save',     'label'=>'Simpan',            'class'=>'btn btn-primary'],
-        ['type'=>'submit','name'=>'action','value'=>'save_add', 'label'=>'Simpan & Tambah',   'class'=>'btn btn-primary'],
+        ['type'=>'submit','name'=>'action','value'=>'save',           'label'=>'Simpan',                'class'=>'btn btn-primary'],
+        ['type'=>'submit','name'=>'action','value'=>'save_variants',  'label'=>'Simpan & Kelola Varian','class'=>'btn btn-primary'],
+        ['type'=>'submit','name'=>'action','value'=>'save_add',       'label'=>'Simpan & Tambah',       'class'=>'btn btn-primary'],
       ],
     ])
   </form>

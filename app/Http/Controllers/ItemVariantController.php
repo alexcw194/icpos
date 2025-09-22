@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Item;
 use App\Models\ItemVariant;
+use App\Models\Size;
+use App\Models\Color;
 use Illuminate\Http\Request;
 
 class ItemVariantController extends Controller
@@ -16,7 +18,14 @@ class ItemVariantController extends Controller
 
     public function create(Item $item)
     {
-        return view('items.variants.create', compact('item'));
+        $attrOptions = $this->attributeOptions($item);
+
+        return view('items.variants.create', [
+            'item'           => $item,
+            'colorOptions'   => $attrOptions['color'],
+            'sizeOptions'    => $attrOptions['size'],
+            'lengthOptions'  => $attrOptions['length'],
+        ]);
     }
 
     public function store(Request $request, Item $item)
@@ -30,7 +39,7 @@ class ItemVariantController extends Controller
             'min_stock'   => ['nullable', 'integer', 'min:0'],
             'attr_color'  => ['nullable', 'string', 'max:50'],
             'attr_size'   => ['nullable', 'string', 'max:50'],
-            'attr_length' => ['nullable', 'numeric', 'min:0'],
+            'attr_length' => ['nullable', 'string', 'max:50'],
         ]);
 
         $attrs = [];
@@ -41,7 +50,7 @@ class ItemVariantController extends Controller
             $attrs['size'] = (string) $request->input('attr_size');
         }
         if ($request->filled('attr_length')) {
-            $attrs['length'] = (float) $request->input('attr_length');
+            $attrs['length'] = (string) $request->input('attr_length');
         }
 
         $variant = $item->variants()->create([
@@ -54,6 +63,8 @@ class ItemVariantController extends Controller
             'min_stock'  => (int) ($request->input('min_stock') ?? 0),
         ]);
 
+        $this->syncVariantMeta($item);
+
         return redirect()->route('items.variants.index', $item)
             ->with('success', 'Variant created: ' . $variant->label);
     }
@@ -62,7 +73,15 @@ class ItemVariantController extends Controller
     {
         $variant->load('item');
         $item = $variant->item;
-        return view('items.variants.edit', compact('item', 'variant'));
+        $attrOptions = $this->attributeOptions($item);
+
+        return view('items.variants.edit', [
+            'item'           => $item,
+            'variant'        => $variant,
+            'colorOptions'   => $attrOptions['color'],
+            'sizeOptions'    => $attrOptions['size'],
+            'lengthOptions'  => $attrOptions['length'],
+        ]);
     }
 
     public function update(Request $request, ItemVariant $variant)
@@ -77,7 +96,7 @@ class ItemVariantController extends Controller
             'min_stock'   => ['nullable', 'integer', 'min:0'],
             'attr_color'  => ['nullable', 'string', 'max:50'],
             'attr_size'   => ['nullable', 'string', 'max:50'],
-            'attr_length' => ['nullable', 'numeric', 'min:0'],
+            'attr_length' => ['nullable', 'string', 'max:50'],
         ]);
 
         $attrs = [];
@@ -88,7 +107,7 @@ class ItemVariantController extends Controller
             $attrs['size'] = (string) $request->input('attr_size');
         }
         if ($request->filled('attr_length')) {
-            $attrs['length'] = (float) $request->input('attr_length');
+            $attrs['length'] = (string) $request->input('attr_length');
         }
 
         $variant->update([
@@ -101,6 +120,8 @@ class ItemVariantController extends Controller
             'min_stock'  => (int) ($request->input('min_stock') ?? 0),
         ]);
 
+        $this->syncVariantMeta($variant->item);
+
         return redirect()->route('items.variants.index', $variant->item)
             ->with('success', 'Variant updated!');
     }
@@ -109,6 +130,8 @@ class ItemVariantController extends Controller
     {
         $item = $variant->item;
         $variant->delete();
+        $this->syncVariantMeta($item);
+
         return redirect()->route('items.variants.index', $item)
             ->with('success', 'Variant deleted!');
     }
@@ -140,5 +163,66 @@ class ItemVariantController extends Controller
             $stock = 0;
         }
         return [$price, $stock];
+    }
+
+    private function attributeOptions(Item $item): array
+    {
+        $colors = Color::active()->ordered()->pluck('name')->all();
+        $sizes  = Size::active()->ordered()->pluck('name')->all();
+        $variantOptions = is_array($item->variant_options) ? $item->variant_options : [];
+
+        $merge = fn($master, $custom) => collect($master)
+            ->merge(is_array($custom) ? $custom : [])
+            ->filter(fn($value) => (string) $value !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        return [
+            'color'  => $merge($colors, $variantOptions['color'] ?? []),
+            'size'   => $merge($sizes, $variantOptions['size'] ?? []),
+            'length' => collect($variantOptions['length'] ?? [])
+                ->filter(fn($value) => (string) $value !== '')
+                ->unique()
+                ->values()
+                ->all(),
+        ];
+    }
+
+    private function syncVariantMeta(Item $item): void
+    {
+        $item->load(['variants' => fn($q) => $q->orderBy('id')]);
+
+        $type = $this->determineVariantType($item->variants);
+
+        if ($item->variant_type !== $type) {
+            $item->forceFill(['variant_type' => $type])->save();
+        }
+    }
+
+    private function determineVariantType($variants): string
+    {
+        if ($variants->isEmpty()) {
+            return 'none';
+        }
+
+        $hasColor  = $variants->contains(fn($v) => !empty(($v->attributes['color'] ?? null)));
+        $hasSize   = $variants->contains(fn($v) => !empty(($v->attributes['size'] ?? null)));
+        $hasLength = $variants->contains(fn($v) => !empty(($v->attributes['length'] ?? null)));
+
+        if ($hasColor && $hasSize) {
+            return 'color_size';
+        }
+        if ($hasColor) {
+            return 'color';
+        }
+        if ($hasSize) {
+            return 'size';
+        }
+        if ($hasLength) {
+            return 'length';
+        }
+
+        return 'none';
     }
 }

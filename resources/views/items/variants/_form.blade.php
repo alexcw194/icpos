@@ -1,6 +1,9 @@
 @php
   $v = fn($field, $default = '') => old($field, isset($variant) ? ($variant->{$field} ?? $default) : $default);
   $attrs = isset($variant) && is_array($variant->attributes) ? $variant->attributes : [];
+  $colorOptions  = collect($colorOptions  ?? [])->filter(fn($v) => (string) $v !== '');
+  $sizeOptions   = collect($sizeOptions   ?? [])->filter(fn($v) => (string) $v !== '');
+  $lengthOptions = collect($lengthOptions ?? [])->filter(fn($v) => (string) $v !== '');
 @endphp
 
 <div class="row g-3">
@@ -38,14 +41,41 @@
 
   <div class="col-md-4">
     <label class="form-label">Color</label>
-    <input type="text" name="attr_color" class="form-control" value="{{ old('attr_color', $attrs['color'] ?? '') }}">
+    @if($colorOptions->isNotEmpty())
+      <select name="attr_color" class="form-select">
+        <option value="">— Pilih Color —</option>
+        @foreach($colorOptions as $opt)
+          <option value="{{ $opt }}" @selected(old('attr_color', $attrs['color'] ?? '') === $opt)>{{ $opt }}</option>
+        @endforeach
+      </select>
+    @else
+      <input type="text" name="attr_color" class="form-control" value="{{ old('attr_color', $attrs['color'] ?? '') }}">
+    @endif
   </div>
   <div class="col-md-4">
     <label class="form-label">Size</label>
-    <input type="text" name="attr_size" class="form-control" value="{{ old('attr_size', $attrs['size'] ?? '') }}">
+    @if($sizeOptions->isNotEmpty())
+      <select name="attr_size" class="form-select">
+        <option value="">— Pilih Size —</option>
+        @foreach($sizeOptions as $opt)
+          <option value="{{ $opt }}" @selected(old('attr_size', $attrs['size'] ?? '') === $opt)>{{ $opt }}</option>
+        @endforeach
+      </select>
+    @else
+      <input type="text" name="attr_size" class="form-control" value="{{ old('attr_size', $attrs['size'] ?? '') }}">
+    @endif
   </div>
   <div class="col-md-4">
     <label class="form-label">Length (m)</label>
-    <input type="text" name="attr_length" class="form-control" inputmode="decimal" value="{{ old('attr_length', $attrs['length'] ?? '') }}">
+    @if($lengthOptions->isNotEmpty())
+      <select name="attr_length" class="form-select">
+        <option value="">— Pilih Length —</option>
+        @foreach($lengthOptions as $opt)
+          <option value="{{ $opt }}" @selected(old('attr_length', $attrs['length'] ?? '') == $opt)>{{ $opt }}</option>
+        @endforeach
+      </select>
+    @else
+      <input type="text" name="attr_length" class="form-control" inputmode="decimal" value="{{ old('attr_length', $attrs['length'] ?? '') }}">
+    @endif
   </div>
 </div>

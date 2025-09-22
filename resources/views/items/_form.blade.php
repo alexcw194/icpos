@@ -21,6 +21,11 @@
 
   // Nilai awal tipe & flags
   $currentType = old('item_type', isset($item) ? ($item->item_type ?? 'standard') : 'standard');
+  $variantMode = old('variant_type', isset($item) ? ($item->variant_type ?? 'none') : 'none');
+  $hasVariants = isset($item)
+    ? ($item->relationLoaded('variants') ? $item->variants->isNotEmpty() : $item->variants()->exists())
+    : false;
+  $hideAttributeCard = !is_null($variantMode) ? ($variantMode !== 'none' || $hasVariants || !isset($item)) : (!isset($item) || $hasVariants);
   $sellableOld = old('sellable', isset($item) ? (int)$item->sellable : 1);
   $purchOld    = old('purchasable', isset($item) ? (int)$item->purchasable : 1);
 
@@ -90,6 +95,7 @@
     </div>
   </div>
 
+  @if(!$hideAttributeCard)
   {{-- ===== ATRIBUT ITEM (Size & Color Master) ===== --}}
   <div class="card mt-3">
     <div class="card-header">
@@ -122,13 +128,10 @@
         </div>
       </div>
 
-      <div class="mt-2">
-        <a href="{{ route('sizes.index', ['r' => $returnUrl]) }}" class="btn btn-link px-0">+ Kelola Size</a>
-        <span class="text-muted mx-1">·</span>
-        <a href="{{ route('colors.index', ['r' => $returnUrl]) }}" class="btn btn-link px-0">+ Kelola Color</a>
-      </div>
     </div>
   </div>
+
+  @endif
 
   {{-- =================== VARIAN & CUTTING =================== --}}
   <div class="row g-3 mt-3">

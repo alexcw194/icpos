@@ -85,10 +85,9 @@
 
   function init(){
     const ts = new TomSelect(searchEl, {
-      valueField : 'id',
-      valueField : 'name', // unik karena label varian beda (contoh: "Baju — Blue / M")
+      valueField : 'uid',
       labelField : 'label',
-      searchField: ['name','sku'],
+      searchField: ['name','sku','label'],
       maxOptions : 30,
       preload    : 'focus',
       create     : false,

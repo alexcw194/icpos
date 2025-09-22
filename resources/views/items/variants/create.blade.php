@@ -12,7 +12,11 @@
       </div>
     </div>
     <div class="card-body">
-      @include('items.variants._form')
+      @include('items.variants._form', [
+        'colorOptions'  => $colorOptions ?? [],
+        'sizeOptions'   => $sizeOptions ?? [],
+        'lengthOptions' => $lengthOptions ?? [],
+      ])
     </div>
   </form>
 </div>

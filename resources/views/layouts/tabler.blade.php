@@ -173,6 +173,8 @@
                         <li><a href="{{ route('units.index')  }}"  class="dropdown-item {{ request()->routeIs('units.*')  ? 'active' : '' }}">Units</a></li>
                         <li><a href="{{ route('jenis.index')  }}"  class="dropdown-item {{ request()->routeIs('jenis.*')  ? 'active' : '' }}">Jenis</a></li>
                         <li><a href="{{ route('brands.index') }}" class="dropdown-item {{ request()->routeIs('brands.*') ? 'active' : '' }}">Brands</a></li>
+                        <li><a href="{{ route('sizes.index')  }}"  class="dropdown-item {{ request()->routeIs('sizes.*')  ? 'active' : '' }}">Sizes</a></li>
+                        <li><a href="{{ route('colors.index') }}" class="dropdown-item {{ request()->routeIs('colors.*') ? 'active' : '' }}">Colors</a></li>
                       </ul>
                     </div>
                   </li>
