@@ -9,6 +9,9 @@
 
     <div class="card-header">
       <div class="card-title">Edit Item: {{ $item->name }}</div>
+      <div class="ms-auto btn-list">
+        <a href="{{ route('items.variants.index', $item) }}" class="btn btn-primary">Kelola Varian</a>
+      </div>
     </div>
 
     @include('items._form', ['item' => $item])
@@ -19,7 +22,8 @@
       'cancelLabel'  => 'Batal',
       'cancelInline' => true,
       'buttons' => [
-        ['type'=>'submit','label'=>'Simpan','class'=>'btn btn-primary'],
+        ['type'=>'submit','name'=>'action','value'=>'save',          'label'=>'Simpan','class'=>'btn btn-primary'],
+        ['type'=>'submit','name'=>'action','value'=>'save_variants', 'label'=>'Simpan & Kelola Varian','class'=>'btn btn-primary'],
       ],
     ])
   </form>

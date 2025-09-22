@@ -5,6 +5,7 @@ use App\Http\Controllers\{
     ProfileController,
     CustomerController,
     ItemController,
+    ItemVariantController,
     QuotationController,
     InvoiceController,
     DeliveryController,
@@ -66,6 +67,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Items
     Route::resource('items', ItemController::class);
+    Route::resource('items.variants', ItemVariantController::class)
+        ->parameters(['variants' => 'variant'])
+        ->shallow();
     Route::get('/api/items/search', [ItemController::class, 'quickSearch'])->name('items.search'); // <- tanpa ->middleware(['auth'])
 
     // Quotations

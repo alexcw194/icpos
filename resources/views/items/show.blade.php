@@ -11,6 +11,7 @@
           @csrf @method('DELETE')
           <button class="btn btn-danger">Delete</button>
         </form>
+        <a href="{{ route('items.variants.index', $item) }}" class="btn btn-primary">Kelola Varian</a>
         <a href="{{ route('items.index') }}" class="btn btn-secondary">Kembali</a>
       </div>
     </div>

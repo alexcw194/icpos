@@ -7,30 +7,86 @@ use App\Models\Unit;
 use App\Models\Brand;
 use App\Models\{Size, Color};
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class ItemController extends Controller
 {
     public function index(Request $request)
     {
-        $q       = $request->string('q')->toString();
-        $unitId  = $request->input('unit_id');
-        $brandId = $request->input('brand_id');
+        $viewMode = $this->resolveInventoryViewMode($request);
+        $filters  = $this->extractInventoryFilters($request);
 
-        $items = Item::with(['unit','brand','size','color'])
-            // NOTE: Jika Items adalah GLOBAL (sesuai keputusan proyek), hapus scope forCompany() bila ada.
-            // ->forCompany()
-            ->keyword($q)
-            ->inUnit($unitId)
-            ->inBrand($brandId)
+        $itemsQuery = Item::query()
+            ->with([
+                'unit',
+                'brand',
+                'variants' => fn($q) => $q->orderBy('id'),
+            ])
+            ->inUnit($filters['unit_id'])
+            ->inBrand($filters['brand_id']);
+
+        if ($filters['q'] !== '') {
+            $term = $filters['q'];
+            $itemsQuery->where(function ($query) use ($term) {
+                $like = '%' . $term . '%';
+                $query->where('name', 'like', $like)
+                    ->orWhere('sku', 'like', $like)
+                    ->orWhereHas('brand', fn($b) => $b->where('name', 'like', $like))
+                    ->orWhereHas('variants', function ($v) use ($like) {
+                        $v->where('sku', 'like', $like)
+                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color')) LIKE ?", [$like])
+                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size')) LIKE ?", [$like])
+                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length')) LIKE ?", [$like]);
+                    });
+            });
+        }
+
+        if ($filters['stock'] === 'gt0') {
+            $itemsQuery->where(function ($query) {
+                $query->where('stock', '>', 0)
+                    ->orWhereHas('variants', fn($v) => $v->where('stock', '>', 0));
+            });
+        } elseif ($filters['stock'] === 'eq0') {
+            $itemsQuery->where(function ($query) {
+                $query->where('stock', '=', 0)
+                    ->whereDoesntHave('variants', fn($v) => $v->where('stock', '>', 0));
+            });
+        }
+
+        $items = $itemsQuery
             ->ordered()
             ->paginate(20)
             ->withQueryString();
 
-        $units  = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
-        $brands = Brand::orderBy('name')->get(['id','name']);
+        $units      = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
+        $brands     = Brand::orderBy('name')->get(['id','name']);
+        $sizesList  = Size::active()->ordered()->pluck('name')->filter()->values();
+        $colorsList = Color::active()->ordered()->pluck('name')->filter()->values();
 
-        return view('items.index', compact('items','units','brands','q','unitId','brandId'));
+        $items->getCollection()->transform(function ($item) {
+            $item->setRelation('variants', $item->variants->map(function ($variant) {
+                $variant->computed_attributes = $variant->attributes ?? [];
+                return $variant;
+            }));
+            return $item;
+        });
+
+        $flatRows    = $this->buildFlatInventoryRows($items->getCollection(), $filters);
+        $groupedRows = $this->buildGroupedInventoryRows($items->getCollection(), $filters);
+
+        return view('items.index', [
+            'items'      => $items,
+            'units'      => $units,
+            'brands'     => $brands,
+            'sizesList'  => $sizesList,
+            'colorsList' => $colorsList,
+            'filters'    => $filters,
+            'viewMode'   => $viewMode,
+            'flatRows'   => $flatRows,
+            'groupedRows'=> $groupedRows,
+        ]);
     }
 
     public function create()
@@ -105,10 +161,18 @@ class ItemController extends Controller
 
         $item = Item::create($data);
 
-        if ($request->input('action') === 'save_add') {
+        $action = $request->input('action');
+
+        if ($action === 'save_add') {
             return redirect()->route('items.create')
                 ->with('success', 'Item created! Silakan tambah item baru.');
         }
+
+        if ($action === 'save_variants') {
+            return redirect()->route('items.variants.index', $item)
+                ->with('success', 'Item created! Silakan kelola varian.');
+        }
+
         return redirect()->route('items.index')->with('success','Item created!');
     }
 
@@ -121,6 +185,7 @@ class ItemController extends Controller
 
     public function edit(Item $item)
     {
+        $item->load(['variants' => fn($q) => $q->orderBy('id')]);
         $unitsActive = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
         $currentUnit = $item->unit;
         $units = $unitsActive;
@@ -196,10 +261,18 @@ class ItemController extends Controller
 
         $item->update($data);
 
-        if ($request->input('action') === 'save_add') {
+        $action = $request->input('action');
+
+        if ($action === 'save_add') {
             return redirect()->route('items.create')
                 ->with('success', 'Perubahan disimpan. Silakan tambah item baru.');
         }
+
+        if ($action === 'save_variants') {
+            return redirect()->route('items.variants.index', $item)
+                ->with('success', 'Perubahan disimpan. Silakan kelola varian.');
+        }
+
         return redirect()->route('items.index')->with('success','Item updated!');
     }
 
@@ -241,13 +314,16 @@ class ItemController extends Controller
 
         foreach ($items as $it) {
             $unitCode = optional($it->unit)->code ?? 'PCS';
+            $variants = $it->variants ?? collect();
+            $displayVariants = $this->shouldDisplayVariants($it, $variants);
 
             // Jika tidak pakai varian → kirim 1 baris "item"
-            if ($it->variant_type === 'none' || $it->variants->isEmpty()) {
+            if (!$displayVariants) {
                 $label = $it->name;
                 $price = (float)$it->price;
 
                 $out[] = [
+                    'uid'        => 'item-'.$it->id,
                     'type'        => 'item',
                     'item_id'     => $it->id,
                     'variant_id'  => null,
@@ -263,20 +339,30 @@ class ItemController extends Controller
             }
 
             // Pakai varian → kirim per varian
-            foreach ($it->variants as $v) {
+            foreach ($variants as $v) {
                 if (!$v->is_active) continue;
 
                 $attrs = is_array($v->attributes) ? $v->attributes : [];
                 $label = $it->renderVariantLabel($attrs);
+                $attrsText = collect($attrs)
+                    ->map(function ($val, $key) {
+                        return ucfirst($key) . ': ' . $val;
+                    })
+                    ->implode(' · ');
+                $displayLabel = $label;
+                if ($attrsText !== '') {
+                    $displayLabel .= ' (' . $attrsText . ')';
+                }
                 $price = (float) (($v->price ?? null) !== null ? $v->price : $it->price);
                 $sku   = $v->sku ?: $it->sku;
 
                 $out[] = [
+                    'uid'        => 'variant-'.$v->id,
                     'type'        => 'variant',
                     'item_id'     => $it->id,
                     'variant_id'  => $v->id,
-                    'name'        => $label,
-                    'label'       => '(' . $fmt($price) . ') ' . $label,
+                    'name'        => $displayLabel,
+                    'label'       => '(' . $fmt($price) . ') ' . $displayLabel,
                     'sku'         => $sku,
                     'price'       => $price,
                     'unit_code'   => $unitCode,
@@ -323,5 +409,450 @@ class ItemController extends Controller
 
         // simpan sebagai string decimal (biar tidak kena locale lagi)
         return $raw;
+    }
+
+    private function resolveInventoryViewMode(Request $request): string
+    {
+        $mode = $request->input('view');
+        $allowed = ['flat', 'grouped'];
+        if ($mode && in_array($mode, $allowed, true)) {
+            session(['inventory_view_mode' => $mode]);
+        } else {
+            $mode = session('inventory_view_mode', 'flat');
+            if (!in_array($mode, $allowed, true)) {
+                $mode = 'flat';
+                session(['inventory_view_mode' => $mode]);
+            }
+        }
+        return $mode;
+    }
+
+    private function extractInventoryFilters(Request $request): array
+    {
+        $term = trim((string) $request->input('q', ''));
+
+        $type  = $request->input('type', 'all');
+        $stock = $request->input('stock', 'all');
+        $sort  = $request->input('sort', 'name_asc');
+
+        $allowedType  = ['all','item','variant'];
+        $allowedStock = ['all','gt0','eq0'];
+        $allowedSort  = ['name_asc','price_lowest','price_highest','stock_highest','newest'];
+
+        $type  = in_array($type, $allowedType, true)   ? $type  : 'all';
+        $stock = in_array($stock, $allowedStock, true) ? $stock : 'all';
+        $sort  = in_array($sort, $allowedSort, true)   ? $sort  : 'name_asc';
+
+        $sizes  = array_values(array_filter((array) $request->input('sizes', []), fn($v) => $v !== null && $v !== ''));
+        $colors = array_values(array_filter((array) $request->input('colors', []), fn($v) => $v !== null && $v !== ''));
+        $lengthMin = $request->input('length_min');
+        $lengthMax = $request->input('length_max');
+
+        $showVariantParent = filter_var($request->input('show_variant_parent', '0'), FILTER_VALIDATE_BOOLEAN);
+
+        return [
+            'q'                  => $term,
+            'unit_id'            => $request->input('unit_id'),
+            'brand_id'           => $request->input('brand_id'),
+            'type'               => $type,
+            'stock'              => $stock,
+            'sizes'              => $sizes,
+            'colors'             => $colors,
+            'length_min'         => $lengthMin !== null && $lengthMin !== '' ? (float) $lengthMin : null,
+            'length_max'         => $lengthMax !== null && $lengthMax !== '' ? (float) $lengthMax : null,
+            'sort'               => $sort,
+            'show_variant_parent'=> $showVariantParent,
+        ];
+    }
+
+    private function buildFlatInventoryRows(Collection $items, array $filters): Collection
+    {
+        $rows = collect();
+        $term = Str::lower($filters['q']);
+        $sizeFilters = array_map(fn($v) => Str::lower($v), $filters['sizes']);
+        $colorFilters = array_map(fn($v) => Str::lower($v), $filters['colors']);
+        $lengthMin = $filters['length_min'];
+        $lengthMax = $filters['length_max'];
+
+        $showVariantParent = $filters['show_variant_parent'];
+
+        $variantMaxRelevance = [];
+        $itemRelevance       = [];
+
+        $showVariantParent = $filters['show_variant_parent'];
+
+        foreach ($items as $item) {
+            $variants = $item->variants ?? collect();
+            $displayVariants = $this->shouldDisplayVariants($item, $variants);
+            $activeVariants = $displayVariants ? $variants->where('is_active', true) : collect();
+            $totalVariantStock = (int) $activeVariants->sum('stock');
+            $minVariantPrice   = $displayVariants ? $activeVariants->min('price') : null;
+            $maxVariantPrice   = $displayVariants ? $activeVariants->max('price') : null;
+
+            $itemPriceValue = $minVariantPrice ?? $item->price;
+            $itemStockValue = $displayVariants ? $totalVariantStock : (int) $item->stock;
+
+            $itemRelevanceScore = $this->computeInventoryRelevance($item, null, $term);
+            $itemRelevance[$item->id] = $itemRelevanceScore;
+
+            $itemMatchesAttributes = $this->itemMatchesAttributeFilters($item, $filters, $activeVariants);
+
+            $shouldHideParent = !$showVariantParent && $displayVariants && $filters['type'] !== 'item';
+
+            if ($filters['type'] !== 'variant' && $itemMatchesAttributes && !$shouldHideParent) {
+                $rows->push([
+                    'entity'        => 'item',
+                    'item_id'       => $item->id,
+                    'variant_id'    => null,
+                    'display_name'  => $item->name,
+                    'brand'         => optional($item->brand)->name,
+                    'unit'          => optional($item->unit)->code ?: optional($item->unit)->name,
+                    'sku'           => $item->sku,
+                    'price'         => (float) ($itemPriceValue ?? 0),
+                    'price_label'   => $this->formatPriceRange($minVariantPrice, $maxVariantPrice, $item->price),
+                    'stock'         => $itemStockValue,
+                    'stock_label'   => number_format($itemStockValue, 0, ',', '.'),
+                    'low_stock'     => ($item->min_stock ?? 0) > 0 && $itemStockValue < $item->min_stock,
+                    'inactive'      => false,
+                    'attributes'    => [
+                        'size'  => optional($item->size)->name,
+                        'color' => optional($item->color)->name,
+                    ],
+                    'parent_name'   => null,
+                    'relevance'     => $itemRelevanceScore,
+                    'created_at'    => $item->created_at,
+                    'variant_count' => $variants->count(),
+                    'variants'      => $variants,
+                ]);
+            }
+
+            if ($filters['type'] === 'item') {
+                continue;
+            }
+
+            if (!$displayVariants) {
+                continue;
+            }
+
+            foreach ($variants as $variant) {
+                if (!$this->variantMatchesFilters($variant, $item, $filters, $sizeFilters, $colorFilters, $lengthMin, $lengthMax)) {
+                    continue;
+                }
+
+                if ($filters['stock'] === 'gt0' && (int) $variant->stock <= 0) {
+                    continue;
+                }
+                if ($filters['stock'] === 'eq0' && (int) $variant->stock > 0) {
+                    continue;
+                }
+
+                $attrs = $variant->computed_attributes ?? ($variant->attributes ?? []);
+                $label = $item->renderVariantLabel(is_array($attrs) ? $attrs : []);
+                $relevance = $this->computeInventoryRelevance($item, $variant, $term);
+                $variantMaxRelevance[$item->id] = max($variantMaxRelevance[$item->id] ?? 0, $relevance);
+
+                $rows->push([
+                    'entity'        => 'variant',
+                    'item_id'       => $item->id,
+                    'variant_id'    => $variant->id,
+                    'display_name'  => $label,
+                    'brand'         => optional($item->brand)->name,
+                    'unit'          => optional($item->unit)->code ?: optional($item->unit)->name,
+                    'sku'           => $variant->sku ?: $item->sku,
+                    'price'         => (float) ($variant->price ?? $item->price ?? 0),
+                    'price_label'   => 'Rp ' . number_format((float) ($variant->price ?? 0), 2, ',', '.'),
+                    'stock'         => (int) $variant->stock,
+                    'stock_label'   => number_format((int) $variant->stock, 0, ',', '.'),
+                    'low_stock'     => ($variant->min_stock ?? 0) > 0 && $variant->stock < $variant->min_stock,
+                    'inactive'      => !$variant->is_active,
+                    'attributes'    => [
+                        'size'  => $attrs['size'] ?? null,
+                        'color' => $attrs['color'] ?? null,
+                    ],
+                    'parent_name'   => $item->name,
+                    'relevance'     => $relevance,
+                    'created_at'    => $variant->created_at,
+                    'variant_count' => $variants->count(),
+                    'variants'      => $variants,
+                ]);
+            }
+        }
+
+        if ($term !== '') {
+            $rows = $rows->filter(function ($row) use ($term) {
+                if ($row['relevance'] > 0) {
+                    return true;
+                }
+                if ($row['entity'] === 'item') {
+                    return Str::contains(Str::lower($row['display_name']), $term);
+                }
+                return false;
+            });
+
+            $rows = $rows->filter(function ($row) use ($variantMaxRelevance, $itemRelevance) {
+                if ($row['entity'] !== 'item') {
+                    return true;
+                }
+                $maxVariant = $variantMaxRelevance[$row['item_id']] ?? null;
+                if ($maxVariant === null) {
+                    return true;
+                }
+                $itemScore = $itemRelevance[$row['item_id']] ?? 0;
+                return $itemScore >= $maxVariant;
+            });
+        }
+
+        return $this->sortInventoryRows($rows, $filters)->values();
+    }
+
+    private function buildGroupedInventoryRows(Collection $items, array $filters): Collection
+    {
+        $term = Str::lower($filters['q']);
+        $sizeFilters = array_map(fn($v) => Str::lower($v), $filters['sizes']);
+        $colorFilters = array_map(fn($v) => Str::lower($v), $filters['colors']);
+        $lengthMin = $filters['length_min'];
+        $lengthMax = $filters['length_max'];
+        $showVariantParent = $filters['show_variant_parent'];
+
+        $rows = collect();
+
+        foreach ($items as $item) {
+            $variants = $item->variants ?? collect();
+            $displayVariants = $this->shouldDisplayVariants($item, $variants);
+            $activeVariants = $displayVariants ? $variants->where('is_active', true) : collect();
+
+            if ($filters['type'] === 'variant') {
+                if (!$displayVariants) {
+                    continue;
+                }
+                $matchingVariants = $variants->filter(fn($variant) => $this->variantMatchesFilters($variant, $item, $filters, $sizeFilters, $colorFilters, $lengthMin, $lengthMax));
+                if ($matchingVariants->isEmpty()) {
+                    continue;
+                }
+            } elseif (!$this->itemMatchesAttributeFilters($item, $filters, $activeVariants)) {
+                continue;
+            }
+
+            $totalVariantStock = (int) $activeVariants->sum('stock');
+            $minVariantPrice = $displayVariants ? $activeVariants->min('price') : null;
+            $maxVariantPrice = $displayVariants ? $activeVariants->max('price') : null;
+            $priceLabel = $this->formatPriceRange($minVariantPrice, $maxVariantPrice, $item->price);
+            $stockLabel = $activeVariants->isNotEmpty()
+                ? number_format($totalVariantStock, 0, ',', '.')
+                : number_format((int) $item->stock, 0, ',', '.');
+
+            $chipData = $this->buildAttributeChipData($activeVariants);
+
+            $preview = $activeVariants->sortBy('id')->take(5)->map(function ($variant) use ($item) {
+                $attrs = $variant->attributes ?? [];
+                return [
+                    'label'  => $item->renderVariantLabel(is_array($attrs) ? $attrs : []),
+                    'sku'    => $variant->sku ?: $item->sku,
+                    'price'  => number_format((float) ($variant->price ?? 0), 2, ',', '.'),
+                    'stock'  => (int) $variant->stock,
+                    'active' => (bool) $variant->is_active,
+                ];
+            });
+
+            if (!$showVariantParent && $displayVariants && $filters['type'] !== 'item') {
+                continue;
+            }
+
+            $rows->push([
+                'item'          => $item,
+                'variant_count' => $variants->count(),
+                'price_label'   => $priceLabel,
+                'stock_label'   => $stockLabel,
+                'chips'         => $chipData,
+                'preview'       => $preview,
+                'has_variants'  => $displayVariants,
+                'relevance'     => $this->computeInventoryRelevance($item, null, $term),
+            ]);
+        }
+
+        return $rows->sortBy('item.name')->values();
+    }
+
+    private function sortInventoryRows(Collection $rows, array $filters): Collection
+    {
+        return $rows->sort(function ($a, $b) use ($filters) {
+            if ($filters['q'] !== '') {
+                if (($b['relevance'] ?? 0) !== ($a['relevance'] ?? 0)) {
+                    return ($b['relevance'] ?? 0) <=> ($a['relevance'] ?? 0);
+                }
+            }
+
+            switch ($filters['sort']) {
+                case 'price_lowest':
+                    return ($a['price'] ?? 0) <=> ($b['price'] ?? 0);
+                case 'price_highest':
+                    return ($b['price'] ?? 0) <=> ($a['price'] ?? 0);
+                case 'stock_highest':
+                    return ($b['stock'] ?? 0) <=> ($a['stock'] ?? 0);
+                case 'newest':
+                    return ($b['created_at'] ?? now()) <=> ($a['created_at'] ?? now());
+                case 'name_asc':
+                default:
+                    return Str::lower($a['display_name'] ?? '') <=> Str::lower($b['display_name'] ?? '');
+            }
+        });
+    }
+
+    private function computeInventoryRelevance(Item $item, $variant, string $term): int
+    {
+        if ($term === '') {
+            return 0;
+        }
+
+        $score = 0;
+        $term = Str::lower($term);
+
+        if (Str::contains(Str::lower($item->name), $term)) {
+            $score += 200;
+        }
+        if ($item->sku && Str::contains(Str::lower($item->sku), $term)) {
+            $score += 150;
+        }
+        if ($item->brand && Str::contains(Str::lower($item->brand->name), $term)) {
+            $score += 80;
+        }
+
+        if ($variant) {
+            if ($variant->sku && Str::contains(Str::lower($variant->sku), $term)) {
+                $score += 1000;
+            }
+            $attrs = $variant->attributes ?? [];
+            foreach ($attrs as $value) {
+                if (is_string($value) && Str::contains(Str::lower($value), $term)) {
+                    $score += 500;
+                }
+            }
+        }
+
+        return $score;
+    }
+
+    private function variantMatchesFilters($variant, Item $item, array $filters, array $sizeFilters, array $colorFilters, ?float $lengthMin, ?float $lengthMax): bool
+    {
+        $attrs = $variant->attributes ?? [];
+        $size  = Str::lower($attrs['size'] ?? '');
+        $color = Str::lower($attrs['color'] ?? '');
+        $lengthValue = $this->normalizeLengthValue($attrs['length'] ?? null);
+
+        if ($sizeFilters && !in_array($size, $sizeFilters, true)) {
+            return false;
+        }
+        if ($colorFilters && !in_array($color, $colorFilters, true)) {
+            return false;
+        }
+        if ($lengthMin !== null && ($lengthValue === null || $lengthValue < $lengthMin)) {
+            return false;
+        }
+        if ($lengthMax !== null && ($lengthValue === null || $lengthValue > $lengthMax)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function itemMatchesAttributeFilters(Item $item, array $filters, Collection $activeVariants): bool
+    {
+        if (empty($filters['sizes']) && empty($filters['colors']) && $filters['length_min'] === null && $filters['length_max'] === null) {
+            return true;
+        }
+
+        $sizeFilters  = array_map(fn($v) => Str::lower($v), $filters['sizes']);
+        $colorFilters = array_map(fn($v) => Str::lower($v), $filters['colors']);
+
+        foreach ($activeVariants as $variant) {
+            if ($this->variantMatchesFilters($variant, $item, $filters, $sizeFilters, $colorFilters, $filters['length_min'], $filters['length_max'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function shouldDisplayVariants(Item $item, Collection $variants): bool
+    {
+        if ($variants->isEmpty()) {
+            return false;
+        }
+
+        if (($item->variant_type ?? 'none') !== 'none') {
+            return true;
+        }
+
+        if ($variants->count() > 1) {
+            return true;
+        }
+
+        $variant = $variants->first();
+        if (!$variant) {
+            return false;
+        }
+
+        $attrs = $variant->attributes ?? [];
+        $hasAttributes = collect($attrs)
+            ->filter(fn($v) => $v !== null && $v !== '')
+            ->isNotEmpty();
+
+        if ($hasAttributes) {
+            return true;
+        }
+
+        $hasDifferentSku   = $variant->sku && $variant->sku !== $item->sku;
+        $hasDifferentPrice = $variant->price !== null && (float) $variant->price !== (float) $item->price;
+
+        return $hasDifferentSku || $hasDifferentPrice;
+    }
+
+    private function normalizeLengthValue($value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+        $clean = preg_replace('/[^0-9.,-]/', '', (string) $value);
+        $clean = str_replace(',', '.', $clean);
+        return is_numeric($clean) ? (float) $clean : null;
+    }
+
+    private function formatPriceRange($minVariantPrice, $maxVariantPrice, $itemPrice): string
+    {
+        if ($minVariantPrice !== null && $maxVariantPrice !== null) {
+            if ($minVariantPrice == $maxVariantPrice) {
+                return 'Rp ' . number_format((float) $minVariantPrice, 2, ',', '.');
+            }
+            return 'Rp ' . number_format((float) $minVariantPrice, 2, ',', '.')
+                . ' — ' . number_format((float) $maxVariantPrice, 2, ',', '.');
+        }
+        return 'Rp ' . number_format((float) ($itemPrice ?? 0), 2, ',', '.');
+    }
+
+    private function buildAttributeChipData(Collection $variants): array
+    {
+        $sizes  = [];
+        $colors = [];
+
+        foreach ($variants as $variant) {
+            $attrs = $variant->attributes ?? [];
+            if (!empty($attrs['size'])) {
+                $sizes[] = (string) $attrs['size'];
+            }
+            if (!empty($attrs['color'])) {
+                $colors[] = (string) $attrs['color'];
+            }
+        }
+
+        $sizes  = collect($sizes)->unique()->values();
+        $colors = collect($colors)->unique()->values();
+
+        return [
+            'size'  => $sizes,
+            'color' => $colors,
+        ];
     }
 }
