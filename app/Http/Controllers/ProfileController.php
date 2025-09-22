@@ -83,14 +83,14 @@ class ProfileController extends Controller
             // Paksa email sebagai username; simpan null agar resolver pakai email user
             $user->smtp_username = null;
         } elseif ($policy === 'custom_only') {
-            $user->smtp_username = $data['smtp_username'];
+            $user->smtp_username = $data['smtp_username']; // required, aman
         } else { // default_email
-            // Bila kosong, runtime akan pakai email user
-            $user->smtp_username = $data['smtp_username'] ?: null;
+            // Bila tidak diinput, jadikan null agar runtime pakai email user
+            $user->smtp_username = $data['smtp_username'] ?? null;
         }
 
-        // Ubah password SMTP hanya bila diisi (terenkripsi via casts/mutator model)
-        if (!empty($data['smtp_password'])) {
+        // Ubah password SMTP hanya bila diisi
+        if ($request->filled('smtp_password')) {
             $user->smtp_password = $data['smtp_password'];
         }
 
