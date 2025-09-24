@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{
@@ -44,7 +44,7 @@ Route::middleware(['auth'])->group(function () {
     // Change Password (user)
     Route::get('/password/change',  [PasswordController::class, 'edit'])->name('password.change');
     Route::post('/password/change', [PasswordController::class, 'update'])
-        ->name('password.change'); // <— ganti dari password.update
+        ->name('password.change'); // <â€” ganti dari password.update
 
     // Customers + Contacts + util
     Route::resource('customers', CustomerController::class);
@@ -90,7 +90,10 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('invoices',   InvoiceController::class)->only(['index','show','destroy']);
     Route::post('invoices/{invoice}/create-delivery', [DeliveryController::class, 'storeFromInvoice'])
         ->name('invoices.create-delivery');
-    Route::resource('deliveries', DeliveryController::class)->only(['index','show','destroy']);
+    Route::resource('deliveries', DeliveryController::class);
+    Route::post('deliveries/{delivery}/post', [DeliveryController::class, 'post'])->name('deliveries.post');
+    Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');
+    Route::get('deliveries/{delivery}/pdf', [DeliveryController::class, 'pdf'])->name('deliveries.pdf');
 
     // =======================
     // Sales Orders

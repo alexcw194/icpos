@@ -1,4 +1,4 @@
-<script>
+﻿<script>
 (() => {
   'use strict';
   const LOG = (...a)=>console.log('[quicksearch]', ...a);
@@ -94,7 +94,7 @@
       persist    : false,
       load: (query, cb)=>{
         const url = `${CFG.searchUrl}?q=${encodeURIComponent(query||'')}`;
-        fetch(url, {headers:{'X-Requested-With':'XMLHttpRequest'}})
+        fetch(url, {credentials: 'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
           .then(r => r.json()).then(cb).catch(()=>cb());
       },
       render: {
@@ -116,3 +116,4 @@
   ensureTomSelect(init);
 })();
 </script>
+

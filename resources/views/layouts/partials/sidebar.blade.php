@@ -1,10 +1,11 @@
-@php
+﻿@php
     use Illuminate\Support\Facades\Route;
 
     $hasCustomers    = Route::has('customers.index');
     $hasItems        = Route::has('items.index');
     $hasQuotations   = Route::has('quotations.index');
     $hasSalesOrders  = Route::has('sales-orders.index');
+    $hasDeliveries   = Route::has('deliveries.index');
 
     // Current user & gate: hanya Super Admin yang boleh lihat master data
     $user = auth()->user();
@@ -109,7 +110,7 @@
           </li>
         @endif
 
-        {{-- Quotations — tersedia untuk user operasional --}}
+        {{-- Quotations â€” tersedia untuk user operasional --}}
         @if($hasQuotations)
           <li class="nav-item">
             <a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}"
@@ -128,7 +129,8 @@
           </li>
         @endif
 
-        {{-- Sales Orders — tersedia untuk user operasional --}}
+
+        {{-- Sales Orders - tersedia untuk user operasional --}}
         @if($hasSalesOrders)
           <li class="nav-item">
             <a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}"
@@ -148,8 +150,32 @@
           </li>
         @endif
 
+        @if($hasDeliveries && auth()->user()?->can('deliveries.view'))
+          <li class="nav-item">
+            <a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}"
+               href="{{ route('deliveries.index') }}">
+              <span class="nav-link-icon d-md-none d-lg-inline-block">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
+                     viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
+                  <path stroke="none" d="M0 0h24v24H0z"/>
+                  <path d="M7 17a2 2 0 1 0 4 0"/>
+                  <path d="M17 17a2 2 0 1 0 4 0"/>
+                  <path d="M5 17h2"/>
+                  <path d="M13 17h4"/>
+                  <path d="M3 13l1 -5h13v9"/>
+                  <path d="M14 8h5l2 3v4"/>
+                </svg>
+              </span>
+              <span class="nav-link-title">Delivery Orders</span>
+            </a>
+          </li>
+        @endif
+
         {{-- Tidak ada menu Admin di sidebar. Admin hanya di top bar. --}}
       </ul>
     </div>
   </div>
 </aside>
+
+
+

@@ -47,6 +47,17 @@ class ItemVariant extends Model
         });
     }
 
+    protected function name(): Attribute
+    {
+        return Attribute::get(function () {
+            $label = (string) ($this->label ?? '');
+            if ($label === '') {
+                $label = (string) ($this->attributes['sku'] ?? '');
+            }
+            return $label !== '' ? $label : 'Variant #' . $this->id;
+        });
+    }
+
     /** Format harga versi Indonesia (Rp) tanpa prefix, cocok untuk tampilan */
     protected function priceId(): Attribute
     {

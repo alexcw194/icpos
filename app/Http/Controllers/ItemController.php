@@ -154,7 +154,7 @@ class ItemController extends Controller
         if ($request->filled('attr_size'))  $attrs['size']  = $request->string('attr_size')->toString();
         if ($request->filled('attr_color')) $attrs['color'] = $request->string('attr_color')->toString();
 
-        // Flag checkbox → boolean
+        // Flag checkbox â†’ boolean
         $data['sellable']    = $request->boolean('sellable', true);
         $data['purchasable'] = $request->boolean('purchasable', true);
         $data['attributes']  = count($attrs) ? $attrs : null;
@@ -317,7 +317,7 @@ class ItemController extends Controller
             $variants = $it->variants ?? collect();
             $displayVariants = $this->shouldDisplayVariants($it, $variants);
 
-            // Jika tidak pakai varian → kirim 1 baris "item"
+            // Jika tidak pakai varian â†’ kirim 1 baris "item"
             if (!$displayVariants) {
                 $label = $it->name;
                 $price = (float)$it->price;
@@ -338,7 +338,7 @@ class ItemController extends Controller
                 continue;
             }
 
-            // Pakai varian → kirim per varian
+            // Pakai varian â†’ kirim per varian
             foreach ($variants as $v) {
                 if (!$v->is_active) continue;
 
@@ -348,7 +348,7 @@ class ItemController extends Controller
                     ->map(function ($val, $key) {
                         return ucfirst($key) . ': ' . $val;
                     })
-                    ->implode(' · ');
+                    ->implode(' Â· ');
                 $displayLabel = $label;
                 if ($attrsText !== '') {
                     $displayLabel .= ' (' . $attrsText . ')';
@@ -389,7 +389,7 @@ class ItemController extends Controller
     }
 
     /**
-     * Terima angka format Indonesia (1.234,56) → "1234.56"
+     * Terima angka format Indonesia (1.234,56) â†’ "1234.56"
      * Kembalikan null jika kosong.
      */
     private function normalizeIdNumber($value): ?string
@@ -827,7 +827,7 @@ class ItemController extends Controller
                 return 'Rp ' . number_format((float) $minVariantPrice, 2, ',', '.');
             }
             return 'Rp ' . number_format((float) $minVariantPrice, 2, ',', '.')
-                . ' — ' . number_format((float) $maxVariantPrice, 2, ',', '.');
+                . ' â€” ' . number_format((float) $maxVariantPrice, 2, ',', '.');
         }
         return 'Rp ' . number_format((float) ($itemPrice ?? 0), 2, ',', '.');
     }
@@ -856,3 +856,5 @@ class ItemController extends Controller
         ];
     }
 }
+
+

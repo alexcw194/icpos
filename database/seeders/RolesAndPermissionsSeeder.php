@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace Database\Seeders;
 
@@ -23,7 +23,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'quotations.send','quotations.mark_po',
 
             'invoices.view','invoices.create','invoices.update','invoices.delete',
-            'deliveries.view','deliveries.create','deliveries.update','deliveries.delete',
+            'deliveries.view','deliveries.create','deliveries.update','deliveries.delete','deliveries.post','deliveries.cancel',
 
             // admin modules
             'companies.manage','users.manage',
@@ -65,7 +65,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'items.view',
             'quotations.view','quotations.create','quotations.update','quotations.send',
             'invoices.view','invoices.create',
-            'deliveries.view','deliveries.create',
+            'deliveries.view','deliveries.create','deliveries.post',
         ]);
 
         // Finance: fokus quotation PO, invoice & delivery
@@ -74,7 +74,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'items.view',
             'quotations.view','quotations.mark_po',
             'invoices.view','invoices.create','invoices.update','invoices.delete',
-            'deliveries.view','deliveries.create','deliveries.update','deliveries.delete',
+            'deliveries.view','deliveries.create','deliveries.update','deliveries.delete','deliveries.post','deliveries.cancel',
         ]);
 
         // ===========================
@@ -95,3 +95,4 @@ class RolesAndPermissionsSeeder extends Seeder
         }
     }
 }
+

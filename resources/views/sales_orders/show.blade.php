@@ -18,7 +18,7 @@
   if ($o->npwp_required) {
     $npwpBadge = $o->npwp_status==='ok'
       ? '<span class="badge bg-green-lt">NPWP OK</span>'
-      : '<span class="badge bg-red-lt">NPWP Missing — Billing Locked</span>';
+      : '<span class="badge bg-red-lt">NPWP Missing â€” Billing Locked</span>';
   }
 @endphp
 
@@ -27,7 +27,7 @@
     <div>
       <h2 class="page-title mb-1">Sales Order <span class="text-muted">{{ $o->so_number }}</span></h2>
       <div class="text-muted">
-        {{ $o->company->alias ?? $o->company->name }} — {{ $o->customer->name }}
+        {{ $o->company->alias ?? $o->company->name }} â€” {{ $o->customer->name }}
       </div>
       <div class="mt-2">
         <span class="badge {{ $stClass }}">{{ $stLabel }}</span>
@@ -35,8 +35,13 @@
       </div>
     </div>
     <div class="btn-list">
-      {{-- DN/Invoice: tetap placeholder --}}
-      <a href="javascript:void(0)" class="btn btn-secondary disabled" title="Coming soon">Create Delivery Note</a>
+      {{-- Delivery & Invoice actions --}}
+
+      @can('deliveries.create')
+        <a href="{{ route('deliveries.create', ['sales_order_id' => $o->id]) }}" class="btn btn-secondary">Create Delivery Note</a>
+      @else
+        <span class="btn btn-secondary disabled" title="Anda tidak memiliki akses">Create Delivery Note</span>
+      @endcan
 
       @if($o->npwp_required && $o->npwp_status === 'missing')
         <button type="button" class="btn btn-primary disabled" title="Lengkapi NPWP untuk membuat Invoice">Create Invoice</button>
@@ -68,7 +73,7 @@
       <div class="card"><div class="card-body">
         <div class="mb-2"><strong>Order Date:</strong> {{ $o->order_date }}</div>
         <div class="mb-2"><strong>Customer PO:</strong> {{ $o->customer_po_number }} ({{ $o->customer_po_date }})</div>
-        <div class="mb-2"><strong>Deadline:</strong> {{ $o->deadline ?? '—' }}</div>
+        <div class="mb-2"><strong>Deadline:</strong> {{ $o->deadline ?? 'â€”' }}</div>
         <div class="mb-2"><strong>Salesperson:</strong> {{ $o->salesUser->name ?? '-' }}</div>
         <div class="mb-2"><strong>Notes:</strong><br><pre class="mb-0">{{ $o->notes }}</pre></div>
       </div></div>
@@ -81,8 +86,8 @@
         @if($o->npwp_required)
           <hr>
           <div class="mb-1 fw-bold">NPWP</div>
-          <div class="mb-1"><strong>No:</strong> {{ $o->tax_npwp_number ?? '—' }}</div>
-          <div class="mb-1"><strong>Nama:</strong> {{ $o->tax_npwp_name ?? '—' }}</div>
+          <div class="mb-1"><strong>No:</strong> {{ $o->tax_npwp_number ?? 'â€”' }}</div>
+          <div class="mb-1"><strong>Nama:</strong> {{ $o->tax_npwp_name ?? 'â€”' }}</div>
           <div class="mb-0"><strong>Alamat:</strong><br><pre class="mb-0">{{ $o->tax_npwp_address }}</pre></div>
         @endif
       </div></div>
@@ -122,7 +127,7 @@
                   <td class="text-end">
                     @if($ln->discount_amount>0)
                       {{ $ln->discount_type==='percent' ? rtrim(rtrim(number_format($ln->discount_value,2,'.',''), '0'), '.') .'%' : number_format($ln->discount_amount,2) }}
-                    @else — @endif
+                    @else â€” @endif
                   </td>
                   <td class="text-end">{{ number_format($ln->line_total,2) }}</td>
                 </tr>
@@ -219,3 +224,6 @@
 </div>
 
 @endsection
+
+
+
