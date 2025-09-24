@@ -43,8 +43,6 @@ Route::middleware(['auth'])->group(function () {
 
     // Change Password (user)
     Route::get('/password/change',  [PasswordController::class, 'edit'])->name('password.change');
-    Route::post('/password/change', [PasswordController::class, 'update'])
-        ->name('password.update'); // <â€” ganti dari password.update
 
     // Customers + Contacts + util
     Route::resource('customers', CustomerController::class);
