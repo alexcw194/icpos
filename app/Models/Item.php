@@ -20,6 +20,16 @@ class Item extends Model
         'stock',
         'unit_id',
         'brand_id',
+        'item_type',
+        'parent_id',
+        'family_code',
+        'sellable',
+        'purchasable',
+        'default_roll_length',
+        'length_per_piece',
+        'attributes',
+        'size_id',
+        'color_id',
 
         // NEW (V2 variants)
         'variant_type',      // none | color | size | length | color_size
@@ -28,9 +38,14 @@ class Item extends Model
     ];
 
     protected $casts = [
-        'price'           => 'decimal:2',
-        'stock'           => 'integer',
-        'variant_options' => 'array',
+        'price'               => 'decimal:2',
+        'stock'               => 'integer',
+        'sellable'            => 'boolean',
+        'purchasable'         => 'boolean',
+        'default_roll_length' => 'decimal:2',
+        'length_per_piece'    => 'decimal:2',
+        'attributes'          => 'array',
+        'variant_options'     => 'array',
     ];
 
     // ========== RELATIONS ==========
