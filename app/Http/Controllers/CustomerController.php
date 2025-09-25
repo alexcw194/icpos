@@ -35,46 +35,72 @@ class CustomerController extends Controller
         return view('customers.create', compact('jenises'));
     }
 
-    public function store(Request $r)
+    public function dupCheck(Request $request)
     {
-        $data = $r->validate([
-            'name'  => ['required','string','max:255'],
-            'email' => ['nullable','email'],
-            'phone' => ['nullable','string','max:50'],
-            'npwp'  => ['nullable','string','max:50'],
-            'address'  => ['nullable','string'],
-            'city'     => ['nullable','string','max:80'],
-            'province' => ['nullable','string','max:80'],
-            'country'  => ['nullable','string','max:80'],
-            'website'  => ['nullable','string','max:255'],
-            'billing_terms_days' => ['nullable','integer','min:0','max:3650'],
-            'notes' => ['nullable','string'],
-            'jenis_id' => ['required','exists:jenis,id'],
-            'billing_street'  => ['nullable','string'],
-            'billing_city'    => ['nullable','string','max:128'],
-            'billing_state'   => ['nullable','string','max:128'],
-            'billing_zip'     => ['nullable','string','max:32'],
-            'billing_country' => ['nullable','string','size:2'],
-            'billing_notes'   => ['nullable','string'],
+        $name = trim((string) $request->query('name', ''));
+        if ($name === '') {
+            return response()->json(['exists' => false]);
+        }
 
-            'shipping_street'  => ['nullable','string'],
-            'shipping_city'    => ['nullable','string','max:128'],
-            'shipping_state'   => ['nullable','string','max:128'],
-            'shipping_zip'     => ['nullable','string','max:32'],
-            'shipping_country' => ['nullable','string','size:2'],
+        // Cek exact (case-insensitive), lalu fallback "mirip" (LIKE) agar informatif saat user mengetik
+        $kwLower = mb_strtolower($name);
+        $exists = Customer::query()
+            ->whereRaw('LOWER(name) = ?', [$kwLower])
+            ->exists();
+
+        if (!$exists && mb_strlen($name) >= 3) {
+            $like = '%' . str_replace(['%','_'], ['\\%','\\_'], $name) . '%';
+            $exists = Customer::where('name', 'like', $like)->exists();
+        }
+
+        return response()->json(['exists' => $exists]);
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'name'    => ['required','string','max:255'],
+            'jenis_id'=> ['required','integer','exists:jenis,id'],
+
+            // alamat & info lain → opsional
+            'email'   => ['nullable','string','max:255'],
+            'phone'   => ['nullable','string','max:100'],
+            'npwp'    => ['nullable','string','max:100'],
+
+            'address'  => ['nullable','string','max:255'],
+            'city'     => ['nullable','string','max:100'],
+            'province' => ['nullable','string','max:100'],
+            'country'  => ['nullable','string','max:100'],
+            'website'  => ['nullable','string','max:255'],
+            'billing_terms_days' => ['nullable','integer','min:0'],
+            'notes'    => ['nullable','string'],
+
+            'billing_street'   => ['nullable','string','max:255'],
+            'billing_city'     => ['nullable','string','max:100'],
+            'billing_state'    => ['nullable','string','max:100'],
+            'billing_zip'      => ['nullable','string','max:20'],
+            'billing_country'  => ['nullable','string','max:100'],
+            'billing_notes'    => ['nullable','string'],
+
+            'shipping_street'  => ['nullable','string','max:255'],
+            'shipping_city'    => ['nullable','string','max:100'],
+            'shipping_state'   => ['nullable','string','max:100'],
+            'shipping_zip'     => ['nullable','string','max:20'],
+            'shipping_country' => ['nullable','string','max:100'],
             'shipping_notes'   => ['nullable','string'],
         ]);
 
-        $data['created_by'] = $data['created_by'] ?? auth()->id();
+        // (opsional) default kalau ingin isi otomatis
+        // $data['country'] = $data['country'] ?? 'ID';
+
+        $data['created_by'] = auth()->id();
+        $data['name_key']   = mb_strtolower($data['name']);
 
         $customer = Customer::create($data);
-        $after = $r->string('after')->toString();
-        if ($after === 'contacts') {
-            return redirect()->to(route('customers.edit', $customer).'#contacts')
-                            ->with('ok', 'Customer created.');
-        }
 
-        return redirect()->route('customers.index')->with('ok','Customer created.');
+        return redirect()
+            ->route('customers.show', $customer)
+            ->with('success', 'Customer berhasil dibuat');
     }
 
     public function show(Customer $customer)
@@ -172,42 +198,46 @@ class CustomerController extends Controller
         return view('customers.edit', compact('customer','jenises'));
     }
 
-    public function update(Request $r, Customer $customer)
+    public function update(Request $request, Customer $customer)
     {
-        $this->authorize('update', $customer);
+        $data = $request->validate([
+            'name'    => ['required','string','max:255'],
+            'jenis_id'=> ['required','integer','exists:jenis,id'],
 
-        $data = $r->validate([
-            'name'  => ['required','string','max:255'],
-            'email' => ['nullable','email'],
-            'phone' => ['nullable','string','max:50'],
-            'npwp'  => ['nullable','string','max:50'],
-            'address'  => ['nullable','string'],
-            'city'     => ['nullable','string','max:80'],
-            'province' => ['nullable','string','max:80'],
-            'country'  => ['nullable','string','max:80'],
+            'email'   => ['nullable','string','max:255'],
+            'phone'   => ['nullable','string','max:100'],
+            'npwp'    => ['nullable','string','max:100'],
+
+            'address'  => ['nullable','string','max:255'],
+            'city'     => ['nullable','string','max:100'],
+            'province' => ['nullable','string','max:100'],
+            'country'  => ['nullable','string','max:100'],
             'website'  => ['nullable','string','max:255'],
-            'billing_terms_days' => ['nullable','integer','min:0','max:3650'],
-            'notes' => ['nullable','string'],
-            'jenis_id' => ['required','exists:jenis,id'],
-            'billing_street'  => ['nullable','string'],
-            'billing_city'    => ['nullable','string','max:128'],
-            'billing_state'   => ['nullable','string','max:128'],
-            'billing_zip'     => ['nullable','string','max:32'],
-            'billing_country' => ['nullable','string','size:2'],
-            'billing_notes'   => ['nullable','string'],
+            'billing_terms_days' => ['nullable','integer','min:0'],
+            'notes'    => ['nullable','string'],
 
-            'shipping_street'  => ['nullable','string'],
-            'shipping_city'    => ['nullable','string','max:128'],
-            'shipping_state'   => ['nullable','string','max:128'],
-            'shipping_zip'     => ['nullable','string','max:32'],
-            'shipping_country' => ['nullable','string','size:2'],
+            'billing_street'   => ['nullable','string','max:255'],
+            'billing_city'     => ['nullable','string','max:100'],
+            'billing_state'    => ['nullable','string','max:100'],
+            'billing_zip'      => ['nullable','string','max:20'],
+            'billing_country'  => ['nullable','string','max:100'],
+            'billing_notes'    => ['nullable','string'],
+
+            'shipping_street'  => ['nullable','string','max:255'],
+            'shipping_city'    => ['nullable','string','max:100'],
+            'shipping_state'   => ['nullable','string','max:100'],
+            'shipping_zip'     => ['nullable','string','max:20'],
+            'shipping_country' => ['nullable','string','max:100'],
             'shipping_notes'   => ['nullable','string'],
         ]);
 
+        $data['name_key'] = mb_strtolower($data['name']);
+
         $customer->update($data);
 
-        // ⬇️ pindah ke index setelah update
-        return redirect()->route('customers.index')->with('ok', 'Customer updated.');
+        return redirect()
+            ->route('customers.show', $customer)
+            ->with('success', 'Customer berhasil diperbarui');
     }
 
     public function destroy(Customer $customer)
