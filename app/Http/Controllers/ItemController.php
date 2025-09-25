@@ -6,8 +6,10 @@ use App\Models\Item;
 use App\Models\Unit;
 use App\Models\Brand;
 use App\Models\{Size, Color};
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -36,9 +38,9 @@ class ItemController extends Controller
                     ->orWhereHas('brand', fn($b) => $b->where('name', 'like', $like))
                     ->orWhereHas('variants', function ($v) use ($like) {
                         $v->where('sku', 'like', $like)
-                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color')) LIKE ?", [$like])
-                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size')) LIKE ?", [$like])
-                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length')) LIKE ?", [$like]);
+                          ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color')) LIKE ?", [$like])
+                          ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size')) LIKE ?",  [$like])
+                          ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length')) LIKE ?",[$like]);
                     });
             });
         }
@@ -46,12 +48,12 @@ class ItemController extends Controller
         if ($filters['stock'] === 'gt0') {
             $itemsQuery->where(function ($query) {
                 $query->where('stock', '>', 0)
-                    ->orWhereHas('variants', fn($v) => $v->where('stock', '>', 0));
+                      ->orWhereHas('variants', fn($v) => $v->where('stock', '>', 0));
             });
         } elseif ($filters['stock'] === 'eq0') {
             $itemsQuery->where(function ($query) {
                 $query->where('stock', '=', 0)
-                    ->whereDoesntHave('variants', fn($v) => $v->where('stock', '>', 0));
+                      ->whereDoesntHave('variants', fn($v) => $v->where('stock', '>', 0));
             });
         }
 
@@ -77,15 +79,15 @@ class ItemController extends Controller
         $groupedRows = $this->buildGroupedInventoryRows($items->getCollection(), $filters);
 
         return view('items.index', [
-            'items'      => $items,
-            'units'      => $units,
-            'brands'     => $brands,
-            'sizesList'  => $sizesList,
-            'colorsList' => $colorsList,
-            'filters'    => $filters,
-            'viewMode'   => $viewMode,
-            'flatRows'   => $flatRows,
-            'groupedRows'=> $groupedRows,
+            'items'       => $items,
+            'units'       => $units,
+            'brands'      => $brands,
+            'sizesList'   => $sizesList,
+            'colorsList'  => $colorsList,
+            'filters'     => $filters,
+            'viewMode'    => $viewMode,
+            'flatRows'    => $flatRows,
+            'groupedRows' => $groupedRows,
         ]);
     }
 
@@ -97,7 +99,7 @@ class ItemController extends Controller
         $sizes  = Size::active()->ordered()->get(['id','name']);
         $colors = Color::active()->ordered()->get(['id','name','hex']);
 
-        // NEW
+        // Parent/family
         $parents = Item::orderBy('name')
             ->when(isset($item), fn($q) => $q->whereKeyNot($item->id))
             ->get(['id','name']);
@@ -115,13 +117,12 @@ class ItemController extends Controller
             if ($pcsId) $request->merge(['unit_id' => $pcsId]);
         }
 
-        // Normalisasi input (SKU uppercase; angka ID ke decimal)
+        // Normalisasi input
         $request->merge([
-            'sku'                  => $this->normalizeSku($request->input('sku')),
-            'price'                => $this->normalizeIdNumber($request->input('price')),
-            // NEW numeric fields
-            'default_roll_length'  => $this->normalizeIdNumber($request->input('default_roll_length')),
-            'length_per_piece'     => $this->normalizeIdNumber($request->input('length_per_piece')),
+            'sku'                 => $this->normalizeSku($request->input('sku')),
+            'price'               => $this->normalizeIdNumber($request->input('price')),
+            'default_roll_length' => $this->normalizeIdNumber($request->input('default_roll_length')),
+            'length_per_piece'    => $this->normalizeIdNumber($request->input('length_per_piece')),
         ]);
 
         $data = $request->validate([
@@ -133,7 +134,6 @@ class ItemController extends Controller
             'unit_id'     => ['required', Rule::exists('units','id')->where('is_active', 1)],
             'brand_id'    => ['nullable','exists:brands,id'],
 
-            // NEW
             'item_type'           => ['required','in:standard,kit,cut_raw,cut_piece'],
             'parent_id'           => ['nullable','exists:items,id'],
             'family_code'         => ['nullable','string','max:50'],
@@ -142,40 +142,44 @@ class ItemController extends Controller
             'default_roll_length' => ['nullable','numeric','min:0','required_if:item_type,cut_raw'],
             'length_per_piece'    => ['nullable','numeric','min:0','required_if:item_type,cut_piece'],
 
-            // Attributes (akan digabung ke JSON)
             'attr_size'  => ['nullable','string','max:50'],
             'attr_color' => ['nullable','string','max:50'],
-            'size_id'  => ['nullable','exists:sizes,id'],
-            'color_id' => ['nullable','exists:colors,id'],
+            'size_id'    => ['nullable','exists:sizes,id'],
+            'color_id'   => ['nullable','exists:colors,id'],
         ]);
 
-        // Build attributes JSON
+        // Attributes JSON
         $attrs = [];
         if ($request->filled('attr_size'))  $attrs['size']  = $request->string('attr_size')->toString();
         if ($request->filled('attr_color')) $attrs['color'] = $request->string('attr_color')->toString();
 
-        // Flag checkbox â†’ boolean
         $data['sellable']    = $request->boolean('sellable', true);
         $data['purchasable'] = $request->boolean('purchasable', true);
         $data['attributes']  = count($attrs) ? $attrs : null;
 
-        $item = Item::create($data);
+        $skuProvided = isset($data['sku']) && $data['sku'] !== null && $data['sku'] !== '';
 
-        $action = $request->input('action');
-
-        if ($action === 'save_add') {
-            return redirect()->route('items.create')
-                ->with('success', 'Item created! Silakan tambah item baru.');
+        try {
+            $item = $this->runWithAutoGeneratedSkuRetry($skuProvided, function () use ($data) {
+                return Item::create($data);
+            });
+        } catch (QueryException $e) {
+            if ($this->isDuplicateSkuException($e)) {
+                return back()->withInput()->withErrors(['sku' => 'SKU sudah digunakan, silakan gunakan kode lain.']);
+            }
+            throw $e;
         }
 
+        $action = $request->input('action');
+        if ($action === 'save_add') {
+            return redirect()->route('items.create')->with('success', 'Item created! Silakan tambah item baru.');
+        }
         if ($action === 'save_variants') {
-            return redirect()->route('items.variants.index', $item)
-                ->with('success', 'Item created! Silakan kelola varian.');
+            return redirect()->route('items.variants.index', $item)->with('success', 'Item created! Silakan kelola varian.');
         }
 
         return redirect()->route('items.index')->with('success','Item created!');
     }
-
 
     public function show(Item $item)
     {
@@ -186,16 +190,18 @@ class ItemController extends Controller
     public function edit(Item $item)
     {
         $item->load(['variants' => fn($q) => $q->orderBy('id')]);
+
         $unitsActive = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
         $currentUnit = $item->unit;
         $units = $unitsActive;
         if ($currentUnit && !$currentUnit->is_active) {
             $units = $units->prepend($currentUnit)->unique('id')->values();
         }
+
         $brands = Brand::orderBy('name')->get(['id','name']);
         $sizes  = Size::active()->ordered()->get(['id','name']);
         $colors = Color::active()->ordered()->get(['id','name','hex']);
-        // NEW
+
         $parents = Item::orderBy('name')
             ->when(isset($item), fn($q) => $q->whereKeyNot($item->id))
             ->get(['id','name']);
@@ -205,19 +211,17 @@ class ItemController extends Controller
         return view('items.edit', compact('item','sizes','colors','units','brands','parents','familyCodes'));
     }
 
-
-
     public function update(Request $request, Item $item)
     {
-        // Normalisasi dulu agar validasi konsisten
+        // Normalisasi
         $request->merge([
-            'sku'                  => $this->normalizeSku($request->input('sku')),
-            'price'                => $this->normalizeIdNumber($request->input('price')),
-            'default_roll_length'  => $this->normalizeIdNumber($request->input('default_roll_length')),
-            'length_per_piece'     => $this->normalizeIdNumber($request->input('length_per_piece')),
+            'sku'                 => $this->normalizeSku($request->input('sku')),
+            'price'               => $this->normalizeIdNumber($request->input('price')),
+            'default_roll_length' => $this->normalizeIdNumber($request->input('default_roll_length')),
+            'length_per_piece'    => $this->normalizeIdNumber($request->input('length_per_piece')),
         ]);
 
-        // Rule unit: tetap izinkan unit lama walau sudah nonaktif
+        // Rule unit: izinkan unit lama walau non-aktif
         $unitRule = Rule::exists('units','id')->where('is_active', 1);
         if ((int)$request->input('unit_id') === (int)$item->unit_id) {
             $unitRule = Rule::exists('units','id');
@@ -232,7 +236,6 @@ class ItemController extends Controller
             'unit_id'     => ['required', $unitRule],
             'brand_id'    => ['nullable','exists:brands,id'],
 
-            // NEW
             'item_type'           => ['required','in:standard,kit,cut_raw,cut_piece'],
             'parent_id'           => ['nullable','exists:items,id'],
             'family_code'         => ['nullable','string','max:50'],
@@ -241,16 +244,16 @@ class ItemController extends Controller
             'default_roll_length' => ['nullable','numeric','min:0','required_if:item_type,cut_raw'],
             'length_per_piece'    => ['nullable','numeric','min:0','required_if:item_type,cut_piece'],
 
-            // Attributes
             'attr_size'  => ['nullable','string','max:50'],
             'attr_color' => ['nullable','string','max:50'],
         ]);
 
-        // Cegah parent set ke diri sendiri
+        // Cegah parent ke diri sendiri
         if ($request->filled('parent_id') && (int)$request->input('parent_id') === (int)$item->id) {
             return back()->withInput()->withErrors(['parent_id' => 'Parent tidak boleh item yang sama.']);
         }
 
+        // Attributes
         $attrs = [];
         if ($request->filled('attr_size'))  $attrs['size']  = $request->string('attr_size')->toString();
         if ($request->filled('attr_color')) $attrs['color'] = $request->string('attr_color')->toString();
@@ -259,23 +262,30 @@ class ItemController extends Controller
         $data['purchasable'] = $request->boolean('purchasable', true);
         $data['attributes']  = count($attrs) ? $attrs : null;
 
-        $item->update($data);
+        $skuProvided = isset($data['sku']) && $data['sku'] !== null && $data['sku'] !== '';
 
-        $action = $request->input('action');
-
-        if ($action === 'save_add') {
-            return redirect()->route('items.create')
-                ->with('success', 'Perubahan disimpan. Silakan tambah item baru.');
+        try {
+            $this->runWithAutoGeneratedSkuRetry($skuProvided, function () use ($item, $data) {
+                $item->update($data);
+                return $item;
+            });
+        } catch (QueryException $e) {
+            if ($this->isDuplicateSkuException($e)) {
+                return back()->withInput()->withErrors(['sku' => 'SKU sudah digunakan, silakan gunakan kode lain.']);
+            }
+            throw $e;
         }
 
+        $action = $request->input('action');
+        if ($action === 'save_add') {
+            return redirect()->route('items.create')->with('success', 'Perubahan disimpan. Silakan tambah item baru.');
+        }
         if ($action === 'save_variants') {
-            return redirect()->route('items.variants.index', $item)
-                ->with('success', 'Perubahan disimpan. Silakan kelola varian.');
+            return redirect()->route('items.variants.index', $item)->with('success', 'Perubahan disimpan. Silakan kelola varian.');
         }
 
         return redirect()->route('items.index')->with('success','Item updated!');
     }
-
 
     public function destroy(Item $item)
     {
@@ -283,6 +293,12 @@ class ItemController extends Controller
         return redirect()->route('items.index')->with('success','Item deleted!');
     }
 
+    /**
+     * Endpoint untuk item quick-search (TomSelect).
+     * - q kosong: kirim Top-N item saja (tanpa varian) agar ringan.
+     * - q terisi: boleh kirim varian yang aktif & relevan.
+     * - total hasil dipotong max 30 agar dropdown responsif.
+     */
     public function quickSearch(Request $req)
     {
         $q = trim($req->get('q', ''));
@@ -295,14 +311,14 @@ class ItemController extends Controller
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
                     $w->where('name', 'like', "%{$q}%")
-                    ->orWhere('sku',  'like', "%{$q}%")
-                    ->orWhereHas('variants', function ($v) use ($q) {
-                        $v->where('sku', 'like', "%{$q}%");
-                    });
+                      ->orWhere('sku',  'like', "%{$q}%")
+                      ->orWhereHas('variants', function ($v) use ($q) {
+                          $v->where('sku', 'like', "%{$q}%");
+                      });
                 });
             })
             ->orderBy('name')
-            ->limit(30)
+            ->limit(40) // ambil agak longgar, nanti dipotong lagi di output
             ->get([
                 'id','name','sku','price','unit_id','brand_id','description',
                 'variant_type','name_template'
@@ -311,77 +327,118 @@ class ItemController extends Controller
         $fmt = fn($n) => number_format((float)$n, 2, ',', '.');
 
         $out = [];
+        $qIsEmpty = ($q === '');
 
         foreach ($items as $it) {
             $unitCode = optional($it->unit)->code ?? 'PCS';
             $variants = $it->variants ?? collect();
-            $displayVariants = $this->shouldDisplayVariants($it, $variants);
 
-            // Jika tidak pakai varian â†’ kirim 1 baris "item"
+            // Saat q kosong -> selalu treat seolah "tanpa varian" (ringan)
+            $displayVariants = $qIsEmpty ? false : $this->shouldDisplayVariants($it, $variants);
+
+            // Tidak pakai varian → kirim 1 baris item
             if (!$displayVariants) {
                 $label = $it->name;
                 $price = (float)$it->price;
 
                 $out[] = [
                     'uid'        => 'item-'.$it->id,
-                    'type'        => 'item',
-                    'item_id'     => $it->id,
-                    'variant_id'  => null,
-                    'name'        => $label,                                // value untuk TomSelect
-                    'label'       => '(' . $fmt($price) . ') ' . $label,    // tampilan dropdown
-                    'sku'         => $it->sku,
-                    'price'       => $price,
-                    'unit_code'   => $unitCode,
-                    'description' => (string) $it->description,
-                    'attributes'  => null,
+                    'type'       => 'item',
+                    'item_id'    => $it->id,
+                    'variant_id' => null,
+                    'name'       => $label,
+                    'label'      => '(' . $fmt($price) . ') ' . $label,
+                    'sku'        => $it->sku,
+                    'price'      => $price,
+                    'unit_code'  => $unitCode,
+                    'description'=> (string) $it->description,
+                    'attributes' => null,
                 ];
                 continue;
             }
 
-            // Pakai varian â†’ kirim per varian
+            // Pakai varian → petakan varian aktif
             foreach ($variants as $v) {
                 if (!$v->is_active) continue;
 
                 $attrs = is_array($v->attributes) ? $v->attributes : [];
                 $label = $it->renderVariantLabel($attrs);
-                $attrsText = collect($attrs)
-                    ->map(function ($val, $key) {
-                        return ucfirst($key) . ': ' . $val;
-                    })
-                    ->implode(' Â· ');
+                $attrsText = collect($attrs)->map(fn($val, $key) => ucfirst($key).': '.$val)->implode(' · ');
+
                 $displayLabel = $label;
                 if ($attrsText !== '') {
-                    $displayLabel .= ' (' . $attrsText . ')';
+                    $displayLabel .= ' ('.$attrsText.')';
                 }
+
                 $price = (float) (($v->price ?? null) !== null ? $v->price : $it->price);
                 $sku   = $v->sku ?: $it->sku;
 
                 $out[] = [
                     'uid'        => 'variant-'.$v->id,
-                    'type'        => 'variant',
-                    'item_id'     => $it->id,
-                    'variant_id'  => $v->id,
-                    'name'        => $displayLabel,
-                    'label'       => '(' . $fmt($price) . ') ' . $displayLabel,
-                    'sku'         => $sku,
-                    'price'       => $price,
-                    'unit_code'   => $unitCode,
-                    'description' => (string) $it->description,
-                    'attributes'  => $attrs,
+                    'type'       => 'variant',
+                    'item_id'    => $it->id,
+                    'variant_id' => $v->id,
+                    'name'       => $displayLabel,
+                    'label'      => '(' . $fmt($price) . ') ' . $displayLabel,
+                    'sku'        => $sku,
+                    'price'      => $price,
+                    'unit_code'  => $unitCode,
+                    'description'=> (string) $it->description,
+                    'attributes' => $attrs,
                 ];
             }
+        }
+
+        // Potong total output biar enteng
+        if (count($out) > 30) {
+            $out = array_slice($out, 0, 30);
         }
 
         return response()->json($out);
     }
 
-
-
     // ======================
     // Helpers
     // ======================
 
-    /** Ubah "abc-123" => "ABC-123"; kosongkan jika null/whitespace */
+    private function runWithAutoGeneratedSkuRetry(bool $userProvidedSku, callable $callback)
+    {
+        $attempts = $userProvidedSku ? 1 : 2;
+
+        for ($attempt = 0; $attempt < $attempts; $attempt++) {
+            try {
+                return DB::transaction($callback);
+            } catch (QueryException $e) {
+                $isLastAttempt = $attempt === $attempts - 1;
+
+                if (!$this->isDuplicateSkuException($e) || $isLastAttempt) {
+                    throw $e;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function isDuplicateSkuException(QueryException $e): bool
+    {
+        $info = $e->errorInfo;
+        $sqlState = $info[0] ?? null;
+        $errorCode = (int) ($info[1] ?? 0);
+
+        if ($sqlState === '23000' && $errorCode === 1062) {
+            return true;
+        }
+
+        if ($sqlState !== '23000') {
+            return false;
+        }
+
+        $message = $e->getMessage();
+        return str_contains($message, 'items') && str_contains($message, 'sku');
+    }
+
+    /** "abc-123" => "ABC-123"; kosongkan jika null/whitespace */
     private function normalizeSku(?string $sku): ?string
     {
         $sku = trim((string)$sku);
@@ -389,7 +446,7 @@ class ItemController extends Controller
     }
 
     /**
-     * Terima angka format Indonesia (1.234,56) â†’ "1234.56"
+     * Terima angka format Indonesia (1.234,56) → "1234.56"
      * Kembalikan null jika kosong.
      */
     private function normalizeIdNumber($value): ?string
@@ -398,16 +455,13 @@ class ItemController extends Controller
         $raw = trim((string)$value);
         if ($raw === '') return null;
 
-        // buang karakter kecuali digit, koma, titik, minus
+        // buang non-digit kecuali koma, titik, minus
         $raw = preg_replace('/[^\d,\.\-]/', '', $raw);
         // hapus pemisah ribuan (titik), ganti koma jadi titik
         $raw = str_replace('.', '', $raw);
         $raw = str_replace(',', '.', $raw);
 
-        // validasi numeric setelah normalisasi
         if (!is_numeric($raw)) return null;
-
-        // simpan sebagai string decimal (biar tidak kena locale lagi)
         return $raw;
     }
 
@@ -469,7 +523,7 @@ class ItemController extends Controller
     {
         $rows = collect();
         $term = Str::lower($filters['q']);
-        $sizeFilters = array_map(fn($v) => Str::lower($v), $filters['sizes']);
+        $sizeFilters  = array_map(fn($v) => Str::lower($v), $filters['sizes']);
         $colorFilters = array_map(fn($v) => Str::lower($v), $filters['colors']);
         $lengthMin = $filters['length_min'];
         $lengthMax = $filters['length_max'];
@@ -478,8 +532,6 @@ class ItemController extends Controller
 
         $variantMaxRelevance = [];
         $itemRelevance       = [];
-
-        $showVariantParent = $filters['show_variant_parent'];
 
         foreach ($items as $item) {
             $variants = $item->variants ?? collect();
@@ -529,7 +581,6 @@ class ItemController extends Controller
             if ($filters['type'] === 'item') {
                 continue;
             }
-
             if (!$displayVariants) {
                 continue;
             }
@@ -538,7 +589,6 @@ class ItemController extends Controller
                 if (!$this->variantMatchesFilters($variant, $item, $filters, $sizeFilters, $colorFilters, $lengthMin, $lengthMax)) {
                     continue;
                 }
-
                 if ($filters['stock'] === 'gt0' && (int) $variant->stock <= 0) {
                     continue;
                 }
@@ -580,9 +630,7 @@ class ItemController extends Controller
 
         if ($term !== '') {
             $rows = $rows->filter(function ($row) use ($term) {
-                if ($row['relevance'] > 0) {
-                    return true;
-                }
+                if ($row['relevance'] > 0) return true;
                 if ($row['entity'] === 'item') {
                     return Str::contains(Str::lower($row['display_name']), $term);
                 }
@@ -590,13 +638,9 @@ class ItemController extends Controller
             });
 
             $rows = $rows->filter(function ($row) use ($variantMaxRelevance, $itemRelevance) {
-                if ($row['entity'] !== 'item') {
-                    return true;
-                }
+                if ($row['entity'] !== 'item') return true;
                 $maxVariant = $variantMaxRelevance[$row['item_id']] ?? null;
-                if ($maxVariant === null) {
-                    return true;
-                }
+                if ($maxVariant === null) return true;
                 $itemScore = $itemRelevance[$row['item_id']] ?? 0;
                 return $itemScore >= $maxVariant;
             });
@@ -608,7 +652,7 @@ class ItemController extends Controller
     private function buildGroupedInventoryRows(Collection $items, array $filters): Collection
     {
         $term = Str::lower($filters['q']);
-        $sizeFilters = array_map(fn($v) => Str::lower($v), $filters['sizes']);
+        $sizeFilters  = array_map(fn($v) => Str::lower($v), $filters['sizes']);
         $colorFilters = array_map(fn($v) => Str::lower($v), $filters['colors']);
         $lengthMin = $filters['length_min'];
         $lengthMax = $filters['length_max'];
@@ -619,16 +663,12 @@ class ItemController extends Controller
         foreach ($items as $item) {
             $variants = $item->variants ?? collect();
             $displayVariants = $this->shouldDisplayVariants($item, $variants);
-            $activeVariants = $displayVariants ? $variants->where('is_active', true) : collect();
+            $activeVariants  = $displayVariants ? $variants->where('is_active', true) : collect();
 
             if ($filters['type'] === 'variant') {
-                if (!$displayVariants) {
-                    continue;
-                }
+                if (!$displayVariants) continue;
                 $matchingVariants = $variants->filter(fn($variant) => $this->variantMatchesFilters($variant, $item, $filters, $sizeFilters, $colorFilters, $lengthMin, $lengthMax));
-                if ($matchingVariants->isEmpty()) {
-                    continue;
-                }
+                if ($matchingVariants->isEmpty()) continue;
             } elseif (!$this->itemMatchesAttributeFilters($item, $filters, $activeVariants)) {
                 continue;
             }
@@ -700,9 +740,7 @@ class ItemController extends Controller
 
     private function computeInventoryRelevance(Item $item, $variant, string $term): int
     {
-        if ($term === '') {
-            return 0;
-        }
+        if ($term === '') return 0;
 
         $score = 0;
         $term = Str::lower($term);
@@ -739,18 +777,10 @@ class ItemController extends Controller
         $color = Str::lower($attrs['color'] ?? '');
         $lengthValue = $this->normalizeLengthValue($attrs['length'] ?? null);
 
-        if ($sizeFilters && !in_array($size, $sizeFilters, true)) {
-            return false;
-        }
-        if ($colorFilters && !in_array($color, $colorFilters, true)) {
-            return false;
-        }
-        if ($lengthMin !== null && ($lengthValue === null || $lengthValue < $lengthMin)) {
-            return false;
-        }
-        if ($lengthMax !== null && ($lengthValue === null || $lengthValue > $lengthMax)) {
-            return false;
-        }
+        if ($sizeFilters && !in_array($size, $sizeFilters, true))  return false;
+        if ($colorFilters && !in_array($color, $colorFilters, true)) return false;
+        if ($lengthMin !== null && ($lengthValue === null || $lengthValue < $lengthMin)) return false;
+        if ($lengthMax !== null && ($lengthValue === null || $lengthValue > $lengthMax)) return false;
 
         return true;
     }
@@ -775,31 +805,20 @@ class ItemController extends Controller
 
     private function shouldDisplayVariants(Item $item, Collection $variants): bool
     {
-        if ($variants->isEmpty()) {
-            return false;
-        }
+        if ($variants->isEmpty()) return false;
 
-        if (($item->variant_type ?? 'none') !== 'none') {
-            return true;
-        }
-
-        if ($variants->count() > 1) {
-            return true;
-        }
+        if (($item->variant_type ?? 'none') !== 'none') return true;
+        if ($variants->count() > 1) return true;
 
         $variant = $variants->first();
-        if (!$variant) {
-            return false;
-        }
+        if (!$variant) return false;
 
         $attrs = $variant->attributes ?? [];
         $hasAttributes = collect($attrs)
             ->filter(fn($v) => $v !== null && $v !== '')
             ->isNotEmpty();
 
-        if ($hasAttributes) {
-            return true;
-        }
+        if ($hasAttributes) return true;
 
         $hasDifferentSku   = $variant->sku && $variant->sku !== $item->sku;
         $hasDifferentPrice = $variant->price !== null && (float) $variant->price !== (float) $item->price;
@@ -809,12 +828,9 @@ class ItemController extends Controller
 
     private function normalizeLengthValue($value): ?float
     {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        if (is_numeric($value)) {
-            return (float) $value;
-        }
+        if ($value === null || $value === '') return null;
+        if (is_numeric($value)) return (float) $value;
+
         $clean = preg_replace('/[^0-9.,-]/', '', (string) $value);
         $clean = str_replace(',', '.', $clean);
         return is_numeric($clean) ? (float) $clean : null;
@@ -827,7 +843,7 @@ class ItemController extends Controller
                 return 'Rp ' . number_format((float) $minVariantPrice, 2, ',', '.');
             }
             return 'Rp ' . number_format((float) $minVariantPrice, 2, ',', '.')
-                . ' â€” ' . number_format((float) $maxVariantPrice, 2, ',', '.');
+                 . ' — ' . number_format((float) $maxVariantPrice, 2, ',', '.');
         }
         return 'Rp ' . number_format((float) ($itemPrice ?? 0), 2, ',', '.');
     }
@@ -839,12 +855,8 @@ class ItemController extends Controller
 
         foreach ($variants as $variant) {
             $attrs = $variant->attributes ?? [];
-            if (!empty($attrs['size'])) {
-                $sizes[] = (string) $attrs['size'];
-            }
-            if (!empty($attrs['color'])) {
-                $colors[] = (string) $attrs['color'];
-            }
+            if (!empty($attrs['size']))  $sizes[]  = (string) $attrs['size'];
+            if (!empty($attrs['color'])) $colors[] = (string) $attrs['color'];
         }
 
         $sizes  = collect($sizes)->unique()->values();
@@ -856,5 +868,3 @@ class ItemController extends Controller
         ];
     }
 }
-
-

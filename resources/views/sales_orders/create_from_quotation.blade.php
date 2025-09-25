@@ -596,7 +596,7 @@
       create     : false,
       persist    : false,
       load: (query, cb)=>{
-        const url = `{{ route('items.search') }}?q=${encodeURIComponent(query||'')}`;
+        const url = `{{ route('items.search', [], false) }}?q=${encodeURIComponent(query||'')}`;
         fetch(url, {credentials: 'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
           .then(r => r.json()).then(cb).catch(()=>cb());
       },

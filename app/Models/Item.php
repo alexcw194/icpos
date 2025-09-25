@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class Item extends Model
 {
@@ -47,6 +50,17 @@ class Item extends Model
         'attributes'          => 'array',
         'variant_options'     => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Item $item) {
+            $item->ensureSkuPresent();
+        });
+
+        static::updating(function (Item $item) {
+            $item->ensureSkuPresent();
+        });
+    }
 
     // ========== RELATIONS ==========
     public function company(): BelongsTo { return $this->belongsTo(Company::class); }
@@ -204,5 +218,73 @@ class Item extends Model
     {
         if (!$type) return $query;
         return $query->where('variant_type', $type);
+    }
+
+    private function ensureSkuPresent(): void
+    {
+        $sku = $this->getAttribute('sku');
+
+        if (self::isSkuBlank($sku)) {
+            $this->sku = static::generateUniqueSku();
+        }
+    }
+
+    private static function isSkuBlank($value): bool
+    {
+        if (is_string($value)) {
+            $value = trim($value);
+        }
+
+        return $value === null || $value === '';
+    }
+
+    private static function generateUniqueSku(): string
+    {
+        $config = config('icpos.sku', []);
+        $prefix = strtoupper((string) Arr::get($config, 'prefix', 'ITM'));
+        $dateFormat = (string) Arr::get($config, 'date', 'Ymd');
+        $width = (int) Arr::get($config, 'width', 4);
+        if ($width < 1) {
+            $width = 4;
+        }
+
+        $datePart = now()->format($dateFormat);
+        $base = $prefix . '-' . $datePart . '-';
+
+        $sequence = max(1, static::determineNextSkuSequence($base));
+        $maxAttempts = 50;
+        $attempt = 0;
+
+        while ($attempt < $maxAttempts) {
+            $candidate = $base . str_pad((string) $sequence, $width, '0', STR_PAD_LEFT);
+
+            if (! static::query()->where('sku', $candidate)->exists()) {
+                return $candidate;
+            }
+
+            $sequence++;
+            $attempt++;
+        }
+
+        throw new RuntimeException('Unable to generate unique SKU after multiple attempts.');
+    }
+
+    private static function determineNextSkuSequence(string $base): int
+    {
+        $query = static::query()
+            ->where('sku', 'like', $base . '%')
+            ->orderByDesc('sku');
+
+        if (DB::transactionLevel() > 0) {
+            $query->lockForUpdate();
+        }
+
+        $latest = $query->value('sku');
+
+        if ($latest && preg_match('/(\d+)$/', $latest, $matches)) {
+            return ((int) $matches[1]) + 1;
+        }
+
+        return 1;
     }
 }
