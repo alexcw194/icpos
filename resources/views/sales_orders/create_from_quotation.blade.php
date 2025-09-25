@@ -22,7 +22,7 @@
         <div class="card-title">
           Create Sales Order from Quotation
           <span class="text-muted">
-            â€” {{ $quotation->number }} Â· {{ $quotation->customer->name ?? '-' }}
+            - {{ $quotation->number }} · {{ $quotation->customer->name ?? '-' }}
           </span>
         </div>
       </div>
@@ -70,7 +70,7 @@
 
         {{-- ===== Attachments ===== --}}
         <div class="mt-3">
-          <label class="form-label">Attachments (PO Customer) â€” PDF/JPG/PNG</label>
+          <label class="form-label">Attachments (PO Customer) — PDF/JPG/PNG</label>
           <input type="file" name="attachments[]" class="form-control" accept=".pdf,.jpg,.jpeg,.png" multiple>
         </div>
 
@@ -144,7 +144,7 @@
             <label class="form-label">Cari & pilih item</label>
             <div class="row g-2 align-items-center">
               <div class="col-md-4">
-                <input id="qs_name" type="text" class="form-control" placeholder="Ketik nama/SKUâ€¦" autocomplete="off">
+                <input id="qs_name" type="text" class="form-control" placeholder="Ketik nama/SKU…" autocomplete="off">
               </div>
               <div class="col-md-3">
                 <input id="qs_desc" type="text" class="form-control" placeholder="Deskripsi (opsional)">
@@ -299,7 +299,7 @@
                   <input type="hidden" name="tax_percent" id="tax_percent" value="0">
                   <div class="d-flex justify-content-between text-muted">
                     <div>PPN</div>
-                    <div>â€”</div>
+                    <div>&mdash;</div>
                   </div>
                 @endif
 
@@ -483,7 +483,7 @@
     el.subtotal.textContent = money(sub);
     (el.totalDc || {}).textContent = money(totalDc);
     el.dpp.textContent = money(dpp);
-    el.ppn.textContent = isTaxable ? money(ppn) : 'â€”';
+    el.ppn.textContent = isTaxable ? money(ppn) : '-';
     el.grand.textContent = money(grand);
 
     el.i_subtotal.value = sub.toFixed(2);
