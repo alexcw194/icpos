@@ -59,7 +59,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/customers/quick-store', [CustomerController::class, 'quickStore'])->name('customers.quick-store');
     Route::get ('/api/customers/dupcheck',  [CustomerController::class, 'dupCheck'])->name('customers.dupcheck');
     Route::get ('/api/customers/dup-check', [CustomerController::class, 'dupCheck'])->name('customers.dup-check'); // alias lama
+    Route::get('/api/customers/search', [CustomerController::class, 'quickSearch'])
+    ->name('customers.search');
 
+    
     // Google Places proxy
     Route::get('/api/places/search', [AiSuggestController::class, 'company'])->name('places.search');
 

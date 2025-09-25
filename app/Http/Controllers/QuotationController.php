@@ -525,6 +525,7 @@ class QuotationController extends Controller
         return validator($data, [
             'company_id'              => ['required','exists:companies,id'],
             'customer_id'             => ['required','exists:customers,id'],
+            'contact_id'              => ['nullable','exists:contacts,id'],
             'sales_user_id'           => ['nullable','exists:users,id'],
             'discount_mode'           => ['required','in:total,per_item'],
             'date'                    => ['required','date'],

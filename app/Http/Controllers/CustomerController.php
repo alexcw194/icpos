@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\Contact;
 use App\Models\Jenis;
 use Illuminate\Http\Request;
 
@@ -116,6 +117,50 @@ class CustomerController extends Controller
         }
 
         return view('customers.show', compact('customer', 'tab', 'quotations', 'salesOrders'));
+    }
+
+    public function quickSearch(\Illuminate\Http\Request $req)
+    {
+        $q = trim((string) $req->input('q', ''));
+
+        $customers = Customer::query()
+            ->select('id','name')
+            ->when($q !== '', fn($qq) => $qq->where('name','like',"%{$q}%"))
+            ->orderBy('name')->limit(20)->get()
+            ->map(fn($c) => [
+                'uid'         => 'customer-'.$c->id,
+                'type'        => 'customer',
+                'label'       => $c->name,
+                'name'        => $c->name,
+                'customer_id' => $c->id,
+                'contact_id'  => null,
+            ]);
+
+        $contacts = Contact::query()
+            ->select('id','customer_id','first_name','last_name')
+            ->with(['customer:id,name'])
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('first_name','like',"%{$q}%")
+                    ->orWhere('last_name','like',"%{$q}%");
+                })->orWhereHas('customer', fn($c)=>$c->where('name','like',"%{$q}%"));
+            })
+            ->orderBy('first_name')->orderBy('last_name')
+            ->limit(20)->get()
+            ->map(function ($ct) {
+                $person  = trim(($ct->first_name ?? '') . ' ' . ($ct->last_name ?? ''));
+                $company = optional($ct->customer)->name;
+                return [
+                    'uid'         => 'contact-'.$ct->id,
+                    'type'        => 'contact',
+                    'label'       => $company ? "{$company} ({$person})" : $person,
+                    'name'        => $person,
+                    'customer_id' => $ct->customer_id,
+                    'contact_id'  => $ct->id,
+                ];
+            });
+
+        return response()->json($customers->merge($contacts)->take(30)->values());
     }
 
     public function edit(Customer $customer)

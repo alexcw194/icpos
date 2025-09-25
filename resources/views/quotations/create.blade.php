@@ -46,16 +46,10 @@
         {{-- CUSTOMER --}}
         <div class="col-md-4">
           <label class="form-label">Customer <span class="text-danger">*</span></label>
-          <div class="d-flex gap-2">
-            @php $selectedCustomerId = old('customer_id', request('customer_id')); @endphp
-            <select id="customer_id_select" name="customer_id" class="form-select" required>
-              <option value="">— pilih customer —</option>
-              @foreach($customers as $c)
-                <option value="{{ $c->id }}" @selected((string)$selectedCustomerId === (string)$c->id)>{{ $c->name }}</option>
-              @endforeach
-            </select>
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#quickCustomerModal">+ New</button>
-          </div>
+          <input id="customerPicker" type="text" class="form-control" placeholder="Ketik nama perusahaan/kontak…">
+          <input type="hidden" name="customer_id" id="customer_id" value="{{ old('customer_id', request('customer_id')) }}">
+          <input type="hidden" name="contact_id"  id="contact_id"  value="{{ old('contact_id') }}">
+          <small class="form-hint">Bisa cari perusahaan atau kontak, contoh: <em>Ersindo</em> atau <em>Ruru</em>.</small>
         </div>
 
         {{-- SALES NAME --}}
@@ -300,9 +294,96 @@
 </style>
 @endpush
 
+@php
+  $CUSTOMER_SEARCH_URL = route('customers.search', [], false); // "/api/customers/search"
+@endphp
+
 @push('scripts')
 @include('quotations._item_quicksearch_js')
 <script>
+
+  (() => {
+    'use strict';
+
+      const SEARCH_URL = {!! json_encode($CUSTOMER_SEARCH_URL, JSON_UNESCAPED_SLASHES) !!}; // "/api/customers/search"
+
+      const input       = document.getElementById('customerPicker');
+      const hidCustomer = document.getElementById('customer_id');
+      const hidContact  = document.getElementById('contact_id');
+      if (!input) return;
+
+      if (!window.TomSelect) {
+        console.error('[customer] TomSelect not found');
+        return;
+      }
+
+      const picker = new TomSelect(input, {
+        valueField : 'uid',
+        labelField : 'label',
+        searchField: ['name','label'],
+        maxOptions : 30,
+        preload    : 'focus',
+        create     : false,
+        persist    : false,
+        dropdownParent: 'body',
+        load(query, cb){
+          const url = `${SEARCH_URL}?q=${encodeURIComponent(query||'')}`;
+
+          // parser aman untuk JSON (hapus BOM/whitespace di depan)
+          const safeParse = (res) =>
+            res.text().then(t => {
+              const s = t.replace(/^\uFEFF/, '').trim();
+              try { return JSON.parse(s); }
+              catch (e) {
+                console.error('[customer] bad json', e, s.slice(0, 120)); // log sample
+                return []; // fallback kosong biar TomSelect nggak ngeluh
+              }
+            });
+
+          fetch(url, {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With':'XMLHttpRequest' }
+          })
+            .then(r => r.ok ? safeParse(r) : [])
+            .then(data => { console.log('[customer] loaded', data); cb(Array.isArray(data)?data:[]); })
+            .catch(err => { console.error('[customer] fetch error', err); cb(); });
+        },
+        render: {
+          option(d, esc){
+            return `<div>${esc(d.label || '')}</div>`;
+          }
+        },
+        onChange(val){
+          const data = this.options[val];
+          if (!data) return;
+          hidCustomer.value = data.customer_id || '';
+          hidContact.value  = data.contact_id  || '';
+          this.setTextboxValue(data.label || '');
+          this.close();
+        }
+      });
+
+      // Prefill (jika balik dari validation error)
+      const cid = (hidCustomer.value || '').trim();
+      if (cid) {
+        const url = `${SEARCH_URL}?q=`;
+        fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With':'XMLHttpRequest' } })
+          .then(r => r.ok ? r.json() : [])
+          .then(rows => {
+            const ct = (hidContact.value || '').trim();
+            let found = null;
+            for (const it of (Array.isArray(rows)?rows:[])) {
+              if (String(it.customer_id) === String(cid)) {
+                if (ct && String(it.contact_id||'') === String(ct)) { found = it; break; }
+                if (!found && it.type === 'customer') found = it;
+              }
+            }
+            if (found) picker.setTextboxValue(found.label);
+          })
+          .catch(()=>{});
+      }
+    })();
+
 (function () {
   // ---------- Helpers ----------
   function toNum(v){ if(v==null) return 0; v=String(v).trim(); if(v==='') return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; }
