@@ -95,44 +95,6 @@
     </div>
   </div>
 
-  @if(!$hideAttributeCard)
-  {{-- ===== ATRIBUT ITEM (Size & Color Master) ===== --}}
-  <div class="card mt-3">
-    <div class="card-header">
-      <div class="card-title">Atribut Item</div>
-    </div>
-    <div class="card-body">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">Size (opsional)</label>
-          <select name="size_id" id="size_id" class="form-select">
-            <option value="">— Tanpa Size —</option>
-            @foreach($sizes as $s) {{-- $sizes sudah diurutkan oleh controller: sort_order, name --}}
-              <option value="{{ $s->id }}" @selected((string)$selectedSizeId === (string)$s->id)>{{ $s->name }}</option>
-            @endforeach
-          </select>
-          @error('size_id')<div class="text-danger small">{{ $message }}</div>@enderror
-          <div class="form-hint">Contoh: S/M/L; 42; 20M/30M; 1/2&quot;; dll.</div>
-        </div>
-
-        <div class="col-md-6">
-          <label class="form-label">Color (opsional)</label>
-          <select name="color_id" id="color_id" class="form-select">
-            <option value="">— Tanpa Color —</option>
-            @foreach($colors as $c) {{-- $colors sudah diurutkan oleh controller: sort_order, name --}}
-              <option value="{{ $c->id }}" @selected((string)$selectedColorId === (string)$c->id)>{{ $c->name }}</option>
-            @endforeach
-          </select>
-          @error('color_id')<div class="text-danger small">{{ $message }}</div>@enderror
-          <div class="form-hint">Kelola daftar warna di Master → Colors.</div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  @endif
-
   {{-- =================== VARIAN & CUTTING =================== --}}
   <div class="row g-3 mt-3">
     <div class="col-md-4">
