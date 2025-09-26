@@ -8,8 +8,16 @@ use Illuminate\Support\Facades\Storage;
 
 class SalesOrderAttachment extends Model
 {
+    protected $table = 'sales_order_attachments';
     protected $fillable = [
-        'sales_order_id','draft_token','path','original_name','mime','size','uploaded_by_user_id'
+        'sales_order_id',
+        'draft_token',
+        'disk',
+        'path',
+        'original_name',
+        'mime',
+        'size',
+        'uploaded_by',
     ];
 
     protected $appends = ['url'];

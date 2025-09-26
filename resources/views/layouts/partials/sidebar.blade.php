@@ -110,7 +110,7 @@
           </li>
         @endif
 
-        {{-- Quotations â€” tersedia untuk user operasional --}}
+        {{-- Quotations — tersedia untuk user operasional --}}
         @if($hasQuotations)
           <li class="nav-item">
             <a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}"

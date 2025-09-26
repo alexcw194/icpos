@@ -9,9 +9,9 @@
 
   /** @var \App\Models\Quotation $quotation */
   $company     = $quotation->company;
-  $isTaxable   = (bool) ($company->is_taxable ?? false);   // ICP = true, AMP = false
+  $isTaxable   = (bool) ($company->is_taxable ?? false);
   $taxDefault  = (float) ($quotation->tax_percent ?? $company->default_tax_percent ?? 11);
-  $discMode    = $quotation->discount_mode ?? 'total';     // 'per_item' | 'total'
+  $discMode    = $quotation->discount_mode ?? 'total';
   $lines       = $quotation->lines ?? collect();
   $validUntil  = optional($quotation->valid_until)->format('Y-m-d') ?? now()->addDays(30)->format('Y-m-d');
 
@@ -30,9 +30,7 @@
       <div class="card-header">
         <div class="card-title">
           Create Sales Order from Quotation
-          <span class="text-muted">
-            — {{ $quotation->number }} · {{ $quotation->customer->name ?? '-' }}
-          </span>
+          <span class="text-muted">— {{ $quotation->number }} · {{ $quotation->customer->name ?? '-' }}</span>
         </div>
       </div>
 
@@ -80,64 +78,17 @@
         {{-- ===== Attachments (draft upload) ===== --}}
         <div class="mt-3">
           <label class="form-label">Attachments (PO Customer) — PDF/JPG/PNG</label>
-          <input type="file" id="soUpload" class="form-control" multiple
-                 accept="application/pdf,image/jpeg,image/png">
+          <input type="file" id="soUpload" class="form-control" multiple accept="application/pdf,image/jpeg,image/png">
           <div class="form-text">
             File yang diupload sebelum disimpan akan disimpan sebagai <em>draft</em> dan otomatis terhubung ke SO saat kamu klik “Create SO”.
           </div>
           <div id="soFiles" class="list-group list-group-flush mt-2"></div>
         </div>
 
-        {{-- ===== NPWP Panel (ICP only) ===== --}}
-        @if($npwpRequired ?? false)
-          <div class="card mt-3 is-sticky">
-            <div class="card-body">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-bold">Data NPWP Pelanggan (wajib untuk ICP)</div>
-                  <div class="small text-muted">
-                    SO boleh dibuat walau belum lengkap; nanti saat <strong>Invoice</strong> akan dikunci jika NPWP belum terisi.
-                  </div>
-                </div>
-              </div>
-
-              <div class="row g-3 mt-2">
-                <div class="col-md-4">
-                  <label class="form-label">No. NPWP</label>
-                  <input type="text" name="npwp_number"
-                         class="form-control @error('npwp_number') is-invalid @enderror"
-                         value="{{ old('npwp_number', $npwp['number'] ?? '') }}">
-                  <div class="form-hint">Terima 15/16 digit. Boleh titik/strip, sistem akan menormalisasi.</div>
-                  @error('npwp_number') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Nama NPWP</label>
-                  <input type="text" name="npwp_name"
-                         class="form-control @error('npwp_name') is-invalid @enderror"
-                         value="{{ old('npwp_name', $npwp['name'] ?? '') }}">
-                  @error('npwp_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Alamat NPWP</label>
-                  <textarea name="npwp_address" rows="2"
-                            class="form-control @error('npwp_address') is-invalid @enderror">{{ old('npwp_address', $npwp['address'] ?? '') }}</textarea>
-                  @error('npwp_address') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
-              </div>
-
-              <label class="form-check mt-2">
-                <input class="form-check-input" type="checkbox" name="npwp_save_to_customer" value="1"
-                       {{ old('npwp_save_to_customer', true) ? 'checked' : '' }}>
-                <span class="form-check-label">Simpan juga ke master Customer</span>
-              </label>
-            </div>
-          </div>
-        @endif
-
         {{-- ===== Discount mode selector ===== --}}
         <div class="d-flex align-items-center gap-3 mt-4">
           <div class="fw-bold">Discount Mode</div>
-          <div class="btn-group btn-group-sm" role="group" aria-label="Discount mode">
+          <div class="btn-group btn-group-sm" role="group">
             <input type="radio" class="btn-check" name="dm" id="dm-total" value="total" {{ $discMode === 'total' ? 'checked' : '' }}>
             <label class="btn btn-outline-primary" for="dm-total">Total</label>
 
@@ -148,50 +99,7 @@
         </div>
         <input type="hidden" name="discount_mode" id="discount_mode" value="{{ $discMode }}">
 
-        {{-- ===== QUICK ADD (paritas Quotation) ===== --}}
-        <div class="card mt-3 mb-2">
-          <div class="card-body">
-            <label class="form-label">Cari & pilih item</label>
-            <div class="row g-2 align-items-center">
-              <div class="col-md-4">
-                <input id="qs_name" type="text" class="form-control" placeholder="Ketik nama/SKU…" autocomplete="off">
-              </div>
-              <div class="col-md-3">
-                <input id="qs_desc" type="text" class="form-control" placeholder="Deskripsi (opsional)">
-              </div>
-              <div class="col-auto" style="width:100px">
-                <input id="qs_qty" type="text" class="form-control text-end" value="1" aria-label="Qty">
-              </div>
-              <div class="col-auto" style="width:100px">
-                <input id="qs_unit" type="text" class="form-control" value="pcs" aria-label="Unit">
-              </div>
-              <div class="col-auto" style="width:140px">
-                <input id="qs_price" type="text" class="form-control text-end" value="0" aria-label="Unit Price">
-              </div>
-
-              {{-- disc per-item controls: show/hide by CSS --}}
-              <div class="col-auto qs-per" style="width:120px">
-                <select id="qs_dctype" class="form-select">
-                  <option value="amount">Amount</option>
-                  <option value="percent">%</option>
-                </select>
-              </div>
-              <div class="col-auto qs-per" style="width:120px">
-                <input id="qs_dcval" type="text" class="form-control text-end" value="0" aria-label="Disc Value">
-              </div>
-
-              <div class="col-auto">
-                <button type="button" class="btn btn-primary" id="qs_add">Tambah</button>
-              </div>
-              <div class="col-auto">
-                <button type="button" class="btn btn-link" id="qs_clear">Kosongkan</button>
-              </div>
-            </div>
-            <div class="form-hint">Pilih hasil pada kotak pertama, nilai akan terisi; klik <strong>Tambah</strong> untuk masuk ke list items.</div>
-          </div>
-        </div>
-
-        {{-- ===== ORDER LINES (paritas Quotation) ===== --}}
+        {{-- ===== Items table (dari quotation) ===== --}}
         <div class="mt-2">
           <div class="fw-bold mb-2">Items</div>
 
@@ -204,10 +112,8 @@
                   <th style="width:8%">Unit</th>
                   <th class="text-end" style="width:8%">Qty</th>
                   <th class="text-end" style="width:12%">Unit Price</th>
-
                   <th class="col-per" style="width:12%">Disc Type</th>
                   <th class="text-end col-per" style="width:12%">Disc Value</th>
-
                   <th class="text-end" style="width:12%">Line Total</th>
                   <th style="width:4%"></th>
                 </tr>
@@ -228,8 +134,6 @@
                     <td><input type="text" name="lines[{{ $i }}][unit]" class="form-control" value="{{ $ln->unit ?? 'pcs' }}"></td>
                     <td><input type="text" name="lines[{{ $i }}][qty]" class="form-control text-end num qty" value="{{ rtrim(rtrim(number_format((float)$ln->qty, 2, '.', ''), '0'), '.') }}"></td>
                     <td><input type="text" name="lines[{{ $i }}][unit_price]" class="form-control text-end num price" value="{{ rtrim(rtrim(number_format((float)$ln->unit_price, 2, '.', ''), '0'), '.') }}"></td>
-
-                    {{-- selalu render; sembunyikan via CSS saat mode total --}}
                     <td class="col-per">
                       <select name="lines[{{ $i }}][discount_type]" class="form-select dctype">
                         <option value="amount" {{ $dt==='amount'?'selected':'' }}>Amount</option>
@@ -239,7 +143,6 @@
                     <td class="col-per">
                       <input type="text" name="lines[{{ $i }}][discount_value]" class="form-control text-end num dcval" value="{{ rtrim(rtrim(number_format($dv, 2, '.', ''), '0'), '.') }}">
                     </td>
-
                     <td class="text-end align-middle">
                       <span class="line-total">0</span>
                       <input type="hidden" name="lines[{{ $i }}][line_total]" class="line_total_input" value="0">
@@ -256,7 +159,7 @@
           </div>
         </div>
 
-        {{-- ===== TOTALS (paritas Quotation) ===== --}}
+        {{-- ===== Totals ===== --}}
         <div class="row justify-content-end mt-4">
           <div class="col-md-6">
             <div class="card">
@@ -266,7 +169,6 @@
                   <div><span id="v_subtotal">0</span></div>
                 </div>
 
-                {{-- total discount controls: tampil hanya di mode total (CSS) --}}
                 <div class="d-flex align-items-center justify-content-between mt-2 total-only">
                   <div class="d-flex align-items-center">
                     <span class="me-2">Diskon Total</span>
@@ -286,7 +188,6 @@
                   <div>- <span id="v_total_dc">0</span></div>
                 </div>
 
-                {{-- hidden when per_item --}}
                 <input type="hidden" class="per-only" name="total_discount_type" value="amount">
                 <input type="hidden" class="per-only" name="total_discount_value" value="0">
 
@@ -319,7 +220,6 @@
                   <div><span id="v_grand">0</span></div>
                 </div>
 
-                {{-- Hidden numeric fields --}}
                 <input type="hidden" name="lines_subtotal" id="i_subtotal" value="0">
                 <input type="hidden" name="total_discount_amount" id="i_total_dc" value="0">
                 <input type="hidden" name="taxable_base" id="i_dpp" value="0">
@@ -331,7 +231,6 @@
         </div>
       </div>
 
-      {{-- FOOTER --}}
       <div class="card-footer d-flex justify-content-end gap-2">
         <button type="button" id="btnCancelDraft" class="btn btn-link text-danger">Cancel</button>
         <button type="submit" class="btn btn-primary">Create SO</button>
@@ -340,7 +239,6 @@
   </form>
 </div>
 
-{{-- ======= Row template ======= --}}
 <template id="rowTpl">
   <tr class="line">
     <td>
@@ -352,8 +250,6 @@
     <td><input type="text" name="__NAME__[unit]" class="form-control" value="pcs"></td>
     <td><input type="text" name="__NAME__[qty]" class="form-control text-end num qty" value="1"></td>
     <td><input type="text" name="__NAME__[unit_price]" class="form-control text-end num price" value="0"></td>
-
-    {{-- always render; hide by CSS in total mode --}}
     <td class="col-per">
       <select name="__NAME__[discount_type]" class="form-select dctype">
         <option value="amount">Amount</option>
@@ -363,7 +259,6 @@
     <td class="col-per">
       <input type="text" name="__NAME__[discount_value]" class="form-control text-end num dcval" value="0">
     </td>
-
     <td class="text-end align-middle">
       <span class="line-total">0</span>
       <input type="hidden" name="__NAME__[line_total]" class="line_total_input" value="0">
@@ -378,10 +273,7 @@
 
 @push('styles')
 <style>
-  /* dropdown di atas modal/komponen lain */
   .ts-dropdown{ z-index: 1060; }
-
-  /* mode switching */
   .mode-total .col-per,
   .mode-total .qs-per,
   .mode-per  .total-only { display: none !important; }
@@ -391,7 +283,6 @@
 @push('scripts')
 <script>
 (function(){
-  // ===== Locale helpers (ID style) =====
   const fmt = n => {
     const s = (isFinite(n) ? Number(n) : 0).toFixed(2);
     const [i,d] = s.split('.');
@@ -409,119 +300,89 @@
   // ===== Upload draft attachments =====
   const uploadInput = document.getElementById('soUpload');
   const listEl      = document.getElementById('soFiles');
-  const draftToken  = document.getElementById('draft_token')?.value;
+  const draftToken  = document.getElementById('draft_token')?.value || '';
+  const csrf        = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
   function rowTpl(file){
     return `
       <div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
-        <a class="me-auto" href="${file.url}" target="_blank">${file.name}</a>
+        <a class="me-auto" href="${file.url}" target="_blank" rel="noopener">${file.name}</a>
         <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
         <button type="button" class="btn btn-sm btn-outline-danger">Hapus</button>
       </div>
     `;
   }
 
-  async function refreshList() {
-    if (!listEl || !draftToken) return;
-
+  // *** Hardened JSON loader: parse dari text, bersihkan BOM/single-quote ***
+  async function refreshList(){
+    if (!draftToken) { listEl.innerHTML = ''; return; }
     try {
-      const base = @json(route('sales-orders.attachments.index'));
-      const url  = base + '?draft_token=' + encodeURIComponent(draftToken);
-
+      const url = @json(route('sales-orders.attachments.index')) + '?draft_token=' + encodeURIComponent(draftToken);
       const res = await fetch(url, {
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json'
-        },
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
         credentials: 'same-origin'
       });
 
-      if (!res.ok) {
-        const txt = await res.text().catch(()=>'');
-        console.error('attachments.index HTTP', res.status, txt);
-        return;
+      let text = await res.text();
+      text = text.replace(/^\uFEFF/, '').trim();        // hapus BOM
+      if (text.startsWith("'") && text.endsWith("'")) { // jika server mengembalikan `'[...]'`
+        text = text.slice(1, -1);
       }
 
-      // robust JSON parse
-      let files;
-      try {
-        files = await res.json();
-      } catch (e) {
-        const txt = await res.text().catch(()=>'');
-        console.error('attachments.index bukan JSON:', e, txt);
-        return;
-      }
+      let data;
+      try { data = JSON.parse(text); }
+      catch(e){ console.warn('attachments.index bukan JSON:', e, text); listEl.innerHTML=''; return; }
 
-      if (!Array.isArray(files)) {
-        console.warn('attachments.index mengembalikan bukan array:', files);
-        return;
-      }
+      const files = Array.isArray(data) ? data : [];
+      listEl.innerHTML = files.map(rowTpl).join('');
 
-      // Render list
-      listEl.innerHTML = files.map(rowTpl).join('') || `
-        <div class="list-group-item text-muted">Belum ada file.</div>
-      `;
-
-      // Bind tombol hapus
+      // bind tombol hapus
       listEl.querySelectorAll('button').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-          const row = e.target.closest('[data-id]');
-          const id  = row?.dataset.id;
-          if (!id) return;
-
-          const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+          const row = e.target.closest('[data-id]'); const id = row.dataset.id;
           const delUrl = @json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
-
-          const r = await fetch(delUrl, {
+          await fetch(delUrl, {
             method: 'DELETE',
             headers: {
-              'X-Requested-With': 'XMLHttpRequest',
               'X-CSRF-TOKEN': csrf,
+              'X-Requested-With': 'XMLHttpRequest',
               'Accept': 'application/json'
             },
             credentials: 'same-origin'
           });
-
-          if (r.ok) {
-            row.remove();
-          } else {
-            const t = await r.text().catch(()=> '');
-            console.error('Gagal hapus attachment', r.status, t);
-          }
+          row.remove();
         });
       });
-
-    } catch (e) {
-      console.error('refreshList error', e);
+    } catch (err) {
+      console.warn('attachments.index gagal:', err);
+      listEl.innerHTML = '';
     }
   }
 
-
   uploadInput?.addEventListener('change', async (e) => {
-    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
     for (const f of e.target.files) {
       const fd = new FormData();
       fd.append('file', f);
       fd.append('draft_token', draftToken);
 
-      await fetch(@json(route('sales-orders.attachments.upload')), {
+      const res = await fetch(@json(route('sales-orders.attachments.upload')), {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': csrf,
           'X-Requested-With': 'XMLHttpRequest',
           'Accept': 'application/json'
         },
-        body: fd,                // jangan set Content-Type (biar FormData yg atur)
+        body: fd,
         credentials: 'same-origin'
       });
+
+      if (!res.ok) console.error('upload gagal', await res.text());
     }
     uploadInput.value = '';
-    refreshList();
+    await refreshList();
   });
 
-
-
-  // ===== Kalkulasi totals =====
+  // ===== Kalkulasi totals (tidak diubah) =====
   let mode = document.getElementById('discount_mode')?.value || 'total';
   const isTaxable = {{ $isTaxable ? 'true' : 'false' }};
   const form = document.getElementById('soForm');
@@ -548,7 +409,7 @@
   };
 
   function recalc(){
-    if (!el.subtotal || !el.tbody) return; 
+    if (!el.subtotal || !el.tbody) return;
 
     const setText = (node, text) => { if (node) node.textContent = text; };
     const setVal  = (node, val)  => { if (node) node.value = val; };
@@ -564,18 +425,12 @@
       if (mode === 'per_item') {
         const tp = tr.querySelector('.dctype')?.value || 'amount';
         let val  = parseID(tr.querySelector('.dcval')?.value);
-        if (tp === 'percent') {
-          val   = clamp(val, 0, 100);
-          dcAmt = lineSub * (val/100);
-        } else {
-          val   = Math.max(val, 0);
-          dcAmt = val;
-        }
+        if (tp === 'percent') { val = clamp(val, 0, 100); dcAmt = lineSub * (val/100); }
+        else { val = Math.max(val, 0); dcAmt = val; }
         if (dcAmt > lineSub) dcAmt = lineSub;
       }
 
       const lineTotal = Math.max(lineSub - dcAmt, 0);
-
       sub       += lineSub;
       perLineDc += dcAmt;
 
@@ -589,13 +444,8 @@
     if (mode === 'total') {
       const ttype = el.tdType?.value || 'amount';
       let   tval  = parseID(el.tdValue?.value);
-      if (ttype === 'percent') {
-        tval    = clamp(tval, 0, 100);
-        totalDc = sub * (tval/100);
-      } else {
-        tval    = Math.max(tval, 0);
-        totalDc = tval;
-      }
+      if (ttype === 'percent') { tval = clamp(tval, 0, 100); totalDc = sub * (tval/100); }
+      else { tval = Math.max(tval, 0); totalDc = tval; }
       if (totalDc > sub) totalDc = sub;
     } else {
       totalDc = perLineDc;
@@ -619,7 +469,6 @@
     setVal(el.i_grand,    grand.toFixed(2));
   }
 
-
   function bindRow(tr){
     tr.querySelectorAll('.num, .dctype').forEach(inp => {
       inp.addEventListener('input', recalc);
@@ -635,147 +484,34 @@
     if (o) { o.addEventListener('input', recalc); o.addEventListener('change', recalc); }
   });
 
-  // cancel draft attachments
+  // Cancel draft: panggil route purge
   document.getElementById('btnCancelDraft')?.addEventListener('click', async () => {
     const token = draftToken;
     await fetch(@json(route('sales-orders.create.cancel')), {
       method: 'DELETE',
-      headers: {
-        'X-CSRF-TOKEN': @json(csrf_token()),
-        'Content-Type': 'application/json'
-      },
+      headers: { 'X-CSRF-TOKEN': @json(csrf_token()), 'Content-Type': 'application/json' },
       body: JSON.stringify({ draft_token: token }),
       credentials: 'same-origin'
     });
     window.history.back();
   });
 
-  // ===== Quick add (TomSelect) =====
-  function ensureTomSelect(cb){
-    if (window.TomSelect) return cb();
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css';
-    document.head.appendChild(link);
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js';
-    s.onload = cb; document.head.appendChild(s);
-  }
-
-  const qs = {
-    name : document.getElementById('qs_name'),
-    desc : document.getElementById('qs_desc'),
-    qty  : document.getElementById('qs_qty'),
-    unit : document.getElementById('qs_unit'),
-    price: document.getElementById('qs_price'),
-    dctype: document.getElementById('qs_dctype'),
-    dcval : document.getElementById('qs_dcval'),
-    add  : document.getElementById('qs_add'),
-    clear: document.getElementById('qs_clear'),
-  };
-
-  function qsClear(){
-    qs.name?.tomselect?.clear(true);
-    if (qs.name) qs.name.value = '';
-    if (qs.desc) qs.desc.value = '';
-    if (qs.qty)  qs.qty.value  = '1';
-    if (qs.unit) qs.unit.value = 'pcs';
-    if (qs.price)qs.price.value= '0';
-    if (qs.dcval)qs.dcval.value= '0';
-    if (qs.dctype) qs.dctype.value = 'amount';
-    qs.name?.focus();
-  }
-
-  function addFromQuick(){
-    const ts  = qs.name?.tomselect;
-    const val = ts?.getValue();
-    const data = val ? ts.options[val] : null;
-
-    const name = (qs.name?.value || '').trim();
-    if (!name) { qs.name?.focus(); return; }
-
-    const tbody = el.tbody;
-    let idx = tbody.querySelectorAll('tr.line').length;
-    const html = el.tpl.innerHTML.replace(/__NAME__/g, 'lines['+idx+']');
-    const tmp = document.createElement('tbody'); tmp.innerHTML = html.trim();
-    const tr = tmp.firstElementChild; tbody.appendChild(tr);
-
-    // isi field tampil
-    tr.querySelector('input[name$="[name]"]').value = name;
-    tr.querySelector('input[name$="[description]"]').value = qs.desc?.value || (data?.description || '');
-    tr.querySelector('input[name$="[unit]"]').value = qs.unit?.value || (data?.unit_code || 'pcs');
-    tr.querySelector('.qty').value   = qs.qty?.value  || '1';
-    tr.querySelector('.price').value = (qs.price?.value ?? (data?.price ?? 0));
-
-    // isi hidden relasi item/varian
-    const hidItem  = tr.querySelector('.item_id_input');
-    const hidVar   = tr.querySelector('.item_variant_id_input');
-    if (hidItem) hidItem.value = data?.item_id || '';
-    if (hidVar)  hidVar.value  = data?.variant_id || '';
-
-    bindRow(tr);
-    recalc();
-    qsClear();
-  }
-
-  if (qs.add)   qs.add.addEventListener('click', addFromQuick);
-  if (qs.clear) qs.clear.addEventListener('click', qsClear);
-  if (qs.name)  qs.name.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); addFromQuick(); } });
-
-  ensureTomSelect(() => {
-    if (!qs.name) return;
-    new TomSelect(qs.name, {
-      valueField : 'name',
-      labelField : 'label',
-      searchField: ['name','sku'],
-      maxOptions : 30,
-      maxItems   : 1,
-      preload    : 'focus',
-      closeAfterSelect: true,
-      selectOnTab: true,
-      create     : false,
-      persist    : false,
-      load: (query, cb)=>{
-        const url = `{{ route('items.search', [], false) }}?q=${encodeURIComponent(query||'')}`;
-        fetch(url, {credentials: 'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
-          .then(r => r.json()).then(cb).catch(()=>cb());
-      },
-      render: {
-        option: (data, esc)=>{
-          const sku = data.sku ? `<small class="text-muted ms-2">${esc(data.sku)}</small>` : '';
-          return `<div>${esc(data.label || data.name)} ${sku}</div>`;
-        }
-      },
-      onChange: function(val){
-        const data = this.options[val];
-        if (!data) return;
-        if (qs.desc && !qs.desc.value) qs.desc.value = data.description || '';
-        if (qs.unit)  qs.unit.value  = (data.unit_code || 'PCS');
-        if (qs.price) qs.price.value = (data.price ?? 0);
-        if (qs.qty && (!qs.qty.value || +qs.qty.value === 0)) qs.qty.value = '1';
-        this.setTextboxValue(''); this.close();
-        recalc();
-      },
-      onBlur: function(){ this.setTextboxValue(''); }
-    });
-  });
-
-  // ===== Mode switch handlers =====
+  // Mode switch
   function applyMode(newMode){
     mode = newMode;
-    if (el.modeInput) el.modeInput.value = mode;
+    const form = document.getElementById('soForm');
+    const hidden = document.getElementById('discount_mode');
+    if (hidden) hidden.value = mode;
     if (form){
       form.classList.remove('mode-total','mode-per');
       form.classList.add(mode === 'per_item' ? 'mode-per' : 'mode-total');
     }
     recalc();
   }
+  document.getElementById('dm-total')?.addEventListener('change', () => applyMode('total'));
+  document.getElementById('dm-per')?.addEventListener('change',   () => applyMode('per_item'));
 
-  if (el.dmTotal) el.dmTotal.addEventListener('change', () => applyMode('total'));
-  if (el.dmPer)   el.dmPer.addEventListener('change',   () => applyMode('per_item'));
-
-
-  // Initial load
+  // Init
   refreshList();
   recalc();
 })();

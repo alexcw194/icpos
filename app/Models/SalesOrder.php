@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class SalesOrder extends Model
 {
@@ -17,8 +18,7 @@ class SalesOrder extends Model
         'taxable_base','tax_percent','tax_amount','total',
         'npwp_required','npwp_status','tax_npwp_number','tax_npwp_name','tax_npwp_address',
         'status',
-
-        // NEW (Langkah 1 & 8)
+        // NEW
         'brand_snapshot','currency',
         'cancelled_at','cancelled_by_user_id','cancel_reason',
     ];
@@ -46,13 +46,47 @@ class SalesOrder extends Model
         'brand_snapshot' => 'array',
     ];
 
+    // ---------------------------
+    // Alias akses lama/baru
+    // ---------------------------
+
+    /**
+     * Alias: $so->number <-> kolom so_number
+     */
+    protected function number(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->so_number,
+            set: fn ($value) => ['so_number' => $value],
+        );
+    }
+
+    /**
+     * Alias: $so->date <-> kolom order_date
+     */
+    protected function date(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->order_date,
+            set: fn ($value) => ['order_date' => $value],
+        );
+    }
+
+    // ---------------------------
+    // Relations
+    // ---------------------------
     public function company(): BelongsTo   { return $this->belongsTo(Company::class); }
     public function customer(): BelongsTo  { return $this->belongsTo(Customer::class); }
     public function quotation(): BelongsTo { return $this->belongsTo(Quotation::class); }
     public function salesUser(): BelongsTo { return $this->belongsTo(User::class, 'sales_user_id'); }
-    public function lines(): HasMany       { return $this->hasMany(SalesOrderLine::class)->orderBy('position'); }
-    public function attachments()
+
+    public function lines(): HasMany
     {
-        return $this->hasMany(\App\Models\SalesOrderAttachment::class);
+        return $this->hasMany(SalesOrderLine::class)->orderBy('position');
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(SalesOrderAttachment::class);
     }
 }
