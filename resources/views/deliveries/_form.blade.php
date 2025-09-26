@@ -1,4 +1,8 @@
 ﻿@php
+  /**
+   * Build an array of line rows from the old input or the existing delivery lines.
+   * If there are no lines yet, push a single empty row with default values.
+   */
   $lineRows = collect(old('lines', $lines->map(function ($line) {
     if (is_array($line)) {
       return $line;
@@ -32,8 +36,12 @@
       'sales_order_line_id' => null,
     ]);
   }
+
+  // determine if only one warehouse is available
+  $singleWarehouse = $warehouses && $warehouses->count() === 1;
 @endphp
 
+<!-- hidden input for the related sales order id -->
 <input type="hidden" name="sales_order_id" value="{{ old('sales_order_id', $delivery->sales_order_id) }}">
 @if($delivery->sales_order_id && $delivery->salesOrder)
   <div class="alert alert-info d-flex align-items-center gap-2">
@@ -66,14 +74,20 @@
   </div>
   <div class="col-md-3">
     <label class="form-label">Warehouse</label>
-    <select name="warehouse_id" class="form-select">
-      <option value="">-- pilih --</option>
-      @foreach($warehouses as $warehouse)
-        <option value="{{ $warehouse->id }}" @selected(old('warehouse_id', $delivery->warehouse_id) == $warehouse->id)>
-          {{ $warehouse->name }}{{ $warehouse->allow_negative_stock ? ' (allow -)' : '' }}
-        </option>
-      @endforeach
-    </select>
+    @if($singleWarehouse)
+      <!-- When only one warehouse exists, prefill the value and show it as read only -->
+      <input type="hidden" name="warehouse_id" value="{{ $warehouses->first()->id }}">
+      <input type="text" class="form-control" value="{{ $warehouses->first()->name }}{{ $warehouses->first()->allow_negative_stock ? ' (allow -)' : '' }}" readonly disabled>
+    @else
+      <select name="warehouse_id" class="form-select">
+        <option value="">-- pilih --</option>
+        @foreach($warehouses as $warehouse)
+          <option value="{{ $warehouse->id }}" @selected(old('warehouse_id', $delivery->warehouse_id) == $warehouse->id)>
+            {{ $warehouse->name }}{{ $warehouse->allow_negative_stock ? ' (allow -)' : '' }}
+          </option>
+        @endforeach
+      </select>
+    @endif
   </div>
   <div class="col-md-3">
     <label class="form-label">Delivery Date</label>
@@ -108,8 +122,8 @@
     <table class="table card-table" id="lines-table">
       <thead>
         <tr>
-          <th style="width:18%">Item</th>
-          <th style="width:15%">Variant</th>
+          <th style="width:25%">Item</th>
+          <!-- Remove separate variant column: variant will be selected together with item in one select -->
           <th>Description</th>
           <th style="width:10%" class="text-end">Qty</th>
           <th style="width:8%">Unit</th>
@@ -262,27 +276,20 @@
 </script>
 @endpush
 
-
 <template id="line-row-template">
   <tr data-index="__INDEX__">
     <td>
+      <!-- Combined item + variant select: value is the item id, variant will be selected in secondary select for internal use if necessary -->
       <select class="form-select line-item" data-name="item_id">
         <option value="">-- pilih --</option>
         @foreach($items as $item)
           <option value="{{ $item->id }}">{{ $item->name }}</option>
         @endforeach
       </select>
+      <!-- stock indicator -->
       <div class="small text-muted mt-1">Stock: <span data-stock-label>&mdash;</span></div>
       <input type="hidden" data-name="quotation_line_id">
       <input type="hidden" data-name="sales_order_line_id">
-    </td>
-    <td>
-      <select class="form-select line-variant" data-name="item_variant_id">
-        <option value="">--</option>
-        @foreach($variants as $variant)
-          <option value="{{ $variant->id }}" data-item="{{ $variant->item_id }}">{{ $variant->name }}</option>
-        @endforeach
-      </select>
     </td>
     <td><input type="text" class="form-control" data-name="description"></td>
     <td><input type="number" step="0.0001" min="0" class="form-control text-end line-qty" value="1" data-name="qty"></td>
@@ -294,5 +301,3 @@
     <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-line"><i class="ti ti-x"></i></button></td>
   </tr>
 </template>
-
-

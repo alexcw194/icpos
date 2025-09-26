@@ -166,10 +166,11 @@
         <div class="card-header">
           <div class="card-title">Attachments</div>
           @can('uploadAttachment', $o)
-            <form action="{{ route('sales-orders.attachments.store', $o) }}" method="POST" enctype="multipart/form-data" class="ms-auto d-flex gap-2">
-              @csrf
-              <input type="file" name="attachments[]" class="form-control" accept=".pdf,.jpg,.jpeg,.png" multiple required style="max-width:280px">
-              <button type="submit" class="btn btn-primary">Upload</button>
+            <form action="{{ route('sales-orders.attachments.upload') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" name="draft_token" value="{{ old('draft_token', $draftToken) }}">
+                <input type="file" name="file" style="display:none" id="so-upload-{{ $salesOrder->id }}" onchange="this.form.submit()">
+                <label for="so-upload-{{ $salesOrder->id }}" class="btn btn-sm btn-outline-primary">Upload</label>
             </form>
           @endcan
         </div>

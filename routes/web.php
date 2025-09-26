@@ -16,6 +16,7 @@ use App\Http\Controllers\{
     BrandController,
     SalesOrderController,
     SalesOrderAttachmentController,
+    WarehouseController,
 };
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\SettingController;
@@ -169,6 +170,8 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
 
     Route::resource('sizes',  \App\Http\Controllers\SizeController::class)->except(['show']);
     Route::resource('colors', \App\Http\Controllers\ColorController::class)->except(['show']);
+
+    Route::resource('warehouses', WarehouseController::class)->except(['show']);
 });
 
 // =======================
