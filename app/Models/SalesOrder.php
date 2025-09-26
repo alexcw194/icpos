@@ -51,5 +51,8 @@ class SalesOrder extends Model
     public function quotation(): BelongsTo { return $this->belongsTo(Quotation::class); }
     public function salesUser(): BelongsTo { return $this->belongsTo(User::class, 'sales_user_id'); }
     public function lines(): HasMany       { return $this->hasMany(SalesOrderLine::class)->orderBy('position'); }
-    public function attachments(): HasMany { return $this->hasMany(SalesOrderAttachment::class); }
+    public function attachments()
+    {
+        return $this->hasMany(\App\Models\SalesOrderAttachment::class);
+    }
 }

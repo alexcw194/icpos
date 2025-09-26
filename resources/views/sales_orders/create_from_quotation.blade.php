@@ -1,14 +1,22 @@
 ﻿{{-- resources/views/sales_orders/create_from_quotation.blade.php --}}
 @extends('layouts.tabler')
 
+@section('title', 'Create Sales Order from Quotation')
+
 @section('content')
 @php
+  use Illuminate\Support\Str;
+
+  /** @var \App\Models\Quotation $quotation */
   $company     = $quotation->company;
   $isTaxable   = (bool) ($company->is_taxable ?? false);   // ICP = true, AMP = false
   $taxDefault  = (float) ($quotation->tax_percent ?? $company->default_tax_percent ?? 11);
   $discMode    = $quotation->discount_mode ?? 'total';     // 'per_item' | 'total'
   $lines       = $quotation->lines ?? collect();
   $validUntil  = optional($quotation->valid_until)->format('Y-m-d') ?? now()->addDays(30)->format('Y-m-d');
+
+  // Token draft untuk lampiran & cancel (dipakai juga di JS)
+  $draftToken  = Str::ulid()->toBase32();
 @endphp
 
 <div class="container-xl">
@@ -16,13 +24,14 @@
         method="POST" enctype="multipart/form-data" id="soForm"
         class="mode-{{ $discMode === 'per_item' ? 'per' : 'total' }}">
     @csrf
+    <input type="hidden" name="draft_token" id="draft_token" value="{{ $draftToken }}">
 
     <div class="card">
       <div class="card-header">
         <div class="card-title">
           Create Sales Order from Quotation
           <span class="text-muted">
-            - {{ $quotation->number }} · {{ $quotation->customer->name ?? '-' }}
+            — {{ $quotation->number }} · {{ $quotation->customer->name ?? '-' }}
           </span>
         </div>
       </div>
@@ -68,10 +77,15 @@
           </div>
         </div>
 
-        {{-- ===== Attachments ===== --}}
+        {{-- ===== Attachments (draft upload) ===== --}}
         <div class="mt-3">
           <label class="form-label">Attachments (PO Customer) — PDF/JPG/PNG</label>
-          <input type="file" name="attachments[]" class="form-control" accept=".pdf,.jpg,.jpeg,.png" multiple>
+          <input type="file" id="soUpload" class="form-control" multiple
+                 accept="application/pdf,image/jpeg,image/png">
+          <div class="form-text">
+            File yang diupload sebelum disimpan akan disimpan sebagai <em>draft</em> dan otomatis terhubung ke SO saat kamu klik “Create SO”.
+          </div>
+          <div id="soFiles" class="list-group list-group-flush mt-2"></div>
         </div>
 
         {{-- ===== NPWP Panel (ICP only) ===== --}}
@@ -91,22 +105,18 @@
                 <div class="col-md-4">
                   <label class="form-label">No. NPWP</label>
                   <input type="text" name="npwp_number"
-                        class="form-control @error('npwp_number') is-invalid @enderror"
-                        value="{{ old('npwp_number', $npwp['number'] ?? '') }}">
-                  <div class="form-hint">
-                    Terima 15/16 digit. Boleh titik/strip, sistem akan menormalisasi.
-                  </div>
+                         class="form-control @error('npwp_number') is-invalid @enderror"
+                         value="{{ old('npwp_number', $npwp['number'] ?? '') }}">
+                  <div class="form-hint">Terima 15/16 digit. Boleh titik/strip, sistem akan menormalisasi.</div>
                   @error('npwp_number') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
-
                 <div class="col-md-4">
                   <label class="form-label">Nama NPWP</label>
                   <input type="text" name="npwp_name"
-                        class="form-control @error('npwp_name') is-invalid @enderror"
-                        value="{{ old('npwp_name', $npwp['name'] ?? '') }}">
+                         class="form-control @error('npwp_name') is-invalid @enderror"
+                         value="{{ old('npwp_name', $npwp['name'] ?? '') }}">
                   @error('npwp_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
-
                 <div class="col-md-4">
                   <label class="form-label">Alamat NPWP</label>
                   <textarea name="npwp_address" rows="2"
@@ -117,14 +127,14 @@
 
               <label class="form-check mt-2">
                 <input class="form-check-input" type="checkbox" name="npwp_save_to_customer" value="1"
-                      {{ old('npwp_save_to_customer', true) ? 'checked' : '' }}>
+                       {{ old('npwp_save_to_customer', true) ? 'checked' : '' }}>
                 <span class="form-check-label">Simpan juga ke master Customer</span>
               </label>
             </div>
           </div>
         @endif
 
-        {{-- ===== Discount mode selector (NEW) ===== --}}
+        {{-- ===== Discount mode selector ===== --}}
         <div class="d-flex align-items-center gap-3 mt-4">
           <div class="fw-bold">Discount Mode</div>
           <div class="btn-group btn-group-sm" role="group" aria-label="Discount mode">
@@ -323,7 +333,7 @@
 
       {{-- FOOTER --}}
       <div class="card-footer d-flex justify-content-end gap-2">
-        <a href="{{ url()->previous() }}" class="btn btn-link">Cancel</a>
+        <button type="button" id="btnCancelDraft" class="btn btn-link text-danger">Cancel</button>
         <button type="submit" class="btn btn-primary">Create SO</button>
       </div>
     </div>
@@ -394,13 +404,127 @@
     return isFinite(x) ? x : 0;
   };
   const money = n => 'Rp ' + fmt(n);
+  const clamp = (n, min, max) => Math.min(Math.max(Number(n||0), min), max);
 
+  // ===== Upload draft attachments =====
+  const uploadInput = document.getElementById('soUpload');
+  const listEl      = document.getElementById('soFiles');
+  const draftToken  = document.getElementById('draft_token')?.value;
+
+  function rowTpl(file){
+    return `
+      <div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
+        <a class="me-auto" href="${file.url}" target="_blank">${file.name}</a>
+        <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
+        <button type="button" class="btn btn-sm btn-outline-danger">Hapus</button>
+      </div>
+    `;
+  }
+
+  async function refreshList() {
+    if (!listEl || !draftToken) return;
+
+    try {
+      const base = @json(route('sales-orders.attachments.index'));
+      const url  = base + '?draft_token=' + encodeURIComponent(draftToken);
+
+      const res = await fetch(url, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        credentials: 'same-origin'
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(()=>'');
+        console.error('attachments.index HTTP', res.status, txt);
+        return;
+      }
+
+      // robust JSON parse
+      let files;
+      try {
+        files = await res.json();
+      } catch (e) {
+        const txt = await res.text().catch(()=>'');
+        console.error('attachments.index bukan JSON:', e, txt);
+        return;
+      }
+
+      if (!Array.isArray(files)) {
+        console.warn('attachments.index mengembalikan bukan array:', files);
+        return;
+      }
+
+      // Render list
+      listEl.innerHTML = files.map(rowTpl).join('') || `
+        <div class="list-group-item text-muted">Belum ada file.</div>
+      `;
+
+      // Bind tombol hapus
+      listEl.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const row = e.target.closest('[data-id]');
+          const id  = row?.dataset.id;
+          if (!id) return;
+
+          const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+          const delUrl = @json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
+
+          const r = await fetch(delUrl, {
+            method: 'DELETE',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'X-CSRF-TOKEN': csrf,
+              'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+          });
+
+          if (r.ok) {
+            row.remove();
+          } else {
+            const t = await r.text().catch(()=> '');
+            console.error('Gagal hapus attachment', r.status, t);
+          }
+        });
+      });
+
+    } catch (e) {
+      console.error('refreshList error', e);
+    }
+  }
+
+
+  uploadInput?.addEventListener('change', async (e) => {
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    for (const f of e.target.files) {
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('draft_token', draftToken);
+
+      await fetch(@json(route('sales-orders.attachments.upload')), {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrf,
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        body: fd,                // jangan set Content-Type (biar FormData yg atur)
+        credentials: 'same-origin'
+      });
+    }
+    uploadInput.value = '';
+    refreshList();
+  });
+
+
+
+  // ===== Kalkulasi totals =====
   let mode = document.getElementById('discount_mode')?.value || 'total';
   const isTaxable = {{ $isTaxable ? 'true' : 'false' }};
-
   const form = document.getElementById('soForm');
-
-  const clamp = (n, min, max) => Math.min(Math.max(Number(n||0), min), max);
 
   const el = {
     tbody: document.getElementById('linesBody'),
@@ -423,20 +547,23 @@
     dmPer:   document.getElementById('dm-per'),
   };
 
-  // ===== Recalc all =====
   function recalc(){
+    if (!el.subtotal || !el.tbody) return; 
+
+    const setText = (node, text) => { if (node) node.textContent = text; };
+    const setVal  = (node, val)  => { if (node) node.value = val; };
+
     let sub = 0, perLineDc = 0;
 
     document.querySelectorAll('#linesBody tr.line').forEach(tr => {
-      const qty   = parseID(tr.querySelector('.qty')?.value);
-      const price = parseID(tr.querySelector('.price')?.value);
+      const qty     = parseID(tr.querySelector('.qty')?.value);
+      const price   = parseID(tr.querySelector('.price')?.value);
       const lineSub = qty * price;
 
       let dcAmt = 0;
       if (mode === 'per_item') {
-        const tp  = tr.querySelector('.dctype')?.value || 'amount';
-        let  val = parseID(tr.querySelector('.dcval')?.value);
-
+        const tp = tr.querySelector('.dctype')?.value || 'amount';
+        let val  = parseID(tr.querySelector('.dcval')?.value);
         if (tp === 'percent') {
           val   = clamp(val, 0, 100);
           dcAmt = lineSub * (val/100);
@@ -449,20 +576,19 @@
 
       const lineTotal = Math.max(lineSub - dcAmt, 0);
 
-      sub += lineSub;
+      sub       += lineSub;
       perLineDc += dcAmt;
 
-      tr.querySelector('.line-total').textContent = money(lineTotal);
-      tr.querySelector('.line_total_input').value = lineTotal.toFixed(2);
-      tr.querySelector('.line_dcamt_input').value = dcAmt.toFixed(2);
-      tr.querySelector('.line_sub_input').value = lineSub.toFixed(2);
+      setText(tr.querySelector('.line-total'), money(lineTotal));
+      setVal (tr.querySelector('.line_total_input'), lineTotal.toFixed(2));
+      setVal (tr.querySelector('.line_dcamt_input'), dcAmt.toFixed(2));
+      setVal (tr.querySelector('.line_sub_input'),  lineSub.toFixed(2));
     });
 
     let totalDc = 0;
     if (mode === 'total') {
       const ttype = el.tdType?.value || 'amount';
       let   tval  = parseID(el.tdValue?.value);
-
       if (ttype === 'percent') {
         tval    = clamp(tval, 0, 100);
         totalDc = sub * (tval/100);
@@ -475,25 +601,25 @@
       totalDc = perLineDc;
     }
 
-    const dpp = Math.max(sub - totalDc, 0);
+    const dpp    = Math.max(sub - totalDc, 0);
     const taxPct = isTaxable ? parseID(el.taxPct?.value) : 0;
-    const ppn = isTaxable ? (dpp * (taxPct/100)) : 0;
-    const grand = dpp + ppn;
+    const ppn    = isTaxable ? (dpp * (taxPct/100)) : 0;
+    const grand  = dpp + ppn;
 
-    el.subtotal.textContent = money(sub);
-    (el.totalDc || {}).textContent = money(totalDc);
-    el.dpp.textContent = money(dpp);
-    el.ppn.textContent = isTaxable ? money(ppn) : '-';
-    el.grand.textContent = money(grand);
+    setText(el.subtotal, money(sub));
+    setText(el.totalDc,  money(totalDc));
+    setText(el.dpp,      money(dpp));
+    setText(el.ppn,      isTaxable ? money(ppn) : '-');
+    setText(el.grand,    money(grand));
 
-    el.i_subtotal.value = sub.toFixed(2);
-    el.i_total_dc.value = totalDc.toFixed(2);
-    el.i_dpp.value = dpp.toFixed(2);
-    el.i_ppn.value = ppn.toFixed(2);
-    el.i_grand.value = grand.toFixed(2);
+    setVal(el.i_subtotal, sub.toFixed(2));
+    setVal(el.i_total_dc, totalDc.toFixed(2));
+    setVal(el.i_dpp,      dpp.toFixed(2));
+    setVal(el.i_ppn,      ppn.toFixed(2));
+    setVal(el.i_grand,    grand.toFixed(2));
   }
 
-  // ===== Row helpers =====
+
   function bindRow(tr){
     tr.querySelectorAll('.num, .dctype').forEach(inp => {
       inp.addEventListener('input', recalc);
@@ -509,7 +635,22 @@
     if (o) { o.addEventListener('input', recalc); o.addEventListener('change', recalc); }
   });
 
-  // ===== Quick add (TomSelect search) =====
+  // cancel draft attachments
+  document.getElementById('btnCancelDraft')?.addEventListener('click', async () => {
+    const token = draftToken;
+    await fetch(@json(route('sales-orders.create.cancel')), {
+      method: 'DELETE',
+      headers: {
+        'X-CSRF-TOKEN': @json(csrf_token()),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ draft_token: token }),
+      credentials: 'same-origin'
+    });
+    window.history.back();
+  });
+
+  // ===== Quick add (TomSelect) =====
   function ensureTomSelect(cb){
     if (window.TomSelect) return cb();
     const link = document.createElement('link');
@@ -577,7 +718,6 @@
     qsClear();
   }
 
-
   if (qs.add)   qs.add.addEventListener('click', addFromQuick);
   if (qs.clear) qs.clear.addEventListener('click', qsClear);
   if (qs.name)  qs.name.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); addFromQuick(); } });
@@ -614,41 +754,13 @@
         if (qs.price) qs.price.value = (data.price ?? 0);
         if (qs.qty && (!qs.qty.value || +qs.qty.value === 0)) qs.qty.value = '1';
         this.setTextboxValue(''); this.close();
-        recalc(); // <= tambahkan
+        recalc();
       },
-
       onBlur: function(){ this.setTextboxValue(''); }
     });
   });
 
-  document.addEventListener('input', function(e){
-    if(e.target.name==='npwp_number'){
-      const digits = (e.target.value||'').replace(/\D+/g,'');
-      e.target.setCustomValidity((digits.length===0 || digits.length===15 || digits.length===16) ? '' : 'NPWP harus 15 atau 16 digit');
-    }
-  }, {passive:true});
-
-  document.addEventListener('blur', function(e){
-  const id = e.target?.id;
-
-  if (id === 'total_discount_value') {
-    const tp = el.tdType?.value || 'amount';
-    let v = parseID(e.target.value);
-    e.target.value = (tp==='percent') ? clamp(v,0,100) : Math.max(v,0);
-    recalc(); // <= penting
-  }
-
-  if (e.target.classList?.contains('dcval')) {
-    const tr = e.target.closest('tr');
-    const tp = tr?.querySelector('.dctype')?.value || 'amount';
-    let v = parseID(e.target.value);
-    e.target.value = (tp==='percent') ? clamp(v,0,100) : Math.max(v,0);
-    recalc(); // <= penting
-  }
-}, true);
-
-
-  // ===== Mode switch handlers (NEW) =====
+  // ===== Mode switch handlers =====
   function applyMode(newMode){
     mode = newMode;
     if (el.modeInput) el.modeInput.value = mode;
@@ -662,11 +774,11 @@
   if (el.dmTotal) el.dmTotal.addEventListener('change', () => applyMode('total'));
   if (el.dmPer)   el.dmPer.addEventListener('change',   () => applyMode('per_item'));
 
-  // initial calc
+
+  // Initial load
+  refreshList();
   recalc();
 })();
 </script>
 @endpush
 @endsection
-
-
