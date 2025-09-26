@@ -2,26 +2,30 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Quotation, SalesOrder, SalesOrderLine, SalesOrderAttachment, Company, Customer};
+use App\Models\{
+    Quotation,
+    SalesOrder,
+    SalesOrderLine,
+    SalesOrderAttachment,
+    Company,
+    Customer
+};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use App\Services\DocNumberService;
+use App\Http\Controllers\SalesOrderAttachmentController as SOAtt;
 
 class SalesOrderController extends Controller
 {
-    /**
-     * Wizard: Create Sales Order from Quotation (UI).
-     */
+    /** Wizard: Create Sales Order from Quotation (UI). */
     public function createFromQuotation(Quotation $quotation)
     {
         $quotation->load(['customer','company','salesUser','lines']);
 
-        // Flag NPWP wajib? (Soft policy: Create SO boleh tanpa NPWP; Invoice nanti hard lock)
+        // Soft policy: SO boleh dibuat walau NPWP belum lengkap (Invoice yang hard lock)
         $npwpRequired = (bool) ($quotation->company->require_npwp_on_so ?? false);
 
-        // Prefill NPWP dari master customer
         $cust = $quotation->customer;
         $npwp = [
             'number'  => $cust->npwp_number ?? '',
@@ -49,18 +53,14 @@ class SalesOrderController extends Controller
         return view('sales_orders.index', compact('orders','status'));
     }
 
-    /**
-     * Detail SO.
-     */
+    /** Detail SO. */
     public function show(SalesOrder $salesOrder)
     {
         $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation']);
         return view('sales_orders.show', compact('salesOrder'));
     }
 
-    /**
-     * Edit form (header + lines + attachments upload).
-     */
+    /** Edit form (header + lines + attachments upload). */
     public function edit(SalesOrder $salesOrder)
     {
         $this->authorize('update', $salesOrder);
@@ -68,9 +68,7 @@ class SalesOrderController extends Controller
         return view('sales_orders.edit', compact('salesOrder'));
     }
 
-    /**
-     * Update header + lines (+ upload attachments).
-     */
+    /** Update header + lines (+ upload attachments). */
     public function update(Request $request, SalesOrder $salesOrder)
     {
         $this->authorize('update', $salesOrder);
@@ -110,16 +108,18 @@ class SalesOrderController extends Controller
             'tax_percent' => ['required','string'],
 
             'lines' => ['required','array','min:1'],
-            'lines.*.id'           => ['nullable','integer'],
-            'lines.*.name'         => ['required','string','max:255'],
-            'lines.*.description'  => ['nullable','string'],
-            'lines.*.unit'         => ['nullable','string','max:20'],
-            'lines.*.qty'          => ['required','string'],
-            'lines.*.unit_price'   => ['required','string'],
+            'lines.*.id'             => ['nullable','integer'],
+            'lines.*.name'           => ['required','string','max:255'],
+            'lines.*.description'    => ['nullable','string'],
+            'lines.*.unit'           => ['nullable','string','max:20'],
+            'lines.*.qty'            => ['required','string'],
+            'lines.*.unit_price'     => ['required','string'],
             'lines.*.discount_type'  => ['nullable','in:amount,percent'],
             'lines.*.discount_value' => ['nullable','string'],
             'lines.*.item_id'         => ['nullable','integer','exists:items,id'],
             'lines.*.item_variant_id' => ['nullable','integer','exists:item_variants,id'],
+            'private_notes' => ['nullable','string'],
+            'under_amount'  => ['nullable','numeric','min:0'],
 
             // optional upload saat edit
             'attachments.*' => ['nullable','file','mimes:pdf,jpg,jpeg,png','max:5120'],
@@ -143,10 +143,10 @@ class SalesOrderController extends Controller
             $dcAmt = 0; $dv = 0;
             if ($mode === 'per_item') {
                 if ($dt === 'percent') {
-                    $dv = $clamp($dvRaw, 0, 100);
+                    $dv   = $clamp($dvRaw, 0, 100);
                     $dcAmt = $lineSub * ($dv/100);
                 } else {
-                    $dv = max($dvRaw, 0);
+                    $dv   = max($dvRaw, 0);
                     $dcAmt = $dv;
                 }
                 if ($dcAmt > $lineSub) $dcAmt = $lineSub;
@@ -158,7 +158,7 @@ class SalesOrderController extends Controller
             $sub += $lineSub; $perLineDc += $dcAmt;
 
             $cleanLines[] = [
-                'id'              => $ln['id'] ?? null, 
+                'id'              => $ln['id'] ?? null,
                 'position'        => $i,
                 'name'            => $ln['name'],
                 'description'     => $ln['description'] ?? null,
@@ -171,7 +171,6 @@ class SalesOrderController extends Controller
                 'line_subtotal'   => $lineSub,
                 'line_total'      => $lineTotal,
 
-                // NEW:
                 'item_id'         => $ln['item_id'] ?? null,
                 'item_variant_id' => $ln['item_variant_id'] ?? null,
             ];
@@ -181,10 +180,10 @@ class SalesOrderController extends Controller
         $tdValRaw= $parse($data['total_discount_value'] ?? 0);
         if ($mode === 'total') {
             if ($tdType === 'percent') {
-                $tdVal = $clamp($tdValRaw, 0, 100);
+                $tdVal   = $clamp($tdValRaw, 0, 100);
                 $totalDc = $sub * ($tdVal/100);
             } else {
-                $tdVal = max($tdValRaw, 0);
+                $tdVal   = max($tdValRaw, 0);
                 $totalDc = $tdVal;
             }
             if ($totalDc > $sub) $totalDc = $sub;
@@ -237,18 +236,19 @@ class SalesOrderController extends Controller
             }
         });
 
-        // Upload attachments (opsional, saat edit) – gunakan policy uploadAttachment
+        // Upload attachments (opsional, saat edit)
         if ($request->hasFile('attachments')) {
             $this->authorize('uploadAttachment', $salesOrder);
             foreach ($request->file('attachments') as $file) {
                 if (!$file) continue;
                 $path = $file->store("sales_orders/{$salesOrder->id}", 'public');
                 $salesOrder->attachments()->create([
-                    'path' => $path,
+                    'disk'          => 'public',
+                    'path'          => $path,
                     'original_name' => $file->getClientOriginalName(),
-                    'mime' => $file->getClientMimeType(),
-                    'size' => $file->getSize(),
-                    'uploaded_by_user_id' => auth()->id(),
+                    'mime'          => $file->getClientMimeType(),
+                    'size'          => $file->getSize(),
+                    'uploaded_by'   => auth()->id(),
                 ]);
             }
         }
@@ -256,9 +256,7 @@ class SalesOrderController extends Controller
         return redirect()->route('sales-orders.show', $salesOrder)->with('ok','Sales Order updated.');
     }
 
-    /**
-     * Cancel SO (status -> cancelled) dengan alasan.
-     */
+    /** Cancel SO (status -> cancelled) dengan alasan. */
     public function cancel(Request $request, SalesOrder $salesOrder)
     {
         $this->authorize('cancel', $salesOrder);
@@ -277,14 +275,11 @@ class SalesOrderController extends Controller
         return redirect()->route('sales-orders.show', $salesOrder)->with('ok','Sales Order cancelled.');
     }
 
-    /**
-     * Hapus SO (hanya SuperAdmin, open & belum DN/INV).
-     */
+    /** Hapus SO (SuperAdmin, open & belum DN/INV). */
     public function destroy(SalesOrder $salesOrder)
     {
         $this->authorize('delete', $salesOrder);
 
-        // Hapus file fisik lampiran (FK cascade akan hapus recordnya)
         foreach ($salesOrder->attachments as $att) {
             if ($att->path) Storage::disk('public')->delete($att->path);
         }
@@ -294,9 +289,7 @@ class SalesOrderController extends Controller
         return redirect()->route('sales-orders.index')->with('ok','Sales Order deleted.');
     }
 
-    /**
-     * Upload multiple attachments (route khusus, bila tidak lewat Edit).
-     */
+    /** Upload multiple attachments (route khusus, bila tidak lewat Edit). */
     public function storeAttachment(Request $request, SalesOrder $salesOrder)
     {
         $this->authorize('uploadAttachment', $salesOrder);
@@ -310,11 +303,12 @@ class SalesOrderController extends Controller
                 if (!$file) continue;
                 $path = $file->store("sales_orders/{$salesOrder->id}", 'public');
                 $salesOrder->attachments()->create([
-                    'path' => $path,
+                    'disk'          => 'public',
+                    'path'          => $path,
                     'original_name' => $file->getClientOriginalName(),
-                    'mime' => $file->getClientMimeType(),
-                    'size' => $file->getSize(),
-                    'uploaded_by_user_id' => auth()->id(),
+                    'mime'          => $file->getClientMimeType(),
+                    'size'          => $file->getSize(),
+                    'uploaded_by'   => auth()->id(),
                 ]);
             }
         }
@@ -322,12 +316,9 @@ class SalesOrderController extends Controller
         return back()->with('ok','Attachment(s) uploaded.');
     }
 
-    /**
-     * Delete attachment (cek kepemilikan & status via policy).
-     */
+    /** Delete attachment (cek kepemilikan & status via policy). */
     public function destroyAttachment(SalesOrder $salesOrder, SalesOrderAttachment $attachment)
     {
-        // Pastikan attachment milik SO ini
         if ((int)$attachment->sales_order_id !== (int)$salesOrder->id) {
             abort(404);
         }
@@ -342,270 +333,198 @@ class SalesOrderController extends Controller
         return back()->with('ok','Attachment deleted.');
     }
 
-    /**
-     * Simpan hasil wizard Create SO.
-     */
+    /** Simpan hasil wizard Create SO. */
     public function storeFromQuotation(Request $request, Quotation $quotation)
     {
-        $quotation->load(['customer','company','salesUser']);
-        $company  = $quotation->company;
-        $customer = $quotation->customer;
-
-        // Parser angka locale-ID
-        $parse = function($s){
-            if ($s === null) return 0;
-            $s = preg_replace('/[^\d,.\-]/', '', (string)$s);
-            $s = str_replace('.', '', $s);
-            $s = str_replace(',', '.', $s);
-            $f = (float) $s;
-            return is_finite($f) ? $f : 0;
-        };
-        // Clamp helper
-        $clamp = function($n, $min, $max){
-            $n = (float) $n;
-            if ($n < $min) return $min;
-            if ($n > $max) return $max;
-            return $n;
-        };
-
-        // Validasi dasar
         $data = $request->validate([
-            'po_number' => ['required','string','max:100'],
-            'po_date'   => ['required','date'],
-            'deadline'  => ['nullable','date'],
-            'ship_to'   => ['nullable','string'],
-            'bill_to'   => ['nullable','string'],
-            'notes'     => ['nullable','string'],
+            'po_number'      => ['nullable','string','max:100'],
+            'po_date'        => ['nullable','date'],
+            'deadline'       => ['nullable','date'],
+            'ship_to'        => ['nullable','string'],
+            'bill_to'        => ['nullable','string'],
+            'notes'          => ['nullable','string'],
 
-            'discount_mode' => ['required','in:total,per_item'],
+            'private_notes'  => ['nullable','string'],
+            'under_amount'   => ['nullable','numeric','min:0'],
 
-            // Total-mode fields
-            'total_discount_type'  => ['nullable','in:amount,percent'],
-            'total_discount_value' => ['nullable','string'],
+            'discount_mode'  => ['nullable','in:total,per_item'],
+            'tax_percent'    => ['nullable','numeric','min:0'],
 
-            // Lines
-            'lines' => ['required','array','min:1'],
-            'lines.*.name'        => ['required','string','max:255'],
-            'lines.*.description' => ['nullable','string'],
-            'lines.*.unit'        => ['nullable','string','max:20'],
-            'lines.*.qty'         => ['required','string'],
-            'lines.*.unit_price'  => ['required','string'],
-            'lines.*.discount_type'  => ['nullable','in:amount,percent'],
-            'lines.*.discount_value' => ['nullable','string'],
-            'lines.*.item_id'         => ['nullable','integer','exists:items,id'],
-            'lines.*.item_variant_id' => ['nullable','integer','exists:item_variants,id'],
-
-            // Tax
-            'tax_percent' => ['required','string'],
-
-            // NPWP (opsional di wizard; hard di Invoice)
-            'npwp_number'  => ['nullable','string','max:32'],
-            'npwp_name'    => ['nullable','string','max:255'],
-            'npwp_address' => ['nullable','string'],
-            'npwp_save_to_customer' => ['nullable','boolean'],
-
-            // Attachments
-            'attachments.*' => ['nullable','file','mimes:pdf,jpg,jpeg,png','max:5120'],
+            'draft_token'    => ['nullable','string','max:64'],
         ]);
 
-        // Minimal 1 baris qty > 0
-        $hasQty = false;
-        foreach (($data['lines'] ?? []) as $ln) {
-            if ($parse($ln['qty'] ?? 0) > 0) { $hasQty = true; break; }
-        }
-        if (!$hasQty) {
-            return back()->withInput()->withErrors(['lines' => 'Minimal satu baris dengan Qty > 0.']);
-        }
+        $under       = $this->toNumber($data['under_amount'] ?? 0);
+        $taxPctInput = $this->toNumber($data['tax_percent'] ?? ($quotation->tax_percent ?? 0));
 
-        // Compute totals (server-side) — dengan clamp persen & non-negative amounts
-        $mode   = $data['discount_mode'];
+        $discountMode = $data['discount_mode'] ?? ($quotation->discount_mode ?? 'total');
 
-        // Pajak: kalau non-taxable → paksa 0; kalau taxable → clamp 0–100
-        $taxPctInput = $parse($data['tax_percent'] ?? 0);
-        $taxPct = ($company->is_taxable ?? false) ? $clamp($taxPctInput, 0, 100) : 0.0;
+        $company   = $quotation->company()->first();
+        $isTaxable = (bool)($company->is_taxable ?? false);
+        $taxPct    = $isTaxable ? max(min($taxPctInput,100),0) : 0.0;
 
-        $sub = 0; $perLineDc = 0;
-        $cleanLines = [];
-        foreach ($data['lines'] as $i => $ln) {
-            $qty   = max($parse($ln['qty'] ?? 0), 0);
-            $price = max($parse($ln['unit_price'] ?? 0), 0);
-            $lineSub = $qty * $price;
+        /** @var SalesOrder $so */
+        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable) {
 
-            $dt = $ln['discount_type'] ?? 'amount';
-            $dvRaw = $parse($ln['discount_value'] ?? 0);
-
-            $dcAmt = 0; $dv = 0;
-            if ($mode === 'per_item') {
-                if ($dt === 'percent') {
-                    // clamp 0–100
-                    $dv = $clamp($dvRaw, 0, 100);
-                    $dcAmt = $lineSub * ($dv/100);
-                } else {
-                    // amount non-negative
-                    $dv = max($dvRaw, 0);
-                    $dcAmt = $dv;
-                }
-                if ($dcAmt > $lineSub) $dcAmt = $lineSub;
+            // === Generate nomor SO ===
+            if (class_exists(DocNumberService::class)) {
+                // Service butuh 3 argumen: docType, company, docDate
+                $number = app(DocNumberService::class)->next('sales_order', $company, now());
             } else {
-                // mode total → nolkan set per-baris
-                $dt = 'amount'; $dv = 0; $dcAmt = 0;
+                $number = 'SO/'.date('Y').'/'.str_pad((string)(SalesOrder::max('id')+1), 5, '0', STR_PAD_LEFT);
             }
 
-            $lineTotal = max($lineSub - $dcAmt, 0);
-
-            $sub += $lineSub;
-            $perLineDc += $dcAmt;
-
-            $cleanLines[] = [
-                'id'               => $ln['id'] ?? null,
-                'position'         => $i,
-                'name'             => $ln['name'],
-                'description'      => $ln['description'] ?? null,
-                'unit'             => $ln['unit'] ?? null,
-                'qty_ordered'      => $qty,
-                'unit_price'       => $price,
-                'discount_type'    => $dt,
-                'discount_value'   => $dv,
-                'discount_amount'  => $dcAmt,
-                'line_subtotal'    => $lineSub,
-                'line_total'       => $lineTotal,
-
-                // NEW:
-                'item_id'          => $ln['item_id'] ?? null,
-                'item_variant_id'  => $ln['item_variant_id'] ?? null,
-            ];
-
-        }
-
-        // Diskon total
-        $totalDc = 0;
-        $tdType = ($data['total_discount_type'] ?? 'amount');
-        $tdValRaw  = $parse($data['total_discount_value'] ?? 0);
-        if ($mode === 'total') {
-            if ($tdType === 'percent') {
-                $tdVal = $clamp($tdValRaw, 0, 100);
-                $totalDc = $sub * ($tdVal/100);
-            } else {
-                $tdVal = max($tdValRaw, 0);
-                $totalDc = $tdVal;
-            }
-            if ($totalDc > $sub) $totalDc = $sub;
-        } else {
-            $tdType = 'amount'; $tdVal = 0;
-            $totalDc = $perLineDc;
-        }
-
-        $dpp   = max($sub - $totalDc, 0);
-        $ppn   = ($company->is_taxable ?? false) ? ($dpp * ($taxPct/100)) : 0;
-        $grand = $dpp + $ppn;
-
-        // NPWP soft policy (ICP)
-        $npwpRequired = (bool) ($company->require_npwp_on_so ?? false);
-        $npwpNumber   = preg_replace('/\D+/', '', (string)($data['npwp_number'] ?? ''));
-        $npwpName     = $data['npwp_name']    ?? null;
-        $npwpAddress  = $data['npwp_address'] ?? null;
-        $npwpStatus   = ($npwpRequired && (empty($npwpNumber) || empty($npwpName) || empty($npwpAddress))) ? 'missing' : 'ok';
-
-        // Generate nomor SO via DocNumberService (anti-race + auto-seed)
-        $soNumber = DocNumberService::next('sales_order', $company, Carbon::now());
-
-        // Snapshot brand & currency
-        $brandSnapshot = [
-            'name'                => $company->name ?? null,
-            'alias'               => $company->alias ?? null,
-            'is_taxable'          => (bool)($company->is_taxable ?? false),
-            'require_npwp_on_so'  => (bool)($company->require_npwp_on_so ?? false),
-            'default_tax_percent' => (float)($company->default_tax_percent ?? 11),
-        ];
-        $currency = $company->currency ?? 'IDR';
-
-        // Simpan
-        $so = DB::transaction(function () use (
-            $request, $quotation, $company, $customer, $data,
-            $soNumber, $npwpRequired, $npwpStatus, $npwpNumber, $npwpName, $npwpAddress,
-            $mode, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $cleanLines,
-            $brandSnapshot, $currency
-        ) {
+            // === Create header ===
             $so = SalesOrder::create([
-                'company_id' => $company->id,
-                'customer_id'=> $customer->id,
-                'quotation_id' => $quotation->id,
-                'sales_user_id'=> $quotation->sales_user_id ?? auth()->id(),
+                'quotation_id'        => $quotation->id,
+                'company_id'          => $quotation->company_id,
+                'customer_id'         => $quotation->customer_id,
 
-                'so_number'     => $soNumber,
-                'order_date'    => now()->toDateString(),
+                // GUNAKAN KOLOM ASLI:
+                'so_number'           => $number,
+                'order_date'          => now()->toDateString(),
+                'deadline'            => $data['deadline'] ?? null,
 
-                'customer_po_number' => $data['po_number'],
-                'customer_po_date'   => $data['po_date'],
-                'deadline'           => $data['deadline'] ?? null,
+                'customer_po_number'  => $data['po_number'] ?? null,
+                'customer_po_date'    => $data['po_date']   ?? now()->toDateString(),
 
-                'ship_to' => $data['ship_to'] ?? null,
-                'bill_to' => $data['bill_to'] ?? null,
-                'notes'   => $data['notes']   ?? null,
+                'status'              => 'open',
+                'notes'               => $data['notes'] ?? null,
+                'private_notes'       => $data['private_notes'] ?? null,
+                'under_amount'        => $under,
 
-                'discount_mode' => $mode,
-
-                'lines_subtotal'        => $sub,
-                'total_discount_type'   => $tdType,
-                'total_discount_value'  => $tdVal ?? 0,
-                'total_discount_amount' => $totalDc,
-                'taxable_base'          => $dpp,
-                'tax_percent'           => $taxPct,
-                'tax_amount'            => $ppn,
-                'total'                 => $grand,
-
-                'npwp_required'   => $npwpRequired,
-                'npwp_status'     => $npwpStatus,
-                'tax_npwp_number' => $npwpNumber ?: null,
-                'tax_npwp_name'   => $npwpName ?: null,
-                'tax_npwp_address'=> $npwpAddress ?: null,
-
-                'status' => 'open',
-
-                // snapshot
-                'brand_snapshot' => $brandSnapshot,
-                'currency'       => $currency,
+                'discount_mode'       => $discountMode,
+                'tax_percent'         => $taxPct,
             ]);
 
-            foreach ($cleanLines as $i => $line) {
-                $line['position'] = $i + 1; // lebih enak 1-based
-                $so->lines()->create(collect($line)->except('id')->toArray());
+            // === Copy lines dari quotation ===
+            $linesSubtotal = 0.0;
+
+            foreach ($quotation->lines as $idx => $ql) {
+                $qty       = (float)($ql->qty ?? $ql->quantity ?? 0);
+                $unitPrice = (float)($ql->unit_price ?? 0);
+
+                $discType  = $discountMode === 'per_item' ? ($ql->discount_type ?? 'amount') : 'amount';
+                $discValue = $discountMode === 'per_item' ? (float)($ql->discount_value ?? 0) : 0.0;
+
+                $lineSub   = $qty * $unitPrice;
+                $lineDcAmt = 0.0;
+                if ($discountMode === 'per_item') {
+                    $lineDcAmt = $discType === 'percent'
+                        ? ($lineSub * $discValue / 100)
+                        : max($discValue, 0);
+                    $lineDcAmt = min($lineDcAmt, $lineSub);
+                }
+                $lineTotal = max(0, $lineSub - $lineDcAmt);
+
+                SalesOrderLine::create([
+                    'sales_order_id'   => $so->id,
+                    'position'         => $idx,
+                    'name'             => $ql->name,
+                    'description'      => $ql->description,
+                    'unit'             => $ql->unit ?? $ql->unit_name ?? 'PCS',
+
+                    'qty_ordered'      => $qty,
+                    'unit_price'       => $unitPrice,
+                    'discount_type'    => $discType,
+                    'discount_value'   => $discValue,
+                    'discount_amount'  => $lineDcAmt,
+                    'line_subtotal'    => $lineSub,
+                    'line_total'       => $lineTotal,
+
+                    'item_id'          => $ql->item_id ?? null,
+                    'item_variant_id'  => $ql->item_variant_id ?? $ql->variant_id ?? null,
+                ]);
+
+                $linesSubtotal += $lineTotal; // subtotal setelah diskon per-item
             }
 
-            // Attachments
-            if ($request->hasFile('attachments')) {
-                foreach ($request->file('attachments') as $file) {
-                    if (!$file) continue;
-                    $path = $file->store("sales_orders/{$so->id}", 'public');
-                    $so->attachments()->create([
-                        'path' => $path,
-                        'original_name' => $file->getClientOriginalName(),
-                        'mime' => $file->getClientMimeType(),
-                        'size' => $file->getSize(),
-                        'uploaded_by_user_id' => auth()->id(),
-                    ]);
+            // === Diskon total (jika mode total) ===
+            $tdType = 'amount';
+            $tdVal  = 0.0;
+            $totalDiscountAmount = 0.0;
+
+            if ($discountMode === 'total') {
+                $tdType = $quotation->total_discount_type ?? 'amount';
+                $tdVal  = (float)($quotation->total_discount_value ?? 0);
+                $totalDiscountAmount = $tdType === 'percent'
+                    ? ($linesSubtotal * $tdVal / 100)
+                    : $tdVal;
+                $totalDiscountAmount = min($totalDiscountAmount, $linesSubtotal);
+            }
+
+            $taxableBase = max(0, $linesSubtotal - $totalDiscountAmount);
+            $taxAmount   = $isTaxable ? round($taxableBase * ($so->tax_percent/100), 2) : 0.0;
+            $total       = $taxableBase + $taxAmount;
+
+            // === Update totals header ===
+            $so->update([
+                'lines_subtotal'        => $linesSubtotal,
+                'total_discount_type'   => $tdType,
+                'total_discount_value'  => $discountMode === 'total' ? $tdVal : 0,
+                'total_discount_amount' => $discountMode === 'total' ? $totalDiscountAmount : 0,
+                'taxable_base'          => $taxableBase,
+                'tax_amount'            => $taxAmount,
+                'total'                 => $total,
+            ]);
+
+            // === Pindahkan lampiran draft → final ===
+            if (!empty($data['draft_token'])) {
+                if (method_exists(SOAtt::class, 'attachFromDraft')) {
+                    SOAtt::attachFromDraft($data['draft_token'], $so);
+                } else {
+                    $rows = SalesOrderAttachment::where('draft_token', $data['draft_token'])->get();
+                    foreach ($rows as $att) {
+                        $disk = $att->disk ?: 'public';
+                        $old  = $att->path;
+                        $filename = basename($old);
+                        $new = "so_attachments/{$so->id}/{$filename}";
+                        if ($old && Storage::disk($disk)->exists($old)) {
+                            Storage::disk($disk)->makeDirectory("so_attachments/{$so->id}");
+                            Storage::disk($disk)->move($old, $new);
+                        } else {
+                            $new = $old;
+                        }
+                        $att->update([
+                            'sales_order_id' => $so->id,
+                            'draft_token'    => null,
+                            'path'           => $new,
+                            'uploaded_by'    => auth()->id(),
+                        ]);
+                    }
                 }
             }
 
-            // Update quotation → won & link ke SO
+            // === Tandai quotation WON ===
             $quotation->update([
-                'status' => 'won',
-                'won_at' => now(),
+                'status'         => 'won',
+                'won_at'         => now(),
+                'sales_order_id' => $so->id,
             ]);
 
             return $so;
         });
 
-        // (Opsional) Perbarui master customer NPWP jika diminta dan tersedia
-        if ($company->require_npwp_on_so && $request->boolean('npwp_save_to_customer') && $npwpNumber) {
-            $customer->update([
-                'npwp_number'  => $npwpNumber,
-                'npwp_name'    => $npwpName,
-                'npwp_address' => $npwpAddress,
-            ]);
+        // Response
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true, 'id' => $so->id, 'number' => $so->so_number]);
         }
 
         return redirect()->route('sales-orders.show', $so)
-            ->with('ok', 'Sales Order berhasil dibuat dari quotation.');
+            ->with('success', 'Sales Order dibuat.');
+    }
+
+    /** Ubah "1.234,56" → 1234.56; "1.234" → 1234 ; null → 0 */
+    private function toNumber($val): float
+    {
+        if ($val === null || $val === '') return 0.0;
+        if (is_numeric($val)) return (float) $val;
+        $s = str_replace([' ', "\xc2\xa0"], '', (string) $val);
+        if (str_contains($s, ',') && str_contains($s, '.')) {
+            $s = str_replace('.', '', $s);
+            $s = str_replace(',', '.', $s);
+        } else {
+            $s = str_replace(',', '.', $s);
+        }
+        return (float) $s;
     }
 }

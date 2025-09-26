@@ -18,7 +18,7 @@
   if ($o->npwp_required) {
     $npwpBadge = $o->npwp_status==='ok'
       ? '<span class="badge bg-green-lt">NPWP OK</span>'
-      : '<span class="badge bg-red-lt">NPWP Missing â€” Billing Locked</span>';
+      : '<span class="badge bg-red-lt">NPWP Missing — Billing Locked</span>';
   }
 @endphp
 
@@ -27,7 +27,7 @@
     <div>
       <h2 class="page-title mb-1">Sales Order <span class="text-muted">{{ $o->so_number }}</span></h2>
       <div class="text-muted">
-        {{ $o->company->alias ?? $o->company->name }} â€” {{ $o->customer->name }}
+        {{ $o->company->alias ?? $o->company->name }} — {{ $o->customer->name }}
       </div>
       <div class="mt-2">
         <span class="badge {{ $stClass }}">{{ $stLabel }}</span>
@@ -73,7 +73,7 @@
       <div class="card"><div class="card-body">
         <div class="mb-2"><strong>Order Date:</strong> {{ $o->order_date }}</div>
         <div class="mb-2"><strong>Customer PO:</strong> {{ $o->customer_po_number }} ({{ $o->customer_po_date }})</div>
-        <div class="mb-2"><strong>Deadline:</strong> {{ $o->deadline ?? 'â€”' }}</div>
+        <div class="mb-2"><strong>Deadline:</strong> {{ $o->deadline ?? '—' }}</div>
         <div class="mb-2"><strong>Salesperson:</strong> {{ $o->salesUser->name ?? '-' }}</div>
         <div class="mb-2"><strong>Notes:</strong><br><pre class="mb-0">{{ $o->notes }}</pre></div>
       </div></div>
@@ -86,8 +86,8 @@
         @if($o->npwp_required)
           <hr>
           <div class="mb-1 fw-bold">NPWP</div>
-          <div class="mb-1"><strong>No:</strong> {{ $o->tax_npwp_number ?? 'â€”' }}</div>
-          <div class="mb-1"><strong>Nama:</strong> {{ $o->tax_npwp_name ?? 'â€”' }}</div>
+          <div class="mb-1"><strong>No:</strong> {{ $o->tax_npwp_number ?? '—' }}</div>
+          <div class="mb-1"><strong>Nama:</strong> {{ $o->tax_npwp_name ?? '—' }}</div>
           <div class="mb-0"><strong>Alamat:</strong><br><pre class="mb-0">{{ $o->tax_npwp_address }}</pre></div>
         @endif
       </div></div>
@@ -127,7 +127,7 @@
                   <td class="text-end">
                     @if($ln->discount_amount>0)
                       {{ $ln->discount_type==='percent' ? rtrim(rtrim(number_format($ln->discount_value,2,'.',''), '0'), '.') .'%' : number_format($ln->discount_amount,2) }}
-                    @else â€” @endif
+                    @else — @endif
                   </td>
                   <td class="text-end">{{ number_format($ln->line_total,2) }}</td>
                 </tr>

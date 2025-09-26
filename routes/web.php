@@ -15,6 +15,7 @@ use App\Http\Controllers\{
     JenisController,
     BrandController,
     SalesOrderController,
+    SalesOrderAttachmentController,
 };
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\SettingController;
@@ -122,10 +123,26 @@ Route::middleware(['auth'])->group(function () {
         ->name('sales-orders.destroy');
 
     // NEW: attachments
-    Route::post  ('sales-orders/{salesOrder}/attachments', [SalesOrderController::class, 'storeAttachment'])
-        ->name('sales-orders.attachments.store');
-    Route::delete('sales-orders/{salesOrder}/attachments/{attachment}', [SalesOrderController::class, 'destroyAttachment'])
+    //Route::post  ('sales-orders/{salesOrder}/attachments', [SalesOrderController::class, 'storeAttachment'])
+    //    ->name('sales-orders.attachments.store');
+    //Route::delete('sales-orders/{salesOrder}/attachments/{attachment}', [SalesOrderController::class, 'destroyAttachment'])
+    //    ->name('sales-orders.attachments.destroy_legacy');
+
+    Route::get('/sales-orders/attachments', [SalesOrderAttachmentController::class,'index'])
+        ->name('sales-orders.attachments.index'); // list by ?draft_token=... atau ?sales_order_id=...
+    Route::post('/sales-orders/upload', [SalesOrderAttachmentController::class,'upload'])
+        ->name('sales-orders.attachments.upload');
+    Route::delete('/sales-orders/attachments/{attachment}', [SalesOrderAttachmentController::class,'destroy'])
         ->name('sales-orders.attachments.destroy');
+
+    // Cancel create → bersihkan semua file draft
+    Route::delete('/sales-orders/create/cancel', function(\Illuminate\Http\Request $r){
+        $r->validate(['draft_token'=>['required','string','max:64']]);
+        \App\Http\Controllers\SalesOrderAttachmentController::purgeDraft($r->draft_token);
+        return back();
+    })->name('sales-orders.create.cancel');
+
+    Route::resource('sales-orders', \App\Http\Controllers\SalesOrderController::class);
 });
 
 // =======================

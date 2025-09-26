@@ -11,6 +11,15 @@ class RouteServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // ⇣ Batasi parameter agar hanya angka
+        Route::pattern('salesOrder', '[0-9]+');
+        Route::pattern('attachment', '[0-9]+');
+
+        // (opsional, kalau kamu juga pakai parameter ini sebagai angka)
+        Route::pattern('quotation', '[0-9]+');
+        Route::pattern('invoice', '[0-9]+');
+        Route::pattern('delivery', '[0-9]+');
+
         $this->routes(function () {
             Route::middleware('api')
                 ->prefix('api')

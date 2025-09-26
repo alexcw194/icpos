@@ -164,7 +164,7 @@
       const itemId = itemSelect ? itemSelect.value : '';
       const variantId = variantSelect ? variantSelect.value : '';
       const stock = lookupStock(warehouseId, itemId, variantId);
-      badge.textContent = stock === null ? 'â€”' : stockFormatter.format(stock);
+      badge.textContent = stock === null ? '—' : stockFormatter.format(stock);
     }
 
     function updateAllRowStocks() {
