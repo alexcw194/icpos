@@ -24,7 +24,9 @@ class SalesOrderController extends Controller
     public function createFromQuotation(Quotation $quotation)
     {
         $quotation->load(['customer','company','salesUser','lines']);
-
+        $items = Item::with('unit:id,code')
+            ->orderBy('name')
+            ->get(['id','name','price','unit_id']);
         // Soft policy: SO boleh dibuat walau NPWP belum lengkap (Invoice yang hard lock)
         $npwpRequired = (bool) ($quotation->company->require_npwp_on_so ?? false);
 
@@ -37,7 +39,7 @@ class SalesOrderController extends Controller
         $npwpMissing = $npwpRequired && (empty($npwp['number']) || empty($npwp['name']) || empty($npwp['address']));
 
         return view('sales_orders.create_from_quotation', compact(
-            'quotation', 'npwpRequired', 'npwpMissing', 'npwp'
+            'quotation', 'npwpRequired', 'npwpMissing', 'npwp','items'
         ));
     }
 

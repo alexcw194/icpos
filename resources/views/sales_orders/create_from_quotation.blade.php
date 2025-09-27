@@ -25,6 +25,7 @@
         class="mode-{{ $discMode === 'per_item' ? 'per' : 'total' }}">
     @csrf
     <input type="hidden" name="draft_token" id="draft_token" value="{{ $draftToken }}">
+    <input type="hidden" name="discount_mode" id="discount_mode" value="{{ $discMode }}">
 
     <div class="card">
       <div class="card-header">
@@ -96,135 +97,105 @@
             <label class="btn btn-outline-primary" for="dm-per">Per Item</label>
           </div>
           <div class="form-hint">Ganti mode akan berpengaruh ke cara hitung. Data yang disembunyikan tidak dipakai dalam total.</div>
+          <input type="hidden" name="discount_mode" id="discount_mode_hidden" value="{{ $discMode }}">
         </div>
-        <input type="hidden" name="discount_mode" id="discount_mode" value="{{ $discMode }}">
 
-        {{-- ===== Items table (dari quotation) ===== --}}
-        <div class="mt-2">
-          <div class="fw-bold mb-2">Items</div>
+        <hr class="my-3">
 
-          <div class="table-responsive">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th style="width:26%">Item</th>
-                  <th style="width:26%">Deskripsi</th>
-                  <th style="width:8%">Unit</th>
-                  <th class="text-end" style="width:8%">Qty</th>
-                  <th class="text-end" style="width:12%">Unit Price</th>
-                  <th class="col-per" style="width:12%">Disc Type</th>
-                  <th class="text-end col-per" style="width:12%">Disc Value</th>
-                  <th class="text-end" style="width:12%">Line Total</th>
-                  <th style="width:4%"></th>
-                </tr>
-              </thead>
-              <tbody id="linesBody">
-                @foreach($lines as $i => $ln)
-                  @php
-                    $dt = $ln->discount_type ?? 'amount';
-                    $dv = (float)($ln->discount_value ?? 0);
-                  @endphp
-                  <tr class="line">
-                    <td>
-                      <input type="hidden" name="lines[{{ $i }}][item_id]" value="{{ $ln->item_id ?? '' }}">
-                      <input type="hidden" name="lines[{{ $i }}][item_variant_id]" value="{{ $ln->item_variant_id ?? '' }}">
-                      <input type="text" name="lines[{{ $i }}][name]" class="form-control" value="{{ $ln->name }}">
-                    </td>
-                    <td><input type="text" name="lines[{{ $i }}][description]" class="form-control" value="{{ $ln->description }}"></td>
-                    <td><input type="text" name="lines[{{ $i }}][unit]" class="form-control" value="{{ $ln->unit ?? 'pcs' }}"></td>
-                    <td><input type="text" name="lines[{{ $i }}][qty]" class="form-control text-end num qty" value="{{ rtrim(rtrim(number_format((float)$ln->qty, 2, '.', ''), '0'), '.') }}"></td>
-                    <td><input type="text" name="lines[{{ $i }}][unit_price]" class="form-control text-end num price" value="{{ rtrim(rtrim(number_format((float)$ln->unit_price, 2, '.', ''), '0'), '.') }}"></td>
-                    <td class="col-per">
-                      <select name="lines[{{ $i }}][discount_type]" class="form-select dctype">
-                        <option value="amount" {{ $dt==='amount'?'selected':'' }}>Amount</option>
-                        <option value="percent" {{ $dt==='percent'?'selected':'' }}>%</option>
-                      </select>
-                    </td>
-                    <td class="col-per">
-                      <input type="text" name="lines[{{ $i }}][discount_value]" class="form-control text-end num dcval" value="{{ rtrim(rtrim(number_format($dv, 2, '.', ''), '0'), '.') }}">
-                    </td>
-                    <td class="text-end align-middle">
-                      <span class="line-total">0</span>
-                      <input type="hidden" name="lines[{{ $i }}][line_total]" class="line_total_input" value="0">
-                      <input type="hidden" name="lines[{{ $i }}][discount_amount]" class="line_dcamt_input" value="0">
-                      <input type="hidden" name="lines[{{ $i }}][line_subtotal]" class="line_sub_input" value="0">
-                    </td>
-                    <td class="text-center align-middle">
-                      <button type="button" class="btn btn-link text-danger px-1 btn-del-line">&times;</button>
-                    </td>
-                  </tr>
-                @endforeach
-              </tbody>
-            </table>
+        {{-- ===== STAGE ROW: ketik & pilih item (TomSelect) ===== --}}
+        <div id="stageWrap" class="card mb-3">
+          <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+              <div class="col-xxl-4 col-lg-5">
+                <input id="stage_name" type="text" class="form-control" placeholder="Ketik nama/SKU lalu pilih…">
+                <input id="stage_item_id" type="hidden">
+                <input id="stage_item_variant_id" type="hidden">
+              </div>
+              <div class="col-xxl-3 col-lg-4">
+                <textarea id="stage_desc" class="form-control" rows="1" placeholder="Deskripsi (opsional)"></textarea>
+              </div>
+              <div class="col-auto" style="width:8ch">
+                <input id="stage_qty" type="text" class="form-control text-end" inputmode="decimal" value="1">
+              </div>
+              <div class="col-auto" style="width:7ch">
+                <input id="stage_unit" type="text" class="form-control" value="pcs" readonly>
+              </div>
+              <div class="col-xxl-2 col-lg-2">
+                <input id="stage_price" type="text" class="form-control text-end" inputmode="decimal" placeholder="0">
+              </div>
+              <div class="col-auto">
+                <button type="button" id="stage_add_btn" class="btn btn-primary">Tambah</button>
+                <button type="button" id="stage_clear_btn" class="btn btn-link">Kosongkan</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {{-- ===== Totals ===== --}}
+        {{-- ===== ITEMS TABLE (sama struktur dengan create SO) ===== --}}
+        <div class="fw-bold mb-2">Items</div>
+        <div class="table-responsive">
+          <table class="table table-sm" id="linesTable">
+            <thead class="table-light">
+              <tr>
+                <th class="col-item">Item</th>
+                <th class="col-desc">Deskripsi</th>
+                <th class="col-qty text-end">Qty</th>
+                <th class="col-unit">Unit</th>
+                <th class="col-price text-end">Unit Price</th>
+                <th class="col-disc" data-col="disc-input">Diskon (tipe + nilai)</th>
+                <th class="col-subtotal text-end">Subtotal</th>
+                <th class="col-disc-amount text-end">Disc Rp</th>
+                <th class="col-total text-end">Line Total</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="linesBody"></tbody>
+          </table>
+        </div>
+
+        {{-- ===== TOTALS PREVIEW ===== --}}
         <div class="row justify-content-end mt-4">
           <div class="col-md-6">
             <div class="card">
               <div class="card-body">
-                <div class="d-flex justify-content-between">
-                  <div>Subtotal (setelah diskon per-baris)</div>
-                  <div><span id="v_subtotal">0</span></div>
-                </div>
-
-                <div class="d-flex align-items-center justify-content-between mt-2 total-only">
-                  <div class="d-flex align-items-center">
-                    <span class="me-2">Diskon Total</span>
+                <div class="row g-2 align-items-center mb-2 mode-total" data-section="discount-total-controls">
+                  <div class="col-auto"><label class="form-label mb-0">Diskon Total</label></div>
+                  <div class="col-auto">
                     @php $tdt = $quotation->total_discount_type ?? 'amount'; @endphp
-                    <select name="total_discount_type" id="total_discount_type" class="form-select form-select-sm" style="width:auto">
-                      <option value="amount" {{ $tdt==='amount'?'selected':'' }}>Amount</option>
-                      <option value="percent" {{ $tdt==='percent'?'selected':'' }}>%</option>
+                    <select name="total_discount_type" id="total_discount_type" class="form-select form-select-sm" style="min-width:140px">
+                      <option value="amount" {{ $tdt==='amount'?'selected':'' }}>Nominal (IDR)</option>
+                      <option value="percent" {{ $tdt==='percent'?'selected':'' }}>Persen (%)</option>
                     </select>
                   </div>
-                  <div style="min-width:180px">
-                    <input type="text" name="total_discount_value" id="total_discount_value" class="form-control text-end num"
-                           value="{{ rtrim(rtrim(number_format((float)($quotation->total_discount_value ?? 0), 2, '.', ''), '0'), '.') }}">
-                  </div>
-                </div>
-                <div class="d-flex justify-content-between total-only">
-                  <div></div>
-                  <div>- <span id="v_total_dc">0</span></div>
-                </div>
-
-                <input type="hidden" class="per-only" name="total_discount_type" value="amount">
-                <input type="hidden" class="per-only" name="total_discount_value" value="0">
-
-                <div class="d-flex justify-content-between">
-                  <div>Dasar Pajak</div>
-                  <div><span id="v_dpp">0</span></div>
-                </div>
-
-                @if($isTaxable)
-                  <div class="d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center">
-                      <span class="me-2">PPN</span>
-                      <input type="text" class="form-control form-control-sm text-end num" id="tax_percent"
-                             name="tax_percent" value="{{ rtrim(rtrim(number_format($taxDefault, 2, '.', ''), '0'), '.') }}" style="width:80px">
-                      <span class="ms-1">%</span>
+                  <div class="col">
+                    <div class="input-group input-group-sm">
+                      <input type="text" name="total_discount_value" id="total_discount_value" class="form-control text-end"
+                             value="{{ rtrim(rtrim(number_format((float)($quotation->total_discount_value ?? 0), 2, '.', ''), '0'), '.') }}">
+                      <span class="input-group-text" id="totalDiscUnit">IDR</span>
                     </div>
-                    <div><span id="v_ppn">0</span></div>
                   </div>
-                @else
-                  <input type="hidden" name="tax_percent" id="tax_percent" value="0">
-                  <div class="d-flex justify-content-between text-muted">
-                    <div>PPN</div>
-                    <div>&mdash;</div>
-                  </div>
-                @endif
-
-                <hr>
-                <div class="d-flex justify-content-between fw-bold">
-                  <div>Grand Total</div>
-                  <div><span id="v_grand">0</span></div>
                 </div>
 
+                <table class="table mb-0">
+                  <tr><td>Subtotal (setelah diskon per-baris)</td><td class="text-end" id="v_lines_subtotal">Rp 0</td></tr>
+                  <tr class="mode-total"><td>Diskon Total <span class="text-muted" id="v_total_disc_hint"></span></td><td class="text-end" id="v_total_discount_amount">Rp 0</td></tr>
+                  <tr><td>Dasar Pajak</td><td class="text-end" id="v_taxable_base">Rp 0</td></tr>
+                  <tr>
+                    <td>PPN (<span id="v_tax_percent">{{ number_format($taxDefault,2,'.','') }}</span>%)</td>
+                    <td class="text-end" id="v_tax_amount">Rp 0</td>
+                  </tr>
+                  <tr class="fw-bold"><td>Grand Total</td><td class="text-end" id="v_total">Rp 0</td></tr>
+                </table>
+
+                {{-- Hidden values untuk server (opsional) --}}
                 <input type="hidden" name="lines_subtotal" id="i_subtotal" value="0">
                 <input type="hidden" name="total_discount_amount" id="i_total_dc" value="0">
                 <input type="hidden" name="taxable_base" id="i_dpp" value="0">
                 <input type="hidden" name="tax_amount" id="i_ppn" value="0">
                 <input type="hidden" name="total" id="i_grand" value="0">
+
+                {{-- Tax percent input (readonly jika non-taxable) --}}
+                <input type="hidden" id="tax_percent" name="tax_percent" value="{{ $isTaxable ? rtrim(rtrim(number_format($taxDefault, 2, '.', ''), '0'), '.') : 0 }}">
               </div>
             </div>
           </div>
@@ -239,280 +210,424 @@
   </form>
 </div>
 
+{{-- Template row untuk lines table --}}
 <template id="rowTpl">
-  <tr class="line">
-    <td>
-      <input type="hidden" name="__NAME__[item_id]" class="item_id_input" value="">
-      <input type="hidden" name="__NAME__[item_variant_id]" class="item_variant_id_input" value="">
-      <input type="text" name="__NAME__[name]" class="form-control">
+  <tr data-line-row class="qline">
+    <td class="col-item">
+      <input type="text" name="lines[__IDX__][name]" class="form-control form-control-sm q-item-name" placeholder="pilih dari kotak atas" readonly>
+      <input type="hidden" name="lines[__IDX__][item_id]" class="q-item-id">
+      <input type="hidden" name="lines[__IDX__][item_variant_id]" class="q-item-variant-id">
     </td>
-    <td><input type="text" name="__NAME__[description]" class="form-control"></td>
-    <td><input type="text" name="__NAME__[unit]" class="form-control" value="pcs"></td>
-    <td><input type="text" name="__NAME__[qty]" class="form-control text-end num qty" value="1"></td>
-    <td><input type="text" name="__NAME__[unit_price]" class="form-control text-end num price" value="0"></td>
-    <td class="col-per">
-      <select name="__NAME__[discount_type]" class="form-select dctype">
-        <option value="amount">Amount</option>
-        <option value="percent">%</option>
-      </select>
+    <td class="col-desc">
+      <textarea name="lines[__IDX__][description]" class="form-control form-control-sm line_desc q-item-desc" rows="1"></textarea>
     </td>
-    <td class="col-per">
-      <input type="text" name="__NAME__[discount_value]" class="form-control text-end num dcval" value="0">
+    <td class="col-qty">
+      <input type="text" name="lines[__IDX__][qty]" class="form-control form-control-sm text-end qty q-item-qty" inputmode="decimal" placeholder="0" maxlength="6">
     </td>
-    <td class="text-end align-middle">
-      <span class="line-total">0</span>
-      <input type="hidden" name="__NAME__[line_total]" class="line_total_input" value="0">
-      <input type="hidden" name="__NAME__[discount_amount]" class="line_dcamt_input" value="0">
-      <input type="hidden" name="__NAME__[line_subtotal]" class="line_sub_input" value="0">
+    <td class="col-unit">
+      <input type="text" name="lines[__IDX__][unit]" class="form-control form-control-sm unit q-item-unit" value="pcs" readonly tabindex="-1">
     </td>
-    <td class="text-center align-middle">
-      <button type="button" class="btn btn-link text-danger px-1 btn-del-line">&times;</button>
+    <td class="col-price text-end">
+      <input type="text" name="lines[__IDX__][unit_price]" class="form-control form-control-sm text-end price q-item-rate" inputmode="decimal" placeholder="0">
     </td>
+    <td class="col-disc disc-cell">
+      <div class="row g-2 align-items-center">
+        <div class="col-auto">
+          <select name="lines[__IDX__][discount_type]" class="form-select form-select-sm disc-type">
+            <option value="amount">Nominal (IDR)</option>
+            <option value="percent">Persen (%)</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <div class="input-group input-group-sm">
+            <input type="text" name="lines[__IDX__][discount_value]" class="form-control text-end disc-value" inputmode="decimal" value="0">
+            <span class="input-group-text disc-unit">IDR</span>
+          </div>
+        </div>
+      </div>
+    </td>
+    <td class="col-subtotal text-end"><span class="line_subtotal_view">Rp 0</span></td>
+    <td class="col-disc-amount text-end"><span class="line_disc_amount_view">Rp 0</span></td>
+    <td class="col-total text-end"><span class="line_total_view">Rp 0</span></td>
+    <td class="col-actions text-center"><button type="button" class="btn btn-link text-danger p-0 removeRowBtn" title="Hapus">&times;</button></td>
   </tr>
 </template>
 
 @push('styles')
+{{-- TomSelect CSS (fallback CDN) --}}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
 <style>
   .ts-dropdown{ z-index: 1060; }
-  .mode-total .col-per,
-  .mode-total .qs-per,
-  .mode-per  .total-only { display: none !important; }
+  #linesTable th, #linesTable td { vertical-align: middle; }
+  #linesTable .col-item       { width: 22%; }
+  #linesTable .col-desc       { width: 20%; }
+  #linesTable .col-qty        { width: 6.5ch; }
+  #linesTable .col-unit       { width: 7ch; }
+  #linesTable .col-price      { width: 14%; }
+  #linesTable .col-disc       { width: 16%; }
+  #linesTable .col-subtotal   { width: 9%; }
+  #linesTable .col-disc-amount{ width: 9%; }
+  #linesTable .col-total      { width: 14%; }
+  #linesTable .col-actions    { width: 4%; }
+  #linesTable input.qty { max-width: 6.5ch; }
+  #linesTable input.unit{ max-width: 7ch; }
+  #linesTable .disc-cell .form-select{ min-width:120px; }
+  #linesTable .disc-cell .disc-value { max-width: 8ch; }
+  #linesTable .disc-cell .input-group-text.disc-unit{ min-width:46px; justify-content:center; }
+  #linesTable .line_total_view{ font-weight:700; font-size:1.06rem; }
+  #linesTable .line_subtotal_view{ font-size:.92rem; }
+  .mode-per  [data-section="discount-total-controls"]{ display:none!important; }
 </style>
 @endpush
 
 @push('scripts')
+{{-- Siapkan data item untuk picker stage_name --}}
+@php
+  /** @var \Illuminate\Support\Collection $items */
+  $ITEM_OPTIONS = ($items ?? collect())->map(function($it){
+    return [
+      'id'    => $it->id,
+      'label' => $it->name,
+      'unit'  => optional($it->unit)->code ?? 'pcs',
+      'price' => (float)($it->price ?? 0),
+    ];
+  })->values();
+@endphp
 <script>
-(function(){
-  const fmt = n => {
-    const s = (isFinite(n) ? Number(n) : 0).toFixed(2);
-    const [i,d] = s.split('.');
-    return i.replace(/\B(?=(\d{3})+(?!\d))/g,'.') + ',' + d;
-  };
-  const parseID = s => {
-    if (s == null) return 0;
-    s = (''+s).replace(/\./g,'').replace(',', '.').replace(/[^\d\.\-]/g,'').trim();
-    const x = parseFloat(s);
-    return isFinite(x) ? x : 0;
-  };
-  const money = n => 'Rp ' + fmt(n);
-  const clamp = (n, min, max) => Math.min(Math.max(Number(n||0), min), max);
+  (function(){ window.SO_ITEM_OPTIONS = @json($ITEM_OPTIONS); })();
+</script>
 
-  // ===== Upload draft attachments =====
-  const uploadInput = document.getElementById('soUpload');
-  const listEl      = document.getElementById('soFiles');
-  const draftToken  = document.getElementById('draft_token')?.value || '';
-  const csrf        = document.querySelector('meta[name="csrf-token"]')?.content || '';
+<script>
+(function () {
+  'use strict';
 
-  function rowTpl(file){
-    return `
-      <div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
-        <a class="me-auto" href="${file.url}" target="_blank" rel="noopener">${file.name}</a>
-        <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
-        <button type="button" class="btn btn-sm btn-outline-danger">Hapus</button>
-      </div>
-    `;
-  }
+  /* ===== Helpers ===== */
+  function toNum(v){ if(v==null) return 0; v=String(v).trim(); if(v==='') return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; }
+  function rupiah(n){ try{return 'Rp '+new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n)}catch(e){const f=(Math.round(n*100)/100).toFixed(2); const [a,b]=f.split('.'); return 'Rp '+a.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+b} }
 
-  // *** Hardened JSON loader: parse dari text, bersihkan BOM/single-quote ***
-  async function refreshList(){
-    if (!draftToken) { listEl.innerHTML = ''; return; }
-    try {
-      const url = @json(route('sales-orders.attachments.index')) + '?draft_token=' + encodeURIComponent(draftToken);
-      const res = await fetch(url, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-        credentials: 'same-origin'
-      });
-
-      let text = await res.text();
-      text = text.replace(/^\uFEFF/, '').trim();        // hapus BOM
-      if (text.startsWith("'") && text.endsWith("'")) { // jika server mengembalikan `'[...]'`
-        text = text.slice(1, -1);
+  /* ===== Pastikan TomSelect tersedia (fallback CDN jika belum ada) ===== */
+  function ensureTomSelect(){
+    return new Promise((resolve, reject) => {
+      if (window.TomSelect) return resolve(true);
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js';
+      s.onload = () => resolve(true);
+      s.onerror = reject;
+      document.head.appendChild(s);
+      if (!document.querySelector('link[data-ts]')) {
+        const l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.href = 'https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css';
+        l.setAttribute('data-ts','');
+        document.head.appendChild(l);
       }
-
-      let data;
-      try { data = JSON.parse(text); }
-      catch(e){ console.warn('attachments.index bukan JSON:', e, text); listEl.innerHTML=''; return; }
-
-      const files = Array.isArray(data) ? data : [];
-      listEl.innerHTML = files.map(rowTpl).join('');
-
-      // bind tombol hapus
-      listEl.querySelectorAll('button').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const row = e.target.closest('[data-id]'); const id = row.dataset.id;
-          const delUrl = @json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
-          await fetch(delUrl, {
-            method: 'DELETE',
-            headers: {
-              'X-CSRF-TOKEN': csrf,
-              'X-Requested-With': 'XMLHttpRequest',
-              'Accept': 'application/json'
-            },
-            credentials: 'same-origin'
-          });
-          row.remove();
-        });
-      });
-    } catch (err) {
-      console.warn('attachments.index gagal:', err);
-      listEl.innerHTML = '';
-    }
+    });
   }
 
-  uploadInput?.addEventListener('change', async (e) => {
-    for (const f of e.target.files) {
-      const fd = new FormData();
-      fd.append('file', f);
-      fd.append('draft_token', draftToken);
+  /* ===== Item picker di #stage_name ===== */
+  async function initStagePicker(){
+    const input = document.getElementById('stage_name');
+    if (!input) return;
 
-      const res = await fetch(@json(route('sales-orders.attachments.upload')), {
-        method: 'POST',
-        headers: {
-          'X-CSRF-TOKEN': csrf,
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json'
-        },
-        body: fd,
-        credentials: 'same-origin'
+    try { await ensureTomSelect(); } catch(e){ console.warn('[SO] Gagal load TomSelect', e); return; }
+
+    const opts = (window.SO_ITEM_OPTIONS || []).map(o => ({
+      value: String(o.id),
+      label: o.label,
+      unit:  o.unit || 'pcs',
+      price: Number(o.price || 0),
+    }));
+
+    input.setAttribute('autocomplete','off');
+
+    const ts = new TomSelect(input, {
+      options: opts,
+      valueField: 'value',
+      labelField: 'label',
+      searchField: ['label'],
+      maxOptions: 100,
+      create: false,
+      persist: false,
+      dropdownParent: 'body',
+      preload: true,
+      openOnFocus: true,
+      render:{
+        option(d,esc){
+          return `<div class="d-flex justify-content-between">
+                    <span>${esc(d.label || '')}</span>
+                    <span class="text-muted small">${esc(d.unit || '')}</span>
+                  </div>`;
+        }
+      },
+      onChange(val){
+        const o = this.options[val];
+        const hidId   = document.getElementById('stage_item_id');
+        const hidVar  = document.getElementById('stage_item_variant_id');
+        const unitInp = document.getElementById('stage_unit');
+        const priceInp= document.getElementById('stage_price');
+        if (hidId)   hidId.value  = o ? o.value : '';
+        if (hidVar)  hidVar.value = '';
+        if (unitInp) unitInp.value= o ? (o.unit || 'pcs') : 'pcs';
+        if (priceInp)priceInp.value= o ? String(o.price || 0) : '';
+      }
+    });
+
+    input.addEventListener('focus', () => ts.open());
+    input.addEventListener('keydown', (e)=>{
+      if (e.key==='Enter'){
+        e.preventDefault();
+        const id=(document.getElementById('stage_item_id')||{}).value || '';
+        if(id){
+          const btn = document.getElementById('stage_add_btn');
+          if (btn) btn.click();
+        }
+      }
+    });
+  }
+
+  /* ===== Lines + recalc ===== */
+  const body   = document.getElementById('linesBody');
+  const rowTpl = document.getElementById('rowTpl');
+  let   lineIdx = 0;
+
+  const totalDiscTypeSel = document.getElementById('total_discount_type');
+  const totalDiscValInp  = document.getElementById('total_discount_value');
+  const vLinesSubtotal   = document.getElementById('v_lines_subtotal');
+  const vTotalDiscAmt    = document.getElementById('v_total_discount_amount');
+  const vTotalDiscHint   = document.getElementById('v_total_disc_hint');
+  const vTaxableBase     = document.getElementById('v_taxable_base');
+  const vTaxPct          = document.getElementById('v_tax_percent');
+  const vTaxAmt          = document.getElementById('v_tax_amount');
+  const vTotal           = document.getElementById('v_total');
+  const taxInput         = document.getElementById('tax_percent');
+  const form             = document.getElementById('soForm');
+
+  function recalc() {
+    let linesSubtotal = 0;
+    body.querySelectorAll('tr[data-line-row]').forEach(tr => {
+      const qty   = toNum((tr.querySelector('.qty')||{}).value || '0');
+      const price = toNum((tr.querySelector('.price')||{}).value || '0');
+      const dtSel = tr.querySelector('.disc-type');
+      const dvInp = tr.querySelector('.disc-value');
+      const dt    = dtSel ? dtSel.value : 'amount';
+      const dvRaw = toNum((dvInp||{}).value || '0');
+
+      const lineSubtotal = qty * price;
+      let discAmount = 0;
+      if (dt === 'percent') discAmount = Math.min(Math.max(dvRaw,0),100) / 100 * lineSubtotal;
+      else                  discAmount = Math.min(Math.max(dvRaw, 0), lineSubtotal);
+      const lineTotal = Math.max(lineSubtotal - discAmount, 0);
+
+      const sv = tr.querySelector('.line_subtotal_view');
+      const dv = tr.querySelector('.line_disc_amount_view');
+      const tv = tr.querySelector('.line_total_view');
+      if (sv) sv.textContent = rupiah(lineSubtotal);
+      if (dv) dv.textContent = rupiah(discAmount);
+      if (tv) tv.textContent = rupiah(lineTotal);
+
+      linesSubtotal += lineTotal;
+    });
+
+    if (vLinesSubtotal) vLinesSubtotal.textContent = rupiah(linesSubtotal);
+
+    const mode = form.classList.contains('mode-per') ? 'per_item' : 'total';
+    let tdt  = (totalDiscTypeSel||{}).value || 'amount';
+    let tdv  = toNum((totalDiscValInp||{}).value || '0');
+    if (mode === 'per_item') { tdt='amount'; tdv=0; }
+
+    const totalDiscAmount = (tdt === 'percent')
+      ? Math.min(Math.max(tdv,0),100) / 100 * linesSubtotal
+      : Math.min(Math.max(tdv,0), linesSubtotal);
+
+    if (vTotalDiscAmt)  vTotalDiscAmt.textContent  = rupiah(totalDiscAmount);
+    if (vTotalDiscHint) vTotalDiscHint.textContent = (tdt === 'percent' && mode !== 'per_item')
+      ? '(' + (Math.round(Math.min(Math.max(tdv,0),100)*100)/100).toFixed(2) + '%)'
+      : '';
+
+    const base   = Math.max(linesSubtotal - totalDiscAmount, 0);
+    const taxPct = toNum((taxInput||{}).value || '0');
+    const taxAmt = base * Math.max(taxPct, 0) / 100;
+    const total  = base + taxAmt;
+
+    if (vTaxableBase) vTaxableBase.textContent = rupiah(base);
+    if (vTaxPct)      vTaxPct.textContent      = (Math.round(taxPct * 100) / 100).toFixed(2);
+    if (vTaxAmt)      vTaxAmt.textContent      = rupiah(taxAmt);
+    if (vTotal)       vTotal.textContent       = rupiah(total);
+
+    const iSub = document.getElementById('i_subtotal');
+    if (iSub) iSub.setAttribute('value', base.toFixed(2));
+  }
+
+  function addLineFromData(d){
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-line-row','');
+    tr.className = 'qline';
+    tr.innerHTML = rowTpl.innerHTML.replace(/__IDX__/g, lineIdx);
+
+    (tr.querySelector('.q-item-name')||{}).value = d.name || '';
+    (tr.querySelector('.q-item-id')||{}).value   = d.item_id || '';
+    (tr.querySelector('.q-item-variant-id')||{}).value = d.item_variant_id || '';
+    (tr.querySelector('.q-item-desc')||{}).value = d.description || '';
+    (tr.querySelector('.q-item-qty')||{}).value  = String(d.qty || 1);
+    (tr.querySelector('.q-item-unit')||{}).value = d.unit || 'pcs';
+    (tr.querySelector('.q-item-rate')||{}).value = String(d.unit_price || 0);
+
+    const dtSel = tr.querySelector('.disc-type');
+    const dvInp = tr.querySelector('.disc-value');
+    if (dtSel && d.discount_type) dtSel.value = d.discount_type;
+    if (dvInp && typeof d.discount_value !== 'undefined') dvInp.value = String(d.discount_value);
+
+    const rm = tr.querySelector('.removeRowBtn');
+    if (rm) rm.addEventListener('click', () => { tr.remove(); recalc(); });
+
+    body.appendChild(tr);
+    lineIdx++;
+  }
+
+  function addLineFromStage(){
+    const d = {
+      item_id        : ((document.getElementById('stage_item_id')||{}).value || '').trim(),
+      item_variant_id: ((document.getElementById('stage_item_variant_id')||{}).value || '').trim(),
+      name           : ((document.getElementById('stage_name')||{}).value || '').trim(),
+      description    : (document.getElementById('stage_desc')||{}).value || '',
+      qty            : toNum((document.getElementById('stage_qty')||{}).value || '1'),
+      unit           : (((document.getElementById('stage_unit')||{}).value || 'pcs').trim()),
+      unit_price     : toNum((document.getElementById('stage_price')||{}).value || '0'),
+      discount_type  : 'amount',
+      discount_value : 0,
+    };
+    if (!d.item_id || !d.name) { alert('Pilih item dulu.'); return; }
+    if (d.qty <= 0) { alert('Qty minimal 1.'); return; }
+
+    addLineFromData(d);
+
+    const ids = ['stage_item_id','stage_item_variant_id','stage_name','stage_desc','stage_qty','stage_unit','stage_price'];
+    ids.forEach(id=>{
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (id==='stage_qty') el.value = '1';
+      else if (id==='stage_unit') el.value = 'pcs';
+      else el.value = '';
+    });
+    recalc();
+  }
+
+  const addBtn = document.getElementById('stage_add_btn');
+  if (addBtn) addBtn.addEventListener('click', addLineFromStage);
+
+  const clrBtn = document.getElementById('stage_clear_btn');
+  if (clrBtn) clrBtn.addEventListener('click', () => {
+    ['stage_item_id','stage_item_variant_id','stage_name','stage_desc','stage_qty','stage_unit','stage_price']
+      .forEach(id=>{
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id==='stage_qty') el.value = '1';
+        else if (id==='stage_unit') el.value = 'pcs';
+        else el.value = '';
       });
-
-      if (!res.ok) console.error('upload gagal', await res.text());
-    }
-    uploadInput.value = '';
-    await refreshList();
   });
 
-  // ===== Kalkulasi totals (tidak diubah) =====
-  let mode = document.getElementById('discount_mode')?.value || 'total';
-  const isTaxable = {{ $isTaxable ? 'true' : 'false' }};
-  const form = document.getElementById('soForm');
-
-  const el = {
-    tbody: document.getElementById('linesBody'),
-    tpl:   document.getElementById('rowTpl'),
-    subtotal: document.getElementById('v_subtotal'),
-    totalDc:  document.getElementById('v_total_dc'),
-    dpp:      document.getElementById('v_dpp'),
-    ppn:      document.getElementById('v_ppn'),
-    grand:    document.getElementById('v_grand'),
-    i_subtotal: document.getElementById('i_subtotal'),
-    i_total_dc: document.getElementById('i_total_dc'),
-    i_dpp:      document.getElementById('i_dpp'),
-    i_ppn:      document.getElementById('i_ppn'),
-    i_grand:    document.getElementById('i_grand'),
-    tdType: document.getElementById('total_discount_type'),
-    tdValue: document.getElementById('total_discount_value'),
-    taxPct: document.getElementById('tax_percent'),
-    modeInput: document.getElementById('discount_mode'),
-    dmTotal: document.getElementById('dm-total'),
-    dmPer:   document.getElementById('dm-per'),
-  };
-
-  function recalc(){
-    if (!el.subtotal || !el.tbody) return;
-
-    const setText = (node, text) => { if (node) node.textContent = text; };
-    const setVal  = (node, val)  => { if (node) node.value = val; };
-
-    let sub = 0, perLineDc = 0;
-
-    document.querySelectorAll('#linesBody tr.line').forEach(tr => {
-      const qty     = parseID(tr.querySelector('.qty')?.value);
-      const price   = parseID(tr.querySelector('.price')?.value);
-      const lineSub = qty * price;
-
-      let dcAmt = 0;
-      if (mode === 'per_item') {
-        const tp = tr.querySelector('.dctype')?.value || 'amount';
-        let val  = parseID(tr.querySelector('.dcval')?.value);
-        if (tp === 'percent') { val = clamp(val, 0, 100); dcAmt = lineSub * (val/100); }
-        else { val = Math.max(val, 0); dcAmt = val; }
-        if (dcAmt > lineSub) dcAmt = lineSub;
-      }
-
-      const lineTotal = Math.max(lineSub - dcAmt, 0);
-      sub       += lineSub;
-      perLineDc += dcAmt;
-
-      setText(tr.querySelector('.line-total'), money(lineTotal));
-      setVal (tr.querySelector('.line_total_input'), lineTotal.toFixed(2));
-      setVal (tr.querySelector('.line_dcamt_input'), dcAmt.toFixed(2));
-      setVal (tr.querySelector('.line_sub_input'),  lineSub.toFixed(2));
-    });
-
-    let totalDc = 0;
-    if (mode === 'total') {
-      const ttype = el.tdType?.value || 'amount';
-      let   tval  = parseID(el.tdValue?.value);
-      if (ttype === 'percent') { tval = clamp(tval, 0, 100); totalDc = sub * (tval/100); }
-      else { tval = Math.max(tval, 0); totalDc = tval; }
-      if (totalDc > sub) totalDc = sub;
-    } else {
-      totalDc = perLineDc;
-    }
-
-    const dpp    = Math.max(sub - totalDc, 0);
-    const taxPct = isTaxable ? parseID(el.taxPct?.value) : 0;
-    const ppn    = isTaxable ? (dpp * (taxPct/100)) : 0;
-    const grand  = dpp + ppn;
-
-    setText(el.subtotal, money(sub));
-    setText(el.totalDc,  money(totalDc));
-    setText(el.dpp,      money(dpp));
-    setText(el.ppn,      isTaxable ? money(ppn) : '-');
-    setText(el.grand,    money(grand));
-
-    setVal(el.i_subtotal, sub.toFixed(2));
-    setVal(el.i_total_dc, totalDc.toFixed(2));
-    setVal(el.i_dpp,      dpp.toFixed(2));
-    setVal(el.i_ppn,      ppn.toFixed(2));
-    setVal(el.i_grand,    grand.toFixed(2));
-  }
-
-  function bindRow(tr){
-    tr.querySelectorAll('.num, .dctype').forEach(inp => {
-      inp.addEventListener('input', recalc);
-      inp.addEventListener('change', recalc);
-    });
-    const del = tr.querySelector('.btn-del-line');
-    if (del) del.addEventListener('click', () => { tr.remove(); recalc(); });
-  }
-
-  document.querySelectorAll('#linesBody tr.line').forEach(bindRow);
-  ['total_discount_type','total_discount_value','tax_percent'].forEach(id=>{
-    const o = document.getElementById(id);
-    if (o) { o.addEventListener('input', recalc); o.addEventListener('change', recalc); }
+  // Delegasi event pada tabel
+  const bodyEl = document.getElementById('linesBody');
+  bodyEl.addEventListener('input', e => {
+    if (e.target.classList.contains('qty') || e.target.classList.contains('price') || e.target.classList.contains('disc-value')) recalc();
   });
-
-  // Cancel draft: panggil route purge
-  document.getElementById('btnCancelDraft')?.addEventListener('click', async () => {
-    const token = draftToken;
-    await fetch(@json(route('sales-orders.create.cancel')), {
-      method: 'DELETE',
-      headers: { 'X-CSRF-TOKEN': @json(csrf_token()), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ draft_token: token }),
-      credentials: 'same-origin'
-    });
-    window.history.back();
+  bodyEl.addEventListener('change', e => {
+    if (e.target.classList.contains('disc-type')) {
+      const unitEl = e.target.closest('tr') && e.target.closest('tr').querySelector('.disc-unit');
+      if (unitEl) unitEl.textContent = (e.target.value==='percent') ? '%' : 'IDR';
+      recalc();
+    }
   });
 
   // Mode switch
-  function applyMode(newMode){
-    mode = newMode;
-    const form = document.getElementById('soForm');
-    const hidden = document.getElementById('discount_mode');
-    if (hidden) hidden.value = mode;
-    if (form){
-      form.classList.remove('mode-total','mode-per');
-      form.classList.add(mode === 'per_item' ? 'mode-per' : 'mode-total');
+  function applyMode(mode){
+    const f = document.getElementById('soForm');
+    if (!f) return;
+    if (mode === 'per_item') {
+      f.classList.add('mode-per'); f.classList.remove('mode-total');
+    } else {
+      f.classList.add('mode-total'); f.classList.remove('mode-per');
     }
     recalc();
   }
-  document.getElementById('dm-total')?.addEventListener('change', () => applyMode('total'));
-  document.getElementById('dm-per')?.addEventListener('change',   () => applyMode('per_item'));
+  const dmTot = document.getElementById('dm-total');
+  if (dmTot) dmTot.addEventListener('change', ()=>applyMode('total'));
+  const dmPer = document.getElementById('dm-per');
+  if (dmPer) dmPer.addEventListener('change',  ()=>applyMode('per_item'));
+
+  // ===== Upload draft attachments =====
+  (function(){
+    const uploadInput = document.getElementById('soUpload');
+    const listEl      = document.getElementById('soFiles');
+    const draftToken  = (document.getElementById('draft_token')||{}).value || '';
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    function rowFile(file){
+      return `<div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
+        <a class="me-auto" href="${file.url}" target="_blank" rel="noopener">${file.name}</a>
+        <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
+        <button type="button" class="btn btn-sm btn-outline-danger">Hapus</button>
+      </div>`;
+    }
+    async function refreshList(){
+      if (!draftToken) { if(listEl) listEl.innerHTML=''; return; }
+      try{
+        const url = @json(route('sales-orders.attachments.index')) + '?draft_token=' + encodeURIComponent(draftToken);
+        const res = await fetch(url,{headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},credentials:'same-origin'});
+        let text = (await res.text()).replace(/^\uFEFF/,'').trim();
+        if (text.startsWith("'") && text.endsWith("'")) text=text.slice(1,-1);
+        let data; try{ data=JSON.parse(text); }catch{ if(listEl) listEl.innerHTML=''; return; }
+        const files = Array.isArray(data)?data:[];
+        if (listEl) listEl.innerHTML = files.map(rowFile).join('');
+        (listEl||document).querySelectorAll('#soFiles button').forEach(btn=>{
+          btn.addEventListener('click', async (e)=>{
+            const row = e.target.closest('[data-id]'); const id=row && row.dataset.id;
+            const delUrl=@json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
+            await fetch(delUrl,{method:'DELETE',headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},credentials:'same-origin'});
+            if (row) row.remove();
+          });
+        });
+      }catch{ if(listEl) listEl.innerHTML=''; }
+    }
+    if (uploadInput) uploadInput.addEventListener('change', async (e)=>{
+      for (const f of e.target.files){
+        const fd=new FormData(); fd.append('file',f); fd.append('draft_token',draftToken);
+        const res=await fetch(@json(route('sales-orders.attachments.upload')),{method:'POST',headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},body:fd,credentials:'same-origin'});
+        if (!res.ok) console.error('upload gagal', await res.text());
+      }
+      uploadInput.value=''; refreshList();
+    });
+    const cancelBtn = document.getElementById('btnCancelDraft');
+    if (cancelBtn) cancelBtn.addEventListener('click', async ()=>{
+      await fetch(@json(route('sales-orders.create.cancel')),{method:'DELETE',headers:{'X-CSRF-TOKEN':@json(csrf_token()),'Content-Type':'application/json'},body:JSON.stringify({draft_token:draftToken}),credentials:'same-origin'});
+      history.back();
+    });
+    refreshList();
+  })();
+
+  // ===== Preload lines dari quotation =====
+  @php
+    $PRELOAD = ($lines ?? collect())->map(function($ln){
+      return [
+        'item_id'         => $ln->item_id,
+        'item_variant_id' => $ln->item_variant_id,
+        'name'            => $ln->name,
+        'description'     => $ln->description,
+        'qty'             => (float) ($ln->qty),
+        'unit'            => $ln->unit ?? 'pcs',
+        'unit_price'      => (float) ($ln->unit_price),
+        'discount_type'   => $ln->discount_type ?? 'amount',
+        'discount_value'  => (float) ($ln->discount_value ?? 0),
+      ];
+    })->values();
+  @endphp
+  const PRELOAD = @json($PRELOAD);
+  PRELOAD.forEach(addLineFromData);
 
   // Init
-  refreshList();
+  initStagePicker();  // inisialisasi TomSelect
+  applyMode(@json($discMode === 'per_item' ? 'per_item' : 'total')); // selalu string valid
   recalc();
 })();
 </script>

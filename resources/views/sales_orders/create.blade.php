@@ -125,19 +125,12 @@
 
       <hr class="my-3">
 
-      {{-- QUICK SEARCH --}}
-      <div class="mb-2">
-        <label class="form-label">Cari & pilih item</label>
-        <input id="itemQuickSearch" type="text" placeholder="Ketik nama/SKU...">
-        <div class="form-hint">Pilih hasil untuk mengisi baris input sementara di bawah, lalu klik <b>Tambah</b> untuk masuk ke list items.</div>
-      </div>
-
-      {{-- STAGING ROW --}}
+      {{-- STAGING ROW (field nama sekalian untuk cari/pilih item) --}}
       <div id="stageWrap" class="card mb-3">
         <div class="card-body py-2">
           <div class="row g-2 align-items-center">
             <div class="col-xxl-4 col-lg-5">
-              <input id="stage_name" type="text" class="form-control" placeholder="Pilih item lewat kotak di atas" readonly>
+              <input id="stage_name" type="text" class="form-control" placeholder="Ketik nama/SKU lalu pilih…">
               <input id="stage_item_id" type="hidden">
               <input id="stage_item_variant_id" type="hidden">
             </div>
@@ -303,21 +296,31 @@
 @endpush
 
 @push('scripts')
-{{-- Quick search JS (punyamu) --}}
-@include('quotations._item_quicksearch_js')
+{{-- Siapkan data item untuk picker stage_name --}}
+@php
+  $ITEM_OPTIONS = $items->map(function($it){
+    return [
+      'id'    => $it->id,
+      'label' => $it->name,
+      'unit'  => optional($it->unit)->code ?? 'pcs',
+      'price' => (float)($it->price ?? 0),
+    ];
+  })->values();
+@endphp
 
 <script>
 (function () {
+  window.SO_ITEM_OPTIONS = @json($ITEM_OPTIONS);
   'use strict';
 
   /* ====== CUSTOMER PICKER (TomSelect) ====== */
   const SEARCH_URL = {!! json_encode($CUSTOMER_SEARCH_URL, JSON_UNESCAPED_SLASHES) !!};
-  const input       = document.getElementById('customerPicker');
+  const inputCust  = document.getElementById('customerPicker');
   const hidCustomer = document.getElementById('customer_id');
   const hidContact  = document.getElementById('contact_id');
 
-  if (input && window.TomSelect) {
-    const picker = new TomSelect(input, {
+  if (inputCust && window.TomSelect) {
+    const picker = new TomSelect(inputCust, {
       valueField : 'uid',
       labelField : 'label',
       searchField: ['name','label'],
@@ -346,7 +349,6 @@
       }
     });
 
-    // Prefill ketika balik dari validation error
     const cid = (hidCustomer.value || '').trim();
     if (cid) {
       fetch(`${SEARCH_URL}?q=`, { credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'} })
@@ -364,7 +366,6 @@
         }).catch(()=>{});
     }
 
-    // Support quick-add modal
     const hiddenSelect = document.getElementById('customer_id_select');
     hiddenSelect?.addEventListener('change', () => {
       const opt = hiddenSelect.selectedOptions[0];
@@ -377,9 +378,58 @@
     });
   }
 
-  /* ====== HELPER FORMAT ====== */
+  /* ====== HELPER ====== */
   function toNum(v){ if(v==null) return 0; v=String(v).trim(); if(v==='') return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; }
   function rupiah(n){ try{return 'Rp '+new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n)}catch(e){const f=(Math.round(n*100)/100).toFixed(2); const [a,b]=f.split('.'); return 'Rp '+a.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+b} }
+
+  /* ====== ITEM PICKER DI #stage_name ====== */
+  (function initStagePicker(){
+    const input = document.getElementById('stage_name');
+    if (!input || !window.TomSelect) return;
+
+    const opts = (window.SO_ITEM_OPTIONS || []).map(o => ({
+      value: String(o.id),
+      label: o.label,
+      unit : o.unit || 'pcs',
+      price: Number(o.price || 0),
+    }));
+
+    const ts = new TomSelect(input, {
+      options: opts,
+      valueField : 'value',
+      labelField : 'label',
+      searchField: ['label'],
+      maxOptions : 50,
+      create     : false,
+      persist    : false,
+      allowEmptyOption: true,
+      dropdownParent: 'body',
+      render: {
+        option(d, esc){
+          return `<div class="d-flex justify-content-between">
+                    <span>${esc(d.label||'')}</span>
+                    <span class="text-muted small">${esc(d.unit||'')}</span>
+                  </div>`;
+        }
+      },
+      onChange(val){
+        const o = this.options[val];
+        document.getElementById('stage_item_id').value = o ? o.value : '';
+        document.getElementById('stage_item_variant_id').value = '';
+        document.getElementById('stage_unit').value  = o ? (o.unit||'pcs') : 'pcs';
+        document.getElementById('stage_price').value = o ? String(o.price||0) : '';
+      }
+    });
+
+    // Enter untuk langsung Tambah jika item sudah terpilih
+    input.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const id = document.getElementById('stage_item_id').value;
+        if (id) document.getElementById('stage_add_btn')?.click();
+      }
+    });
+  })();
 
   /* ====== LINES: TAMBAH/HAPUS ====== */
   const body   = document.getElementById('linesBody');
@@ -438,7 +488,7 @@
     document.getElementById('stage_price').value = '';
   });
 
-  /* ====== DISKON TOTAL SHOW/HIDE SESUAI MODE ====== */
+  /* ====== DISKON TOTAL SHOW/HIDE ====== */
   const totalControls    = document.querySelector('[data-section="discount-total-controls"]');
   const totalDiscTypeSel = document.getElementById('total_discount_type');
   const totalDiscValInp  = document.getElementById('total_discount_value');
@@ -535,7 +585,7 @@
     }
   });
 
-  /* ====== PPN AUTO-SYNC DARI COMPANY (Ditaruh SETELAH recalc terdefinisi) ====== */
+  /* ====== PPN AUTO-SYNC DARI COMPANY ====== */
   const selCompany = document.getElementById('company_id');
   function syncTax() {
     const opt = selCompany?.selectedOptions?.[0];
@@ -547,12 +597,11 @@
     recalc();
   }
   selCompany?.addEventListener('change', syncTax);
-  syncTax(); // jalan saat load pertama
+  syncTax();
 
   // Init UI states
   toggleTotalControls();
   recalc();
 })();
 </script>
-
 @endpush
