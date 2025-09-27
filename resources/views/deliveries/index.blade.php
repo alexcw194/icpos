@@ -5,11 +5,11 @@
   <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
       <h2 class="card-title mb-0">Delivery Orders</h2>
-      @can('deliveries.create')
+      {{--@can('deliveries.create')
         <a href="{{ route('deliveries.create') }}" class="btn btn-primary">
           <i class="ti ti-plus"></i> New Delivery
         </a>
-      @endcan
+      @endcan--}}
     </div>
 
     <div class="card-body border-bottom py-3">

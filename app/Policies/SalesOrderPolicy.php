@@ -93,4 +93,10 @@ class SalesOrderPolicy
     {
         return method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin();
     }
+
+    public function create(User $user): bool
+    {
+        return true;
+    }
+
 }

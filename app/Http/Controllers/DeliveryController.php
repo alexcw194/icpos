@@ -80,6 +80,12 @@ class DeliveryController extends Controller
     {
         $this->authorizePermission('deliveries.create');
 
+        // Jika tidak ada sales_order_id maupun invoice_id, tolak
+        if (!$request->filled('sales_order_id') && !$request->filled('invoice_id')) {
+            return redirect()->route('deliveries.index')
+                ->with('error','Silakan buat Sales Order terlebih dulu sebelum membuat Delivery Note.');
+        }
+
         $delivery = new Delivery([
             'status' => Delivery::STATUS_DRAFT,
             'date'   => Carbon::now()->format('Y-m-d'),

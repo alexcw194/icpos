@@ -8,7 +8,9 @@ use App\Models\{
     SalesOrderLine,
     SalesOrderAttachment,
     Company,
-    Customer
+    Customer,
+    Item,
+    User
 };
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +39,110 @@ class SalesOrderController extends Controller
         return view('sales_orders.create_from_quotation', compact(
             'quotation', 'npwpRequired', 'npwpMissing', 'npwp'
         ));
+    }
+
+    public function create()
+    {
+        $customers  = Customer::orderBy('name')->get(['id','name']);
+        $items      = Item::with('unit:id,code')->orderBy('name')->get(['id','name','price','unit_id']);
+        $companies  = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent']);
+        $sales      = User::orderBy('name')->get(['id','name']);
+
+        $defaultCompanyId    = Company::where('is_default', true)->value('id') ?? $companies->first()->id ?? null;
+        $defaultSalesUserId  = auth()->id();
+        $defaultDiscountMode = 'total';
+
+        return view('sales_orders.create', compact(
+            'customers','items','companies','sales',
+            'defaultCompanyId','defaultSalesUserId','defaultDiscountMode'
+        ));
+    }
+
+    public function store(Request $request)
+    {
+        // Validasi header dan lines mirip update()
+        $data = $request->validate([
+            'company_id'      => ['required','exists:companies,id'],
+            'customer_id'     => ['required','exists:customers,id'],
+            'customer_po_number' => ['required','string','max:100'],
+            'customer_po_date'   => ['required','date'],
+            'deadline'            => ['nullable','date'],
+            'ship_to'             => ['nullable','string'],
+            'bill_to'             => ['nullable','string'],
+            'notes'               => ['nullable','string'],
+            'discount_mode'       => ['required','in:total,per_item'],
+            'tax_percent'         => ['nullable','numeric','min:0'],
+
+            'lines'               => ['required','array','min:1'],
+            'lines.*.name'        => ['required','string'],
+            'lines.*.description' => ['nullable','string'],
+            'lines.*.unit'        => ['nullable','string','max:20'],
+            'lines.*.qty'         => ['required','string'],
+            'lines.*.unit_price'  => ['required','string'],
+            'lines.*.discount_type'  => ['nullable','in:amount,percent'],
+            'lines.*.discount_value' => ['nullable','string'],
+            'lines.*.item_id'         => ['nullable','exists:items,id'],
+            'lines.*.item_variant_id' => ['nullable','exists:item_variants,id'],
+        ]);
+
+        // Hitung ulang subtotal, diskon per‑line/total, pajak dan total (lihat logic di update()).
+        // Gunakan helper parse/clamp dari update() atau buat helper sendiri.
+
+        // Buat nomor SO
+        $company = Company::findOrFail($data['company_id']);
+        $number  = app(DocNumberService::class)->next('sales_order', $company, now());
+
+        /** @var SalesOrder $so */
+        DB::transaction(function() use ($data, $company, $number, &$so) {
+            $so = SalesOrder::create([
+                'company_id'          => $company->id,
+                'customer_id'         => $data['customer_id'],
+                'so_number'           => $number,
+                'order_date'          => now()->toDateString(),
+                'deadline'            => $data['deadline'] ?? null,
+                'customer_po_number'  => $data['customer_po_number'],
+                'customer_po_date'    => $data['customer_po_date'],
+                'ship_to'             => $data['ship_to'] ?? null,
+                'bill_to'             => $data['bill_to'] ?? null,
+                'notes'               => $data['notes'] ?? null,
+                'discount_mode'       => $data['discount_mode'],
+                'tax_percent'         => $data['tax_percent'] ?? 0,
+                'status'              => 'open',
+            ]);
+
+            // simpan per‑line (mirip upsert di update())
+            foreach ($computedLines as $i => $ln) {
+                SalesOrderLine::create([
+                    'sales_order_id'   => $so->id,
+                    'position'         => $i,
+                    'name'             => $ln['name'],
+                    'description'      => $ln['description'] ?? null,
+                    'unit'             => $ln['unit'] ?? null,
+                    'qty_ordered'      => $ln['qty'],
+                    'unit_price'       => $ln['unit_price'],
+                    'discount_type'    => $ln['discount_type'],
+                    'discount_value'   => $ln['discount_value'],
+                    'discount_amount'  => $ln['discount_amount'],
+                    'line_subtotal'    => $ln['line_subtotal'],
+                    'line_total'       => $ln['line_total'],
+                    'item_id'          => $ln['item_id'] ?? null,
+                    'item_variant_id'  => $ln['item_variant_id'] ?? null,
+                ]);
+            }
+
+            // hitung dan update totals header (lines_subtotal, taxable_base, etc.)
+            $so->update([
+                'lines_subtotal'        => $sub,
+                'total_discount_type'   => $tdType,
+                'total_discount_value'  => $tdVal,
+                'total_discount_amount' => $totalDc,
+                'taxable_base'          => $dpp,
+                'tax_amount'            => $ppn,
+                'total'                 => $grand,
+            ]);
+        });
+
+        return redirect()->route('sales-orders.show', $so)->with('success','Sales Order dibuat.');
     }
 
     public function index(Request $request)

@@ -113,6 +113,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('sales-orders/{salesOrder}', [SalesOrderController::class, 'show'])
         ->name('sales-orders.show');
 
+    Route::get('sales-orders/create', [SalesOrderController::class, 'create'])
+        ->name('sales-orders.create')
+        ->middleware(['auth', 'can:sales_orders.create']);
+
+    Route::post('sales-orders', [SalesOrderController::class, 'store'])
+        ->name('sales-orders.store')
+        ->middleware(['auth', 'can:sales_orders.create']);
+
     // NEW: edit / update / cancel / destroy
     Route::get   ('sales-orders/{salesOrder}/edit', [SalesOrderController::class, 'edit'])
         ->name('sales-orders.edit');

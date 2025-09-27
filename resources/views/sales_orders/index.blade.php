@@ -10,6 +10,11 @@
     </div>
     <div class="btn-list">
       {{-- placeholder aksi global kalau perlu --}}
+      @can('create', \App\Models\SalesOrder::class)
+        <a href="{{ route('sales-orders.create') }}" class="btn btn-primary">
+          <i class="ti ti-plus"></i> New Sales Order
+        </a>
+      @endcan
     </div>
   </div>
 
