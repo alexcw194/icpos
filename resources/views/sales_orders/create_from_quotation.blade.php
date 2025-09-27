@@ -257,7 +257,32 @@
 {{-- TomSelect CSS (fallback CDN) --}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
 <style>
-  .ts-dropdown{ z-index: 1060; }
+  /* Pastikan dropdown berada di atas elemen lain */
+  .ts-dropdown{ z-index:1060 !important; }
+
+  /* >>> Paksa background TomSelect solid putih (tidak transparan) */
+  .ts-wrapper .ts-control,
+  .ts-wrapper.single.input-active .ts-control,
+  .ts-wrapper.single.has-items .ts-control {
+    background-color:#fff !important;
+  }
+  .ts-dropdown {
+    background-color:#fff !important;
+    border:1px solid rgba(0,0,0,.12) !important;
+    box-shadow:0 10px 24px rgba(0,0,0,.12) !important;
+    backdrop-filter:none !important;
+  }
+  .ts-dropdown .option,
+  .ts-dropdown .create,
+  .ts-dropdown .no-results,
+  .ts-dropdown .optgroup-header {
+    background-color:#fff !important;
+  }
+  .ts-dropdown .active {
+    background-color:#f1f5f9 !important; /* slate-100 */
+  }
+
+  /* ===== Tabel Items ===== */
   #linesTable th, #linesTable td { vertical-align: middle; }
   #linesTable .col-item       { width: 22%; }
   #linesTable .col-desc       { width: 20%; }
@@ -276,7 +301,9 @@
   #linesTable .disc-cell .input-group-text.disc-unit{ min-width:46px; justify-content:center; }
   #linesTable .line_total_view{ font-weight:700; font-size:1.06rem; }
   #linesTable .line_subtotal_view{ font-size:.92rem; }
-  .mode-per  [data-section="discount-total-controls"]{ display:none!important; }
+
+  /* Sembunyikan kontrol diskon total saat mode per-item */
+  .mode-per [data-section="discount-total-controls"]{ display:none!important; }
 </style>
 @endpush
 
@@ -371,6 +398,9 @@
         if (priceInp)priceInp.value= o ? String(o.price || 0) : '';
       }
     });
+
+    // >>> simpan instance untuk dipakai saat Tambah & reset
+    input.__ts = ts;
 
     input.addEventListener('focus', () => ts.open());
     input.addEventListener('keydown', (e)=>{
@@ -485,10 +515,14 @@
   }
 
   function addLineFromStage(){
+    const ts    = document.getElementById('stage_name').__ts; // instance TomSelect
+    const label = ts ? (ts.getItem(ts.items[0])?.innerText || '') 
+                     : (document.getElementById('stage_name')?.value || '').trim();
+
     const d = {
       item_id        : ((document.getElementById('stage_item_id')||{}).value || '').trim(),
       item_variant_id: ((document.getElementById('stage_item_variant_id')||{}).value || '').trim(),
-      name           : ((document.getElementById('stage_name')||{}).value || '').trim(),
+      name           : label, // >>> pakai LABEL (nama lengkap), bukan id
       description    : (document.getElementById('stage_desc')||{}).value || '',
       qty            : toNum((document.getElementById('stage_qty')||{}).value || '1'),
       unit           : (((document.getElementById('stage_unit')||{}).value || 'pcs').trim()),
@@ -501,14 +535,17 @@
 
     addLineFromData(d);
 
-    const ids = ['stage_item_id','stage_item_variant_id','stage_name','stage_desc','stage_qty','stage_unit','stage_price'];
-    ids.forEach(id=>{
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (id==='stage_qty') el.value = '1';
-      else if (id==='stage_unit') el.value = 'pcs';
-      else el.value = '';
-    });
+    // >>> reset stage + TomSelect
+    ['stage_item_id','stage_item_variant_id','stage_desc','stage_qty','stage_unit','stage_price']
+      .forEach(id=>{
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id==='stage_qty') el.value = '1';
+        else if (id==='stage_unit') el.value = 'pcs';
+        else el.value = '';
+      });
+    if (ts){ ts.clear(); ts.setTextboxValue(''); }
+
     recalc();
   }
 
@@ -517,7 +554,7 @@
 
   const clrBtn = document.getElementById('stage_clear_btn');
   if (clrBtn) clrBtn.addEventListener('click', () => {
-    ['stage_item_id','stage_item_variant_id','stage_name','stage_desc','stage_qty','stage_unit','stage_price']
+    ['stage_item_id','stage_item_variant_id','stage_desc','stage_qty','stage_unit','stage_price']
       .forEach(id=>{
         const el = document.getElementById(id);
         if (!el) return;
@@ -525,6 +562,8 @@
         else if (id==='stage_unit') el.value = 'pcs';
         else el.value = '';
       });
+    const ts = document.getElementById('stage_name').__ts;
+    if (ts){ ts.clear(); ts.setTextboxValue(''); } // reset picker
   });
 
   // Delegasi event pada tabel
@@ -626,8 +665,8 @@
   PRELOAD.forEach(addLineFromData);
 
   // Init
-  initStagePicker();  // inisialisasi TomSelect
-  applyMode(@json($discMode === 'per_item' ? 'per_item' : 'total')); // selalu string valid
+  initStagePicker();                          // inisialisasi TomSelect
+  applyMode(@json($discMode === 'per_item' ? 'per_item' : 'total'));  // set mode awal
   recalc();
 })();
 </script>

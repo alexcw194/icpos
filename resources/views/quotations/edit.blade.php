@@ -1,4 +1,7 @@
+{{-- resources/views/quotations/edit.blade.php --}}
 @extends('layouts.tabler')
+
+@section('title', 'Edit Quotation')
 
 @section('content')
 <div class="container-xl">
@@ -33,10 +36,10 @@
           <select id="company_id" name="company_id" class="form-select" {{ $canChangeCompany ? '' : 'disabled' }} required>
             @foreach($companies as $co)
               <option value="{{ $co->id }}"
-                      data-taxable="{{ $co->is_taxable ? 1 : 0 }}"
-                      data-tax="{{ (float)($co->default_tax_percent ?? 0) }}"
-                      data-valid-days="{{ (int)($co->default_valid_days ?? 30) }}"
-                      {{ (old('company_id', $quotation->company_id) == $co->id) ? 'selected' : '' }}>
+                data-taxable="{{ $co->is_taxable ? 1 : 0 }}"
+                data-tax="{{ (float)($co->default_tax_percent ?? 0) }}"
+                data-valid-days="{{ (int)($co->default_valid_days ?? 30) }}"
+                {{ (old('company_id', $quotation->company_id) == $co->id) ? 'selected' : '' }}>
                 {{ $co->alias ? $co->alias.' — ' : '' }}{{ $co->name }}
               </option>
             @endforeach
@@ -50,20 +53,16 @@
           </div>
         </div>
 
-        {{-- CUSTOMER --}}
+        {{-- CUSTOMER (TomSelect) --}}
         <div class="col-md-4">
           <label class="form-label">Customer <span class="text-danger">*</span></label>
           <div class="d-flex gap-2">
-            <select id="customer_id_select" name="customer_id" class="form-select" required>
-              <option value="">— pilih customer —</option>
-              @foreach($customers as $c)
-                <option value="{{ $c->id }}" {{ old('customer_id', $quotation->customer_id)==$c->id?'selected':'' }}>
-                  {{ $c->name }}
-                </option>
-              @endforeach
-            </select>
+            <input id="customerPicker" type="text" class="form-control" placeholder="Ketik nama perusahaan/kontak…">
             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#quickCustomerModal">+ New</button>
           </div>
+          <input type="hidden" name="customer_id" id="customer_id" value="{{ old('customer_id', $quotation->customer_id) }}">
+          <input type="hidden" name="contact_id"  id="contact_id"  value="{{ old('contact_id', $quotation->contact_id) }}">
+          <small class="form-hint">Contoh: <em>Ersindo</em> atau <em>Ruru</em>.</small>
         </div>
 
         {{-- SALES NAME --}}
@@ -72,48 +71,37 @@
           <select name="sales_user_id" id="sales_user_id" class="form-select">
             @php $selectedSalesId = old('sales_user_id', $quotation->sales_user_id ?? $defaultSalesUserId ?? null); @endphp
             @foreach($sales as $s)
-              <option value="{{ $s->id }}" {{ (string)$selectedSalesId === (string)$s->id ? 'selected' : '' }}>
-                {{ $s->name }}
-              </option>
+              <option value="{{ $s->id }}" {{ (string)$selectedSalesId === (string)$s->id ? 'selected' : '' }}>{{ $s->name }}</option>
             @endforeach
           </select>
           <small class="form-hint">Nama sales tampil di print.</small>
         </div>
 
-        {{-- TANGGAL --}}
+        {{-- DATES --}}
         <div class="col-md-2">
           <label class="form-label">Tanggal <span class="text-danger">*</span></label>
-          <input type="date" name="date" id="date" class="form-control"
-                 value="{{ old('date', optional($quotation->date)->toDateString()) }}" required>
+          <input type="date" name="date" id="date" class="form-control" value="{{ old('date', optional($quotation->date)->toDateString()) }}" required>
         </div>
-
-        {{-- VALID UNTIL --}}
         <div class="col-md-2">
           <label class="form-label">Valid Until</label>
-          <input type="date" name="valid_until" id="valid_until" class="form-control"
-                 value="{{ old('valid_until', optional($quotation->valid_until)->toDateString()) }}">
+          <input type="date" name="valid_until" id="valid_until" class="form-control" value="{{ old('valid_until', optional($quotation->valid_until)->toDateString()) }}">
           <small class="form-hint">Jika kosong, otomatis dari Company.</small>
         </div>
 
-        {{-- CURRENCY --}}
         <input type="hidden" name="currency" value="IDR">
 
-        {{-- PPN --}}
+        {{-- TAX --}}
         <div class="col-md-2">
           <label class="form-label">PPN (%)</label>
-          <input type="text" inputmode="decimal" class="form-control text-end"
-                 id="tax_percent" name="tax_percent" placeholder="0"
-                 value="{{ old('tax_percent', $quotation->tax_percent) }}">
+          <input type="text" inputmode="decimal" class="form-control text-end" id="tax_percent" name="tax_percent" placeholder="0" value="{{ old('tax_percent', $quotation->tax_percent) }}">
           <small class="form-hint">Otomatis mengikuti Company</small>
         </div>
 
-        {{-- NOTES --}}
+        {{-- NOTES/TERMS --}}
         <div class="col-md-5">
           <label class="form-label">Notes</label>
           <textarea name="notes" class="form-control" rows="2">{{ old('notes', $quotation->notes) }}</textarea>
         </div>
-
-        {{-- TERMS --}}
         <div class="col-md-5">
           <label class="form-label">Terms</label>
           <textarea name="terms" class="form-control" rows="2">{{ old('terms', $quotation->terms) }}</textarea>
@@ -145,19 +133,12 @@
 
       <hr class="my-3">
 
-      {{-- QUICK SEARCH --}}
-      <div class="mb-2">
-        <label class="form-label">Cari & pilih item</label>
-        <input id="itemQuickSearch" type="text" placeholder="Ketik nama/SKU...">
-        <div class="form-hint">Pilih hasil untuk mengisi baris input sementara di bawah, lalu klik <b>Tambah</b> untuk masuk ke list items.</div>
-      </div>
-
-      {{-- STAGING ROW --}}
+      {{-- STAGING ROW (TomSelect menyatu di kolom pertama) --}}
       <div id="stageWrap" class="card mb-3">
         <div class="card-body py-2">
           <div class="row g-2 align-items-center">
             <div class="col-xxl-4 col-lg-5">
-              <input id="stage_name" type="text" class="form-control" placeholder="Pilih item lewat kotak di atas" readonly>
+              <input id="stage_name" type="text" class="form-control" placeholder="Ketik nama/SKU lalu pilih…">
               <input id="stage_item_id" type="hidden">
               <input id="stage_item_variant_id" type="hidden">
             </div>
@@ -181,7 +162,7 @@
         </div>
       </div>
 
-      {{-- ITEMS TABLE (tanpa Add Row manual) --}}
+      {{-- ITEMS TABLE --}}
       <div class="fw-bold mb-2">Items</div>
       <div class="table-responsive" id="quotation-lines">
         <table class="table table-sm" id="linesTable">
@@ -243,48 +224,73 @@
       'cancelUrl'    => route('quotations.index', request()->only('q','company_id','status')),
       'cancelLabel'  => 'Batal',
       'cancelInline' => true,
-      'buttons' => [
-        ['type' => 'submit', 'label' => 'Simpan', 'class' => 'btn btn-primary'],
-      ],
+      'buttons' => [['type' => 'submit', 'label' => 'Simpan', 'class' => 'btn btn-primary']],
     ])
   </form>
 </div>
 
 @php
-  // Seed baris: utamakan old('lines'); kalau kosong, pakai $quotation->lines
+  // Seed baris: utamakan old('lines'); kalau kosong baru pakai detail quotation
   $linesOld = collect(old('lines', []));
   if ($linesOld->isNotEmpty()) {
-      $lineSeed = $linesOld->map(function($l){
-          return [
-              'item_id'        => $l['item_id']   ?? null,
-              'item_variant_id' => $l['item_variant_id'] ?? null,
-              'name'           => $l['name']      ?? '',
-              'description'    => $l['description'] ?? '',
-              'qty'            => (float)($l['qty'] ?? 0),
-              'unit'           => $l['unit'] ?? 'pcs',
-              'unit_price'     => (float)($l['unit_price'] ?? 0),
-              'discount_type'  => $l['discount_type'] ?? 'amount',
-              'discount_value' => (float)($l['discount_value'] ?? 0),
-          ];
-      })->values();
+    $lineSeed = $linesOld->map(function($l){
+      return [
+        'item_id'         => $l['item_id'] ?? null,
+        'item_variant_id' => $l['item_variant_id'] ?? null,
+        'name'            => $l['name'] ?? '',
+        'description'     => $l['description'] ?? '',
+        'qty'             => (float)($l['qty'] ?? 0),
+        'unit'            => $l['unit'] ?? 'pcs',
+        'unit_price'      => (float)($l['unit_price'] ?? 0),
+        'discount_type'   => $l['discount_type'] ?? 'amount',
+        'discount_value'  => (float)($l['discount_value'] ?? 0),
+      ];
+    })->values();
   } else {
-      $lineSeed = $quotation->lines->map(function($l) {
-          return [
-              'item_id'        => null, // biarkan null (nama bebas); user bisa pilih item master via staging bila perlu
-              'item_variant_id' => $l->item_variant_id ?? null, 
-              'name'           => $l->name,
-              'description'    => $l->description,
-              'qty'            => (float) $l->qty,
-              'unit'           => $l->unit ?? 'pcs',
-              'unit_price'     => (float) $l->unit_price,
-              'discount_type'  => $l->discount_type ?? 'amount',
-              'discount_value' => (float) ($l->discount_value ?? 0),
-          ];
-      })->values();
+    $lineSeed = ($quotation->lines ?? collect())->map(function($l){
+      return [
+        'item_id'         => $l->item_id, // boleh null; nama tetap ditampilkan
+        'item_variant_id' => $l->item_variant_id,
+        'name'            => $l->name,
+        'description'     => $l->description,
+        'qty'             => (float)$l->qty,
+        'unit'            => $l->unit ?? 'pcs',
+        'unit_price'      => (float)$l->unit_price,
+        'discount_type'   => $l->discount_type ?? 'amount',
+        'discount_value'  => (float)($l->discount_value ?? 0),
+      ];
+    })->values();
+  }
+
+  // opsi item untuk TomSelect (boleh dari controller)
+  $ITEM_OPTIONS = ($items ?? collect())->map(function($it){
+    return [
+      'id'    => (string) $it->id,
+      'label' => $it->name,
+      'unit'  => optional($it->unit)->code ?? 'pcs',
+      'price' => (float)($it->price ?? 0),
+    ];
+  })->values();
+
+  $CUSTOMER_SEARCH_URL = route('customers.search', [], false);
+
+  // ====== PRESET CUSTOMER untuk prefill TomSelect di edit ======
+  $CURRENT_CUSTOMER = null;
+  if ($quotation->customer) {
+      $cust    = $quotation->customer;
+      $contact = $quotation->contact; // bisa null
+      $CURRENT_CUSTOMER = [
+          'uid'         => $contact ? ('contact-'.$contact->id) : ('customer-'.$cust->id),
+          'customer_id' => $cust->id,
+          'contact_id'  => $contact?->id,
+          'label'       => $contact ? ($cust->name.' ('.$contact->name.')') : $cust->name,
+          'name'        => $cust->name,
+          'type'        => $contact ? 'contact' : 'customer',
+      ];
   }
 @endphp
 
-{{-- TEMPLATE ROW (readonly name; diisi via staging row) --}}
+{{-- TEMPLATE ROW --}}
 <template id="rowTpl">
   <tr data-line-row class="qline">
     <td class="col-item">
@@ -329,69 +335,58 @@
   </tr>
 </template>
 
-{{-- ⬇️ Modal Quick Customer --}}
+{{-- Modal Quick Customer --}}
 @include('customers._quick_modal')
+@endsection
 
 @push('styles')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
 <style>
   #linesTable th, #linesTable td { vertical-align: middle; }
-  #linesTable .col-item       { width: 22%; }
-  #linesTable .col-desc       { width: 20%; }
-  #linesTable .col-qty        { width: 6.5ch; }
-  #linesTable .col-unit       { width: 7ch; }
-  #linesTable .col-price      { width: 14%; }
-  #linesTable .col-disc       { width: 16%; }
-  #linesTable .col-subtotal   { width: 9%; }
-  #linesTable .col-disc-amount{ width: 9%; }
-  #linesTable .col-total      { width: 14%; }
-  #linesTable .col-actions    { width: 4%; }
-  #linesTable input.qty { max-width: 6.5ch; }
-  #linesTable input.unit{ max-width: 7ch; }
-  #linesTable .disc-cell .form-select{ min-width:120px; }
-  #linesTable .disc-cell .disc-value { max-width: 8ch; }
-  #linesTable .disc-cell .input-group-text.disc-unit{ min-width:46px; justify-content:center; }
-  #linesTable .line_total_view{ font-weight:700; font-size:1.06rem; }
-  #linesTable .line_subtotal_view{ font-size:.92rem; }
+  #linesTable .col-item{ width:22% } .col-desc{ width:20% } .col-qty{ width:6.5ch } .col-unit{ width:7ch }
+  #linesTable .col-price{ width:14% } .col-disc{ width:16% } .col-subtotal{ width:9% } .col-disc-amount{ width:9% } .col-total{ width:14% } .col-actions{ width:4% }
+  #linesTable input.qty{ max-width:6.5ch } #linesTable input.unit{ max-width:7ch }
+  #linesTable .disc-cell .form-select{ min-width:120px } .disc-cell .disc-value{ max-width:8ch }
+  #linesTable .disc-cell .input-group-text.disc-unit{ min-width:46px; justify-content:center }
+  #linesTable .line_total_view{ font-weight:700; font-size:1.06rem } .line_subtotal_view{ font-size:.92rem }
+  .ts-dropdown{ z-index:1060 !important; background:#fff !important; box-shadow:0 10px 24px rgba(0,0,0,.12) !important; }
 </style>
 @endpush
 
 @push('scripts')
-@include('quotations._item_quicksearch_js')
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
-(function () {
-  // ---------- Helpers ----------
-  function toNum(v){ if(v==null) return 0; v=String(v).trim(); if(v==='') return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; }
-  function rupiah(n){ try{return 'Rp '+new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n)}catch(e){const f=(Math.round(n*100)/100).toFixed(2); const [a,b]=f.split('.'); return 'Rp '+a.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+b} }
-  function clampQty(x){ const n=toNum(x); if(n<0) return 0; if(n>100) return 100; return n; }
-  function clampPct(x){ return Math.min(Math.max(toNum(x),0),100); }
-  function addDaysISO(s, d){ if(!s) return ''; const t=new Date(s+'T00:00:00'); if(isNaN(+t)) return ''; t.setDate(t.getDate()+(parseInt(d,10)||0)); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; }
+(() => {
+  'use strict';
 
-  // ---------- DOM ----------
+  /* ===== Helpers ===== */
+  const toNum  = v => { if(v==null) return 0; v=(''+v).trim(); if(!v) return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; };
+  const rupiah = n => { try{ return 'Rp ' + new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n) } catch(e){ const f=(Math.round(n*100)/100).toFixed(2); const [a,b]=f.split('.'); return 'Rp '+a.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+b } };
+  const clampQty = x => Math.min(Math.max(toNum(x),0),100);
+  const clampPct = x => Math.min(Math.max(toNum(x),0),100);
+  const addDaysISO = (s,d)=>{ if(!s) return ''; const t=new Date(s+'T00:00:00'); if(isNaN(+t)) return ''; t.setDate(t.getDate()+(parseInt(d,10)||0)); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; };
+
+  /* ===== DOM ===== */
   const form = document.getElementById('qoForm');
   const body = document.getElementById('linesBody');
   const tpl  = document.getElementById('rowTpl').innerHTML;
 
-  // Staging elements
-  const STAGE = {
-    name: document.getElementById('stage_name'),
-    id  : document.getElementById('stage_item_id'),
-    variantId: document.getElementById('stage_item_variant_id'),
-    desc: document.getElementById('stage_desc'),
-    qty : document.getElementById('stage_qty'),
-    unit: document.getElementById('stage_unit'),
-    price:document.getElementById('stage_price'),
-    addBtn:document.getElementById('stage_add_btn'),
-    clearBtn:document.getElementById('stage_clear_btn'),
-    search:document.getElementById('itemQuickSearch'),
-    clear(){ this.id.value=''; this.variantId.value=''; this.name.value=''; this.desc.value=''; this.qty.value='1'; this.unit.value='pcs'; this.price.value=''; }
-  };
+  const stageName  = document.getElementById('stage_name');
+  const stageId    = document.getElementById('stage_item_id');
+  const stageVarId = document.getElementById('stage_item_variant_id');
+  const stageDesc  = document.getElementById('stage_desc');
+  const stageQty   = document.getElementById('stage_qty');
+  const stageUnit  = document.getElementById('stage_unit');
+  const stagePrice = document.getElementById('stage_price');
+  const btnAdd     = document.getElementById('stage_add_btn');
+  const btnClear   = document.getElementById('stage_clear_btn');
 
-  const companySel   = document.getElementById('company_id');
-  const taxInfo      = document.getElementById('companyTaxInfo');
-  const validInfo    = document.getElementById('companyValidInfo');
-  const taxInput     = document.getElementById('tax_percent');
-  const dateInput    = document.getElementById('date');
-  const validInput   = document.getElementById('valid_until');
+  const companySel = document.getElementById('company_id');
+  const taxInfo    = document.getElementById('companyTaxInfo');
+  const validInfo  = document.getElementById('companyValidInfo');
+  const taxInput   = document.getElementById('tax_percent');
+  const dateInput  = document.getElementById('date');
+  const validInput = document.getElementById('valid_until');
 
   const totalDiscTypeSel = document.getElementById('total_discount_type');
   const totalDiscValInp  = document.getElementById('total_discount_value');
@@ -405,16 +400,80 @@
   const vTaxAmt          = document.getElementById('v_tax_amount');
   const vTotal           = document.getElementById('v_total');
 
-  const discountRadios   = document.querySelectorAll('input[name="discount_mode"]');
-  const secTotalControls = document.querySelector('[data-section="discount-total-controls"]');
-  const thDiscInput      = document.querySelector('th[data-col="disc-input"]');
+  /* ===== Customer TomSelect (remote + PRESET) ===== */
+  const SEARCH_URL = {!! json_encode($CUSTOMER_SEARCH_URL, JSON_UNESCAPED_SLASHES) !!};
+  (function initCustomerTS(){
+    const input = document.getElementById('customerPicker');
+    if (!input || !window.TomSelect) return;
 
-  // ---------- Rows ----------
+    const hidCustomer = document.getElementById('customer_id');
+    const hidContact  = document.getElementById('contact_id');
+
+    const picker = new TomSelect(input, {
+      valueField : 'uid',
+      labelField : 'label',
+      searchField: ['name','label'],
+      maxOptions : 30,
+      preload    : 'focus',
+      create     : false,
+      persist    : false,
+      dropdownParent: 'body',
+      load(query, cb){
+        const url = `${SEARCH_URL}?q=${encodeURIComponent(query||'')}`;
+        fetch(url,{credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}})
+          .then(r => r.text())
+          .then(t => { const s=t.replace(/^\uFEFF/,'').trim(); try{ cb(JSON.parse(s)) }catch{ cb([]) } })
+          .catch(()=>cb());
+      },
+      render:{ option(d,esc){ return `<div>${esc(d.label||'')}</div>`; } },
+      onChange(val){
+        const data = this.options[val];
+        if (!data) return;
+        hidCustomer.value = data.customer_id || '';
+        hidContact.value  = data.contact_id  || '';
+        this.setTextboxValue(data.label || '');
+        this.close();
+      }
+    });
+
+    // === Prefill langsung dari server (tanpa fetch list acak) ===
+    const PRESET = @json($CURRENT_CUSTOMER);
+    if (PRESET && PRESET.customer_id) {
+      picker.addOption(PRESET);
+      picker.addItem(PRESET.uid, true);
+      picker.setTextboxValue(PRESET.label);
+      hidCustomer.value = PRESET.customer_id;
+      hidContact.value  = PRESET.contact_id || '';
+    }
+  })();
+
+  /* ===== Item TomSelect (satu kotak di staging) ===== */
+  (function initItemTS(){
+    const opts = @json($ITEM_OPTIONS ?? []);
+    if (!stageName || !window.TomSelect) return;
+
+    const ts = new TomSelect(stageName, {
+      options:(opts||[]).map(o=>({value:o.id,label:o.label,unit:o.unit||'pcs',price:Number(o.price||0)})),
+      valueField:'value', labelField:'label', searchField:['label'],
+      maxOptions:100, create:false, persist:false, dropdownParent:'body', openOnFocus:true, preload:true,
+      render:{ option(d,esc){ return `<div class="d-flex justify-content-between"><span>${esc(d.label||'')}</span><span class="text-muted small">${esc(d.unit||'')}</span></div>`; } },
+      onChange(val){
+        const o=this.options[val];
+        stageId.value   = o ? o.value : '';
+        stageVarId.value= '';
+        stageUnit.value = o ? (o.unit||'pcs') : 'pcs';
+        stagePrice.value= o ? String(o.price||0) : '';
+      }
+    });
+    stageName.__ts = ts;
+  })();
+
+  /* ===== Rows ===== */
   let idx = 0;
+
   function addRow(values = {}) {
-    let html = tpl.replaceAll('__IDX__', idx);
     const wrap = document.createElement('tbody');
-    wrap.innerHTML = html.trim();
+    wrap.innerHTML = tpl.replaceAll('__IDX__', idx).trim();
     const row = wrap.firstElementChild;
 
     const itemId     = row.querySelector('.q-item-id');
@@ -428,123 +487,133 @@
     const discTypeSel= row.querySelector('.disc-type');
     const discValInp = row.querySelector('.disc-value');
     const discUnitSp = row.querySelector('.disc-unit');
-
     const removeBtn  = row.querySelector('.removeRowBtn');
 
     unitInput.readOnly = true;
 
-    function syncDiscUnit(){ if(!discTypeSel) return; (discUnitSp||{}).textContent = (discTypeSel.value==='percent')?'%':'IDR'; }
-    discTypeSel?.addEventListener('change', () => { syncDiscUnit(); recalc(); });
+    const syncDiscUnit = () => discUnitSp.textContent = (discTypeSel.value==='percent') ? '%' : 'IDR';
+    discTypeSel.addEventListener('change', () => { syncDiscUnit(); recalc(); });
     syncDiscUnit();
 
-    function unformatPrice(el){ el.value = String(toNum(el.value)); }
-    function formatPrice(el){ el.value = new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(toNum(el.value)); }
-    priceInput.addEventListener('focus', () => unformatPrice(priceInput));
-    priceInput.addEventListener('blur',  () => formatPrice(priceInput));
-
-    [qtyInput, priceInput, discValInp].forEach(el => {
-      el?.addEventListener('input', recalc);
-      el?.addEventListener('blur', recalc);
-    });
-
+    [qtyInput, priceInput, discValInp].forEach(el => { el.addEventListener('input', recalc); el.addEventListener('blur', recalc); });
     qtyInput.addEventListener('blur', () => { qtyInput.value = String(clampQty(qtyInput.value)); recalc(); });
-    removeBtn.addEventListener('click', () => { row.parentNode.removeChild(row); recalc(); });
+    removeBtn.addEventListener('click', () => { row.remove(); recalc(); });
 
-    // preset
-    if (values.item_id) itemId.value = values.item_id;
-    if (values.item_variant_id) variantId.value = values.item_variant_id;
-    if (values.name)    nameInput.value = values.name;
-    if (values.description) descInput.value = values.description;
-    if (values.qty != null) qtyInput.value = values.qty;
-    if (values.unit)    unitInput.value = values.unit;
-    if (values.unit_price != null) priceInput.value = String(values.unit_price);
+    itemId.value    = values.item_id ?? '';
+    variantId.value = values.item_variant_id ?? '';
+    nameInput.value = values.name ?? '';
+    descInput.value = values.description ?? '';
+    qtyInput.value  = values.qty ?? 1;
+    unitInput.value = values.unit ?? 'pcs';
+    priceInput.value= values.unit_price ?? 0;
     if (values.discount_type)  discTypeSel.value = values.discount_type;
-    if (values.discount_value != null) discValInp.value = String(values.discount_value);
+    if (values.discount_value != null) discValInp.value = values.discount_value;
 
     body.appendChild(row);
     idx++;
-
     applyModeToRow(row);
     recalc();
   }
 
-  // Seed existing lines
-  const existingLines = @json($lineSeed);
-  if (Array.isArray(existingLines) && existingLines.length > 0) {
-    existingLines.forEach(l => addRow(l));
-  }
-  // jika kosong, biarkan tabel kosong; user menambah via staging row
+  // Seed baris dari PHP
+  const existing = @json($lineSeed);
+  if (Array.isArray(existing) && existing.length) existing.forEach(l => addRow(l));
 
-  // ======= Stage handlers =======
-  STAGE.addBtn.addEventListener('click', () => {
-    if (!STAGE.name.value.trim()) { STAGE.search?.focus(); return; }
+  /* ===== Stage handlers ===== */
+  const clearStage = () => {
+    stageId.value=''; stageVarId.value=''; stageDesc.value=''; stageQty.value='1'; stageUnit.value='pcs'; stagePrice.value='';
+    if (stageName.__ts){ stageName.__ts.clear(); stageName.__ts.setTextboxValue(''); }
+  };
+
+  btnAdd.addEventListener('click', () => {
+    const label = (stageName.__ts ? stageName.__ts.getItem(stageName.__ts.items[0])?.innerText : stageName.value) || '';
+    const id    = (stageId.value||'').trim();
+    if (!id || !label){ (stageName.focus && stageName.focus()); return; }
+
     addRow({
-      item_id: STAGE.id.value || '',
-      item_variant_id: STAGE.variantId.value || '',
-      name: STAGE.name.value,
-      description: STAGE.desc.value,
-      qty: STAGE.qty.value || 1,
-      unit: STAGE.unit.value || 'pcs',
-      unit_price: STAGE.price.value || 0,
+      item_id: id,
+      item_variant_id: stageVarId.value || '',
+      name: label, // tampilkan nama, bukan ID
+      description: stageDesc.value || '',
+      qty: stageQty.value || 1,
+      unit: stageUnit.value || 'pcs',
+      unit_price: stagePrice.value || 0,
     });
-    STAGE.clear();
-    STAGE.search?.focus();
-  });
-  STAGE.clearBtn.addEventListener('click', () => STAGE.clear());
-  document.getElementById('stageWrap').addEventListener('keydown', (e)=>{
-    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); STAGE.addBtn.click(); }
+
+    clearStage(); // auto reset
   });
 
-  // ---------- Company & Tax & Valid Days sync ----------
-  function syncCompanyInfo() {
+  btnClear.addEventListener('click', clearStage);
+  document.getElementById('stageWrap').addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); btnAdd.click(); }
+  });
+
+  /* ===== Company & Tax ===== */
+  function syncCompanyInfo(){
     const opt = companySel?.selectedOptions ? companySel.selectedOptions[0] : null;
     const taxable = Number(opt?.dataset.taxable || 0) === 1;
     const defTax  = parseFloat(opt?.dataset.tax || '0') || 0;
-    const vdays   = parseInt(opt?.dataset.validDays || '30', 10) || 30;
+    const vdays   = parseInt(opt?.dataset.validDays || '30',10) || 30;
 
-    if (!taxable) {
-      taxInput.value = '0';
-      taxInput.readOnly = true;
-      taxInput.classList.add('bg-light');
-      taxInfo && (taxInfo.innerHTML = '<span class="badge bg-gray">Non-Taxable</span>');
+    if (!taxable){
+      taxInput.value='0'; taxInput.readOnly=true; taxInput.classList.add('bg-light');
+      if (taxInfo) taxInfo.innerHTML = '<span class="badge bg-gray">Non-Taxable</span>';
     } else {
-      if (!taxInput.value || Number(toNum(taxInput.value)) === 0) taxInput.value = defTax.toFixed(2);
-      taxInput.readOnly = false;
-      taxInput.classList.remove('bg-light');
-      taxInfo && (taxInfo.innerHTML = '<span class="badge bg-blue">Taxable</span> <span class="text-muted">Default '+ defTax.toFixed(2) + '%</span>');
+      if (!taxInput.value || Number(toNum(taxInput.value))===0) taxInput.value = defTax.toFixed(2);
+      taxInput.readOnly=false; taxInput.classList.remove('bg-light');
+      if (taxInfo) taxInfo.innerHTML = '<span class="badge bg-blue">Taxable</span> <span class="text-muted">Default '+defTax.toFixed(2)+'%</span>';
     }
 
-    validInfo && (validInfo.textContent = 'Default masa berlaku: ' + vdays + ' hari');
-
-    if (validInput && !validInput.value) {
+    if (validInfo) validInfo.textContent = 'Default masa berlaku: '+vdays+' hari';
+    if (validInput && !validInput.value){
       const next = addDaysISO(dateInput.value || '', vdays);
       if (next) validInput.value = next;
     }
-
     recalc();
   }
   companySel && companySel.addEventListener('change', syncCompanyInfo);
-  syncCompanyInfo();
-
   dateInput && dateInput.addEventListener('change', () => {
     if (validInput.value) return;
     const opt = companySel?.selectedOptions ? companySel.selectedOptions[0] : null;
-    const vdays = parseInt(opt?.dataset.validDays || '30', 10) || 30;
+    const vdays = parseInt(opt?.dataset.validDays || '30',10) || 30;
     const next = addDaysISO(dateInput.value, vdays);
     if (next) validInput.value = next;
   });
 
-  function syncTotalDiscUnit(){ if(!totalDiscTypeSel||!totalDiscUnit) return; totalDiscUnit.textContent = (totalDiscTypeSel.value==='percent') ? '%' : 'IDR'; recalc(); }
-  totalDiscTypeSel?.addEventListener('change', syncTotalDiscUnit);
-  totalDiscValInp?.addEventListener('input', recalc);
-  syncTotalDiscUnit();
+  /* ===== Discount Mode ===== */
+  function getMode(){ return (document.querySelector('input[name="discount_mode"]:checked')?.value) || 'total'; }
+  function resetTotalFields(){ totalDiscTypeSel.value='amount'; totalDiscValInp.value='0'; totalDiscUnit.textContent='IDR'; }
+  function resetPerItemFields(root){
+    (root?root:document).querySelectorAll('.disc-type').forEach(el=>el.value='amount');
+    (root?root:document).querySelectorAll('.disc-value').forEach(el=>el.value='0');
+    (root?root:document).querySelectorAll('.disc-unit').forEach(el=>el.textContent='IDR');
+  }
+  function applyModeToRow(row){
+    const discCell = row.querySelector('.disc-cell');
+    if (!discCell) return;
+    if (getMode()==='total'){ discCell.classList.add('d-none'); resetPerItemFields(row); }
+    else { discCell.classList.remove('d-none'); }
+  }
+  function applyDiscountMode(mode){
+    const sec = document.querySelector('[data-section="discount-total-controls"]');
+    const th  = document.querySelector('th[data-col="disc-input"]');
+    if (sec){ if (mode==='per_item'){ sec.classList.add('d-none'); resetTotalFields(); } else { sec.classList.remove('d-none'); } }
+    if (th){ th.classList.toggle('d-none', mode==='total'); }
+    body.querySelectorAll('tr[data-line-row]').forEach(applyModeToRow);
+    recalc();
+  }
+  document.querySelectorAll('input[name="discount_mode"]').forEach(r=>r.addEventListener('change',e=>applyDiscountMode(e.target.value)));
+
+  function syncTotalDiscUnit(){ totalDiscUnit.textContent = (totalDiscTypeSel.value==='percent') ? '%' : 'IDR'; recalc(); }
+  totalDiscTypeSel.addEventListener('change', syncTotalDiscUnit);
+  totalDiscValInp.addEventListener('input', recalc);
   taxInput.addEventListener('input', recalc);
 
-  // ---------- Recalc ----------
-  function recalc() {
+  /* ===== Recalc ===== */
+  function recalc(){
     let linesSubtotal = 0;
 
-    body.querySelectorAll('tr[data-line-row]').forEach(tr => {
+    body.querySelectorAll('tr[data-line-row]').forEach(tr=>{
       const qty   = clampQty(tr.querySelector('.qty')?.value || '0');
       const price = toNum(tr.querySelector('.price')?.value || '0');
       const dtSel = tr.querySelector('.disc-type');
@@ -554,8 +623,8 @@
 
       const lineSubtotal = qty * price;
       let discAmount = 0;
-      if (dt === 'percent') discAmount = clampPct(dvRaw) / 100 * lineSubtotal;
-      else                  discAmount = Math.min(Math.max(dvRaw, 0), lineSubtotal);
+      if (dt==='percent') discAmount = clampPct(dvRaw)/100 * lineSubtotal;
+      else                discAmount = Math.min(Math.max(dvRaw,0), lineSubtotal);
 
       const lineTotal = Math.max(lineSubtotal - discAmount, 0);
 
@@ -568,65 +637,36 @@
 
     vLinesSubtotal.textContent = rupiah(linesSubtotal);
 
-    const mode = getDiscountMode();
-    let tdt  = totalDiscTypeSel?.value || 'amount';
-    let tdv  = toNum(totalDiscValInp?.value || '0');
+    let tdt = totalDiscTypeSel.value;
+    let tdv = toNum(totalDiscValInp.value);
+    if (getMode()==='per_item'){ tdt='amount'; tdv=0; totalDiscTypeSel.value='amount'; totalDiscValInp.value='0'; }
 
-    if (mode === 'per_item') { tdt='amount'; tdv=0; totalDiscTypeSel && (totalDiscTypeSel.value='amount'); totalDiscValInp && (totalDiscValInp.value='0'); }
+    const totalDiscAmount = (tdt==='percent') ? clampPct(tdv)/100 * linesSubtotal
+                                              : Math.min(Math.max(tdv,0), linesSubtotal);
 
-    const totalDiscAmount = (tdt === 'percent')
-      ? clampPct(tdv) / 100 * linesSubtotal
-      : Math.min(Math.max(tdv, 0), linesSubtotal);
-
-    vTotalDiscAmt.textContent = rupiah(totalDiscAmount);
-    vTotalDiscHint.textContent = (tdt === 'percent' && mode !== 'per_item')
-      ? '(' + (Math.round(clampPct(tdv)*100)/100).toFixed(2) + '%)'
-      : '';
+    vTotalDiscAmt.textContent  = rupiah(totalDiscAmount);
+    vTotalDiscHint.textContent = (tdt==='percent' && getMode()!=='per_item') ? '('+(Math.round(clampPct(tdv)*100)/100).toFixed(2)+'%)' : '';
 
     const base   = Math.max(linesSubtotal - totalDiscAmount, 0);
-    const taxPct = toNum(taxInput.value || '0');
-    const taxAmt = base * Math.max(taxPct, 0) / 100;
+    const taxPct = clampPct(taxInput.value);
+    const taxAmt = base * (taxPct/100);
     const total  = base + taxAmt;
 
     vTaxableBase.textContent = rupiah(base);
-    vTaxPct.textContent      = (Math.round(taxPct * 100) / 100).toFixed(2);
+    vTaxPct.textContent      = (Math.round(taxPct*100)/100).toFixed(2);
     vTaxAmt.textContent      = rupiah(taxAmt);
     vTotal.textContent       = rupiah(total);
   }
 
-  // ---------- Discount Mode Toggle ----------
-  function getDiscountMode(){ return (document.querySelector('input[name="discount_mode"]:checked')?.value) || 'total'; }
-  function resetTotalDiscountFields(){ totalDiscTypeSel && (totalDiscTypeSel.value='amount'); totalDiscValInp && (totalDiscValInp.value='0'); totalDiscUnit && (totalDiscUnit.textContent='IDR'); }
-  function resetPerItemDiscountFields(root){
-    (root ? root.querySelectorAll('.disc-type') : document.querySelectorAll('.disc-type')).forEach(el => { el.value='amount'; });
-    (root ? root.querySelectorAll('.disc-value') : document.querySelectorAll('.disc-value')).forEach(el => { el.value='0'; });
-    (root ? root.querySelectorAll('.disc-unit')  : document.querySelectorAll('.disc-unit')).forEach(el => { el.textContent='IDR'; });
-  }
-  function applyModeToRow(row){
-    const mode = getDiscountMode();
-    const discCell = row.querySelector('.disc-cell');
-    if (!discCell) return;
-    if (mode === 'total'){ discCell.classList.add('d-none'); resetPerItemDiscountFields(row); }
-    else                 { discCell.classList.remove('d-none'); }
-  }
-  function applyDiscountMode(mode){
-    if (secTotalControls){
-      if (mode === 'per_item'){ secTotalControls.classList.add('d-none'); resetTotalDiscountFields(); }
-      else { secTotalControls.classList.remove('d-none'); }
-    }
-    if (thDiscInput){
-      if (mode === 'total') thDiscInput.classList.add('d-none');
-      else                  thDiscInput.classList.remove('d-none');
-    }
-    body.querySelectorAll('tr[data-line-row]').forEach(applyModeToRow);
-    recalc();
-  }
-  discountRadios.forEach(r => r.addEventListener('change', (e) => applyDiscountMode(e.target.value)));
-  applyDiscountMode(getDiscountMode());
+  /* ===== Seed, init ===== */
+  syncCompanyInfo();
+  applyDiscountMode(getMode());
+  syncTotalDiscUnit();
+  recalc();
 
-  // ---------- Unformat sebelum submit ----------
-  form.addEventListener('submit', () => {
-    body.querySelectorAll('tr[data-line-row]').forEach((tr) => {
+  /* ===== Unformat sebelum submit ===== */
+  form.addEventListener('submit', ()=>{
+    body.querySelectorAll('tr[data-line-row]').forEach(tr=>{
       const qty   = tr.querySelector('.qty');
       const price = tr.querySelector('.price');
       const dval  = tr.querySelector('.disc-value');
@@ -634,10 +674,9 @@
       if (price) price.value = String(toNum(price.value));
       if (dval)  dval.value  = String(toNum(dval.value));
     });
-    totalDiscValInp && (totalDiscValInp.value = String(toNum(totalDiscValInp.value)));
-    taxInput.value = String(toNum(taxInput.value));
+    totalDiscValInp.value = String(toNum(totalDiscValInp.value));
+    taxInput.value        = String(clampPct(taxInput.value));
   });
 })();
 </script>
 @endpush
-@endsection

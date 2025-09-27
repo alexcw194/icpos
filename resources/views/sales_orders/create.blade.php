@@ -421,6 +421,9 @@
       }
     });
 
+    // simpan instance untuk baca label & reset saat "Tambah"
+    input.__ts = ts;
+
     // Enter untuk langsung Tambah jika item sudah terpilih
     input.addEventListener('keydown', (e)=>{
       if (e.key === 'Enter') {
@@ -439,7 +442,12 @@
   function addLineFromStage(){
     const id    = (document.getElementById('stage_item_id').value||'').trim();
     const vid   = (document.getElementById('stage_item_variant_id').value||'').trim();
-    const name  = (document.getElementById('stage_name').value||'').trim();
+
+    // Ambil LABEL dari TomSelect (bukan value/id)
+    const ts    = document.getElementById('stage_name').__ts;
+    const name  = ts ? (ts.getItem(ts.items[0])?.innerText || '') 
+                     : (document.getElementById('stage_name').value||'').trim();
+
     const desc  = document.getElementById('stage_desc').value||'';
     const qty   = toNum(document.getElementById('stage_qty').value||'1');
     const unit  = (document.getElementById('stage_unit').value||'pcs').trim();
@@ -453,7 +461,7 @@
     tr.className = 'qline';
     tr.innerHTML = rowTpl.innerHTML.replace(/__IDX__/g, lineIdx);
 
-    tr.querySelector('.q-item-name').value = name;
+    tr.querySelector('.q-item-name').value = name;     // <- pakai label
     tr.querySelector('.q-item-id').value   = id;
     tr.querySelector('.q-item-variant-id').value = vid;
     tr.querySelector('.q-item-desc').value = desc;
@@ -466,26 +474,27 @@
     body.appendChild(tr);
     lineIdx++;
 
-    // Bersihkan staging
+    // Bersihkan staging + reset TomSelect
     document.getElementById('stage_item_id').value = '';
     document.getElementById('stage_item_variant_id').value = '';
-    document.getElementById('stage_name').value = '';
     document.getElementById('stage_desc').value = '';
     document.getElementById('stage_qty').value = '1';
     document.getElementById('stage_unit').value = 'pcs';
     document.getElementById('stage_price').value = '';
+    if (ts){ ts.clear(); ts.setTextboxValue(''); }
 
     recalc();
   }
   document.getElementById('stage_add_btn')?.addEventListener('click', addLineFromStage);
   document.getElementById('stage_clear_btn')?.addEventListener('click', () => {
+    const ts = document.getElementById('stage_name').__ts;
     document.getElementById('stage_item_id').value = '';
     document.getElementById('stage_item_variant_id').value = '';
-    document.getElementById('stage_name').value = '';
     document.getElementById('stage_desc').value = '';
     document.getElementById('stage_qty').value = '1';
     document.getElementById('stage_unit').value = 'pcs';
     document.getElementById('stage_price').value = '';
+    if (ts){ ts.clear(); ts.setTextboxValue(''); }
   });
 
   /* ====== DISKON TOTAL SHOW/HIDE ====== */
