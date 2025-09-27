@@ -86,6 +86,16 @@ class DeliveryController extends Controller
         ]);
 
         $initialLines = collect();
+        if ($salesOrderId = $request->integer('sales_order_id')) {
+            $salesOrder = SalesOrder::with(['customer', 'company', 'lines.item', 'lines.variant'])->findOrFail($salesOrderId);
+            // … set header fields seperti biasa …
+            $initialLines = $this->buildLinesFromSalesOrder($salesOrder->lines);
+            // Cegah pembuatan Delivery Note jika tidak ada item tersisa
+            if ($initialLines->isEmpty()) {
+                return redirect()->route('sales-orders.show', $salesOrder)
+                    ->with('info', 'Semua item pada Sales Order ini telah terkirim. Tidak dapat membuat Delivery Note baru.');
+            }
+        }
         if ($invoiceId = $request->integer('invoice_id')) {
             $invoice = Invoice::with(['customer', 'company', 'quotation.lines'])->findOrFail($invoiceId);
             $delivery->fill([

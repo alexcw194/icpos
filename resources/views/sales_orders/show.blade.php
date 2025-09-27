@@ -38,7 +38,11 @@
       {{-- Delivery & Invoice actions --}}
 
       @can('deliveries.create')
-        <a href="{{ route('deliveries.create', ['sales_order_id' => $o->id]) }}" class="btn btn-secondary">Create Delivery Note</a>
+        @if($o->status === 'delivered')
+          <span class="btn btn-secondary disabled" title="Sales order sudah terkirim penuh">Create Delivery Note</span>
+        @else
+          <a href="{{ route('deliveries.create', ['sales_order_id' => $o->id]) }}" class="btn btn-secondary">Create Delivery Note</a>
+        @endif
       @else
         <span class="btn btn-secondary disabled" title="Anda tidak memiliki akses">Create Delivery Note</span>
       @endcan

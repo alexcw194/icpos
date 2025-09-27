@@ -114,16 +114,17 @@
 <div class="card mb-3" id="delivery-lines-card">
   <div class="card-header d-flex justify-content-between align-items-center">
     <h3 class="card-title mb-0">Delivery Lines</h3>
-    <button type="button" class="btn btn-sm btn-outline-primary" id="add-line">
-      <i class="ti ti-plus"></i> Item
-    </button>
+    @if(!$delivery->sales_order_id)
+      <button type="button" class="btn btn-sm btn-outline-primary" id="add-line">
+        <i class="ti ti-plus"></i> Item
+      </button>
+    @endif
   </div>
   <div class="table-responsive">
     <table class="table card-table" id="lines-table">
       <thead>
         <tr>
           <th style="width:25%">Item</th>
-          <!-- Remove separate variant column: variant will be selected together with item in one select -->
           <th>Description</th>
           <th style="width:10%" class="text-end">Qty</th>
           <th style="width:8%">Unit</th>

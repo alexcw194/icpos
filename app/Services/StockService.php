@@ -7,6 +7,7 @@ use App\Models\DeliveryLine;
 use App\Models\ItemStock;
 use App\Models\StockLedger;
 use App\Models\Warehouse;
+use App\Models\SalesOrder;
 use App\Services\DocNumberService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
@@ -15,6 +16,65 @@ use RuntimeException;
 
 class StockService
 {
+
+    private static function adjustSalesOrderDelivered(DeliveryLine $line, float $delta): void
+    {
+        if (!$line->sales_order_line_id || $delta === 0.0) {
+            return;
+        }
+
+        $row = DB::table('sales_order_lines')
+            ->where('id', $line->sales_order_line_id)
+            ->lockForUpdate()
+            ->first();
+
+        if (!$row) {
+            return;
+        }
+
+        $new = (float) ($row->qty_delivered ?? 0) + $delta;
+        $maxQty = (float) ($row->qty_ordered ?? $new);
+        $new = max(0, min($maxQty, $new));
+
+        DB::table('sales_order_lines')
+            ->where('id', $line->sales_order_line_id)
+            ->update(['qty_delivered' => $new]);
+
+        // panggil fungsi untuk memperbarui status sales order
+        static::updateSalesOrderStatus((int) $row->sales_order_id);
+    }
+
+    /**
+     * Perbarui status Sales Order menjadi `delivered`, `partial_delivered`, atau `open`.
+     * - `delivered` jika semua baris sudah terkirim penuh (qty_delivered >= qty_ordered)
+     * - `partial_delivered` jika ada sebagian baris terkirim tetapi belum semuanya
+     * - `open` jika belum ada qty_delivered sama sekali
+     */
+    private static function updateSalesOrderStatus(int $salesOrderId): void
+    {
+        $stats = DB::table('sales_order_lines')
+            ->where('sales_order_id', $salesOrderId)
+            ->selectRaw(
+                'SUM(CASE WHEN qty_delivered >= qty_ordered THEN 1 ELSE 0 END) as delivered_lines, ' .
+                'SUM(CASE WHEN qty_delivered > 0 THEN 1 ELSE 0 END) as partially_delivered_lines, ' .
+                'COUNT(*) as total_lines'
+            )
+            ->first();
+
+        if (!$stats || $stats->total_lines <= 0) {
+            return;
+        }
+
+        $status = 'open';
+        if ($stats->delivered_lines == $stats->total_lines) {
+            $status = 'delivered';
+        } elseif ($stats->partially_delivered_lines > 0) {
+            $status = 'partial_delivered';
+        }
+
+        DB::table('sales_orders')->where('id', $salesOrderId)->update(['status' => $status]);
+    }
+
     public static function postDelivery(Delivery $delivery, ?int $actingUserId = null): void
     {
         if ($delivery->status === Delivery::STATUS_POSTED) {
