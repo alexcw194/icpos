@@ -43,35 +43,56 @@ class SalesOrderController extends Controller
 
     public function create()
     {
-        $customers  = Customer::orderBy('name')->get(['id','name']);
-        $items      = Item::with('unit:id,code')->orderBy('name')->get(['id','name','price','unit_id']);
-        $companies  = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent']);
-        $sales      = User::orderBy('name')->get(['id','name']);
+        $customers = Customer::orderBy('name')->get(['id','name']);
+        $items     = Item::with('unit:id,code')->orderBy('name')->get(['id','name','price','unit_id']);
+        // tambahkan is_default ke select
+        $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent','is_default']);
+        $sales     = User::orderBy('name')->get(['id','name']);
 
-        $defaultCompanyId    = Company::where('is_default', true)->value('id') ?? $companies->first()->id ?? null;
+        // Tentukan company terpilih di awal: old() → is_default → first()
+        $selectedCompanyId = old('company_id')
+            ?? optional($companies->firstWhere('is_default', true))->id
+            ?? optional($companies->first())->id;
+
+        // Hitung PPN default berdasar company terpilih
+        $ppnDefault = 0.0;
+        if ($selectedCompanyId) {
+            $c = $companies->firstWhere('id', $selectedCompanyId);
+            $ppnDefault = ($c && $c->is_taxable) ? (float) $c->default_tax_percent : 0.0;
+        }
+
         $defaultSalesUserId  = auth()->id();
-        $defaultDiscountMode = 'total';
+        $defaultDiscountMode = old('discount_mode', 'total');
 
-        return view('sales_orders.create', compact(
-            'customers','items','companies','sales',
-            'defaultCompanyId','defaultSalesUserId','defaultDiscountMode'
-        ));
+        return view('sales_orders.create', [
+            'customers'          => $customers,
+            'items'              => $items,
+            'companies'          => $companies,
+            'sales'              => $sales,
+            'selectedCompanyId'  => $selectedCompanyId, // dipakai di <select name="company_id">
+            'defaultSalesUserId' => $defaultSalesUserId,
+            'defaultDiscountMode'=> $defaultDiscountMode,
+            'ppnDefault'         => $ppnDefault,        // dipakai di input PPN (%) saat load pertama
+        ]);
     }
 
     public function store(Request $request)
     {
-        // Validasi header dan lines mirip update()
+        // 1) Validasi
         $data = $request->validate([
-            'company_id'      => ['required','exists:companies,id'],
-            'customer_id'     => ['required','exists:customers,id'],
-            'customer_po_number' => ['required','string','max:100'],
-            'customer_po_date'   => ['required','date'],
-            'deadline'            => ['nullable','date'],
-            'ship_to'             => ['nullable','string'],
-            'bill_to'             => ['nullable','string'],
-            'notes'               => ['nullable','string'],
-            'discount_mode'       => ['required','in:total,per_item'],
-            'tax_percent'         => ['nullable','numeric','min:0'],
+            'company_id'           => ['required','exists:companies,id'],
+            'customer_id'          => ['required','exists:customers,id'],
+            'customer_po_number'   => ['required','string','max:100'],
+            'customer_po_date'     => ['required','date'],
+            'deadline'             => ['nullable','date'],
+            'ship_to'              => ['nullable','string'],
+            'bill_to'              => ['nullable','string'],
+            'notes'                => ['nullable','string'],
+            'discount_mode'        => ['required','in:total,per_item'],
+            'tax_percent'          => ['nullable','numeric','min:0'],
+
+            'total_discount_type'  => ['nullable','in:amount,percent'],
+            'total_discount_value' => ['nullable','string'],
 
             'lines'               => ['required','array','min:1'],
             'lines.*.name'        => ['required','string'],
@@ -85,15 +106,99 @@ class SalesOrderController extends Controller
             'lines.*.item_variant_id' => ['nullable','exists:item_variants,id'],
         ]);
 
-        // Hitung ulang subtotal, diskon per‑line/total, pajak dan total (lihat logic di update()).
-        // Gunakan helper parse/clamp dari update() atau buat helper sendiri.
+        // Helper parse angka (ID locale -> float)
+        $toNum = function ($v): float {
+            if ($v === null) return 0.0;
+            $s = trim((string)$v);
+            if ($s === '') return 0.0;
+            // buang spasi, normalisasi pemisah ribuan & desimal
+            $s = str_replace(' ', '', $s);
+            if (strpos($s, ',') !== false && strpos($s, '.') !== false) {
+                // asumsikan format ID: 1.234,56
+                $s = str_replace('.', '', $s);
+                $s = str_replace(',', '.', $s);
+            } else {
+                // satu pemisah saja → treat koma sebagai desimal
+                $s = str_replace(',', '.', $s);
+            }
+            return is_numeric($s) ? (float)$s : 0.0;
+        };
 
-        // Buat nomor SO
+        // 2) Normalisasi input kontrol
+        $mode   = $data['discount_mode'] ?? 'total'; // 'total' | 'per_item'
+        $tdType = $data['total_discount_type'] ?? 'amount'; // 'amount'|'percent'
+        $tdVal  = $toNum($data['total_discount_value'] ?? 0);
+        $taxPct = $toNum($data['tax_percent'] ?? 0);
+
+        // 3) Hitung per-baris
+        $computedLines = [];
+        $grossSubtotal = 0.0; // qty*harga sebelum diskon per-baris
+        $afterPerItem  = 0.0; // subtotal setelah diskon per-baris
+
+        $linesInput = collect($data['lines'] ?? [])->values();
+        foreach ($linesInput as $idx => $ln) {
+            $qty   = max($toNum($ln['qty'] ?? 0), 0);
+            $price = max($toNum($ln['unit_price'] ?? 0), 0);
+            $lineSubtotal = $qty * $price;
+            $grossSubtotal += $lineSubtotal;
+
+            // Diskon per-baris hanya berlaku di mode per_item
+            $dType = $mode === 'per_item' ? ($ln['discount_type'] ?? 'amount') : 'amount';
+            $dVal  = $mode === 'per_item' ? $toNum($ln['discount_value'] ?? 0) : 0.0;
+
+            if ($dType === 'percent') {
+                $discAmt = min(max($dVal, 0), 100) / 100 * $lineSubtotal;
+            } else {
+                $discAmt = min(max($dVal, 0), $lineSubtotal);
+            }
+
+            $lineTotal = max($lineSubtotal - $discAmt, 0);
+
+            $computedLines[] = [
+                'position'        => $idx + 1,
+                'item_id'         => $ln['item_id'] ?? null,
+                'item_variant_id' => $ln['item_variant_id'] ?? null,
+                'name'            => $ln['name'] ?? null,
+                'description'     => $ln['description'] ?? null,
+                'unit'            => $ln['unit'] ?? null,
+                'qty'             => $qty,
+                'unit_price'      => $price,
+                'discount_type'   => $dType,
+                'discount_value'  => $dVal,
+                'discount_amount' => $discAmt,
+                'line_subtotal'   => $lineSubtotal,
+                'line_total'      => $lineTotal,
+            ];
+
+            $afterPerItem += $lineTotal;
+        }
+
+        // 4) Diskon total (hanya saat mode = total)
+        $totalDc = 0.0;
+        if ($mode !== 'per_item') {
+            if ($tdType === 'percent') {
+                $totalDc = min(max($tdVal, 0), 100) / 100 * $afterPerItem;
+            } else {
+                $totalDc = min(max($tdVal, 0), $afterPerItem);
+            }
+        } else {
+            // pastikan header menyimpan nol untuk nilai total discount saat per_item
+            $tdType = 'amount';
+            $tdVal  = 0.0;
+        }
+
+        // 5) Pajak & total
+        $sub = $afterPerItem;                     // subtotal setelah diskon per-baris
+        $dpp = max($sub - $totalDc, 0);           // taxable base
+        $ppn = $dpp * max($taxPct, 0) / 100;      // tax amount
+        $grand = $dpp + $ppn;                     // grand total
+
+        // 6) Nomor dokumen & simpan
         $company = Company::findOrFail($data['company_id']);
         $number  = app(DocNumberService::class)->next('sales_order', $company, now());
 
-        /** @var SalesOrder $so */
-        DB::transaction(function() use ($data, $company, $number, &$so) {
+        /** @var \App\Models\SalesOrder $so */
+        DB::transaction(function () use ($data, $company, $number, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $ppn, $grand, &$so) {
             $so = SalesOrder::create([
                 'company_id'          => $company->id,
                 'customer_id'         => $data['customer_id'],
@@ -110,11 +215,10 @@ class SalesOrderController extends Controller
                 'status'              => 'open',
             ]);
 
-            // simpan per‑line (mirip upsert di update())
-            foreach ($computedLines as $i => $ln) {
+            foreach ($computedLines as $ln) {
                 SalesOrderLine::create([
                     'sales_order_id'   => $so->id,
-                    'position'         => $i,
+                    'position'         => $ln['position'],
                     'name'             => $ln['name'],
                     'description'      => $ln['description'] ?? null,
                     'unit'             => $ln['unit'] ?? null,
@@ -130,7 +234,6 @@ class SalesOrderController extends Controller
                 ]);
             }
 
-            // hitung dan update totals header (lines_subtotal, taxable_base, etc.)
             $so->update([
                 'lines_subtotal'        => $sub,
                 'total_discount_type'   => $tdType,
@@ -142,8 +245,9 @@ class SalesOrderController extends Controller
             ]);
         });
 
-        return redirect()->route('sales-orders.show', $so)->with('success','Sales Order dibuat.');
+        return redirect()->route('sales-orders.show', $so)->with('success', 'Sales Order dibuat.');
     }
+
 
     public function index(Request $request)
     {
