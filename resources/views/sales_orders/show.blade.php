@@ -172,8 +172,8 @@
           @can('uploadAttachment', $o)
             <form action="{{ route('sales-orders.attachments.upload') }}" method="POST" enctype="multipart/form-data">
                 @csrf
-                <input type="hidden" name="draft_token" value="{{ old('draft_token', $draftToken) }}">
-                <input type="file" name="file" style="display:none" id="so-upload-{{ $salesOrder->id }}" onchange="this.form.submit()">
+                <input type="hidden" name="sales_order_id" value="{{ $salesOrder->id }}">
+                <input type="file" name="file" style="display:none" id="so-upload-{{ $salesOrder->id }}">
                 <label for="so-upload-{{ $salesOrder->id }}" class="btn btn-sm btn-outline-primary">Upload</label>
             </form>
           @endcan

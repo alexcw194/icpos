@@ -92,6 +92,7 @@ class SalesOrderController extends Controller
             'notes'                => ['nullable','string'],
             'discount_mode'        => ['required','in:total,per_item'],
             'tax_percent'          => ['nullable','numeric','min:0'],
+            'under_amount'         => ['nullable','numeric','min:0'],
 
             'total_discount_type'  => ['nullable','in:amount,percent'],
             'total_discount_value' => ['nullable','string'],
@@ -212,6 +213,7 @@ class SalesOrderController extends Controller
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
                 'notes'               => $data['notes'] ?? null,
+                'under_amount'        => (float) ($data['under_amount'] ?? 0),
                 'discount_mode'       => $data['discount_mode'],
                 'tax_percent'         => $data['tax_percent'] ?? 0,
                 'status'              => 'open',
@@ -276,8 +278,48 @@ class SalesOrderController extends Controller
     public function edit(SalesOrder $salesOrder)
     {
         $this->authorize('update', $salesOrder);
-        $salesOrder->load(['company','customer','salesUser','lines','attachments','quotation']);
-        return view('sales_orders.edit', compact('salesOrder'));
+
+        $salesOrder->load([
+            'company',
+            'customer',
+            'salesUser',
+            'lines',
+            'attachments',
+            'quotation',
+        ]);
+
+        // Data item untuk TomSelect di staging row
+        $items = Item::query()
+            ->with('unit:id,code')
+            ->orderBy('name')
+            ->get(['id','name','unit_id','price']);
+        
+         // Seed baris untuk view/JS (INI YANG PENTING)
+        $lineSeed = ($salesOrder->lines ?? collect())->map(function ($l) {
+            return [
+                'item_id'         => $l->item_id,
+                'item_variant_id' => $l->item_variant_id,
+                'name'            => $l->name,
+                'description'     => $l->description,
+                'qty'             => (float) $l->qty_ordered,                 // <-- kirim qty
+                'unit'            => $l->unit ?? 'pcs',
+                'unit_price'      => (float) $l->unit_price,
+                'discount_type'   => $l->discount_type ?? 'amount',
+                'discount_value'  => (float) ($l->discount_value ?? 0),
+            ];
+        })->values();
+
+        // Default nilai yang dipakai di view (sinkron dengan create)
+        $ppnDefault          = (float) ($salesOrder->tax_percent ?? optional($salesOrder->company)->default_tax_percent ?? 0);
+        $defaultDiscountMode = $salesOrder->discount_mode ?? 'total';
+
+        return view('sales_orders.edit', compact(
+            'salesOrder',
+            'items',
+            'lineSeed',
+            'ppnDefault',
+            'defaultDiscountMode',
+        ));
     }
 
     /** Update header + lines (+ upload attachments). */

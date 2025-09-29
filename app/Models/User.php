@@ -82,12 +82,12 @@ class User extends Authenticatable
     public function isSuperAdmin(): bool
     {
         // role khusus Super Admin / atau permission global
-        return $this->hasRole('Super Admin') || $this->can('manage everything');
+        return $this->hasRole('SuperAdmin') || $this->can('manage everything');
     }
 
     public function isAdmin(): bool
     {
-        return $this->hasAnyRole(['Admin', 'Super Admin']) || $this->can('manage everything');
+        return $this->hasAnyRole(['Admin', 'SuperAdmin']) || $this->can('manage everything');
     }
 
     public function isAdminStrict(): bool

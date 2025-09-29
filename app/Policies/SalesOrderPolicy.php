@@ -21,7 +21,7 @@ class SalesOrderPolicy
     public function update(User $user, SalesOrder $so): bool
     {
         return $this->isOpenAndUnlocked($so) &&
-               ($this->isAdmin($user) || $this->isSalesOwner($user, $so));
+               ($this->isAdmin($user) || $this->isSalesOwner($user, $so)) || $this->isSuperAdmin($user);
     }
 
     /** Cancel — hanya saat OPEN & belum punya DN/Invoice */
