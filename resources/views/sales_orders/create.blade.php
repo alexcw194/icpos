@@ -99,10 +99,15 @@
         </div>
       </div>
 
+      <div class="mb-3 mt-3"">
+        <label class="form-label">Notes (Terms)</label>
+        <textarea name="notes" class="form-control" rows="3">{{ old('notes') }}</textarea>
+      </div>
+
       {{-- ============ TABS: Items & More Info ============ --}}
       <ul class="nav nav-tabs mt-3" role="tablist">
         <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-items" role="tab">Items</a></li>
-        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-moreinfo" role="tab">More Info</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#more-info" role="tab">More Info</a></li>
       </ul>
 
       <div class="tab-content border-start border-end border-bottom p-3">
@@ -215,21 +220,16 @@
         </div>
 
         {{-- ===== TAB: MORE INFO ===== --}}
-        <div class="tab-pane fade" id="tab-moreinfo" role="tabpanel">
-          <div class="row g-3">
-            <div class="col-md-8">
-              <label class="form-label">Customer notes</label>
-              <textarea name="notes" class="form-control" rows="4">{{ old('notes') }}</textarea>
-              <small class="form-hint">Catatan ini terlihat oleh customer (SO / Invoice).</small>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Under (IDR)</label>
-              <div class="input-group">
-                <span class="input-group-text">IDR</span>
-                <input type="text" name="under_amount" class="form-control text-end" inputmode="decimal" value="{{ old('under_amount','0') }}">
-              </div>
-              <small class="form-hint">Dipakai di perhitungan net & komisi.</small>
-            </div>
+        <div class="tab-pane" id="more-info" role="tabpanel">
+          <div class="mb-3">
+            <label class="form-label">Private Notes</label>
+            <textarea name="private_notes" class="form-control" rows="3">{{ old('private_notes') }}</textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Under (Rp)</label>
+            <input type="text" name="under_amount" class="form-control text-end"
+                  value="{{ old('under_amount', 0) }}">
           </div>
         </div>
       </div>
