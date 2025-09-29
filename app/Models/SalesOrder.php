@@ -13,6 +13,7 @@ class SalesOrder extends Model
         'so_number','order_date',
         'customer_po_number','customer_po_date','deadline',
         'ship_to','bill_to','notes',
+        'private_notes','under_amount', 
         'discount_mode',
         'lines_subtotal','total_discount_type','total_discount_value','total_discount_amount',
         'taxable_base','tax_percent','tax_amount','total',
@@ -38,6 +39,7 @@ class SalesOrder extends Model
         'tax_percent'           => 'decimal:2',
         'tax_amount'            => 'decimal:2',
         'total'                 => 'decimal:2',
+        'under_amount'          => 'decimal:2',  
 
         // boolean
         'npwp_required' => 'bool',

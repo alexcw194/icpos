@@ -25,10 +25,22 @@
 <div class="container-xl">
   <div class="d-flex align-items-start justify-content-between">
     <div>
-      <h2 class="page-title mb-1">Sales Order <span class="text-muted">{{ $o->so_number }}</span></h2>
+      <h2 class="page-title mb-1">
+        Sales Order
+        <span class="text-muted">{{ $o->so_number }}</span>
+        @if ($o->quotation) 
+          <span class="ms-2 text-muted">· From Quotation:
+            <a href="{{ route('quotations.show', $o->quotation) }}">
+              {{ $o->quotation->number }}
+            </a>
+          </span>
+        @endif
+      </h2>
+
       <div class="text-muted">
         {{ $o->company->alias ?? $o->company->name }} — {{ $o->customer->name }}
       </div>
+
       <div class="mt-2">
         <span class="badge {{ $stClass }}">{{ $stLabel }}</span>
         {!! $npwpBadge !!}
@@ -155,12 +167,6 @@
 
                 <div class="row mt-3">
                   <div class="col-md-6">
-                    @if($o->quotation)
-                      <div class="small">
-                        From Quotation:
-                        <a href="{{ route('quotations.show',$o->quotation) }}">{{ $o->quotation->number }}</a>
-                      </div>
-                    @endif
                   </div>
                   <div class="col-md-6">
                     <div class="d-flex justify-content-between"><div>Subtotal</div><div>{{ number_format($o->lines_subtotal,2) }}</div></div>
