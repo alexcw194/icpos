@@ -323,10 +323,56 @@
 <script>
 (function () {
   'use strict';
+  const uploadInput = document.getElementById('soUpload');
+  const listEl      = document.getElementById('soFiles');
+  const draftToken  = (document.getElementById('draft_token')||{}).value || '';
+  const csrf        = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
   /* Helpers */
   const toNum = (v)=>{ if(v==null) return 0; v=String(v).trim(); if(!v) return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; };
   const rupiah = (n)=>{ try{ return 'Rp '+new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n) }catch(e){ const f=(Math.round(n*100)/100).toFixed(2); const [a,b]=f.split('.'); return 'Rp '+a.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+b } };
+
+  function rowFile(file){
+    return `<div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
+      <a class="me-auto" href="${file.url}" target="_blank" rel="noopener">${file.name}</a>
+      <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
+      <button type="button" class="btn btn-sm btn-outline-danger">Hapus</button>
+    </div>`;
+  }
+
+  async function refreshList(){
+    if (!draftToken) { listEl.innerHTML=''; return; }
+    try{
+      const url = @json(route('sales-orders.attachments.index')) + '?draft_token=' + encodeURIComponent(draftToken);
+      const res = await fetch(url, { headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'} });
+      const files = await res.json().catch(()=>[]);
+      listEl.innerHTML = (Array.isArray(files)?files:[]).map(rowFile).join('');
+      listEl.querySelectorAll('button').forEach(btn=>{
+        btn.addEventListener('click', async e=>{
+          const row = e.target.closest('[data-id]'); const id = row?.dataset.id;
+          if (!id) return;
+          const delUrl = @json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
+          await fetch(delUrl, { method:'DELETE', headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'} });
+          row.remove();
+        });
+      });
+    }catch{ listEl.innerHTML=''; }
+  }
+
+  uploadInput?.addEventListener('change', async (e)=>{
+    for (const f of e.target.files){
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('draft_token', draftToken);
+      await fetch(@json(route('sales-orders.attachments.upload')), {
+        method:'POST',
+        headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
+        body: fd
+      });
+    }
+    uploadInput.value='';
+    refreshList();
+  });
 
   /* TomSelect loader (fallback) */
   function ensureTomSelect(){
@@ -577,6 +623,7 @@
   initStagePicker();
   applyMode(@json($discMode === 'per_item' ? 'per_item' : 'total'));
   recalc();
+  refreshList();
 })();
 </script>
 @endpush

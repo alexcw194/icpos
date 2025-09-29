@@ -91,13 +91,19 @@
         <div class="mb-2"><strong>Customer PO:</strong> {{ $o->customer_po_number }} ({{ $o->customer_po_date }})</div>
         <div class="mb-2"><strong>Deadline:</strong> {{ $o->deadline ?? '—' }}</div>
         <div class="mb-2"><strong>Salesperson:</strong> {{ $o->salesUser->name ?? '-' }}</div>
-        <div class="mb-2"><strong>Notes:</strong><br><pre class="mb-0">{{ $o->notes }}</pre></div>
+        <div class="bg-white border rounded p-2" style="white-space: pre-wrap;">
+          {{ $o->notes ?: '—' }}
+        </div>
       </div></div>
     </div>
     <div class="col-md-6">
       <div class="card"><div class="card-body">
-        <div class="mb-2"><strong>Ship To</strong><br><pre class="mb-0">{{ $o->ship_to }}</pre></div>
-        <div class="mb-2"><strong>Bill To</strong><br><pre class="mb-0">{{ $o->bill_to }}</pre></div>
+        <div class="bg-white border rounded p-2" style="white-space: pre-wrap;">
+          {{ $o->ship_to ?: '—' }}
+        </div>
+        <div class="bg-white border rounded p-2" style="white-space: pre-wrap;">
+          {{ $o->bill_to ?: '—' }}
+        </div>
 
         @if($o->npwp_required)
           <hr>
@@ -184,7 +190,9 @@
                 <div class="row g-4">
                   <div class="col-md-8">
                     <div class="mb-2 text-muted">Private Notes</div>
-                    <pre class="mb-0" style="white-space: pre-wrap">{{ $o->private_notes ?? '—' }}</pre>
+                    <div class="bg-white border rounded p-2" style="white-space: pre-wrap;">
+                      {{ $o->private_notes ?: '—' }}
+                    </div>
                   </div>
                   <div class="col-md-4">
                     <div class="mb-2 text-muted">Under Amount</div>

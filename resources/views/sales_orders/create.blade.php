@@ -4,6 +4,9 @@
 <div class="container-xl">
   <form action="{{ route('sales-orders.store') }}" method="POST" class="card" id="soForm">
     @csrf
+      @php(use Illuminate\Support\Str;);@endphp
+      <input type="hidden" name="draft_token" id="draft_token" value="{{ Str::ulid()->toBase32() }}">
+
     <div class="card-header">
       <div class="card-title">Create Sales Order</div>
     </div>
@@ -102,6 +105,15 @@
       <div class="mb-3 mt-3"">
         <label class="form-label">Notes (Terms)</label>
         <textarea name="notes" class="form-control" rows="3">{{ old('notes') }}</textarea>
+      </div>
+
+      <div class="mt-3">
+        <label class="form-label">Attachments (PO Customer) — PDF/JPG/PNG</label>
+        <input type="file" id="soUpload" class="form-control" multiple accept="application/pdf,image/jpeg,image/png">
+        <div class="form-text">
+          File yang diupload sekarang disimpan sebagai <em>draft</em> dan otomatis terhubung ke SO saat klik “Simpan”.
+        </div>
+        <div id="soFiles" class="list-group list-group-flush mt-2"></div>
       </div>
 
       {{-- ============ TABS: Items & More Info ============ --}}
@@ -343,6 +355,52 @@
 (function () {
   'use strict';
   window.SO_ITEM_OPTIONS = @json($ITEM_OPTIONS);
+  const uploadInput = document.getElementById('soUpload');
+  const listEl      = document.getElementById('soFiles');
+  const draftToken  = (document.getElementById('draft_token')||{}).value || '';
+  const csrf        = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+  function rowFile(file){
+    return `<div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
+      <a class="me-auto" href="${file.url}" target="_blank" rel="noopener">${file.name}</a>
+      <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
+      <button type="button" class="btn btn-sm btn-outline-danger">Hapus</button>
+    </div>`;
+  }
+
+  async function refreshList(){
+    if (!draftToken) { listEl.innerHTML=''; return; }
+    try{
+      const url = @json(route('sales-orders.attachments.index')) + '?draft_token=' + encodeURIComponent(draftToken);
+      const res = await fetch(url, { headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'} });
+      const files = await res.json().catch(()=>[]);
+      listEl.innerHTML = (Array.isArray(files)?files:[]).map(rowFile).join('');
+      listEl.querySelectorAll('button').forEach(btn=>{
+        btn.addEventListener('click', async e=>{
+          const row = e.target.closest('[data-id]'); const id = row?.dataset.id;
+          if (!id) return;
+          const delUrl = @json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
+          await fetch(delUrl, { method:'DELETE', headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'} });
+          row.remove();
+        });
+      });
+    }catch{ listEl.innerHTML=''; }
+  }
+
+  uploadInput?.addEventListener('change', async (e)=>{
+    for (const f of e.target.files){
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('draft_token', draftToken);
+      await fetch(@json(route('sales-orders.attachments.upload')), {
+        method:'POST',
+        headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
+        body: fd
+      });
+    }
+    uploadInput.value='';
+    refreshList();
+  });
 
   // Fallback loader TomSelect (jika belum ada dari layout)
   function ensureTomSelect(){
@@ -660,6 +718,7 @@
     toggleTotalControls();
     recalc();
   });
+  refreshList();
 })();
 </script>
 @endpush
