@@ -100,83 +100,107 @@
     <div class="col-12">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Items</div>
-          <div class="ms-auto text-muted small">
+          <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs">
+            <li class="nav-item">
+              <a href="#tab-items" class="nav-link active" data-bs-toggle="tab">Items</a>
+            </li>
+            <li class="nav-item">
+              <a href="#tab-more" class="nav-link" data-bs-toggle="tab">More Info</a>
+            </li>
+          </ul>
+          <div class="ms-auto text-muted small d-none d-md-block">
             Discount Mode: {{ $o->discount_mode === 'per_item' ? 'Per Item' : 'Total' }}
           </div>
         </div>
-        <div class="table-responsive">
-          <table class="table table-vcenter card-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Item</th>
-                <th>Desc</th>
-                <th>Unit</th>
-                <th class="text-end">Qty</th>
-                <th class="text-end">Price</th>
-                <th class="text-end">Disc</th>
-                <th class="text-end">Line Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              @foreach($o->lines as $i => $ln)
-                <tr>
-                  <td>{{ $i+1 }}</td>
-                  <td>{{ $ln->name }}</td>
-                  <td>{{ $ln->description }}</td>
-                  <td>{{ $ln->unit }}</td>
-                  <td class="text-end">{{ number_format($ln->qty_ordered,2) }}</td>
-                  <td class="text-end">{{ number_format($ln->unit_price,2) }}</td>
-                  <td class="text-end">
-                    @if($ln->discount_amount>0)
-                      {{ $ln->discount_type==='percent' ? rtrim(rtrim(number_format($ln->discount_value,2,'.',''), '0'), '.') .'%' : number_format($ln->discount_amount,2) }}
-                    @else — @endif
-                  </td>
-                  <td class="text-end">{{ number_format($ln->line_total,2) }}</td>
-                </tr>
-              @endforeach
-            </tbody>
-          </table>
-        </div>
 
-        <div class="card-footer">
-          <div class="row">
-            <div class="col-md-6">
-              @if($o->quotation)
-                <div class="small">
-                  From Quotation:
-                  <a href="{{ route('quotations.show',$o->quotation) }}">{{ $o->quotation->number }}</a>
-                  {{-- opsional: link PDF jika ada route --}}
+        <div class="card-body tab-content">
+              {{-- TAB 1: ITEMS --}}
+              <div class="tab-pane active" id="tab-items">
+                <div class="table-responsive">
+                  <table class="table table-vcenter card-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Item</th>
+                        <th>Desc</th>
+                        <th>Unit</th>
+                        <th class="text-end">Qty</th>
+                        <th class="text-end">Price</th>
+                        <th class="text-end">Disc</th>
+                        <th class="text-end">Line Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @foreach($o->lines as $i => $ln)
+                        <tr>
+                          <td>{{ $i+1 }}</td>
+                          <td>{{ $ln->name }}</td>
+                          <td>{{ $ln->description }}</td>
+                          <td>{{ $ln->unit }}</td>
+                          <td class="text-end">{{ number_format($ln->qty_ordered,2) }}</td>
+                          <td class="text-end">{{ number_format($ln->unit_price,2) }}</td>
+                          <td class="text-end">
+                            @if($ln->discount_amount>0)
+                              {{ $ln->discount_type==='percent'
+                                  ? rtrim(rtrim(number_format($ln->discount_value,2,'.',''), '0'), '.') .'%'
+                                  : number_format($ln->discount_amount,2) }}
+                            @else — @endif
+                          </td>
+                          <td class="text-end">{{ number_format($ln->line_total,2) }}</td>
+                        </tr>
+                      @endforeach
+                    </tbody>
+                  </table>
                 </div>
-              @endif
-            </div>
-            <div class="col-md-6">
-              <div class="d-flex justify-content-between"><div>Subtotal</div><div>{{ number_format($o->lines_subtotal,2) }}</div></div>
-              <div class="d-flex justify-content-between"><div>Discount</div><div>- {{ number_format($o->total_discount_amount,2) }}</div></div>
-              <div class="d-flex justify-content-between"><div>Dasar Pajak</div><div>{{ number_format($o->taxable_base,2) }}</div></div>
-              <div class="d-flex justify-content-between"><div>PPN ({{ rtrim(rtrim(number_format($o->tax_percent,2,'.',''), '0'), '.') }}%)</div><div>{{ number_format($o->tax_amount,2) }}</div></div>
-              <hr class="my-2">
-              <div class="d-flex justify-content-between fw-bold"><div>Grand Total</div><div>{{ number_format($o->total,2) }}</div></div>
+
+                <div class="row mt-3">
+                  <div class="col-md-6">
+                    @if($o->quotation)
+                      <div class="small">
+                        From Quotation:
+                        <a href="{{ route('quotations.show',$o->quotation) }}">{{ $o->quotation->number }}</a>
+                      </div>
+                    @endif
+                  </div>
+                  <div class="col-md-6">
+                    <div class="d-flex justify-content-between"><div>Subtotal</div><div>{{ number_format($o->lines_subtotal,2) }}</div></div>
+                    <div class="d-flex justify-content-between"><div>Discount</div><div>- {{ number_format($o->total_discount_amount,2) }}</div></div>
+                    <div class="d-flex justify-content-between"><div>Dasar Pajak</div><div>{{ number_format($o->taxable_base,2) }}</div></div>
+                    <div class="d-flex justify-content-between"><div>PPN ({{ rtrim(rtrim(number_format($o->tax_percent,2,'.',''), '0'), '.') }}%)</div><div>{{ number_format($o->tax_amount,2) }}</div></div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between fw-bold"><div>Grand Total</div><div>{{ number_format($o->total,2) }}</div></div>
+                  </div>
+                </div>
+              </div>
+
+              {{-- TAB 2: MORE INFO (Private Notes dulu, lalu Under) --}}
+              <div class="tab-pane" id="tab-more">
+                <div class="row g-4">
+                  <div class="col-md-8">
+                    <div class="mb-2 text-muted">Private Notes</div>
+                    <pre class="mb-0" style="white-space: pre-wrap">{{ $o->private_notes ?? '—' }}</pre>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="mb-2 text-muted">Under Amount</div>
+                    <div>{{ number_format((float)($o->under_amount ?? 0), 0, ',', '.') }}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-
-      </div>
-    </div>
 
     <div class="col-12">
       <div class="card">
         <div class="card-header">
           <div class="card-title">Attachments</div>
-          @can('uploadAttachment', $o)
-            <form action="{{ route('sales-orders.attachments.upload') }}" method="POST" enctype="multipart/form-data">
+            @can('uploadAttachment', $o)
+              <form action="{{ route('sales-orders.attachments.store', $o) }}" method="POST" enctype="multipart/form-data" class="d-inline">
                 @csrf
-                <input type="hidden" name="sales_order_id" value="{{ $salesOrder->id }}">
-                <input type="file" name="file" style="display:none" id="so-upload-{{ $salesOrder->id }}">
-                <label for="so-upload-{{ $salesOrder->id }}" class="btn btn-sm btn-outline-primary">Upload</label>
-            </form>
-          @endcan
+                <input type="file" name="attachments[]" multiple style="display:none" id="so-upload-{{ $o->id }}">
+                <label for="so-upload-{{ $o->id }}" class="btn btn-sm btn-outline-primary">Upload</label>
+              </form>
+            @endcan
         </div>
 
         @if($o->attachments->count())

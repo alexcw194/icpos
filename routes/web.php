@@ -132,10 +132,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('sales-orders.destroy');
 
     // NEW: attachments
-    //Route::post  ('sales-orders/{salesOrder}/attachments', [SalesOrderController::class, 'storeAttachment'])
-    //    ->name('sales-orders.attachments.store');
-    //Route::delete('sales-orders/{salesOrder}/attachments/{attachment}', [SalesOrderController::class, 'destroyAttachment'])
-    //    ->name('sales-orders.attachments.destroy_legacy');
+    Route::post  ('sales-orders/{salesOrder}/attachments', [SalesOrderController::class, 'storeAttachment'])
+        ->name('sales-orders.attachments.store');
+    Route::delete('sales-orders/{salesOrder}/attachments/{attachment}', [SalesOrderController::class, 'destroyAttachment'])
+        ->name('sales-orders.attachments.destroy_legacy');
 
     Route::get('/sales-orders/attachments', [SalesOrderAttachmentController::class,'index'])
         ->name('sales-orders.attachments.index'); // list by ?draft_token=... atau ?sales_order_id=...

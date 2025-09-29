@@ -80,7 +80,7 @@ class SalesOrderController extends Controller
 
     public function store(Request $request)
     {
-        // 1) Validasi
+        // 1) Validasi (rules hanya string/array)
         $data = $request->validate([
             'company_id'           => ['required','exists:companies,id'],
             'customer_id'          => ['required','exists:customers,id'],
@@ -90,9 +90,11 @@ class SalesOrderController extends Controller
             'ship_to'              => ['nullable','string'],
             'bill_to'              => ['nullable','string'],
             'notes'                => ['nullable','string'],
+            'private_notes'        => ['nullable','string'],
             'discount_mode'        => ['required','in:total,per_item'],
-            'tax_percent'          => ['nullable','numeric','min:0'],
+            'tax_percent'          => ['nullable','string'], // akan diparse manual
             'under_amount'         => ['nullable','numeric','min:0'],
+            'sales_user_id'        => ['nullable','exists:users,id'],
 
             'total_discount_type'  => ['nullable','in:amount,percent'],
             'total_discount_value' => ['nullable','string'],
@@ -114,29 +116,27 @@ class SalesOrderController extends Controller
             if ($v === null) return 0.0;
             $s = trim((string)$v);
             if ($s === '') return 0.0;
-            // buang spasi, normalisasi pemisah ribuan & desimal
             $s = str_replace(' ', '', $s);
             if (strpos($s, ',') !== false && strpos($s, '.') !== false) {
-                // asumsikan format ID: 1.234,56
                 $s = str_replace('.', '', $s);
                 $s = str_replace(',', '.', $s);
             } else {
-                // satu pemisah saja → treat koma sebagai desimal
                 $s = str_replace(',', '.', $s);
             }
             return is_numeric($s) ? (float)$s : 0.0;
         };
 
-        // 2) Normalisasi input kontrol
-        $mode   = $data['discount_mode'] ?? 'total'; // 'total' | 'per_item'
-        $tdType = $data['total_discount_type'] ?? 'amount'; // 'amount'|'percent'
-        $tdVal  = $toNum($data['total_discount_value'] ?? 0);
-        $taxPct = $toNum($data['tax_percent'] ?? 0);
+        // 2) Normalisasi input header
+        $mode         = $data['discount_mode'] ?? 'total';
+        $tdType       = $data['total_discount_type'] ?? 'amount';
+        $tdVal        = $toNum($data['total_discount_value'] ?? 0);
+        $taxPct       = $toNum($data['tax_percent'] ?? 0);
+        $salesUserId  = $request->input('sales_user_id') ?: auth()->id();
 
         // 3) Hitung per-baris
         $computedLines = [];
-        $grossSubtotal = 0.0; // qty*harga sebelum diskon per-baris
-        $afterPerItem  = 0.0; // subtotal setelah diskon per-baris
+        $grossSubtotal = 0.0;
+        $afterPerItem  = 0.0;
 
         $linesInput = collect($data['lines'] ?? [])->values();
         foreach ($linesInput as $idx => $ln) {
@@ -145,7 +145,6 @@ class SalesOrderController extends Controller
             $lineSubtotal = $qty * $price;
             $grossSubtotal += $lineSubtotal;
 
-            // Diskon per-baris hanya berlaku di mode per_item
             $dType = $mode === 'per_item' ? ($ln['discount_type'] ?? 'amount') : 'amount';
             $dVal  = $mode === 'per_item' ? $toNum($ln['discount_value'] ?? 0) : 0.0;
 
@@ -176,7 +175,7 @@ class SalesOrderController extends Controller
             $afterPerItem += $lineTotal;
         }
 
-        // 4) Diskon total (hanya saat mode = total)
+        // 4) Diskon total
         $totalDc = 0.0;
         if ($mode !== 'per_item') {
             if ($tdType === 'percent') {
@@ -185,37 +184,39 @@ class SalesOrderController extends Controller
                 $totalDc = min(max($tdVal, 0), $afterPerItem);
             }
         } else {
-            // pastikan header menyimpan nol untuk nilai total discount saat per_item
             $tdType = 'amount';
             $tdVal  = 0.0;
         }
 
         // 5) Pajak & total
-        $sub = $afterPerItem;                     // subtotal setelah diskon per-baris
-        $dpp = max($sub - $totalDc, 0);           // taxable base
-        $ppn = $dpp * max($taxPct, 0) / 100;      // tax amount
-        $grand = $dpp + $ppn;                     // grand total
+        $sub   = $afterPerItem;
+        $dpp   = max($sub - $totalDc, 0);
+        $ppn   = $dpp * max($taxPct, 0) / 100;
+        $grand = $dpp + $ppn;
 
         // 6) Nomor dokumen & simpan
         $company = Company::findOrFail($data['company_id']);
         $number  = app(DocNumberService::class)->next('sales_order', $company, now());
 
         /** @var \App\Models\SalesOrder $so */
-        DB::transaction(function () use ($data, $company, $number, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $ppn, $grand, &$so) {
+        $so = null;
+        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, &$so) {
             $so = SalesOrder::create([
                 'company_id'          => $company->id,
                 'customer_id'         => $data['customer_id'],
                 'so_number'           => $number,
                 'order_date'          => now()->toDateString(),
                 'deadline'            => $data['deadline'] ?? null,
+                'sales_user_id'       => $salesUserId, // ✅ JANGAN pakai $request di sini
                 'customer_po_number'  => $data['customer_po_number'],
                 'customer_po_date'    => $data['customer_po_date'],
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
                 'notes'               => $data['notes'] ?? null,
+                'private_notes'       => $data['private_notes'] ?? null,
                 'under_amount'        => (float) ($data['under_amount'] ?? 0),
                 'discount_mode'       => $data['discount_mode'],
-                'tax_percent'         => $data['tax_percent'] ?? 0,
+                'tax_percent'         => $taxPct, // simpan numeric
                 'status'              => 'open',
             ]);
 
@@ -251,6 +252,7 @@ class SalesOrderController extends Controller
 
         return redirect()->route('sales-orders.show', $so)->with('success', 'Sales Order dibuat.');
     }
+
 
 
     public function index(Request $request)
@@ -459,6 +461,7 @@ class SalesOrderController extends Controller
                 'ship_to'               => $data['ship_to'] ?? null,
                 'bill_to'               => $data['bill_to'] ?? null,
                 'notes'                 => $data['notes'] ?? null,
+                'private_notes'         => $data['private_notes'] ?? null, 
 
                 'discount_mode'         => $mode,
                 'lines_subtotal'        => $sub,
@@ -469,6 +472,7 @@ class SalesOrderController extends Controller
                 'tax_percent'           => $taxPct,
                 'tax_amount'            => $ppn,
                 'total'                 => $grand,
+                'under_amount'          => (float) ($data['under_amount'] ?? 0),
             ]);
 
             // Hapus line yang tidak dikirim lagi
@@ -590,6 +594,7 @@ class SalesOrderController extends Controller
     /** Simpan hasil wizard Create SO. */
     public function storeFromQuotation(Request $request, Quotation $quotation)
     {
+        // 1) Validasi (rules murni, tanpa angka)
         $data = $request->validate([
             'po_number'      => ['nullable','string','max:100'],
             'po_date'        => ['nullable','date'],
@@ -597,6 +602,7 @@ class SalesOrderController extends Controller
             'ship_to'        => ['nullable','string'],
             'bill_to'        => ['nullable','string'],
             'notes'          => ['nullable','string'],
+            'sales_user_id'  => ['nullable','exists:users,id'], // ✅ PERBAIKI INI
 
             'private_notes'  => ['nullable','string'],
             'under_amount'   => ['nullable','numeric','min:0'],
@@ -607,39 +613,38 @@ class SalesOrderController extends Controller
             'draft_token'    => ['nullable','string','max:64'],
         ]);
 
-        $under       = $this->toNumber($data['under_amount'] ?? 0);
-        $taxPctInput = $this->toNumber($data['tax_percent'] ?? ($quotation->tax_percent ?? 0));
-
+        // 2) Normalisasi nilai
+        $under        = $this->toNumber($data['under_amount'] ?? 0);
+        $taxPctInput  = $this->toNumber($data['tax_percent'] ?? ($quotation->tax_percent ?? 0));
         $discountMode = $data['discount_mode'] ?? ($quotation->discount_mode ?? 'total');
+        $company      = $quotation->company()->firstOrFail();
+        $isTaxable    = (bool)($company->is_taxable ?? false);
+        $taxPct       = $isTaxable ? max(min($taxPctInput,100),0) : 0.0;
 
-        $company   = $quotation->company()->first();
-        $isTaxable = (bool)($company->is_taxable ?? false);
-        $taxPct    = $isTaxable ? max(min($taxPctInput,100),0) : 0.0;
+        // Sales agent: pilih urutan prioritas
+        $salesUserId = $request->input('sales_user_id')
+            ?: ($quotation->sales_user_id ?: auth()->id());
 
         /** @var SalesOrder $so */
-        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable) {
+        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable, $salesUserId) {
 
-            // === Generate nomor SO ===
-            if (class_exists(DocNumberService::class)) {
-                // Service butuh 3 argumen: docType, company, docDate
-                $number = app(DocNumberService::class)->next('sales_order', $company, now());
-            } else {
-                $number = 'SO/'.date('Y').'/'.str_pad((string)(SalesOrder::max('id')+1), 5, '0', STR_PAD_LEFT);
-            }
+            // Nomor SO
+            $number = app(DocNumberService::class)->next('sales_order', $company, now());
 
-            // === Create header ===
+            // Header
             $so = SalesOrder::create([
                 'quotation_id'        => $quotation->id,
                 'company_id'          => $quotation->company_id,
                 'customer_id'         => $quotation->customer_id,
 
-                // GUNAKAN KOLOM ASLI:
                 'so_number'           => $number,
                 'order_date'          => now()->toDateString(),
                 'deadline'            => $data['deadline'] ?? null,
 
                 'customer_po_number'  => $data['po_number'] ?? null,
                 'customer_po_date'    => $data['po_date']   ?? now()->toDateString(),
+                'ship_to'             => $data['ship_to'] ?? null,
+                'bill_to'             => $data['bill_to'] ?? null,
 
                 'status'              => 'open',
                 'notes'               => $data['notes'] ?? null,
@@ -648,11 +653,11 @@ class SalesOrderController extends Controller
 
                 'discount_mode'       => $discountMode,
                 'tax_percent'         => $taxPct,
+                'sales_user_id'       => $salesUserId, // ✅ simpan agent
             ]);
 
-            // === Copy lines dari quotation ===
+            // Copy lines dari quotation
             $linesSubtotal = 0.0;
-
             foreach ($quotation->lines as $idx => $ql) {
                 $qty       = (float)($ql->qty ?? $ql->quantity ?? 0);
                 $unitPrice = (float)($ql->unit_price ?? 0);
@@ -676,7 +681,6 @@ class SalesOrderController extends Controller
                     'name'             => $ql->name,
                     'description'      => $ql->description,
                     'unit'             => $ql->unit ?? $ql->unit_name ?? 'PCS',
-
                     'qty_ordered'      => $qty,
                     'unit_price'       => $unitPrice,
                     'discount_type'    => $discType,
@@ -684,19 +688,17 @@ class SalesOrderController extends Controller
                     'discount_amount'  => $lineDcAmt,
                     'line_subtotal'    => $lineSub,
                     'line_total'       => $lineTotal,
-
                     'item_id'          => $ql->item_id ?? null,
                     'item_variant_id'  => $ql->item_variant_id ?? $ql->variant_id ?? null,
                 ]);
 
-                $linesSubtotal += $lineTotal; // subtotal setelah diskon per-item
+                $linesSubtotal += $lineTotal;
             }
 
-            // === Diskon total (jika mode total) ===
+            // Diskon total (mode total)
             $tdType = 'amount';
             $tdVal  = 0.0;
             $totalDiscountAmount = 0.0;
-
             if ($discountMode === 'total') {
                 $tdType = $quotation->total_discount_type ?? 'amount';
                 $tdVal  = (float)($quotation->total_discount_value ?? 0);
@@ -710,7 +712,6 @@ class SalesOrderController extends Controller
             $taxAmount   = $isTaxable ? round($taxableBase * ($so->tax_percent/100), 2) : 0.0;
             $total       = $taxableBase + $taxAmount;
 
-            // === Update totals header ===
             $so->update([
                 'lines_subtotal'        => $linesSubtotal,
                 'total_discount_type'   => $tdType,
@@ -721,7 +722,7 @@ class SalesOrderController extends Controller
                 'total'                 => $total,
             ]);
 
-            // === Pindahkan lampiran draft → final ===
+            // Pindahkan lampiran draft → final (kalau ada)
             if (!empty($data['draft_token'])) {
                 if (method_exists(SOAtt::class, 'attachFromDraft')) {
                     SOAtt::attachFromDraft($data['draft_token'], $so);
@@ -731,6 +732,7 @@ class SalesOrderController extends Controller
                         $disk = $att->disk ?: 'public';
                         $old  = $att->path;
                         $filename = basename($old);
+                        // NOTE: folder boleh diseragamkan; di sini tetap "so_attachments"
                         $new = "so_attachments/{$so->id}/{$filename}";
                         if ($old && Storage::disk($disk)->exists($old)) {
                             Storage::disk($disk)->makeDirectory("so_attachments/{$so->id}");
@@ -748,7 +750,7 @@ class SalesOrderController extends Controller
                 }
             }
 
-            // === Tandai quotation WON ===
+            // Tandai quotation WON
             $quotation->update([
                 'status'         => 'won',
                 'won_at'         => now(),
@@ -758,7 +760,6 @@ class SalesOrderController extends Controller
             return $so;
         });
 
-        // Response
         if ($request->wantsJson()) {
             return response()->json(['ok' => true, 'id' => $so->id, 'number' => $so->so_number]);
         }
@@ -766,6 +767,7 @@ class SalesOrderController extends Controller
         return redirect()->route('sales-orders.show', $so)
             ->with('success', 'Sales Order dibuat.');
     }
+
 
     /** Ubah "1.234,56" → 1234.56; "1.234" → 1234 ; null → 0 */
     private function toNumber($val): float
