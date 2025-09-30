@@ -141,8 +141,8 @@
                         <th>#</th>
                         <th>Item</th>
                         <th>Desc</th>
-                        <th>Unit</th>
                         <th class="text-end">Qty</th>
+                        <th>Unit</th>
                         <th class="text-end">Price</th>
                         <th class="text-end">Disc</th>
                         <th class="text-end">Line Total</th>
@@ -154,8 +154,8 @@
                           <td>{{ $i+1 }}</td>
                           <td>{{ $ln->name }}</td>
                           <td>{{ $ln->description }}</td>
+                          <td class="text-end">{{ number_format($ln->qty_ordered,0) }}</td>
                           <td>{{ $ln->unit }}</td>
-                          <td class="text-end">{{ number_format($ln->qty_ordered,2) }}</td>
                           <td class="text-end">{{ number_format($ln->unit_price,2) }}</td>
                           <td class="text-end">
                             @if($ln->discount_amount>0)
