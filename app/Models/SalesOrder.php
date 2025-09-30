@@ -87,8 +87,6 @@ class SalesOrder extends Model
         return $this->hasMany(SalesOrderLine::class)->orderBy('position');
     }
 
-    public function attachments(): HasMany
-    {
-        return $this->hasMany(SalesOrderAttachment::class);
-    }
+    public function attachments(){ return $this->hasMany(SalesOrderAttachment::class); }
+
 }

@@ -16,7 +16,7 @@
   $validUntil  = optional($quotation->valid_until)->format('Y-m-d') ?? now()->addDays(30)->format('Y-m-d');
 
   // Token draft untuk lampiran & cancel (dipakai juga di JS)
-  $draftToken  = Str::ulid()->toBase32();
+  $draftToken = \Illuminate\Support\Str::ulid()->toBase32();
 @endphp
 
 <div class="container-xl">
@@ -84,6 +84,7 @@
           File yang diupload sebelum disimpan akan disimpan sebagai <em>draft</em> dan otomatis terhubung ke SO saat kamu klik “Create SO”.
         </div>
         <div id="soFiles" class="list-group list-group-flush mt-2"></div>
+        <div id="soFilesEmpty" class="text-muted mt-2">Belum ada lampiran.</div>
       </div>
 
       {{-- TABS: Items & More Info --}}
@@ -220,7 +221,7 @@
     </div>
 
     <div class="card-footer d-flex justify-content-end gap-2">
-      <button type="button" id="btnCancelDraft" class="btn btn-link text-danger">Cancel</button>
+      <button type="button" class="btn btn-link text-danger" onclick="history.back()">Cancel</button>
       <button type="submit" class="btn btn-primary">Create SO</button>
     </div>
   </form>
@@ -325,6 +326,7 @@
   'use strict';
   const uploadInput = document.getElementById('soUpload');
   const listEl      = document.getElementById('soFiles');
+  const emptyEl     = document.getElementById('soFilesEmpty');
   const draftToken  = (document.getElementById('draft_token')||{}).value || '';
   const csrf        = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
@@ -332,45 +334,77 @@
   const toNum = (v)=>{ if(v==null) return 0; v=String(v).trim(); if(!v) return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; };
   const rupiah = (n)=>{ try{ return 'Rp '+new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n) }catch(e){ const f=(Math.round(n*100)/100).toFixed(2); const [a,b]=f.split('.'); return 'Rp '+a.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+b } };
 
-  function rowFile(file){
-    return `<div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
-      <a class="me-auto" href="${file.url}" target="_blank" rel="noopener">${file.name}</a>
-      <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
-      <button type="button" class="btn btn-sm btn-outline-danger">Hapus</button>
-    </div>`;
+  function rowFile(f) {
+    return `
+      <div class="list-group-item d-flex align-items-center gap-2" data-id="${f.id}">
+        <a class="me-auto" href="${f.url}" target="_blank" rel="noopener">${f.name}</a>
+        <span class="text-secondary small">${Math.round((f.size||0)/1024)} KB</span>
+        <button type="button" class="btn btn-sm btn-outline-danger" data-action="del">Hapus</button>
+      </div>`;
   }
 
-  async function refreshList(){
-    if (!draftToken) { listEl.innerHTML=''; return; }
-    try{
+  async function refreshList() {
+    if (!draftToken) {
+      listEl.innerHTML = '';
+      if (emptyEl) emptyEl.style.removeProperty('display');
+      return;
+    }
+
+    try {
       const url = @json(route('sales-orders.attachments.index')) + '?draft_token=' + encodeURIComponent(draftToken);
-      const res = await fetch(url, { headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'} });
-      const files = await res.json().catch(()=>[]);
-      listEl.innerHTML = (Array.isArray(files)?files:[]).map(rowFile).join('');
-      listEl.querySelectorAll('button').forEach(btn=>{
-        btn.addEventListener('click', async e=>{
-          const row = e.target.closest('[data-id]'); const id = row?.dataset.id;
+      const res = await fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json, text/plain, */*' },
+        credentials: 'same-origin',
+        cache: 'no-store'
+      });
+
+      let raw = await res.text();
+      // bersihkan kemungkinan BOM/prefix
+      raw = raw.trim().replace(/^[\uFEFF]/,'').replace(/^while\(1\);?/,'').replace(/^\)\]\}',?\s*/,'');
+      let files;
+      try { files = JSON.parse(raw); } catch { files = []; }
+      if (!Array.isArray(files)) files = [];
+
+      listEl.innerHTML = files.map(rowFile).join('');
+      if (emptyEl) emptyEl.style.display = files.length ? 'none' : '';
+
+      // bind delete
+      listEl.querySelectorAll('[data-action="del"]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const row = e.target.closest('[data-id]');
+          const id  = row?.dataset.id;
           if (!id) return;
           const delUrl = @json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
-          await fetch(delUrl, { method:'DELETE', headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'} });
-          row.remove();
+          await fetch(delUrl, {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin'
+          });
+          // refresh supaya sinkron
+          refreshList();
         });
       });
-    }catch{ listEl.innerHTML=''; }
+    } catch (err) {
+      console.warn('[attach] refresh error:', err);
+      listEl.innerHTML = '';
+      if (emptyEl) emptyEl.style.removeProperty('display');
+    }
   }
 
-  uploadInput?.addEventListener('change', async (e)=>{
-    for (const f of e.target.files){
+  uploadInput?.addEventListener('change', async (e) => {
+    for (const f of e.target.files) {
       const fd = new FormData();
       fd.append('file', f);
       fd.append('draft_token', draftToken);
       await fetch(@json(route('sales-orders.attachments.upload')), {
-        method:'POST',
-        headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
-        body: fd
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        body: fd,
+        credentials: 'same-origin',
+        cache: 'no-store'
       });
     }
-    uploadInput.value='';
+    uploadInput.value = '';
     refreshList();
   });
 
@@ -552,53 +586,6 @@
       if (pane){ pane.classList.add('show','active'); }
     });
   });
-
-  // Draft attachments
-  (function(){
-    const uploadInput=document.getElementById('soUpload');
-    const listEl     =document.getElementById('soFiles');
-    const draftToken =(document.getElementById('draft_token')||{}).value || '';
-    const csrf       = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-    function rowFile(file){
-      return `<div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
-        <a class="me-auto" href="${file.url}" target="_blank" rel="noopener">${file.name}</a>
-        <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
-        <button type="button" class="btn btn-sm btn-outline-danger">Hapus</button>
-      </div>`;
-    }
-    async function refreshList(){
-      if (!draftToken) { listEl.innerHTML=''; return; }
-      try{
-        const url = @json(route('sales-orders.attachments.index')) + '?draft_token=' + encodeURIComponent(draftToken);
-        const res = await fetch(url,{headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}});
-        const data= await res.json().catch(()=>[]);
-        const files= Array.isArray(data)?data:[];
-        listEl.innerHTML = files.map(rowFile).join('');
-        listEl.querySelectorAll('button').forEach(btn=>{
-          btn.addEventListener('click', async e=>{
-            const row=e.target.closest('[data-id]'); const id=row?.dataset.id;
-            if(!id) return;
-            const delUrl=@json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
-            await fetch(delUrl,{method:'DELETE',headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}});
-            row.remove();
-          });
-        });
-      }catch{ listEl.innerHTML=''; }
-    }
-    uploadInput?.addEventListener('change', async (e)=>{
-      for (const f of e.target.files){
-        const fd=new FormData(); fd.append('file',f); fd.append('draft_token',draftToken);
-        await fetch(@json(route('sales-orders.attachments.upload')),{method:'POST',headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},body:fd});
-      }
-      uploadInput.value=''; refreshList();
-    });
-    document.getElementById('btnCancelDraft')?.addEventListener('click', async ()=>{
-      await fetch(@json(route('sales-orders.create.cancel')),{method:'DELETE',headers:{'X-CSRF-TOKEN':@json(csrf_token()),'Content-Type':'application/json'},body:JSON.stringify({draft_token:draftToken})});
-      history.back();
-    });
-    refreshList();
-  })();
 
   // Preload lines dari quotation
   @php

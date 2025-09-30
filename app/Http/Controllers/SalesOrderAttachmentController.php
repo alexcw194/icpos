@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderAttachment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class SalesOrderAttachmentController extends Controller
 {
@@ -14,13 +15,45 @@ class SalesOrderAttachmentController extends Controller
      */
     public function upload(Request $request)
     {
+        // mode EDIT: langsung ke SO
+        if ($request->filled('sales_order_id')) {
+            $data = $request->validate([
+                'sales_order_id' => ['required','exists:sales_orders,id'],
+                'file'           => ['required','file','mimes:pdf,jpg,jpeg,png','max:20480'],
+            ]);
+
+            $so   = SalesOrder::findOrFail($data['sales_order_id']);
+            $disk = 'public';
+            $dir  = "so_attachments/{$so->id}";
+            $path = $request->file('file')->store($dir, $disk);
+
+            $att = SalesOrderAttachment::create([
+                'sales_order_id' => $so->id,
+                'draft_token'    => null,
+                'disk'           => $disk,
+                'path'           => $path,
+                'original_name'  => $request->file('file')->getClientOriginalName(),
+                'mime'           => $request->file('file')->getClientMimeType(),
+                'size'           => $request->file('file')->getSize(),
+                'uploaded_by'    => optional($request->user())->id,
+            ]);
+
+            return response()->json([
+                'ok'   => true,
+                'id'   => (int) $att->id,
+                'name' => (string) ($att->original_name ?: basename($att->path)),
+                'url'  => Storage::disk($disk)->url($path),
+            ], 201);
+        }
+
+        // mode CREATE: simpan sebagai draft
         $data = $request->validate([
-            'draft_token' => ['required', 'string', 'max:64'],
-            'file'        => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:20480'], // 20MB
+            'draft_token' => ['required','string','max:64'],
+            'file'        => ['required','file','mimes:pdf,jpg,jpeg,png','max:20480'],
         ]);
 
         $disk = 'public';
-        $dir  = 'so_attachments/_drafts/' . $data['draft_token'];
+        $dir  = 'so_attachments/_drafts/'.$data['draft_token'];
         $path = $request->file('file')->store($dir, $disk);
 
         $att = SalesOrderAttachment::create([
@@ -34,12 +67,17 @@ class SalesOrderAttachmentController extends Controller
             'uploaded_by'    => optional($request->user())->id,
         ]);
 
+        \Log::info('ATT.uploaded', ['token' => $data['draft_token'], 'path' => $path]);
+
         return response()->json([
-            'ok'   => true,
-            'id'   => (int) $att->id,
-            'name' => (string) $att->original_name,
+            'ok'          => true,
+            'id'          => (int) $att->id,
+            'name'        => (string) ($att->original_name ?: basename($att->path)),
+            'url'         => \Storage::disk($disk)->url($path),
+            'draft_token' => $data['draft_token'] ?? null, // <—
         ], 201);
     }
+
 
     /**
      * GET /sales-orders/attachments?draft_token=...
@@ -48,31 +86,41 @@ class SalesOrderAttachmentController extends Controller
      */
     public function index(Request $request)
     {
-        $draft = (string) $request->query('draft_token', '');
+        $token = $request->query('draft_token');
+        $soId  = $request->query('sales_order_id');
 
-        if ($draft === '') {
-            return response()->json([]);
+        if ($soId) {
+            $rows = SalesOrderAttachment::where('sales_order_id', $soId)->get();
+        } elseif ($token) {
+            // LOG DI SINI
+            \Log::info('ATT.index', [
+                'token' => $token,
+                'cnt'   => SalesOrderAttachment::where('draft_token', $token)->count(),
+                'null_so_cnt' => SalesOrderAttachment::where('draft_token', $token)
+                            ->whereNull('sales_order_id')->count(),
+            ]);
+
+            $rows = SalesOrderAttachment::where('draft_token', $token)
+                ->whereNull('sales_order_id')
+                ->orderByDesc('id')
+                ->get();
+        } else {
+            return response()->json([], 200);
         }
 
-        $rows = SalesOrderAttachment::query()
-            ->whereNull('sales_order_id')               // hanya draft
-            ->where('draft_token', $draft)
-            ->orderBy('id')
-            ->get()
-            ->map(function (SalesOrderAttachment $r) {
-                $disk = $r->disk ?: 'public';
-                $url  = \Storage::disk($disk)->url($r->path);
-                return [
-                    'id'   => (int) $r->id,
-                    'name' => (string) $r->original_name,
-                    'size' => (int) ($r->size ?? 0),
-                    'url'  => $url,
-                ];
-            })
-            ->values();
+        $out = $rows->map(function ($att) {
+            $disk = $att->disk ?: 'public';
+            return [
+                'id'   => (int) $att->id,
+                'name' => (string) ($att->original_name ?: basename($att->path)),
+                'size' => (int) ($att->size ?: 0),
+                'url'  => Storage::disk($disk)->url($att->path),
+            ];
+        });
 
-        return response()->json($rows);
+        return response()->json($out, 200)->header('Cache-Control', 'no-store');
     }
+
 
     /**
      * DELETE /sales-orders/attachments/{attachment}
@@ -82,11 +130,11 @@ class SalesOrderAttachmentController extends Controller
     {
         $disk = $attachment->disk ?: 'public';
         if ($attachment->path) {
-            \Storage::disk($disk)->delete($attachment->path);
+            Storage::disk($disk)->delete($attachment->path);
         }
         $attachment->delete();
 
-        return response()->noContent();
+        return response()->noContent(); // 204
     }
 
     /**
@@ -94,30 +142,23 @@ class SalesOrderAttachmentController extends Controller
      */
     public static function attachFromDraft(string $draftToken, SalesOrder $so): void
     {
-        $atts = SalesOrderAttachment::whereNull('sales_order_id')
-            ->where('draft_token', $draftToken)
-            ->get();
-
-        foreach ($atts as $att) {
-            $disk    = $att->disk ?: 'public';
-            $oldPath = $att->path;                                 // so_attachments/_drafts/{token}/file.ext
-            $file    = basename((string) $oldPath);
-            $newDir  = "so_attachments/{$so->id}";
-            $newPath = "{$newDir}/{$file}";
-
-            if ($oldPath && \Storage::disk($disk)->exists($oldPath)) {
-                \Storage::disk($disk)->makeDirectory($newDir);
-                \Storage::disk($disk)->move($oldPath, $newPath);
+        $rows = SalesOrderAttachment::where('draft_token', $draftToken)->get();
+        foreach ($rows as $att) {
+            $disk = $att->disk ?: 'public';
+            $old  = $att->path;
+            $filename = basename($old);
+            $new = "so_attachments/{$so->id}/{$filename}";
+            if ($old && Storage::disk($disk)->exists($old)) {
+                Storage::disk($disk)->makeDirectory("so_attachments/{$so->id}");
+                Storage::disk($disk)->move($old, $new);
             } else {
-                // kalau file fisik tidak ada, jangan kosongkan path
-                $newPath = $oldPath;
+                $new = $old;
             }
-
             $att->update([
                 'sales_order_id' => $so->id,
                 'draft_token'    => null,
-                'path'           => $newPath,
-                'uploaded_by'    => auth()->id(),
+                'path'           => $new,
+                'uploaded_by'    => optional(request()->user())->id,
             ]);
         }
     }

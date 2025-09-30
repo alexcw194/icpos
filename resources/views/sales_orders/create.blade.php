@@ -1,12 +1,16 @@
 @extends('layouts.tabler')
 
+@php
+  $CUSTOMER_SEARCH_URL = route('customers.search', [], false);
+  $draftToken = session('so_draft_token') ?? old('draft_token') ?? \Illuminate\Support\Str::ulid()->toBase32();
+  session(['so_draft_token' => $draftToken]);
+@endphp
+
 @section('content')
 <div class="container-xl">
   <form action="{{ route('sales-orders.store') }}" method="POST" class="card" id="soForm">
     @csrf
-      @php(use Illuminate\Support\Str;);@endphp
-      <input type="hidden" name="draft_token" id="draft_token" value="{{ Str::ulid()->toBase32() }}">
-
+      <input type="hidden" name="draft_token" id="draft_token" value="{{ $draftToken }}">
     <div class="card-header">
       <div class="card-title">Create Sales Order</div>
     </div>
@@ -102,7 +106,7 @@
         </div>
       </div>
 
-      <div class="mb-3 mt-3"">
+      <div class="mb-3 mt-3">
         <label class="form-label">Notes (Terms)</label>
         <textarea name="notes" class="form-control" rows="3">{{ old('notes') }}</textarea>
       </div>
@@ -114,6 +118,7 @@
           File yang diupload sekarang disimpan sebagai <em>draft</em> dan otomatis terhubung ke SO saat klik “Simpan”.
         </div>
         <div id="soFiles" class="list-group list-group-flush mt-2"></div>
+        <div id="soFilesEmpty" class="text-muted mt-2">Belum ada lampiran.</div>
       </div>
 
       {{-- ============ TABS: Items & More Info ============ --}}
@@ -304,10 +309,6 @@
 
 @include('customers._quick_modal')
 
-@php
-  $CUSTOMER_SEARCH_URL = route('customers.search', [], false);
-@endphp
-
 @push('styles')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
 <style>
@@ -332,10 +333,27 @@
   .nav-tabs .nav-link { cursor: pointer; }
 
   /* TomSelect solid putih & di atas elemen lain */
-  .ts-dropdown{ z-index:1060 !important; }
+  .ts-dropdown {
+    background: #fff !important;
+    z-index: 2000 !important;      /* lebih tinggi dari modal/komponen lain */
+    border: 1px solid #dee2e6;     /* biar jelas batasnya */
+    box-shadow: 0 .25rem .5rem rgba(0,0,0,.08);
+  }
+  .ts-dropdown .option,
+  .ts-dropdown .create {
+    background: #fff !important;
+    color: #212529 !important;
+  }
+  .ts-dropdown .active {
+    background: #f1f3f5 !important; /* hover/selected */
+    color: #212529 !important;
+  }
+  /* Kadang Tabler/Bootstrap memberi transparansi pada menu; netralkan */
   .ts-wrapper .ts-control,
   .ts-wrapper.single.input-active .ts-control,
-  .ts-wrapper.single.has-items .ts-control { background:#fff !important; }
+  .ts-wrapper.single.has-items .ts-control {
+    background: #fff !important;
+  }
 </style>
 @endpush
 
@@ -357,51 +375,89 @@
   window.SO_ITEM_OPTIONS = @json($ITEM_OPTIONS);
   const uploadInput = document.getElementById('soUpload');
   const listEl      = document.getElementById('soFiles');
+  const emptyEl  = document.getElementById('soFilesEmpty');
   const draftToken  = (document.getElementById('draft_token')||{}).value || '';
   const csrf        = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
-  function rowFile(file){
-    return `<div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
-      <a class="me-auto" href="${file.url}" target="_blank" rel="noopener">${file.name}</a>
-      <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
-      <button type="button" class="btn btn-sm btn-outline-danger">Hapus</button>
+  function rowFile(f){
+    return `<div class="list-group-item d-flex align-items-center gap-2" data-id="${f.id}">
+      <a class="me-auto" href="${f.url}" target="_blank" rel="noopener">${f.name}</a>
+      <span class="text-secondary small">${Math.round((f.size||0)/1024)} KB</span>
+      <button type="button" class="btn btn-sm btn-outline-danger" data-action="del">Hapus</button>
     </div>`;
   }
 
-  async function refreshList(){
-    if (!draftToken) { listEl.innerHTML=''; return; }
-    try{
+  async function refreshList() {
+    if (!draftToken) {
+      listEl.innerHTML = '';
+      if (emptyEl) emptyEl.style.display = '';
+      return;
+    }
+
+    try {
       const url = @json(route('sales-orders.attachments.index')) + '?draft_token=' + encodeURIComponent(draftToken);
-      const res = await fetch(url, { headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'} });
-      const files = await res.json().catch(()=>[]);
-      listEl.innerHTML = (Array.isArray(files)?files:[]).map(rowFile).join('');
-      listEl.querySelectorAll('button').forEach(btn=>{
-        btn.addEventListener('click', async e=>{
-          const row = e.target.closest('[data-id]'); const id = row?.dataset.id;
+      const res = await fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        credentials: 'same-origin',
+        cache: 'no-store'
+      });
+
+      // ambil sebagai text dulu, bersihin kemungkinan BOM/prefix, lalu parse sekali saja
+      let raw = await res.text();
+      raw = raw.trim()
+              .replace(/^[\uFEFF]/, '')      // BOM
+              .replace(/^while\(1\);?/, '')  // anti-JSON hijacking
+              .replace(/^\)\]\}',?\s*/, ''); // )]}',
+      let files;
+      try { files = JSON.parse(raw); } catch { files = []; }
+      if (!Array.isArray(files)) files = [];
+
+      listEl.innerHTML = files.map(rowFile).join('');
+      if (emptyEl) emptyEl.style.display = files.length ? 'none' : '';
+
+      // bind delete
+      listEl.querySelectorAll('button[data-action="del"]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const row = e.target.closest('[data-id]');
+          const id  = row?.dataset.id;
           if (!id) return;
           const delUrl = @json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
-          await fetch(delUrl, { method:'DELETE', headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'} });
-          row.remove();
+          const r = await fetch(delUrl, {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin'
+          });
+          if (r.ok || r.status === 204) refreshList();
         });
       });
-    }catch{ listEl.innerHTML=''; }
+    } catch (e) {
+      console.error('[attach] error:', e);
+      listEl.innerHTML = '';
+      if (emptyEl) emptyEl.style.display = '';
+    }
   }
+
+
 
   uploadInput?.addEventListener('change', async (e)=>{
     for (const f of e.target.files){
+      console.log('[attach] UPLOAD with token:', draftToken, 'file:', f.name); // <—
       const fd = new FormData();
       fd.append('file', f);
       fd.append('draft_token', draftToken);
-      await fetch(@json(route('sales-orders.attachments.upload')), {
+      const r = await fetch(@json(route('sales-orders.attachments.upload')), {
         method:'POST',
-        headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
-        body: fd
+        headers:{'X-CSRF-TOKEN': csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
+        body: fd,
+        credentials:'same-origin',
+        cache: 'no-store'
       });
+      if (!r.ok) console.warn('[attach] upload HTTP', r.status);
     }
     uploadInput.value='';
     refreshList();
   });
-
+  
   // Fallback loader TomSelect (jika belum ada dari layout)
   function ensureTomSelect(){
     return new Promise((resolve, reject)=>{
@@ -419,6 +475,25 @@
       }
     });
   }
+
+  // Hook tombol "Batal" yang dirender dari partial (berdasarkan href cancelUrl)
+  const cancelLink = document.querySelector(`.card-footer a.btn.btn-outline-secondary[href="${@json(route('sales-orders.index'))}"]`);
+  cancelLink?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      await fetch(@json(route('sales-orders.create.cancel')), {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ draft_token: (document.getElementById('draft_token')||{}).value || '' }),
+        credentials: 'same-origin'
+      });
+    } finally {
+      window.location.href = @json(route('sales-orders.index'));
+    }
+  });
 
   /* ====== HELPERS ====== */
   function toNum(v){ if(v==null) return 0; v=String(v).trim(); if(v==='') return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; }

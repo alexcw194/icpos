@@ -23,25 +23,31 @@ class SalesOrderController extends Controller
     /** Wizard: Create Sales Order from Quotation (UI). */
     public function createFromQuotation(Quotation $quotation)
     {
+
         $quotation->load(['customer','company','salesUser','lines']);
+
+        // data lain yang sudah kamu pakai di blade
         $items = Item::with('unit:id,code')
             ->orderBy('name')
             ->get(['id','name','price','unit_id']);
-        // Soft policy: SO boleh dibuat walau NPWP belum lengkap (Invoice yang hard lock)
-        $npwpRequired = (bool) ($quotation->company->require_npwp_on_so ?? false);
 
+        $npwpRequired = (bool) ($quotation->company->require_npwp_on_so ?? false);
         $cust = $quotation->customer;
         $npwp = [
             'number'  => $cust->npwp_number ?? '',
             'name'    => $cust->npwp_name ?? ($cust->name ?? ''),
             'address' => $cust->npwp_address ?? ($cust->address ?? ''),
         ];
-        $npwpMissing = $npwpRequired && (empty($npwp['number']) || empty($npwp['name']) || empty($npwp['address']));
+        $npwpMissing = $npwpRequired && (
+            empty($npwp['number']) || empty($npwp['name']) || empty($npwp['address'])
+        );
 
+        // ⚠️ TIDAK ADA SalesOrder::create DI SINI
         return view('sales_orders.create_from_quotation', compact(
-            'quotation', 'npwpRequired', 'npwpMissing', 'npwp','items'
+            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items'
         ));
     }
+
 
     public function create()
     {
@@ -95,6 +101,7 @@ class SalesOrderController extends Controller
             'tax_percent'          => ['nullable','string'], // akan diparse manual
             'under_amount'         => ['nullable','numeric','min:0'],
             'sales_user_id'        => ['nullable','exists:users,id'],
+            'draft_token'          => ['nullable','string','max:64'],
 
             'total_discount_type'  => ['nullable','in:amount,percent'],
             'total_discount_value' => ['nullable','string'],
@@ -249,6 +256,15 @@ class SalesOrderController extends Controller
                 'total'                 => $grand,
             ]);
         });
+
+        if (!empty($data['draft_token'])) {
+            if (method_exists(\App\Http\Controllers\SalesOrderAttachmentController::class, 'attachFromDraft')) {
+                \App\Http\Controllers\SalesOrderAttachmentController::attachFromDraft($data['draft_token'], $so);
+            }
+        }
+
+        // ✅ HABISKAN TOKEN SESSION DI SINI
+        session()->forget('so_draft_token');
 
         return redirect()->route('sales-orders.show', $so)->with('success', 'Sales Order dibuat.');
     }
@@ -530,6 +546,8 @@ class SalesOrderController extends Controller
             'cancel_reason'         => $validated['cancel_reason'],
         ]);
 
+        session()->forget('so_draft_token');
+
         return redirect()->route('sales-orders.show', $salesOrder)->with('ok','Sales Order cancelled.');
     }
 
@@ -763,6 +781,8 @@ class SalesOrderController extends Controller
         if ($request->wantsJson()) {
             return response()->json(['ok' => true, 'id' => $so->id, 'number' => $so->so_number]);
         }
+
+        session()->forget('so_draft_token');
 
         return redirect()->route('sales-orders.show', $so)
             ->with('success', 'Sales Order dibuat.');

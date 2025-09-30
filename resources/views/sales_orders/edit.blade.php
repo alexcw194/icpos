@@ -19,7 +19,7 @@
   $lines       = $so->lines ?? collect();
 
   // token draft upload
-  $draftToken  = Str::ulid()->toBase32();
+  $draftToken  = $so->exists ? null : Str::ulid()->toBase32();
   $quotation   = $so->quotation ?? null;
 @endphp
 
@@ -93,9 +93,9 @@
         </div>
       </div>
 
-      <div class="mb-3 mt-3"">
+      <div class="mb-3 mt-3">
         <label class="form-label">Notes (Terms)</label>
-        <textarea name="notes" class="form-control" rows="3">{{ old('notes', $salesOrder->notes) }}</textarea>
+        <textarea name="notes" class="form-control" rows="3">{{ old('notes', $so->notes) }}</textarea>
       </div>
 
 
@@ -104,22 +104,46 @@
         <label class="form-label">Attachments — PDF/JPG/PNG</label>
         <input type="file" id="soUpload" class="form-control" multiple accept="application/pdf,image/jpeg,image/png">
         <div class="form-text">
-          File yang diupload sekarang akan disimpan sebagai <em>draft</em> dan otomatis terhubung ke SO saat klik “Simpan Perubahan”.
+          @if($so->exists)
+            File yang diupload sekarang akan langsung terhubung ke SO ini.
+          @else
+            File yang diupload sekarang akan disimpan sebagai <em>draft</em> dan otomatis terhubung ke SO saat klik “Simpan”.
+          @endif
         </div>
 
         @php $existingFiles = $so->attachments ?? collect(); @endphp
         <div class="list-group list-group-flush mt-2" id="soFilesExisting">
           @forelse($existingFiles as $f)
-            <div class="list-group-item d-flex align-items-center gap-2">
-              <a class="me-auto" href="{{ $f->url }}" target="_blank" rel="noopener">{{ $f->name }}</a>
-              <span class="text-secondary small">{{ number_format(($f->size ?? 0)/1024, 0) }} KB</span>
+            <div class="list-group-item d-flex align-items-center justify-content-between">
+              <div class="me-3">
+                <a href="{{ asset('storage/'.$f->path) }}" target="_blank" rel="noopener">
+                  {{ $f->original_name ?? basename($f->path) }}
+                </a>
+                <span class="text-muted small">({{ $f->mime }}, {{ number_format(($f->size ?? 0)/1024, 0) }} KB)</span>
+              </div>
+
+              @can('deleteAttachment', [$so, $f])
+              <button type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      data-action="del"
+                      data-del-url="{{ route('sales-orders.attachments.destroy_legacy', [$so, $f]) }}">
+                  Delete
+              </button>
+              @endcan
             </div>
           @empty
-            <div class="list-group-item text-secondary">Belum ada lampiran.</div>
           @endforelse
         </div>
 
-        <div id="soFiles" class="list-group list-group-flush mt-2"></div>
+        <div id="soFilesEmpty" class="text-secondary {{ $existingFiles->count() ? 'd-none' : '' }}">
+          Belum ada lampiran.
+        </div>
+
+
+        @if($draftToken)
+          <div id="soFiles" class="list-group list-group-flush mt-2"></div>
+          <div id="soFilesEmpty" class="text-secondary">Belum ada lampiran.</div>
+        @endif
       </div>
 
       {{-- TABS --}}
@@ -240,13 +264,13 @@
         <div class="tab-pane" id="more-info" role="tabpanel">
           <div class="mb-3">
             <label class="form-label">Private Notes</label>
-            <textarea name="private_notes" class="form-control" rows="3">{{ old('private_notes', $salesOrder->private_notes) }}</textarea>
+            <textarea name="private_notes" class="form-control" rows="3">{{ old('private_notes', $so->private_notes) }}</textarea>
           </div>
 
           <div class="mb-3">
             <label class="form-label">Under (Rp)</label>
             <input type="text" name="under_amount" class="form-control text-end"
-                  value="{{ old('under_amount', $salesOrder->under_amount) }}">
+                  value="{{ old('under_amount', $so->under_amount) }}">
           </div>
         </div>
       </div>
@@ -381,6 +405,21 @@
   window.SO_ITEM_OPTIONS = @json($ITEM_OPTIONS);
   // ⬇️ Tambahan: kirim map id→label ke JS
   window.SO_ITEM_LABELS  = @json($ITEM_LABELS);
+  const soId       = @json($so->id);   // <— ini penting
+  const draftToken = (document.getElementById('draft_token')||{}).value || ''; // boleh tidak ada
+  const csrf       = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const uploadInput= document.getElementById('soUpload');
+  const listEl     = document.getElementById('soFiles');
+  const emptyEl    = document.getElementById('soFilesEmpty');
+  const existWrap  = document.getElementById('soFilesExisting');
+  const draftWrap  = document.getElementById('soFiles');          // hanya ada saat create
+  const emptyDraft = document.getElementById('soFilesEmpty');     // hanya ada saat create
+
+  function listUrl(){
+    const base = @json(route('sales-orders.attachments.index'));
+    if (draftToken) return base + '?draft_token=' + encodeURIComponent(draftToken);
+    return base + '?sales_order_id=' + encodeURIComponent(soId);       // <—
+  }
 
   function ensureTomSelect(){
     return new Promise((resolve,reject)=>{
@@ -389,7 +428,7 @@
       s.onload=resolve; s.onerror=reject; document.head.appendChild(s);
     });
   }
-
+  const STORAGE_BASE = {!! json_encode(asset('storage'), JSON_UNESCAPED_SLASHES) !!};
   const toNum=v=>{ if(v==null) return 0; v=String(v).trim(); if(!v) return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; };
   const rupiah=n=>{ try{ return 'Rp '+new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n) }catch(e){ const f=(Math.round(n*100)/100).toFixed(2); const [a,b]=f.split('.'); return 'Rp '+a.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+b } };
 
@@ -594,35 +633,153 @@
       return `<div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
         <a class="me-auto" href="${file.url}" target="_blank" rel="noopener">${file.name}</a>
         <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
-        <button type="button" class="btn btn-sm btn-outline-danger">Hapus</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" data-action="del">Delete</button>
       </div>`;
     }
-    async function refreshList(){
-      if (!draftToken) { listEl.innerHTML=''; return; }
-      try{
-        const url=@json(route('sales-orders.attachments.index'))+'?draft_token='+encodeURIComponent(draftToken);
-        const res=await fetch(url,{headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},credentials:'same-origin'});
-        const data=await res.json().catch(()=>[]);
-        const files=Array.isArray(data)?data:[];
-        listEl.innerHTML=files.map(rowFile).join('');
-        listEl.querySelectorAll('button').forEach(btn=>{
-          btn.addEventListener('click', async e=>{
-            const row=e.target.closest('[data-id]'); const id=row?.dataset.id; if(!id) return;
-            const delUrl=@json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
-            await fetch(delUrl,{method:'DELETE',headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},credentials:'same-origin'});
-            row.remove();
-          });
+    async function refreshList() {
+      if (!draftToken) return;
+      let files = [];
+      try {
+        const res = await fetch(listUrl(), {
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+          credentials: 'same-origin',
+          cache: 'no-store'
         });
-      }catch{ listEl.innerHTML=''; }
+        let raw = (await res.text()).trim()
+          .replace(/^[\uFEFF]/, '')
+          .replace(/^while\(1\);?/, '')
+          .replace(/^\)\]\}',?\s*/, '');
+        try { files = JSON.parse(raw) || []; } catch { files = []; }
+        listEl.innerHTML = files.map(rowFile).join('');
+      } catch (e) {
+        console.error('[attach] list error', e);
+        listEl.innerHTML = '';
+        files = [];
+      }
+      // ==== Toggle placeholder ====
+      const hasExisting = !!document.querySelector('#soFilesExisting .list-group-item'); // item existing ada?
+      const hasDraft    = files.length > 0;                                              // item draft/baru dari API
+      const emptyGlobal = document.getElementById('soFilesEmpty');
+      
+      if (emptyGlobal) {
+        emptyGlobal.classList.toggle('d-none', (hasExisting || hasDraft));
+      }
+
     }
     uploadInput?.addEventListener('change', async (e)=>{
       for (const f of e.target.files){
-        const fd=new FormData(); fd.append('file',f); fd.append('draft_token',draftToken); fd.append('sales_order_id','{{ $so->id }}');
-        await fetch(@json(route('sales-orders.attachments.upload')),{method:'POST',headers:{'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},body:fd,credentials:'same-origin'});
+        const fd = new FormData();
+        fd.append('file', f);
+        if (draftToken) fd.append('draft_token', draftToken);
+        else            fd.append('sales_order_id', soId);
+
+        const r = await fetch(@json(route('sales-orders.attachments.upload')), {
+          method:'POST',
+          headers:{ 'X-CSRF-TOKEN': csrf, 'X-Requested-With':'XMLHttpRequest', 'Accept':'application/json' },
+          body: fd, credentials:'same-origin'
+        });
+
+        if (!r.ok) continue;
+
+        if (!draftToken) {
+          // EDIT: paling sederhana reload
+          location.reload();
+          return;
+          // (atau parse r.json() lalu append ke #soFilesExisting)
+        }
       }
-      uploadInput.value=''; refreshList();
+      uploadInput.value='';
+      if (draftToken) refreshList();         // reload daftar
     });
-    refreshList();
+
+    const existWrap = document.getElementById('soFilesExisting');
+    existWrap?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-del-url]');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      const url = btn.dataset.delUrl;
+      if (!url) return;
+
+      // Jika route destroy_legacy kamu didefinisikan sebagai DELETE, pakai ini:
+      /*
+      const r = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-TOKEN': csrf,
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        credentials: 'same-origin'
+      });
+      */
+
+      // ⬇ Kalau route destroy_legacy kamu menerima POST (form spoof), pakai ini:
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrf,
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+        },
+        body: new URLSearchParams({ _method: 'DELETE' }),
+        credentials: 'same-origin'
+      });
+
+      if (r.ok || r.status === 204) {
+        // hapus baris existing secara optimistis
+        btn.closest('.list-group-item')?.remove();
+
+        // kalau kosong, munculkan “Belum ada lampiran.”
+        const anyExisting = !!document.querySelector('#soFilesExisting .list-group-item');
+        const anyDraft    = !!document.querySelector('#soFiles .list-group-item');
+        const emptyGlobal = document.getElementById('soFilesEmpty');
+        if (emptyGlobal) emptyGlobal.classList.toggle('d-none', (anyExisting || anyDraft));
+
+        // refresh daftar draft juga (biar sinkron)
+        refreshList();
+      } else {
+        console.warn('Delete failed', r.status);
+      }
+    });
+
+    function bindDeleteDelegation() {
+      const containers = [document.getElementById('soFiles'), document.getElementById('soFilesExisting')];
+      containers.forEach(container => {
+        if (!container) return;
+        container.addEventListener('click', async (e) => {
+          const btn = e.target.closest('button[data-action="del"]');
+          if (!btn) return;
+
+          // prioritas: pakai data-del-url kalau ada (existing/legacy)
+          let delUrl = btn.dataset.delUrl;
+          if (!delUrl) {
+            // list draft/baru: ambil id kartu & tembak route destroy-by-id
+            const id = btn.closest('[data-id]')?.dataset.id;
+            if (!id) return;
+            delUrl = @json(route('sales-orders.attachments.destroy','__ID__')).replace('__ID__', id);
+          }
+
+          const r = await fetch(delUrl, {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With':'XMLHttpRequest', 'Accept':'application/json' },
+            credentials: 'same-origin'
+          });
+
+          if (r.ok || r.status === 204) {
+            // refresh dua-duanya supaya sinkron
+            refreshList();
+            // hapus item existing secara optimistis
+            btn.closest('.list-group-item')?.remove();
+          }
+        });
+      });
+    }
+    bindDeleteDelegation();
+    if (draftToken) refreshList();  
   })();
 })();
 </script>

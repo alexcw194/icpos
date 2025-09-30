@@ -28,4 +28,18 @@ class SalesOrderAttachment extends Model
     }
 
     public function salesOrder() { return $this->belongsTo(SalesOrder::class); }
+
+    public function destroyAttachment(SalesOrder $salesOrder, SalesOrderAttachment $attachment)
+    {
+        if ((int)$attachment->sales_order_id !== (int)$salesOrder->id) abort(404);
+        $this->authorize('deleteAttachment', [$salesOrder, $attachment]);
+
+        if ($attachment->path) Storage::disk('public')->delete($attachment->path);
+        $attachment->delete();
+
+        if (request()->wantsJson()) {
+            return response()->json(['ok' => true]);
+        }
+        return back()->with('ok','Attachment deleted.');
+    }
 }

@@ -1,6 +1,7 @@
 ﻿<?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 use App\Http\Controllers\{
     ProfileController,
     CustomerController,
@@ -15,7 +16,7 @@ use App\Http\Controllers\{
     JenisController,
     BrandController,
     SalesOrderController,
-    SalesOrderAttachmentController,
+    SalesOrderAttachmentController as SOAtt,
     WarehouseController,
 };
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -115,12 +116,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('sales-orders/create', [SalesOrderController::class, 'create'])
         ->name('sales-orders.create')
-        ->middleware(['auth', 'can:sales_orders.create']);
+        ->middleware(['auth', 'can:create,App\Models\SalesOrder']);
 
     Route::post('sales-orders', [SalesOrderController::class, 'store'])
         ->name('sales-orders.store')
-        ->middleware(['auth', 'can:sales_orders.create']);
-
+        ->middleware(['auth', 'can:create,App\Models\SalesOrder']);
     // NEW: edit / update / cancel / destroy
     Route::get   ('sales-orders/{salesOrder}/edit', [SalesOrderController::class, 'edit'])
         ->name('sales-orders.edit');
@@ -137,21 +137,33 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('sales-orders/{salesOrder}/attachments/{attachment}', [SalesOrderController::class, 'destroyAttachment'])
         ->name('sales-orders.attachments.destroy_legacy');
 
-    Route::get('/sales-orders/attachments', [SalesOrderAttachmentController::class,'index'])
-        ->name('sales-orders.attachments.index'); // list by ?draft_token=... atau ?sales_order_id=...
-    Route::post('/sales-orders/upload', [SalesOrderAttachmentController::class,'upload'])
-        ->name('sales-orders.attachments.upload');
-    Route::delete('/sales-orders/attachments/{attachment}', [SalesOrderAttachmentController::class,'destroy'])
-        ->name('sales-orders.attachments.destroy');
+   Route::prefix('sales-orders/attachments')
+    ->name('sales-orders.attachments.')
+    ->group(function () {
+        Route::get('/',        [SOAtt::class, 'index'])->name('index');      // ?draft_token=... | ?sales_order_id=...
+        Route::post('/upload', [SOAtt::class, 'upload'])->name('upload');    // body: file + (draft_token | sales_order_id)
+        Route::delete('/{attachment}', [SOAtt::class, 'destroy'])->name('destroy');
+    });
+    //Route::get('/sales-orders/attachments', [SalesOrderAttachmentController::class,'index'])
+    //    ->name('sales-orders.attachments.index'); // list by ?draft_token=... atau ?sales_order_id=...
+    //Route::post('/sales-orders/upload', [SalesOrderAttachmentController::class,'upload'])
+    //    ->name('sales-orders.attachments.upload');
+    //Route::delete('/sales-orders/attachments/{attachment}', [SalesOrderAttachmentController::class,'destroy'])
+    //    ->name('sales-orders.attachments.destroy');
 
     // Cancel create → bersihkan semua file draft
-    Route::delete('/sales-orders/create/cancel', function(\Illuminate\Http\Request $r){
-        $r->validate(['draft_token'=>['required','string','max:64']]);
-        \App\Http\Controllers\SalesOrderAttachmentController::purgeDraft($r->draft_token);
-        return back();
+    // routes/web.php (di dalam group auth)
+    Route::delete('/sales-orders/create/cancel', function (Request $r) {
+        $token = $r->input('draft_token') ?: session('so_draft_token');
+
+        if ($token) {
+            SOAtt::purgeDraft($token);   // <-- gunakan alias yang di-"use"
+        }
+
+        session()->forget('so_draft_token');
+        return response()->noContent();  // 204
     })->name('sales-orders.create.cancel');
 
-    Route::resource('sales-orders', \App\Http\Controllers\SalesOrderController::class);
 });
 
 // =======================
