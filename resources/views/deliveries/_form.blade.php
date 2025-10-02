@@ -216,9 +216,20 @@
 
       const qtyInput = row.querySelector('.line-qty');
       const requestedInput = row.querySelector('.line-requested');
+      const backorderInput = row.querySelector('.line-backorder');
       if (qtyInput && requestedInput && !requestedInput.value) {
         requestedInput.value = qtyInput.value;
       }
+
+      // === Auto-hitung backorder = max(requested - qty, 0)
+      const recalcBackorder = () => {
+        if (!qtyInput || !requestedInput || !backorderInput) return;
+        const q = parseInt(qtyInput.value || '0', 10);
+        const r = parseInt(requestedInput.value || '0', 10);
+        backorderInput.value = Math.max(r - q, 0);
+      };
+      qtyInput && qtyInput.addEventListener('input', recalcBackorder);
+      recalcBackorder();
 
       const itemSelect = row.querySelector('.line-item');
       const variantSelect = row.querySelector('.line-variant');
@@ -271,7 +282,6 @@
       bindRowEvents(row);
       updateRowStock(row);
     });
-
     updateAllRowStocks();
   })();
 </script>
@@ -293,10 +303,10 @@
       <input type="hidden" data-name="sales_order_line_id">
     </td>
     <td><input type="text" class="form-control" data-name="description"></td>
-    <td><input type="number" step="0.0001" min="0" class="form-control text-end line-qty" value="1" data-name="qty"></td>
+    <td><input type="number" step="1" min="0" class="form-control text-end line-qty" value="1" data-name="qty"></td>
     <td><input type="text" class="form-control" data-name="unit"></td>
-    <td><input type="number" step="0.0001" min="0" class="form-control text-end line-requested" data-name="qty_requested"></td>
-    <td><input type="number" step="0.0001" min="0" class="form-control text-end" data-name="qty_backordered"></td>
+    <td><input type="number" step="1" min="0" class="form-control text-end line-requested" data-name="qty_requested" readonly></td>
+    <td><input type="number" step="1" min="0" class="form-control text-end line-backorder" data-name="qty_backordered" readonly></td>
     <td><input type="number" step="0.01" min="0" class="form-control text-end" data-name="price_snapshot"></td>
     <td><input type="text" class="form-control" data-name="line_notes"></td>
     <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-line"><i class="ti ti-x"></i></button></td>

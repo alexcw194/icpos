@@ -90,16 +90,16 @@
     <input type="text" name="lines[{{ $index }}][description]" class="form-control" value="{{ $description }}" {{ $soLineId ? 'readonly' : '' }}>
   </td>
   <td>
-    <input type="number" step="0.0001" min="0" name="lines[{{ $index }}][qty]" class="form-control text-end line-qty" value="{{ $qty }}">
+    <input type="number" step="1" min="0" name="lines[{{ $index }}][qty]" class="form-control text-end line-qty" value="{{ (int) $qty }}">
   </td>
   <td>
     <input type="text" name="lines[{{ $index }}][unit]" class="form-control" value="{{ $unit }}">
   </td>
   <td>
-    <input type="number" step="0.0001" min="0" name="lines[{{ $index }}][qty_requested]" class="form-control text-end line-requested" value="{{ $qtyRequested }}">
+    <input type="number" step="1" min="0" name="lines[{{ $index }}][qty_requested]" class="form-control text-end line-requested" value="{{ (int) $qtyRequested }}" readonly>
   </td>
   <td>
-    <input type="number" step="0.0001" min="0" name="lines[{{ $index }}][qty_backordered]" class="form-control text-end" value="{{ $qtyBackordered }}">
+    <input type="number" step="1" min="0" name="lines[{{ $index }}][qty_backordered]" class="form-control text-end line-backorder" value="{{ (int) $qtyBackordered }}" readonly>
   </td>
   <td>
     <input type="number" step="0.01" min="0" name="lines[{{ $index }}][price_snapshot]" class="form-control text-end" value="{{ $priceSnapshot }}">

@@ -80,10 +80,16 @@ class DeliveryController extends Controller
     {
         $this->authorizePermission('deliveries.create');
 
-        // Jika tidak ada sales_order_id maupun invoice_id, tolak
-        if (!$request->filled('sales_order_id') && !$request->filled('invoice_id')) {
+        // ❌ Tidak boleh dari Invoice
+        if ($request->filled('invoice_id')) {
             return redirect()->route('deliveries.index')
-                ->with('error','Silakan buat Sales Order terlebih dulu sebelum membuat Delivery Note.');
+                ->with('error', 'Delivery hanya dapat dibuat dari Sales Order.');
+        }
+
+        // ✅ Wajib punya sales_order_id
+        if (!$request->filled('sales_order_id')) {
+            return redirect()->route('deliveries.index')
+                ->with('error', 'Silakan pilih Sales Order terlebih dulu sebelum membuat Delivery Note.');
         }
 
         $delivery = new Delivery([
@@ -91,53 +97,38 @@ class DeliveryController extends Controller
             'date'   => Carbon::now()->format('Y-m-d'),
         ]);
 
-        $initialLines = collect();
-        if ($salesOrderId = $request->integer('sales_order_id')) {
-            $salesOrder = SalesOrder::with(['customer', 'company', 'lines.item', 'lines.variant'])->findOrFail($salesOrderId);
-            // … set header fields seperti biasa …
-            $initialLines = $this->buildLinesFromSalesOrder($salesOrder->lines);
-            // Cegah pembuatan Delivery Note jika tidak ada item tersisa
-            if ($initialLines->isEmpty()) {
-                return redirect()->route('sales-orders.show', $salesOrder)
-                    ->with('info', 'Semua item pada Sales Order ini telah terkirim. Tidak dapat membuat Delivery Note baru.');
-            }
+        // Ambil SO sekali saja
+        $salesOrderId = $request->integer('sales_order_id');
+        $salesOrder = SalesOrder::with(['customer', 'company', 'lines.item', 'lines.variant'])
+                        ->findOrFail($salesOrderId);
+
+        // Isi header dari SO
+        $delivery->fill([
+            'company_id'     => $salesOrder->company_id,
+            'customer_id'    => $salesOrder->customer_id,
+            'quotation_id'   => $salesOrder->quotation_id,
+            'sales_order_id' => $salesOrder->id,
+            'reference'      => $salesOrder->so_number ?? $salesOrder->customer_po_number,
+            'date'           => Carbon::now()->format('Y-m-d'),
+            'recipient'      => $salesOrder->customer->name ?? null,
+            'address'        => $salesOrder->ship_to ?: ($salesOrder->customer->address ?? null),
+            'notes'          => $salesOrder->notes,
+        ]);
+        if (!empty($salesOrder->brand_snapshot)) {
+            $delivery->brand_snapshot = $salesOrder->brand_snapshot;
         }
-        if ($invoiceId = $request->integer('invoice_id')) {
-            $invoice = Invoice::with(['customer', 'company', 'quotation.lines'])->findOrFail($invoiceId);
-            $delivery->fill([
-                'company_id'   => $invoice->company_id,
-                'customer_id'  => $invoice->customer_id,
-                'invoice_id'   => $invoice->id,
-                'quotation_id' => $invoice->quotation_id,
-                'reference'    => $invoice->number,
-                'date'         => $invoice->date?->format('Y-m-d') ?? Carbon::now()->format('Y-m-d'),
-                'recipient'    => $invoice->customer->name ?? null,
-                'address'      => $invoice->customer->address ?? null,
-            ]);
-            $delivery->setRelation('invoice', $invoice);
-            $initialLines = $this->buildLinesFromQuotation($invoice->quotation?->lines);
-        } elseif ($salesOrderId = $request->integer('sales_order_id')) {
-            $salesOrder = SalesOrder::with(['customer', 'company', 'lines.item', 'lines.variant'])->findOrFail($salesOrderId);
-            $delivery->fill([
-                'company_id'     => $salesOrder->company_id,
-                'customer_id'    => $salesOrder->customer_id,
-                'quotation_id'   => $salesOrder->quotation_id,
-                'sales_order_id' => $salesOrder->id,
-                'reference'      => $salesOrder->so_number ?? $salesOrder->customer_po_number,
-                'date'           => Carbon::now()->format('Y-m-d'),
-                'recipient'      => $salesOrder->customer->name ?? null,
-                'address'        => $salesOrder->ship_to ?: ($salesOrder->customer->address ?? null),
-                'notes'          => $salesOrder->notes,
-            ]);
-            if (!empty($salesOrder->brand_snapshot)) {
-                $delivery->brand_snapshot = $salesOrder->brand_snapshot;
-            }
-            $delivery->setRelation('salesOrder', $salesOrder);
-            $initialLines = $this->buildLinesFromSalesOrder($salesOrder->lines);
+        $delivery->setRelation('salesOrder', $salesOrder);
+
+        // Build lines dari SO
+        $initialLines = $this->buildLinesFromSalesOrder($salesOrder->lines);
+
+        // Cegah jika tidak ada sisa item untuk dikirim
+        if ($initialLines->isEmpty()) {
+            return redirect()->route('sales-orders.show', $salesOrder)
+                ->with('info', 'Semua item pada Sales Order ini telah terkirim. Tidak dapat membuat Delivery Note baru.');
         }
 
         $formPayload = $this->formPayload($delivery, $initialLines);
-
         return view('deliveries.create', $formPayload);
     }
 
@@ -155,8 +146,7 @@ class DeliveryController extends Controller
                 'warehouse_id' => $data['warehouse_id'] ?? null,
                 'invoice_id'   => $data['invoice_id'] ?? null,
                 'quotation_id' => $data['quotation_id'] ?? null,
-                'sales_order_id' => $data['sales_order_id'] ?? null,
-                'sales_order_id' => $data['sales_order_id'] ?? null,
+                'sales_order_id' => $data['sales_order_id'],
                 'status'       => Delivery::STATUS_DRAFT,
                 'date'         => $data['date'],
                 'reference'    => $data['reference'] ?? null,
@@ -400,7 +390,7 @@ class DeliveryController extends Controller
             'warehouse_id' => 'nullable|exists:warehouses,id',
             'invoice_id'   => 'nullable|exists:invoices,id',
             'quotation_id' => 'nullable|exists:quotations,id',
-            'sales_order_id' => 'nullable|exists:sales_orders,id',
+            'sales_order_id' => 'required|exists:sales_orders,id',
             'date'         => 'required|date',
             'reference'    => 'nullable|string|max:120',
             'recipient'    => 'nullable|string|max:200',
@@ -409,10 +399,10 @@ class DeliveryController extends Controller
             'lines'        => 'required|array|min:1',
             'lines.*.item_id'         => 'nullable|exists:items,id',
             'lines.*.item_variant_id' => 'nullable|exists:item_variants,id',
-            'lines.*.sales_order_line_id' => 'nullable|exists:sales_order_lines,id',
+            'lines.*.sales_order_line_id' => 'required|exists:sales_order_lines,id',
             'lines.*.description'     => 'nullable|string|max:255',
             'lines.*.unit'            => 'nullable|string|max:50',
-            'lines.*.qty'             => 'required|numeric|min:0.0001',
+            'lines.*.qty' => 'required|integer|min:1',
             'lines.*.qty_requested'   => 'nullable|numeric|min:0',
             'lines.*.price_snapshot'  => 'nullable|numeric|min:0',
             'lines.*.line_notes'      => 'nullable|string',
@@ -583,7 +573,7 @@ class DeliveryController extends Controller
                     'qty_requested'     => $ordered,
                     'qty'               => $remaining,
                     'price_snapshot'    => $line->unit_price,
-                    'qty_backordered'   => max(0.0, $ordered - $remaining),
+                    'qty_backordered'    => 0,
                 ];
             })
             ->filter()
