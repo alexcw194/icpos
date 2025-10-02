@@ -507,7 +507,8 @@ class DeliveryController extends Controller
             $item = $line['item_id'] ? $items->get($line['item_id']) : null;
             $variant = $line['item_variant_id'] ? $variants->get($line['item_variant_id']) : null;
 
-            $description = $line['description'] ?? ($variant->name ?? $item->name ?? '');
+            $desc = $line['description'] ?? null;
+            $description = filled($desc) ? $desc : null;
             $qtyRequested = $line['qty_requested'] ?? $line['qty'];
             $qtyBackordered = $line['qty_backordered'] ?? max(0, $qtyRequested - $line['qty']);
 
@@ -551,7 +552,7 @@ class DeliveryController extends Controller
                 'sales_order_line_id' => null,
                 'item_id'           => $line->item_id,
                 'item_variant_id'   => $line->item_variant_id,
-                'description'       => $line->description ?? $line->name,
+                'description'       => $line->description,
                 'unit'              => $line->unit,
                 'qty_requested'     => (float) $line->qty,
                 'qty'               => $remaining > 0 ? $remaining : (float) $line->qty,
@@ -577,7 +578,7 @@ class DeliveryController extends Controller
                     'sales_order_line_id' => $line->id,
                     'item_id'           => $line->item_id,
                     'item_variant_id'   => $line->item_variant_id,
-                    'description'       => $line->description ?? $line->name,
+                    'description'       => $line->description,
                     'unit'              => $line->unit,
                     'qty_requested'     => $ordered,
                     'qty'               => $remaining,

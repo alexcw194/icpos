@@ -58,4 +58,10 @@ class DeliveryLine extends Model
         return $this->belongsTo(SalesOrderLine::class);
     }
 
+    public function setDescriptionAttribute($value)
+    {
+        $v = is_string($value) ? trim($value) : $value;
+        $this->attributes['description'] = ($v === '' || $v === null) ? null : $v;
+    }
+
 }
