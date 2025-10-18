@@ -21,6 +21,7 @@ class Invoice extends Model
     public function company(){ return $this->belongsTo(Company::class); }
     public function customer(){ return $this->belongsTo(Customer::class); }
     public function quotation(){ return $this->belongsTo(Quotation::class); }
+    public function lines(){ return $this->hasMany(\App\Models\InvoiceLine::class); }
     public function delivery()
     {
         return $this->hasOne(\App\Models\Delivery::class);

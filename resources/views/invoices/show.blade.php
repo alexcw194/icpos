@@ -39,5 +39,34 @@
     </div>
   </div>
   @endif
+
+  @if($invoice->relationLoaded('lines'))
+    <div class="card mt-3">
+      <div class="card-header">Invoice Lines</div>
+      <div class="table-responsive">
+        <table class="table table-sm">
+        <thead><tr>
+        <th>#</th><th>Description</th><th class="text-end">Qty</th>
+        <th>Unit</th><th class="text-end">Price</th><th class="text-end">Disc</th>
+        <th class="text-end">Subtotal</th><th class="text-end">Line Total</th>
+        </tr></thead>
+          <tbody>
+            @foreach($invoice->lines as $i => $ln)
+              <tr>
+              <td>{{ $i+1 }}</td>
+              <td>{{ $ln->description }}</td>
+              <td class="text-end">{{ number_format($ln->qty, 2) }}</td>
+              <td>{{ strtoupper($ln->unit) }}</td>
+              <td class="text-end">{{ number_format($ln->unit_price, 2) }}</td>
+              <td class="text-end">{{ number_format($ln->discount_amount, 2) }}</td>
+              <td class="text-end">{{ number_format($ln->line_subtotal, 2) }}</td>
+              <td class="text-end fw-bold">{{ number_format($ln->line_total, 2) }}</td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+      </div>
+    </div>
+  @endif
 </div>
 @endsection

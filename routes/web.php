@@ -136,6 +136,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('sales-orders.attachments.store');
     Route::delete('sales-orders/{salesOrder}/attachments/{attachment}', [SalesOrderController::class, 'destroyAttachment'])
         ->name('sales-orders.attachments.destroy_legacy');
+    Route::get('/invoices', [InvoiceController::class, 'index'])
+        ->name('invoices.index');
+        
+    Route::get('/sales-orders/{salesOrder}/invoices/create', [InvoiceController::class,'createFromSo'])->name('invoices.create-from-so');
+    Route::post('/sales-orders/{salesOrder}/invoices', [InvoiceController::class,'storeFromSo'])->name('invoices.store-from-so');
 
    Route::prefix('sales-orders/attachments')
     ->name('sales-orders.attachments.')

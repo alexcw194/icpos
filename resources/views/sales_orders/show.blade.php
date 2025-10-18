@@ -62,7 +62,7 @@
       @if($o->npwp_required && $o->npwp_status === 'missing')
         <button type="button" class="btn btn-primary disabled" title="Lengkapi NPWP untuk membuat Invoice">Create Invoice</button>
       @else
-        <a href="javascript:void(0)" class="btn btn-primary disabled" title="Coming soon">Create Invoice</a>
+        <a href="{{ route('invoices.create-from-so', $salesOrder) }}" class="btn btn-primary">Create Invoice</a>
       @endif
 
       {{-- NEW: actions --}}
