@@ -90,7 +90,7 @@
         <tbody>
           @forelse($deliveries as $delivery)
             <tr>
-              <td>{{ $delivery->number ?? '&mdash;' }}</td>
+              <td>{{ $delivery->number ?? '-' }}</td>
               <td>{{ optional($delivery->date)->format('Y-m-d') }}</td>
               <td>{{ $delivery->customer->name ?? '-' }}</td>
               <td>{{ $delivery->warehouse->name ?? '-' }}</td>

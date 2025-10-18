@@ -298,7 +298,7 @@
         @endforeach
       </select>
       <!-- stock indicator -->
-      <div class="small text-muted mt-1">Stock: <span data-stock-label>&mdash;</span></div>
+      <div class="small text-muted mt-1">Stock: <span data-stock-label>-</span></div>
       <input type="hidden" data-name="quotation_line_id">
       <input type="hidden" data-name="sales_order_line_id">
     </td>

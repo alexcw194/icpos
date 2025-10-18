@@ -52,7 +52,7 @@
     </tr>
     <tr>
       <th>Address</th>
-      <td colspan="3">{!! $delivery->address ? nl2br(e($delivery->address)) : '&mdash;' !!}</td>
+      <td colspan="3">{!! $delivery->address ? nl2br(e($delivery->address)) : '-' !!}</td>
     </tr>
   </table>
 
@@ -72,10 +72,10 @@
         <tr>
           <td class="text-end">{{ $index + 1 }}</td>
           <td>{{ $line->description }}</td>
-          <td>{{ $line->variant->name ?? '&mdash;' }}</td>
+          <td>{{ $line->variant->name ?? '-' }}</td>
           <td class="text-end">{{ number_format((float) $line->qty, 2) }}</td>
-          <td>{{ $line->unit ?? '&mdash;' }}</td>
-          <td>{{ $line->line_notes ?? '&mdash;' }}</td>
+          <td>{{ $line->unit ?? '-' }}</td>
+          <td>{{ $line->line_notes ?? '-' }}</td>
         </tr>
       @endforeach
     </tbody>

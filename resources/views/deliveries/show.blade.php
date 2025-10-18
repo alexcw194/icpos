@@ -43,38 +43,38 @@
             </div>
             <div class="col-md-6">
               <div class="text-muted">Warehouse</div>
-              <div class="fw-semibold">{{ $delivery->warehouse->name ?? '&mdash;' }}</div>
+              <div class="fw-semibold">{{ $delivery->warehouse->name ?? '-' }}</div>
             </div>
             <div class="col-md-6">
               <div class="text-muted">Customer</div>
-              <div class="fw-semibold">{{ $delivery->customer->name ?? '&mdash;' }}</div>
+              <div class="fw-semibold">{{ $delivery->customer->name ?? '-' }}</div>
             </div>
             <div class="col-md-6">
               <div class="text-muted">Reference</div>
-              <div class="fw-semibold">{{ $delivery->reference ?? '&mdash;' }}</div>
+              <div class="fw-semibold">{{ $delivery->reference ?? '-' }}</div>
             </div>
             <div class="col-md-6">
               <div class="text-muted">Recipient</div>
-              <div>{{ $delivery->recipient ?? '&mdash;' }}</div>
+              <div>{{ $delivery->recipient ?? '-' }}</div>
             </div>
             <div class="col-md-6">
               <div class="text-muted">Address</div>
-              <div>{!! $delivery->address ? nl2br(e($delivery->address)) : '&mdash;' !!}</div>
+              <div>{!! $delivery->address ? nl2br(e($delivery->address)) : '-' !!}</div>
             </div>
             <div class="col-md-6">
               <div class="text-muted">Posted</div>
-              <div>{{ $delivery->posted_at ? $delivery->posted_at->format('d M Y H:i') : '&mdash;' }}</div>
+              <div>{{ $delivery->posted_at ? $delivery->posted_at->format('d M Y H:i') : '-' }}</div>
             </div>
             <div class="col-md-6">
               <div class="text-muted">Cancelled</div>
-              <div>{{ $delivery->cancelled_at ? $delivery->cancelled_at->format('d M Y H:i') : '&mdash;' }}</div>
+              <div>{{ $delivery->cancelled_at ? $delivery->cancelled_at->format('d M Y H:i') : '-' }}</div>
               @if($delivery->cancel_reason)
                 <div class="small text-muted">Reason: {{ $delivery->cancel_reason }}</div>
               @endif
             </div>
             <div class="col-12">
               <div class="text-muted">Notes</div>
-              <div>{!! $delivery->notes ? nl2br(e($delivery->notes)) : '&mdash;' !!}</div>
+              <div>{!! $delivery->notes ? nl2br(e($delivery->notes)) : '-' !!}</div>
             </div>
           </div>
         </div>
@@ -104,13 +104,13 @@
                 @endphp
                 <tr>
                   <td>{{ $line->item->name ?? $line->description }}</td>
-                  <td>{{ $line->variant->name ?? '&mdash;' }}</td>
+                  <td>{{ $line->variant->name ?? '-' }}</td>
                   <td class="text-end">{{ number_format((float) $line->qty, 2) }}</td>
-                  <td>{{ $line->unit ?? '&mdash;' }}</td>
-                  <td class="text-end">{{ $line->qty_requested ? number_format((float) $line->qty_requested, 2) : '&mdash;' }}</td>
-                  <td class="text-end">{{ $line->qty_backordered ? number_format((float) $line->qty_backordered, 2) : '&mdash;' }}</td>
-                  <td class="text-end">{{ $stock !== null ? number_format((float) $stock, 2) : '&mdash;' }}</td>
-                  <td>{{ $line->line_notes ?? '&mdash;' }}</td>
+                  <td>{{ $line->unit ?? '-' }}</td>
+                  <td class="text-end">{{ $line->qty_requested ? number_format((float) $line->qty_requested, 2) : '-' }}</td>
+                  <td class="text-end">{{ $line->qty_backordered ? number_format((float) $line->qty_backordered, 2) : '-' }}</td>
+                  <td class="text-end">{{ $stock !== null ? number_format((float) $stock, 2) : '-' }}</td>
+                  <td>{{ $line->line_notes ?? '-' }}</td>
                 </tr>
               @empty
                 <tr>
@@ -132,7 +132,7 @@
             @if($delivery->salesOrder)
               <a href="{{ route('sales-orders.show', $delivery->salesOrder) }}">{{ $delivery->salesOrder->so_number ?? ('#'.$delivery->salesOrder->id) }}</a>
             @else
-              <span class="text-muted">&mdash;</span>
+              <span class="text-muted">-</span>
             @endif
           </div>
           <div class="list-group-item">
@@ -140,7 +140,7 @@
             @if($delivery->invoice)
               <a href="{{ route('invoices.show', $delivery->invoice) }}">{{ $delivery->invoice->number }}</a>
             @else
-              <span class="text-muted">&mdash;</span>
+              <span class="text-muted">-</span>
             @endif
           </div>
           <div class="list-group-item">
@@ -148,7 +148,7 @@
             @if($delivery->quotation)
               <a href="{{ route('quotations.show', $delivery->quotation) }}">{{ $delivery->quotation->number ?? ('#'.$delivery->quotation->id) }}</a>
             @else
-              <span class="text-muted">&mdash;</span>
+              <span class="text-muted">-</span>
             @endif
           </div>
         </div>
@@ -165,7 +165,7 @@
                   <span class="{{ $entry->qty_change < 0 ? 'text-danger' : 'text-success' }}">{{ number_format((float) $entry->qty_change, 2) }}</span>
                 </div>
                 <div class="text-muted small">{{ $entry->item->name ?? ('Item #'.$entry->item_id) }}@if($entry->variant) &bull; {{ $entry->variant->name }} @endif</div>
-                <div class="text-muted small">Balance: {{ $entry->balance_after !== null ? number_format((float) $entry->balance_after, 2) : '&mdash;' }}</div>
+                <div class="text-muted small">Balance: {{ $entry->balance_after !== null ? number_format((float) $entry->balance_after, 2) : '-' }}</div>
               </div>
             @endforeach
           </div>

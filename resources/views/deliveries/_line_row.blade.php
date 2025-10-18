@@ -49,7 +49,7 @@
       <input type="hidden" name="lines[{{ $index }}][quotation_line_id]" value="{{ $quotationLineId }}">
       <input type="hidden" name="lines[{{ $index }}][sales_order_line_id]" value="{{ $soLineId }}">
       <div>{{ $combinedName ?: '—' }}</div>
-      <div class="small text-muted mt-1">Stock: <span data-stock-label>&mdash;</span></div>
+      <div class="small text-muted mt-1">Stock: <span data-stock-label>-</span></div>
     @else
       {{-- For manual lines, present a single dropdown listing items (and variants) as a unified option. --}}
       <select name="lines[{{ $index }}][item_variant_id]" class="form-select line-item-variant" data-item-field="lines[{{ $index }}][item_id]">
@@ -83,7 +83,7 @@
       <input type="hidden" name="lines[{{ $index }}][item_id]" value="{{ $itemId }}">
       <input type="hidden" name="lines[{{ $index }}][quotation_line_id]" value="{{ $quotationLineId }}">
       <input type="hidden" name="lines[{{ $index }}][sales_order_line_id]" value="{{ $soLineId }}">
-      <div class="small text-muted mt-1">Stock: <span data-stock-label>&mdash;</span></div>
+      <div class="small text-muted mt-1">Stock: <span data-stock-label>-</span></div>
     @endif
   </td>
   <td>
