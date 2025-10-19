@@ -232,6 +232,16 @@ class DeliveryController extends Controller
             $currentStocks = $stockRows->keyBy(fn ($row) => $row->item_id.'-'.($row->item_variant_id ?? '0'));
         }
 
+        // >>> ADD THIS: map stok/request per baris untuk dipakai di Blade
+        $lineStock = $delivery->lines->mapWithKeys(function ($line) use ($currentStocks) {
+            $key = $line->item_id.'-'.($line->item_variant_id ?? '0');
+            $row = $currentStocks->get($key);
+            $available = (float) ($row->qty_on_hand ?? 0);
+            $requested = (float) ($line->qty_requested ?? $line->qty ?? 0);
+            return [$line->id => compact('available','requested')];
+        });
+        // <<< END ADD
+
         $ledgerEntries = StockLedger::with(['item:id,name', 'variant:id,item_id,sku,attributes', 'warehouse:id,name'])
             ->where('reference_id', $delivery->id)
             ->whereIn('reference_type', ['delivery', 'delivery_cancel'])
@@ -242,9 +252,11 @@ class DeliveryController extends Controller
         return view('deliveries.show', [
             'delivery'      => $delivery,
             'currentStocks' => $currentStocks,
+            'lineStock'     => $lineStock,   // <<< ADD: kirim ke view
             'ledgerEntries' => $ledgerEntries,
         ]);
     }
+
 
     public function destroy(Delivery $delivery)
     {
@@ -302,8 +314,9 @@ class DeliveryController extends Controller
         }
 
         if (!empty($errors)) {
-            // balik ke edit dengan error per-line + old input
-            throw ValidationException::withMessages($errors);
+            return redirect()
+                ->route('deliveries.show', $delivery)
+                ->with('error', 'Posting diblokir: stok tidak mencukupi. Cek kolom “Stock After” yang merah.');
         }
 
         // === EXECUTION: aman, lanjut posting ===

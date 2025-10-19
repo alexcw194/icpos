@@ -99,8 +99,10 @@
             <tbody>
               @forelse($delivery->lines as $line)
                 @php
-                  $stockKey = ($line->item_id ?? 'x').'-'.($line->item_variant_id ?? 0);
-                  $stock = $currentStocks[$stockKey]->qty_on_hand ?? null;
+                  $stockKey  = ($line->item_id ?? 'x').'-'.($line->item_variant_id ?? 0);
+                  $stock     = (float) ($currentStocks[$stockKey]->qty_on_hand ?? 0); // default 0
+                  $requested = (float) ($line->qty_requested ?? $line->qty ?? 0);
+                  $deficit   = ($stock + 1e-9 < $requested);
                 @endphp
                 <tr>
                   <td>{{ $line->item->name ?? $line->description }}</td>
@@ -109,7 +111,12 @@
                   <td>{{ $line->unit ?? '-' }}</td>
                   <td class="text-end">{{ $line->qty_requested ? number_format((float) $line->qty_requested, 2) : '-' }}</td>
                   <td class="text-end">{{ $line->qty_backordered ? number_format((float) $line->qty_backordered, 2) : '-' }}</td>
-                  <td class="text-end">{{ $stock !== null ? number_format((float) $stock, 2) : '-' }}</td>
+
+                  {{-- Stock / Requested, merah jika kurang --}}
+                  <td class="text-end {{ $deficit ? 'text-danger' : 'text-muted' }}">
+                    {{ number_format($stock, 2) }} / req {{ number_format($requested, 2) }}
+                  </td>
+
                   <td>{{ $line->line_notes ?? '-' }}</td>
                 </tr>
               @empty
