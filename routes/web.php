@@ -114,6 +114,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('sales-orders/{salesOrder}', [SalesOrderController::class, 'show'])
         ->name('sales-orders.show');
 
+    Route::get('deliveries/{delivery}/stock-check', [DeliveryController::class,'stockCheck'])
+    ->name('deliveries.stock-check');
+
     Route::get('sales-orders/create', [SalesOrderController::class, 'create'])
         ->name('sales-orders.create')
         ->middleware(['auth', 'can:create,App\Models\SalesOrder']);

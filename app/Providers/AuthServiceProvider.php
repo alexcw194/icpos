@@ -6,6 +6,7 @@ use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvid
 use Illuminate\Support\Facades\Gate;
 use App\Models\Invoice;
 use App\Policies\InvoicePolicy;
+use App\Models\User;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -29,8 +30,11 @@ class AuthServiceProvider extends ServiceProvider
         $this->registerPolicies();
 
         // Super Admin bypass semua ability
-        Gate::before(function ($user, $ability) {
-            return $user->hasRole('Super Admin') ? true : null;
+        Gate::before(function (User $user, string $ability = null) {
+            if ($user->hasRole('SuperAdmin')) return true;                 // full bypass
+            // treat all finance abilities as admin-allowed
+            if ($user->hasRole('Admin') && str_starts_with($ability ?? '', 'finance.')) return true;
+            return null;
         });
 
         // Gate tambahan bisa didefinisikan di sini bila diperlukan

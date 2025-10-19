@@ -264,22 +264,56 @@ class DeliveryController extends Controller
     {
         $this->authorizePermission('deliveries.post');
 
+        // Hard guards
         if (!$delivery->warehouse_id) {
             throw ValidationException::withMessages([
                 'warehouse_id' => 'Warehouse wajib diisi sebelum posting.',
             ]);
         }
-
         if ($delivery->lines()->count() === 0) {
-            return redirect()->route('deliveries.edit', $delivery)
+            return redirect()
+                ->route('deliveries.edit', $delivery)
                 ->with('error', 'Tidak bisa posting delivery tanpa item.');
         }
 
+        // === PRE-FLIGHT: request dulu, baru delivery ===
+        $delivery->load(['lines.item', 'warehouse']);
+        $errors = [];
+        foreach ($delivery->lines as $i => $line) {
+            // stok on-hand di warehouse untuk item/variant terkait
+            $q = DB::table('item_stocks')
+                ->where('warehouse_id', $delivery->warehouse_id)
+                ->where('item_id', $line->item_id);
+
+            if ($line->item_variant_id) {
+                $q->where('item_variant_id', $line->item_variant_id);
+            } else {
+                $q->whereNull('item_variant_id');
+            }
+
+            $available = (float) ($q->value('qty_on_hand') ?? 0);
+            $need = (float) $line->qty;
+
+            // kalau warehouse tidak mengizinkan minus, blokir + beri deficit
+            if (!$delivery->warehouse->allow_negative_stock && $available + 1e-9 < $need) {
+                $def = max(0, round($need - $available, 3));
+                $errors["lines.$i.qty"] = "Stok kurang {$def} untuk {$line->item->name} (tersedia {$available}, diminta {$need}).";
+            }
+        }
+
+        if (!empty($errors)) {
+            // balik ke edit dengan error per-line + old input
+            throw ValidationException::withMessages($errors);
+        }
+
+        // === EXECUTION: aman, lanjut posting ===
         StockService::postDelivery($delivery, auth()->id());
 
-        return redirect()->route('deliveries.show', $delivery)
+        return redirect()
+            ->route('deliveries.show', $delivery)
             ->with('success', 'Delivery berhasil diposting.');
     }
+
 
     public function cancel(Request $request, Delivery $delivery)
     {
@@ -294,6 +328,38 @@ class DeliveryController extends Controller
         return redirect()->route('deliveries.show', $delivery)
             ->with('success', 'Delivery telah dibatalkan.');
     }
+
+    public function stockCheck(Delivery $delivery, Request $request)
+    {
+        $delivery->load('warehouse');
+        $wh = $delivery->warehouse;
+
+        $data = $request->validate([
+            'lines' => ['required','array','min:1'],
+            'lines.*.item_id' => ['required','integer'],
+            'lines.*.item_variant_id' => ['nullable','integer'],
+            'lines.*.qty' => ['required','numeric','min:0.001'],
+        ]);
+
+        $out = [];
+        foreach ($data['lines'] as $k => $L) {
+            $available = (float) (DB::table('item_stocks')->where([
+                'warehouse_id'=>$wh->id, 'item_id'=>$L['item_id'],
+                'item_variant_id'=>$L['item_variant_id'] ?? null,
+            ])->value('qty_on_hand') ?? 0);
+            $need = (float) $L['qty'];
+            $ok = $wh->allow_negative_stock || $available + 1e-9 >= $need;
+
+            $out[$k] = [
+                'ok'        => $ok,
+                'available' => $available,
+                'need'      => $need,
+                'deficit'   => max(0, round($need - $available, 3)),
+            ];
+        }
+        return response()->json($out);
+    }
+
 
     public function pdf(Delivery $delivery)
     {

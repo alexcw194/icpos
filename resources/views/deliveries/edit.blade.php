@@ -22,7 +22,11 @@
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-primary">Save Changes</button>
           @can('deliveries.post')
-            <button type="submit" form="post-delivery" class="btn btn-success" onclick="return confirm('Post delivery dan kurangi stok?');">Post Delivery</button>
+            <button type="button"
+                    class="btn btn-success"
+                    onclick="return confirm('Post delivery dan kurangi stok?') && document.getElementById('post-delivery').submit();">
+              Post Delivery
+            </button>
           @endcan
         </div>
       </div>
@@ -37,6 +41,7 @@
   @endcan
 
   @can('deliveries.post')
+    {{-- KEEP: hidden form remains untouched (not used by the button above) --}}
     <form id="post-delivery" method="POST" action="{{ route('deliveries.post', $delivery) }}" class="d-none">
       @csrf
     </form>

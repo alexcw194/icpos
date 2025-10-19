@@ -19,29 +19,42 @@ class StockService
 
     private static function adjustSalesOrderDelivered(DeliveryLine $line, float $delta): void
     {
-        if (!$line->sales_order_line_id || $delta === 0.0) {
-            return;
-        }
+        if (!$line->sales_order_line_id || $delta === 0.0) return;
 
-        $row = DB::table('sales_order_lines')
+        // Lock the SO line, bump delivered qty (bounded ≥ 0)
+        $soLine = DB::table('sales_order_lines')
             ->where('id', $line->sales_order_line_id)
             ->lockForUpdate()
             ->first();
+        if (!$soLine) return;
 
-        if (!$row) {
-            return;
-        }
-
-        $new = (float) ($row->qty_delivered ?? 0) + $delta;
-        $maxQty = (float) ($row->qty_ordered ?? $new);
-        $new = max(0, min($maxQty, $new));
+        $newDelivered = max(0, (float)($soLine->qty_delivered ?? 0) + $delta);
 
         DB::table('sales_order_lines')
-            ->where('id', $line->sales_order_line_id)
-            ->update(['qty_delivered' => $new]);
+            ->where('id', $soLine->id)
+            ->update(['qty_delivered' => $newDelivered]);
 
-        // panggil fungsi untuk memperbarui status sales order
-        static::updateSalesOrderStatus((int) $row->sales_order_id);
+        // Optional: mirror to quotation_lines if present
+        if ($line->quotation_line_id ?? null) {
+            DB::table('quotation_lines')
+                ->where('id', $line->quotation_line_id)
+                ->update(['qty_delivered' => $newDelivered]); // or clamp to that doc’s logic
+        }
+
+        // Recompute SO status (open/partial_delivered/delivered)
+        $agg = DB::table('sales_order_lines')
+            ->selectRaw('SUM(qty) as ordered, SUM(qty_delivered) as delivered')
+            ->where('sales_order_id', $soLine->sales_order_id)
+            ->first();
+
+        $status = 'open';
+        if ($agg && (float)$agg->delivered > 0) {
+            $status = ((float)$agg->delivered + 1e-9 >= (float)$agg->ordered) ? 'delivered' : 'partial_delivered';
+        }
+
+        DB::table('sales_orders')
+            ->where('id', $soLine->sales_order_id)
+            ->update(['status' => $status]);
     }
 
     /**
@@ -339,30 +352,6 @@ class StockService
 
         DB::table('quotation_lines')
             ->where('id', $line->quotation_line_id)
-            ->update(['qty_delivered' => $new]);
-    }
-
-    private static function adjustSalesOrderDelivered(DeliveryLine $line, float $delta): void
-    {
-        if (!$line->sales_order_line_id || $delta === 0.0) {
-            return;
-        }
-
-        $row = DB::table('sales_order_lines')
-            ->where('id', $line->sales_order_line_id)
-            ->lockForUpdate()
-            ->first();
-
-        if (!$row) {
-            return;
-        }
-
-        $new = (float) ($row->qty_delivered ?? 0) + $delta;
-        $maxQty = (float) ($row->qty_ordered ?? $new);
-        $new = max(0, min($maxQty, $new));
-
-        DB::table('sales_order_lines')
-            ->where('id', $line->sales_order_line_id)
             ->update(['qty_delivered' => $new]);
     }
 

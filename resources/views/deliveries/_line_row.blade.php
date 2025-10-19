@@ -40,7 +40,10 @@
   }
 @endphp
 
-<tr data-index="{{ $index }}">
+<tr data-index="{{ $index }}"
+    data-line
+    data-item-id="{{ $itemId }}"
+    data-variant-id="{{ $variantId }}">
   <td>
     @if($soLineId)
       {{-- When the line originates from a Sales Order, simply display the combined label. --}}
@@ -49,7 +52,7 @@
       <input type="hidden" name="lines[{{ $index }}][quotation_line_id]" value="{{ $quotationLineId }}">
       <input type="hidden" name="lines[{{ $index }}][sales_order_line_id]" value="{{ $soLineId }}">
       <div>{{ $combinedName ?: '—' }}</div>
-      <div class="small text-muted mt-1">Stock: <span data-stock-label>-</span></div>
+      <div class="small text-muted mt-1">Stock: <span data-stock-label data-stock-hint>-</span></div>
     @else
       {{-- For manual lines, present a single dropdown listing items (and variants) as a unified option. --}}
       <select name="lines[{{ $index }}][item_variant_id]" class="form-select line-item-variant" data-item-field="lines[{{ $index }}][item_id]">
@@ -83,14 +86,20 @@
       <input type="hidden" name="lines[{{ $index }}][item_id]" value="{{ $itemId }}">
       <input type="hidden" name="lines[{{ $index }}][quotation_line_id]" value="{{ $quotationLineId }}">
       <input type="hidden" name="lines[{{ $index }}][sales_order_line_id]" value="{{ $soLineId }}">
-      <div class="small text-muted mt-1">Stock: <span data-stock-label>-</span></div>
+      <div class="small text-muted mt-1">Stock: <span data-stock-label data-stock-hint>-</span></div>
     @endif
   </td>
   <td>
     <input type="text" name="lines[{{ $index }}][description]" class="form-control" value="{{ $description }}" {{ $soLineId ? 'readonly' : '' }}>
   </td>
   <td>
-    <input type="number" step="1" min="0" name="lines[{{ $index }}][qty]" class="form-control text-end line-qty" value="{{ (int) $qty }}">
+    <input type="number" step="1" min="0"
+           name="lines[{{ $index }}][qty]"
+           class="form-control text-end line-qty @error("lines.$index.qty") is-invalid @enderror"
+           value="{{ (int) $qty }}">
+    @error("lines.$index.qty")
+      <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
   </td>
   <td>
     <input type="text" name="lines[{{ $index }}][unit]" class="form-control" value="{{ $unit }}">

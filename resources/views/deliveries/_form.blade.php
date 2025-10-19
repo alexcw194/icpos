@@ -287,6 +287,77 @@
 </script>
 @endpush
 
+{{-- ========== ADDON: PRE-FLIGHT VALIDATOR (nomor 4) — tidak mengubah script di atas ========== --}}
+@push('scripts')
+<script>
+(function(){
+  // Duplikasi peta stok agar terisolasi dari IIFE sebelumnya
+  const stockMap = Object.assign({}, @json($stocks ?? []));
+  const stockFmt = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
+  const tableBody = document.querySelector('#lines-table tbody');
+  const whSelect  = document.querySelector('select[name="warehouse_id"]');
+
+  function key(wh, item, variant){ return [wh||0, item||0, variant||0].join('::'); }
+  function lookup(wh, item, variant){
+    if(!wh || !item) return null;
+    const val = stockMap[key(wh,item,variant)];
+    return (typeof val === 'number') ? val : null;
+  }
+
+  function readIds(row){
+    // Prefer dataset (dari _line_row untuk SO lines), fallback ke select di template
+    const dsItem   = row.dataset.itemId || '';
+    const dsVar    = row.dataset.variantId || '';
+    const itemSel  = row.querySelector('.line-item');
+    const varSel   = row.querySelector('.line-variant');
+    const itemId   = dsItem || (itemSel ? itemSel.value : '');
+    const variantId= dsVar  || (varSel  ? varSel.value  : '');
+    return { itemId, variantId };
+  }
+
+  function validateRow(row){
+    const qtyEl  = row.querySelector('.line-qty');
+    const hintEl = row.querySelector('[data-stock-hint]') || row.querySelector('[data-stock-label]');
+    const q = parseFloat(qtyEl?.value || '0');
+    const wh = whSelect ? whSelect.value : '';
+    const { itemId, variantId } = readIds(row);
+    const avail = lookup(wh, itemId, variantId);
+
+    // Reset state
+    qtyEl && qtyEl.classList.remove('is-invalid');
+    if(hintEl) hintEl.textContent = (avail === null) ? '—' : stockFmt.format(avail);
+
+    // If we know stock and qty exceeds available, mark invalid + show deficit
+    if(avail !== null && q > avail + 1e-9){
+      const deficit = Math.max(0, +(q - avail).toFixed(3));
+      qtyEl && qtyEl.classList.add('is-invalid');
+      if(hintEl) hintEl.textContent = `Kurang ${deficit} (tersedia ${stockFmt.format(avail)})`;
+      return false;
+    }
+    return true;
+  }
+
+  function validateAll(){
+    const rows = [...tableBody.querySelectorAll('tr[data-index]')];
+    let ok = true;
+    rows.forEach(row => { ok = validateRow(row) && ok; });
+    // Opsional: disable tombol Post jika tersedia (tidak mengubah markup yang ada)
+    const btnPost = document.getElementById('btnPost') || document.querySelector('[data-btn-post]');
+    if(btnPost) btnPost.disabled = !ok;
+  }
+
+  // Bind events non-invasively
+  document.addEventListener('input', (e)=>{
+    if(e.target && e.target.classList.contains('line-qty')) validateAll();
+  });
+  whSelect && whSelect.addEventListener('change', validateAll);
+  document.addEventListener('DOMContentLoaded', validateAll);
+  // Initial kick
+  validateAll();
+})();
+</script>
+@endpush
+
 <template id="line-row-template">
   <tr data-index="__INDEX__">
     <td>
