@@ -10,12 +10,16 @@ class Invoice extends Model
         'company_id','customer_id','quotation_id',
         'number','date','status',
         'subtotal','discount','tax_percent','tax_amount','total',
-        'currency','brand_snapshot',
+        'currency','brand_snapshot', 'due_date', 'posted_at', 'receipt_path',
+        'status','paid_at','paid_amount','paid_bank','paid_ref','payment_notes',
     ];
 
     protected $casts = [
         'brand_snapshot' => 'array',
         'date' => 'date',
+        'due_date'  => 'date',
+        'posted_at' => 'datetime',
+        'paid_at'=>'datetime',
     ];
 
     public function company(){ return $this->belongsTo(Company::class); }

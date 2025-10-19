@@ -106,6 +106,14 @@ Route::middleware(['auth'])->group(function () {
         ->name('invoices.pdf.proforma'); // allowed anytime
     Route::get('invoices/{invoice}/pdf', [\App\Http\Controllers\InvoiceController::class, 'pdfInvoice'])
         ->name('invoices.pdf'); // if draft => plain; if posted => watermark "Copy"
+    Route::post('/invoices/{invoice}/post', [\App\Http\Controllers\InvoiceController::class, 'post'])
+        ->name('invoices.post');
+    Route::post('/invoices/{invoice}/update-receipt', [\App\Http\Controllers\InvoiceController::class, 'updateReceipt'])
+        ->name('invoices.update-receipt');
+    Route::get('/invoices/tt-pending', [\App\Http\Controllers\InvoiceController::class, 'ttPendingIndex'])
+        ->name('invoices.tt-pending');
+    Route::post('/invoices/{invoice}/mark-paid', [\App\Http\Controllers\InvoiceController::class, 'markPaid'])
+        ->name('invoices.mark-paid');
 
     // =======================
     // Sales Orders
