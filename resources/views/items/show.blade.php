@@ -6,6 +6,9 @@
     <div class="card-header">
       <div class="card-title">Detail Item</div>
       <div class="ms-auto btn-list">
+        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAdjust">
+          Penyesuaian Stok
+        </button>
         <a href="{{ route('items.edit', $item) }}" class="btn btn-warning">Edit</a>
         <form action="{{ route('items.destroy', $item) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus item ini?')">
           @csrf @method('DELETE')
@@ -156,4 +159,127 @@
     </div>
   </div>
 </div>
+
+{{-- =======================  [ADD ONLY] Modal Penyesuaian Stok  ======================= --}}
+@php
+  // Resolve default company & default warehouse for initial preview only
+  $__company    = $company ?? \App\Models\Company::where('is_default', true)->first();
+  $__warehouses = \App\Models\Warehouse::orderBy('name')->get(['id','name']);
+  $__warehouse  = $__warehouses->first(); // fallback default
+  $__variantId  = $currentVariant->id ?? null;
+
+  $__onhand = 0.0;
+  if ($__company && $__warehouse) {
+    $__onhand = \App\Models\ItemStock::query()
+      ->where('company_id', $__company->id)
+      ->where('warehouse_id', $__warehouse->id)
+      ->where('item_id', $item->id)
+      ->when($__variantId,
+        fn($q) => $q->where('item_variant_id', $__variantId),
+        fn($q) => $q->whereNull('item_variant_id'))
+      ->value('qty_on_hand') ?? 0;
+  }
+@endphp
+
+<div class="modal fade" id="modalAdjust" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <form method="POST" action="{{ route('stocks.adjust', $item) }}" id="stockAdjustForm" class="modal-content">
+      @csrf
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title mb-0">Penyesuaian Stok</h5>
+          <div class="text-secondary small fw-normal mt-1">
+            {{ $item->name }}
+            @if(!empty($item->sku)) • <span class="text-muted">{{ $item->sku }}</span> @endif
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+
+      <div class="modal-body">
+        <input type="hidden" name="company_id" value="{{ $__company?->id }}">
+        <input type="hidden" name="variant_id" value="{{ $__variantId }}">
+
+        <div class="mb-2">
+          <label class="form-label">Tanggal Posting</label>
+          <input type="date" name="posted_at" class="form-control" value="{{ now()->toDateString() }}">
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label">Warehouse</label>
+          <select class="form-select" id="warehouseId" name="warehouse_id" required>
+            @foreach($__warehouses as $wh)
+              <option value="{{ $wh->id }}" @selected($__warehouse && $wh->id === $__warehouse->id)>{{ $wh->name }}</option>
+            @endforeach
+          </select>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label">Stock Awal</label>
+          <input type="text" class="form-control" id="stockAwal" value="{{ number_format($__onhand,2) }}" readonly>
+        </div>
+
+        <div class="row g-2">
+          <div class="col-5">
+            <label class="form-label">Tipe</label>
+            <select name="type" id="adjType" class="form-select">
+              <option value="in">IN (+)</option>
+              <option value="out">OUT (−)</option>
+            </select>
+          </div>
+          <div class="col-7">
+            <label class="form-label">Qty</label>
+            <input type="number" step="0.0001" min="0.0001" name="qty" id="adjQty" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <label class="form-label">Stock Akhir (preview)</label>
+          <input type="text" class="form-control fw-bold" id="stockAkhir" value="{{ number_format($__onhand,2) }}" readonly>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link" data-bs-dismiss="modal">Batal</button>
+        <button type="submit" class="btn btn-primary">Konfirmasi & Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{{-- Inline JS: preview + live on-hand when warehouse changes --}}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  let awal    = parseFloat((document.getElementById('stockAwal').value || '0').replace(/,/g,'')) || 0;
+  const tipeEl= document.getElementById('adjType');
+  const qtyEl = document.getElementById('adjQty');
+  const akhir = document.getElementById('stockAkhir');
+  const whEl  = document.getElementById('warehouseId');
+
+  function recalc(){
+    const t = tipeEl.value;
+    const q = parseFloat(qtyEl.value || 0);
+    const val = awal + (t === 'in' ? q : -q);
+    akhir.value = (isFinite(val) ? val : 0).toFixed(2);
+  }
+
+  async function refreshOnHand(){
+    // Keep as-is for now (no API yet). If you add an endpoint later, fetch and update `awal` here.
+    awal = parseFloat((document.getElementById('stockAwal').value || '0').replace(/,/g,'')) || awal;
+    recalc();
+  }
+
+  tipeEl.addEventListener('change', recalc);
+  qtyEl.addEventListener('input', recalc);
+  whEl.addEventListener('change', refreshOnHand);
+
+  // Accessibility fix: clear focus before hide, return to trigger after hidden
+  const modalEl   = document.getElementById('modalAdjust');
+  const triggerEl = document.querySelector('[data-bs-target="#modalAdjust"]');
+  modalEl.addEventListener('hide.bs.modal',   () => document.activeElement?.blur());
+  modalEl.addEventListener('hidden.bs.modal', () => triggerEl?.focus({ preventScroll: true }));
+});
+</script>
+{{-- =======================  [END ADD] Modal Penyesuaian Stok  ======================= --}}
 @endsection

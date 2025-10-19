@@ -18,6 +18,7 @@ use App\Http\Controllers\{
     SalesOrderController,
     SalesOrderAttachmentController as SOAtt,
     WarehouseController,
+    StockController,
 };
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\SettingController;
@@ -57,6 +58,9 @@ Route::middleware(['auth'])->group(function () {
         [CustomerController::class, 'destroyContact'])->name('customers.contacts.destroy');
     Route::patch('customers/{customer}/notes', [CustomerController::class,'updateNotes'])
         ->name('customers.notes');
+
+    Route::post('/items/{item}/adjust', [StockController::class,'adjust'])
+    ->name('stocks.adjust');
 
     // Quick-add & duplicate check
     Route::post('/customers/quick-store', [CustomerController::class, 'quickStore'])->name('customers.quick-store');
