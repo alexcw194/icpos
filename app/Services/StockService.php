@@ -43,7 +43,7 @@ class StockService
 
         // Recompute SO status (open/partial_delivered/delivered)
         $agg = DB::table('sales_order_lines')
-            ->selectRaw('SUM(qty) as ordered, SUM(qty_delivered) as delivered')
+            ->selectRaw('SUM(qty_ordered) as ordered, SUM(qty_delivered) as delivered')
             ->where('sales_order_id', $soLine->sales_order_id)
             ->first();
 

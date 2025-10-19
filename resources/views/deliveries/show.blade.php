@@ -102,7 +102,12 @@
                   $stockKey  = ($line->item_id ?? 'x').'-'.($line->item_variant_id ?? 0);
                   $stock     = (float) ($currentStocks[$stockKey]->qty_on_hand ?? 0); // default 0
                   $requested = (float) ($line->qty_requested ?? $line->qty ?? 0);
-                  $deficit   = ($stock + 1e-9 < $requested);
+
+                  // NEW: compute "after" & class color (red < 0, amber == 0, neutral otherwise)
+                  $after     = $stock - $requested;
+                  $stockCls  = $after < 0 ? 'text-danger fw-semibold'
+                             : ($after == 0 ? 'text-warning fw-semibold'
+                             : 'text-muted');
                 @endphp
                 <tr>
                   <td>{{ $line->item->name ?? $line->description }}</td>
@@ -112,9 +117,9 @@
                   <td class="text-end">{{ $line->qty_requested ? number_format((float) $line->qty_requested, 2) : '-' }}</td>
                   <td class="text-end">{{ $line->qty_backordered ? number_format((float) $line->qty_backordered, 2) : '-' }}</td>
 
-                  {{-- Stock / Requested, merah jika kurang --}}
-                  <td class="text-end {{ $deficit ? 'text-danger' : 'text-muted' }}">
-                    {{ number_format($stock, 2) }} / req {{ number_format($requested, 2) }}
+                  {{-- CHANGED: show "stock / after" with color --}}
+                  <td class="text-end {{ $stockCls }}">
+                    {{ number_format($stock, 2) }} / {{ number_format($after, 2) }}
                   </td>
 
                   <td>{{ $line->line_notes ?? '-' }}</td>
