@@ -8,6 +8,8 @@ use App\Services\InvoiceBuilderFromSO;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class InvoiceController extends Controller
 {
@@ -129,5 +131,62 @@ class InvoiceController extends Controller
 
         $invoice = $builder->build($salesOrder, $validated);
         return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice created from Sales Order.');
+    }
+
+    protected function authorizePermission(string $permission): void
+    {
+        abort_unless(auth()->user()?->can($permission), 403, 'This action is unauthorized.');
+    }
+
+    public function pdfProforma(\App\Models\Invoice $invoice)
+    {
+        $this->authorizePermission('invoices.view'); // selaras dengan pola delivery
+        $invoice->load(['company','customer','lines','quotation']);
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+        $pdf = new Dompdf($options);
+
+        $html = view('invoices.pdf', [
+            'invoice' => $invoice,
+            'mode'    => 'proforma', // flag
+        ])->render();
+
+        $pdf->loadHtml($html);
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->render();
+
+        $filename = 'proforma-'.($invoice->number ?: 'DRAFT-'.$invoice->id).'.pdf';
+
+        return response($pdf->output(), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
+    }
+
+    public function pdfInvoice(\App\Models\Invoice $invoice)
+    {
+        $this->authorizePermission('invoices.view');
+        $invoice->load(['company','customer','lines','quotation']);
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+        $pdf = new Dompdf($options);
+
+        $html = view('invoices.pdf', [
+            'invoice' => $invoice,
+            'mode'    => 'invoice', // flag
+        ])->render();
+
+        $pdf->loadHtml($html);
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->render();
+
+        $filename = 'invoice-'.($invoice->number ?: 'DRAFT-'.$invoice->id).'.pdf';
+
+        return response($pdf->output(), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
     }
 }
