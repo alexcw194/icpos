@@ -216,6 +216,7 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::resource('colors', \App\Http\Controllers\ColorController::class)->except(['show']);
 
     Route::resource('warehouses', WarehouseController::class)->except(['show']);
+    Route::resource('banks', \App\Http\Controllers\BankController::class)->except(['show']);
 });
 
 // =======================

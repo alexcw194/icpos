@@ -3,16 +3,18 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Bank extends Model
-{
-    protected $fillable = ['code','name','account_name','account_no','is_active'];
-    protected $casts = ['is_active' => 'bool'];
+// app/Models/Bank.php
+class Bank extends Model {
+    protected $fillable = ['name','account_name','account_no','branch','is_active','notes','tax_scope','account_alias'];
 
-    public function scopeActive($q){ return $q->where('is_active', true); }
-
-    public function label(): string
+    public function getDisplayLabelAttribute(): string
     {
-        $parts = array_filter([$this->code, $this->name, $this->account_no]);
-        return implode(' • ', $parts);
+        $parts = [
+          $this->account_alias ?: $this->name,                          // "BCA PPN" atau "BCA"
+          $this->tax_scope ? "({$this->tax_scope})" : null,            // (PPN)/(NON_PPN)
+          $this->account_no ? "— {$this->account_no}" : null,          // — 1234567890
+        ];
+        return implode(' ', array_filter($parts));
     }
 }
+

@@ -246,13 +246,15 @@
               <div class="col-md-6">
                 <label class="form-label">Bank</label>
                 <select name="paid_bank_id" class="form-select" required>
-                  <option value="" selected disabled>— Pilih bank —</option>
+                  <option value="" disabled selected>— Pilih Bank —</option>
                   @foreach($banks as $b)
-                    <option value="{{ $b->id }}">
-                      {{ $b->code ? $b->code.' • ' : '' }}{{ $b->name }}{{ $b->account_no ? ' • '.$b->account_no : '' }}
+                    <option value="{{ $b->id }}"
+                      @selected(old('paid_bank_id') == $b->id || (!old('paid_bank_id') && $b->tax_scope === ($prefScope ?? null)))>
+                      {{ $b->display_label }}
                     </option>
                   @endforeach
                 </select>
+                <div class="form-text">Akun PPN/NON PPN tampil terpisah. Ref transfer tetap opsional.</div>
               </div>
 
               <div class="col-md-6">

@@ -176,6 +176,7 @@
                         <li><a href="{{ route('sizes.index')  }}"  class="dropdown-item {{ request()->routeIs('sizes.*')  ? 'active' : '' }}">Sizes</a></li>
                         <li><a href="{{ route('colors.index') }}" class="dropdown-item {{ request()->routeIs('colors.*') ? 'active' : '' }}">Colors</a></li>
                         <li><a href="{{ route('warehouses.index') }}" class="dropdown-item {{ request()->routeIs('warehouses.*') ? 'active' : '' }}">Warehouses</a></li>
+                        <li><a href="{{ route('banks.index') }}" class="dropdown-item {{ request()->routeIs('banks.*') ? 'active' : '' }}">Banks</a></li>
                       </ul>
                     </div>
                   </li>
