@@ -3,6 +3,16 @@
 @section('content')
 <div class="container-xl">
 
+  @php
+    // Fallback agar view tetap jalan walau controller belum mengirim $banks / $prefScope
+    $prefScope = $prefScope ?? ((($invoice->tax_percent ?? 0) > 0) ? 'ppn' : 'non_ppn');
+    $banks = $banks ?? \App\Models\Bank::query()
+      ->when(Schema::hasColumn('banks','company_id'), fn($q)=>$q->where('company_id', $invoice->company_id))
+      ->where('is_active', true)
+      ->orderBy('code')->orderBy('name')
+      ->get();
+  @endphp
+
   {{-- ===== Header actions ===== --}}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">Invoice {{ $invoice->number ?? ('#'.$invoice->id) }}</h2>
@@ -240,7 +250,7 @@
               <div class="col-md-6">
                 <label class="form-label">Amount</label>
                 <input type="number" step="0.01" name="paid_amount" class="form-control"
-                      value="{{ number_format((float)$invoice->total,2,'.','') }}" required>
+                       value="{{ number_format((float)$invoice->total,2,'.','') }}" required>
               </div>
 
               <div class="col-md-6">
@@ -248,9 +258,12 @@
                 <select name="paid_bank_id" class="form-select" required>
                   <option value="" disabled selected>— Pilih Bank —</option>
                   @foreach($banks as $b)
+                    @php
+                      $label = trim(($b->code ?: $b->name).' '.($b->account_no ? '— '.$b->account_no : ''));
+                    @endphp
                     <option value="{{ $b->id }}"
-                      @selected(old('paid_bank_id') == $b->id || (!old('paid_bank_id') && $b->tax_scope === ($prefScope ?? null)))>
-                      {{ $b->display_label }}
+                      @selected(old('paid_bank_id') == $b->id || (!old('paid_bank_id') && ($b->tax_scope ?? null) === $prefScope))>
+                      {{ $label }}
                     </option>
                   @endforeach
                 </select>

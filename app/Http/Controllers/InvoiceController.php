@@ -34,8 +34,15 @@ class InvoiceController extends Controller
     {
         $this->authorize('view', $invoice);
         $invoice->load(['company','customer','quotation.items','lines']);
-        $banks = Bank::active()->orderBy('name')->get(['id','code','name','account_no']);
-        return view('invoices.show', compact('invoice','banks'));
+
+        $banks = Bank::active()
+            ->forCompany($invoice->company_id)
+            ->orderBy('code')->orderBy('name')
+            ->get();
+
+        $pref = ($invoice->tax_percent ?? 0) > 0 ? 'ppn' : 'non'; // hint preselect
+
+        return view('invoices.show', compact('invoice','banks','pref'));
     }
 
     /**

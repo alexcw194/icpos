@@ -27,4 +27,9 @@ class Company extends Model
         // NEW
         'default_valid_days'  => 'integer',
     ];
+
+    public function banks()
+    {
+        return $this->hasMany(\App\Models\Bank::class)->orderBy('code')->orderBy('name');
+    }
 }
