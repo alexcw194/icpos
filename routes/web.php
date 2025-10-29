@@ -19,6 +19,8 @@ use App\Http\Controllers\{
     SalesOrderAttachmentController as SOAtt,
     WarehouseController,
     StockController,
+    PurchaseOrderController, 
+    GoodsReceiptController,
 };
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\SettingController;
@@ -198,6 +200,8 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::resource('companies', CompanyController::class)->only(['index','create','store','edit','update']);
     Route::post('companies/{company}/make-default', [CompanyController::class, 'makeDefault'])
         ->name('companies.make-default');
+    Route::delete('/companies/{company}', [CompanyController::class,'destroy'])
+        ->name('companies.destroy');
 
     // Users (Add & Edit; delete kita tunda)
     Route::resource('users', AdminUserController::class)->except(['show','destroy']);
@@ -217,6 +221,21 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
 
     Route::resource('warehouses', WarehouseController::class)->except(['show']);
     Route::resource('banks', \App\Http\Controllers\BankController::class)->except(['show']);
+
+    // PO
+    Route::get('/po',               [PurchaseOrderController::class, 'index'])->name('po.index');
+    Route::get('/po/create',        [PurchaseOrderController::class, 'create'])->name('po.create');
+    Route::post('/po',              [PurchaseOrderController::class, 'store'])->name('po.store');
+    Route::get('/po/{po}',          [PurchaseOrderController::class, 'show'])->name('po.show');
+    Route::post('/po/{po}/approve', [PurchaseOrderController::class, 'approve'])->name('po.approve');
+
+    // Receive from PO → build GR draft
+    Route::get('/po/{po}/receive',      [PurchaseOrderController::class, 'receive'])->name('po.receive');
+    Route::post('/po/{po}/receive',     [PurchaseOrderController::class, 'receiveStore'])->name('po.receive.store');
+
+    // GR
+    Route::get('/gr/{gr}',          [GoodsReceiptController::class, 'show'])->name('gr.show');
+    Route::post('/gr/{gr}/post',    [GoodsReceiptController::class, 'post'])->name('gr.post');
 });
 
 // =======================

@@ -50,5 +50,6 @@ class AppServiceProvider extends ServiceProvider
 
         // Share ke semua Blade
         View::share('brandLogoUrl', $brandLogoUrl);
+        Schema::defaultStringLength(191); // effective global, berlaku utk semua migration setelah ini
     }
 }

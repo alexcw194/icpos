@@ -1,0 +1,145 @@
+name: Deploy ICPOS
+
+on:
+  push:
+    branches: [ "main" ]
+
+concurrency:
+  group: deploy-icpos
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, bcmath, curl, zip, xml, mysql
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install Composer deps (no-dev, no-scripts)
+        run: |
+          composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: npm-
+
+      - name: Build assets
+        run: |
+          if [ -f package.json ]; then
+            if [ -f package-lock.json ]; then npm ci; else npm install; fi
+            npm run build || npm run prod || true
+          else
+            echo "No package.json found, skipping asset build."
+          fi
+
+      - name: Pack release (tar.gz)
+        run: |
+          mkdir -p .release
+          rsync -a --delete \
+            --exclude=".git" \
+            --exclude=".github" \
+            --exclude="node_modules" \
+            --exclude="storage" \
+            --exclude=".env" \
+            ./ .release/
+          tar --warning=no-file-changed -czf release.tar.gz -C .release .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: icpos-release
+          path: release.tar.gz
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (for deploy.sh)
+        uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: icpos-release
+          path: .
+
+      - name: Verify deploy script exists
+        run: |
+          test -f ./deploy/deploy.sh || (echo "ERROR: deploy/deploy.sh missing"; ls -la; exit 1)
+
+      - name: Upload release to server (/tmp)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "release.tar.gz"
+          target: "/tmp"
+
+      - name: Upload deploy script to /tmp/deploy.sh
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "./deploy/deploy.sh"
+          target: "/tmp"
+          strip_components: 1
+          overwrite: true
+
+      - name: Debug list /tmp on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: ls -la /tmp
+
+      - name: Remote deploy (with fallback path)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            DEPLOY_SCRIPT="/tmp/deploy.sh"
+            if [ ! -f "$DEPLOY_SCRIPT" ] && [ -f "/tmp/deploy/deploy.sh" ]; then
+              DEPLOY_SCRIPT="/tmp/deploy/deploy.sh"
+            fi
+            if [ ! -f "$DEPLOY_SCRIPT" ]; then
+              echo "deploy.sh not found in /tmp"; ls -la /tmp; exit 127
+            fi
+            sed -i 's/\r$//' "$DEPLOY_SCRIPT" || true
+            bash "$DEPLOY_SCRIPT" \
+              --base "${{ secrets.DEPLOY_BASE }}" \
+              --tar "/tmp/release.tar.gz" \
+              --php "/usr/bin/php" \
+              --fpm "${{ secrets.PHP_FPM_SERVICE }}" \
+              --nginx "${{ secrets.NGINX_SERVICE }}" \
+              --release "${{ github.sha }}"

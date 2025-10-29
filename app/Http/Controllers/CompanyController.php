@@ -159,4 +159,27 @@ class CompanyController extends Controller
 
         return back()->with('success', 'Default company updated');
     }
+
+    public function destroy(\App\Models\Company $company)
+    {
+        // Block default company
+        if ($company->is_default) {
+            return back()->with('error', 'Cannot delete the default company.');
+        }
+
+        // Referential integrity checks (no new columns)
+        $hasRelations =
+            \App\Models\User::where('company_id',$company->id)->exists() ||
+            \App\Models\Quotation::where('company_id',$company->id)->exists() ||
+            \App\Models\SalesOrder::where('company_id',$company->id)->exists() ||
+            \App\Models\Delivery::where('company_id',$company->id)->exists() ||
+            \App\Models\Invoice::where('company_id',$company->id)->exists();
+
+        if ($hasRelations) {
+            return back()->with('error', 'Company has linked records (users/docs). Set another default and migrate data before deletion.');
+        }
+
+        $company->delete(); // hard delete (table already enforced by FKs)
+        return redirect()->route('companies.index')->with('success', 'Company deleted.');
+    }
 }

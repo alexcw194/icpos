@@ -1,0 +1,162 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Company;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
+
+class CompanyController extends Controller
+{
+    public function index(): View
+    {
+        $companies = Company::orderBy('name')->paginate(12);
+        return view('companies.index', compact('companies'));
+    }
+
+    public function create(): View
+    {
+        return view('companies.create');
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'name'                => 'required|string|max:255',
+            'alias'               => 'nullable|string|max:16',
+            // is_taxable diambil via $request->boolean() di bawah
+            'default_tax_percent' => 'nullable|numeric|min:0|max:100',
+            'quotation_prefix'    => 'nullable|string|max:10',
+            'invoice_prefix'      => 'nullable|string|max:10',
+            'delivery_prefix'     => 'nullable|string|max:10',
+            'address'             => 'nullable|string',
+            'tax_id'              => 'nullable|string|max:64',
+            'email'               => 'nullable|email|max:128',
+            'phone'               => 'nullable|string|max:64',
+            'bank_name'           => 'nullable|string|max:128',
+            'bank_account_name'   => 'nullable|string|max:128',
+            'bank_account_no'     => 'nullable|string|max:64',
+            'bank_account_branch' => 'nullable|string|max:128',
+            'logo'                => 'nullable|image|max:2048',
+            'is_default'          => 'nullable|boolean',
+            // NEW: default masa berlaku quotation (hari). Boleh kosong → fallback 30 di sisi Quotation.
+            'default_valid_days'  => 'nullable|integer|min:1|max:365',
+        ]);
+
+        // Normalisasi flag boolean
+        $data['is_taxable'] = $request->boolean('is_taxable');
+
+        // ENFORCE: jika non-taxable, pajak harus 0
+        $data['default_tax_percent'] = $data['is_taxable']
+            ? ($data['default_tax_percent'] ?? 0)
+            : 0;
+
+        // Normalisasi default_valid_days (kosong → null)
+        $data['default_valid_days'] = $request->filled('default_valid_days')
+            ? (int) $request->input('default_valid_days')
+            : null;
+
+        // Simpan logo bila ada
+        if ($request->hasFile('logo')) {
+            $data['logo_path'] = $request->file('logo')->store('logos', 'public');
+        }
+
+        $setDefault = $request->boolean('is_default');
+
+        DB::transaction(function () use ($data, $setDefault) {
+            if ($setDefault) {
+                Company::where('is_default', true)->update(['is_default' => false]);
+                $data['is_default'] = true;
+            } else {
+                $data['is_default'] = false;
+            }
+            Company::create($data);
+        });
+
+        return redirect()->route('companies.index')->with('success', 'Company created');
+    }
+
+    public function edit(Company $company): View
+    {
+        return view('companies.edit', compact('company'));
+    }
+
+    public function update(Request $request, Company $company): RedirectResponse
+    {
+        $data = $request->validate([
+            'name'                => 'required|string|max:255',
+            'alias'               => 'nullable|string|max:16',
+            // is_taxable diambil via $request->boolean() di bawah
+            'default_tax_percent' => 'nullable|numeric|min:0|max:100',
+            'quotation_prefix'    => 'nullable|string|max:10',
+            'invoice_prefix'      => 'nullable|string|max:10',
+            'delivery_prefix'     => 'nullable|string|max:10',
+            'address'             => 'nullable|string',
+            'tax_id'              => 'nullable|string|max:64',
+            'email'               => 'nullable|email|max:128',
+            'phone'               => 'nullable|string|max:64',
+            'bank_name'           => 'nullable|string|max:128',
+            'bank_account_name'   => 'nullable|string|max:128',
+            'bank_account_no'     => 'nullable|string|max:64',
+            'bank_account_branch' => 'nullable|string|max:128',
+            'logo'                => 'nullable|image|max:2048',
+            'is_default'          => 'nullable|boolean',
+            // NEW
+            'default_valid_days'  => 'nullable|integer|min:1|max:365',
+        ]);
+
+        // Normalisasi flag boolean
+        $data['is_taxable'] = $request->boolean('is_taxable');
+
+        // ENFORCE: jika non-taxable, pajak harus 0
+        $data['default_tax_percent'] = $data['is_taxable']
+            ? ($data['default_tax_percent'] ?? 0)
+            : 0;
+
+        // Normalisasi default_valid_days (kosong → null)
+        $data['default_valid_days'] = $request->filled('default_valid_days')
+            ? (int) $request->input('default_valid_days')
+            : null;
+
+        // Ganti logo bila ada unggahan baru
+        if ($request->hasFile('logo')) {
+            $data['logo_path'] = $request->file('logo')->store('logos', 'public');
+
+            // (opsional) hapus logo lama:
+            // if ($company->logo_path && Storage::disk('public')->exists($company->logo_path)) {
+            //     Storage::disk('public')->delete($company->logo_path);
+            // }
+        }
+
+        $setDefault = $request->boolean('is_default');
+
+        DB::transaction(function () use ($company, $data, $setDefault) {
+            if ($setDefault) {
+                Company::where('is_default', true)
+                    ->where('id', '!=', $company->id)
+                    ->update(['is_default' => false]);
+                $data['is_default'] = true;
+            } else {
+                // Pertahankan status default sebelumnya bila user tidak set default
+                $data['is_default'] = $company->is_default;
+            }
+
+            $company->update($data);
+        });
+
+        return redirect()->route('companies.index')->with('success', 'Company updated');
+    }
+
+    public function makeDefault(Company $company): RedirectResponse
+    {
+        DB::transaction(function () use ($company) {
+            Company::where('is_default', true)->update(['is_default' => false]);
+            $company->update(['is_default' => true]);
+        });
+
+        return back()->with('success', 'Default company updated');
+    }
+}

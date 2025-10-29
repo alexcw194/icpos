@@ -13,13 +13,18 @@
         <thead>
           <tr>
             <th>Default</th>
-            <th>Alias</th><th>Nama</th><th>Taxable</th><th>Default Tax %</th><th>Logo</th><th></th>
+            <th>Alias</th>
+            <th>Nama</th>
+            <th>Taxable</th>
+            <th>Default Tax %</th>
+            <th>Logo</th>
+            <th class="text-end">Actions</th>
           </tr>
         </thead>
         <tbody>
           @forelse($companies as $co)
             <tr>
-              <td style="width: 110px;">
+              <td style="width:110px;">
                 @if($co->is_default)
                   <span class="badge bg-green">Default</span>
                 @else
@@ -29,6 +34,7 @@
                   </form>
                 @endif
               </td>
+
               <td>{{ $co->alias ?? '—' }}</td>
               <td>{{ $co->name }}</td>
               <td>{!! $co->is_taxable ? '<span class="badge bg-green">Yes</span>' : '<span class="badge bg-gray">No</span>' !!}</td>
@@ -40,18 +46,33 @@
                   <span class="text-muted">—</span>
                 @endif
               </td>
-              <td class="text-end">
+
+              <td class="text-end" style="white-space:nowrap;">
                 <a href="{{ route('companies.edit',$co) }}" class="btn btn-sm btn-primary">Edit</a>
+
+                @if(!$co->is_default)
+                  <form action="{{ route('companies.destroy', $co) }}"
+                        method="POST" class="d-inline"
+                        onsubmit="return confirm('Hapus company ini? Tindakan ini tidak bisa dibatalkan.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                  </form>
+                @endif
               </td>
             </tr>
           @empty
-            <tr><td colspan="7" class="text-center text-muted">Belum ada data.</td></tr>
+            <tr>
+              <td colspan="7" class="text-center text-muted">Belum ada data.</td>
+            </tr>
           @endforelse
         </tbody>
       </table>
     </div>
 
-    <div class="card-footer">{{ $companies->links() }}</div>
+    <div class="card-footer">
+      {{ $companies->links() }}
+    </div>
   </div>
 </div>
 @endsection
