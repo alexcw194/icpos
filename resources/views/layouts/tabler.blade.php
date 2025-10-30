@@ -137,6 +137,8 @@
                               || request()->routeIs('units.*')
                               || request()->routeIs('jenis.*')
                               || request()->routeIs('brands.*')
+                              || request()->routeIs('po.*')
+                              || request()->routeIs('gr.*')
                               || request()->routeIs('settings.*');
               @endphp
 

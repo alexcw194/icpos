@@ -186,6 +186,18 @@
           </a>
         </li>
 
+        @hasanyrole('Admin|SuperAdmin')
+        <li class="nav-item">
+          <a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}" href="{{ route('po.index') }}">
+            {{-- Icon optional, sesuaikan dengan yang lain di sidebar --}}
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="ti ti-shopping-cart"></i>
+            </span>
+            <span class="nav-link-title">Purchase Orders</span>
+          </a>
+        </li>
+        @endhasanyrole
+
         {{-- Tidak ada menu Admin di sidebar. Admin hanya di top bar. --}}
       </ul>
     </div>
