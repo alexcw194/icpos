@@ -17,11 +17,13 @@ class ManufactureJob extends Model
         'produced_by',
         'produced_at',
         'notes',
+        'posted_at',
     ];
 
     protected $casts = [
         'json_components' => 'array',
         'produced_at' => 'datetime',
+        'posted_at' => 'datetime',
     ];
 
     public function parentItem()

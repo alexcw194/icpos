@@ -389,4 +389,36 @@ class StockService
 
         return auth()->id();
     }
+
+    public static function postManufactureJob(ManufactureJob $job)
+    {
+        DB::transaction(function () use ($job) {
+            // Loop komponen & kurangi stok
+            foreach ($job->json_components as $c) {
+                $component = Item::findOrFail($c['item_id']);
+                $qty = $c['qty_used'];
+
+                static::decreaseStock(
+                    $component,
+                    $qty,
+                    referenceType: 'manufacture',
+                    referenceId: $job->id,
+                    notes: "Used in manufacture job #{$job->id}"
+                );
+            }
+
+            // Tambah stok hasil produksi
+            $item = Item::findOrFail($job->parent_item_id);
+            static::increaseStock(
+                $item,
+                $job->qty_produced,
+                referenceType: 'manufacture',
+                referenceId: $job->id,
+                notes: "Result of manufacture job #{$job->id}"
+            );
+
+            $job->update(['posted_at' => now()]);
+        });
+    }
+
 }

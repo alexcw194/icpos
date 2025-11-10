@@ -55,7 +55,7 @@ class ManufactureJobController extends Controller
 
         StockMovementService::move($movements);
 
-        ManufactureJob::create([
+        $job =ManufactureJob::create([
             'parent_item_id' => $parent->id,
             'qty_produced' => $data['qty_produced'],
             'job_type' => $data['job_type'],
@@ -64,6 +64,8 @@ class ManufactureJobController extends Controller
             'produced_at' => now(),
             'notes' => $data['notes'] ?? null,
         ]);
+
+        \App\Services\StockService::postManufactureJob($job);
 
         return redirect()->route('manufacture-jobs.index')->with('success', 'Proses produksi berhasil.');
     }
