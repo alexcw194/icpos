@@ -7,17 +7,10 @@
     $hasSalesOrders  = Route::has('sales-orders.index');
     $hasDeliveries   = Route::has('deliveries.index');
 
-    // Current user & gate: hanya Super Admin yang boleh lihat master data
     $user = auth()->user();
-    $canMaster = $user
-        ? (method_exists($user, 'isSuperAdmin')
-              ? $user->isSuperAdmin()
-              : ($user->hasRole('Super Admin') ?? false))
-        : false;
-
-    // Brand (ambil dari settings; fallback ke config/app.name)
     $appName = config('app.name','ICPOS');
     $logoUrl = null;
+
     try {
         if (class_exists(\App\Models\Setting::class)) {
             $appName  = \App\Models\Setting::get('company.name', $appName);
@@ -27,12 +20,15 @@
     } catch (\Throwable $e) {}
 @endphp
 
-{{-- Fallback text style kalau belum ada logo --}}
 <style>
-  .brand-text-fallback{
-    font-weight:800; letter-spacing:.5px; text-transform:uppercase;
-    background:linear-gradient(90deg,#22d3ee,#6366f1);
-    -webkit-background-clip:text; background-clip:text; color:transparent;
+  .brand-text-fallback {
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    background: linear-gradient(90deg,#22d3ee,#6366f1);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 </style>
 
@@ -58,221 +54,93 @@
 
         {{-- Dashboard --}}
         <li class="nav-item">
-          <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"
-             href="{{ route('dashboard') }}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
-                   viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
-                <path stroke="none" d="M0 0h24v24H0z"/>
-                <path d="M5 12l-2 0l9 -9l9 9l-2 0"/>
-                <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/>
-                <path d="M10 12h4v4h-4z"/>
-              </svg>
-            </span>
+          <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+            <span class="nav-link-icon ti ti-home"></span>
             <span class="nav-link-title">Dashboard</span>
           </a>
         </li>
 
-        {{-- Customers (Master Data) --}}
+        {{-- Customers --}}
         @if($hasCustomers)
           <li class="nav-item">
-            <a class="nav-link {{ request()->is('customers*') ? 'active' : '' }}"
-               href="{{ route('customers.index') }}">
-              <span class="nav-link-icon d-md-none d-lg-inline-block">
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
-                     viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
-                  <path stroke="none" d="M0 0h24v24H0z"/>
-                  <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0"/>
-                  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/>
-                </svg>
-              </span>
+            <a class="nav-link {{ request()->is('customers*') ? 'active' : '' }}" href="{{ route('customers.index') }}">
+              <span class="nav-link-icon ti ti-users"></span>
               <span class="nav-link-title">Customers</span>
             </a>
           </li>
         @endif
 
-        {{-- Items / Inventory (Master Data) --}}
+        {{-- Items --}}
         @if($hasItems)
           <li class="nav-item">
-            <a class="nav-link {{ request()->is('items*') ? 'active' : '' }}"
-               href="{{ route('items.index') }}">
-              <span class="nav-link-icon d-md-none d-lg-inline-block">
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
-                     viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
-                  <path stroke="none" d="M0 0h24v24H0z"/>
-                  <path d="M3 7l9 -4l9 4l-9 4l-9 -4"/>
-                  <path d="M3 17l9 4l9 -4"/>
-                  <path d="M3 12l9 4l9 -4"/>
-                </svg>
-              </span>
+            <a class="nav-link {{ request()->is('items*') ? 'active' : '' }}" href="{{ route('items.index') }}">
+              <span class="nav-link-icon ti ti-box"></span>
               <span class="nav-link-title">Items</span>
             </a>
           </li>
         @endif
 
-        {{-- Quotations — tersedia untuk user operasional --}}
-        @if($hasQuotations)
-          <li class="nav-item">
-            <a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}"
-               href="{{ route('quotations.index') }}">
-              <span class="nav-link-icon d-md-none d-lg-inline-block">
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
-                     viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
-                  <path stroke="none" d="M0 0h24v24H0z"/>
-                  <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
-                  <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2"/>
-                  <path d="M9 9h6"/><path d="M9 13h6"/><path d="M9 17h4"/>
-                </svg>
-              </span>
-              <span class="nav-link-title">Quotations</span>
-            </a>
-          </li>
-        @endif
-
-
-        {{-- Sales Orders - tersedia untuk user operasional --}}
-        @if($hasSalesOrders)
-          <li class="nav-item">
-            <a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}"
-               href="{{ route('sales-orders.index') }}">
-              <span class="nav-link-icon d-md-none d-lg-inline-block">
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
-                     viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
-                  <path stroke="none" d="M0 0h24v24H0z"/>
-                  <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
-                  <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2"/>
-                  <path d="M9 9h6"/><path d="M9 13h6"/><path d="M9 17h4"/>
-                  <path d="M16 16l2 2l3 -3"/>
-                </svg>
-              </span>
-              <span class="nav-link-title">Sales Orders</span>
-            </a>
-          </li>
-        @endif
-
-        @if($hasDeliveries && auth()->user()?->can('deliveries.view'))
-          <li class="nav-item">
-            <a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}"
-               href="{{ route('deliveries.index') }}">
-              <span class="nav-link-icon d-md-none d-lg-inline-block">
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
-                     viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
-                  <path stroke="none" d="M0 0h24v24H0z"/>
-                  <path d="M7 17a2 2 0 1 0 4 0"/>
-                  <path d="M17 17a2 2 0 1 0 4 0"/>
-                  <path d="M5 17h2"/>
-                  <path d="M13 17h4"/>
-                  <path d="M3 13l1 -5h13v9"/>
-                  <path d="M14 8h5l2 3v4"/>
-                </svg>
-              </span>
-              <span class="nav-link-title">Delivery Orders</span>
-            </a>
-          </li>
-        @endif
-
-        <li class="nav-item {{ request()->routeIs('invoices.*') ? 'active' : '' }}">
-          <a class="nav-link" href="{{ route('invoices.index') }}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
-                <path stroke="none" d="M0 0h24v24H0z"/>
-                <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
-                <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" />
-                <path d="M9 15h6" />
-                <path d="M9 11h6" />
-              </svg>
-            </span>
-            <span class="nav-link-title">Invoices</span>
+        {{-- Sales --}}
+        <li class="nav-item nav-group">
+          <a class="nav-link" data-bs-toggle="collapse" href="#sales-collapse" role="button"
+             aria-expanded="{{ request()->is('quotations*') || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') ? 'true' : 'false' }}"
+             aria-controls="sales-collapse">
+            <span class="nav-link-icon ti ti-file-invoice"></span>
+            <span class="nav-link-title">Sales</span>
           </a>
+          <div class="collapse {{ request()->is('quotations*') || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') ? 'show' : '' }}" id="sales-collapse">
+            <ul class="nav nav-pills sub-nav flex-column ms-4">
+              <li><a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}" href="{{ route('quotations.index') }}">Quotations</a></li>
+              <li><a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}" href="{{ route('sales-orders.index') }}">Sales Orders</a></li>
+              <li><a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}" href="{{ route('deliveries.index') }}">Delivery Orders</a></li>
+              <li><a class="nav-link {{ request()->is('invoices*') ? 'active' : '' }}" href="{{ route('invoices.index') }}">Invoices</a></li>
+            </ul>
+          </div>
         </li>
 
+        {{-- Purchase --}}
         @hasanyrole('Admin|SuperAdmin')
         <li class="nav-item">
           <a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}" href="{{ route('po.index') }}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              {{-- Tabler Icon: shopping-cart (inline SVG, konsisten dengan menu lain) --}}
-              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
-                  viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
-                <path stroke="none" d="M0 0h24v24H0z"/>
-                <path d="M6 6h15l-1.5 9h-12z"/>
-                <path d="M6 6l-2 -2"/>
-                <path d="M9 20a1 1 0 1 0 0 -2a1 1 0 0 0 0 2"/>
-                <path d="M17 20a1 1 0 1 0 0 -2a1 1 0 0 0 0 2"/>
-              </svg>
-            </span>
+            <span class="nav-link-icon ti ti-shopping-cart"></span>
             <span class="nav-link-title">Purchase Orders</span>
           </a>
         </li>
         @endhasanyrole
 
-        <li class="nav-item">
-          <a class="nav-link {{ request()->routeIs('inventory.ledger') ? 'active' : '' }}"
-            href="{{ route('inventory.ledger') }}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="ti ti-arrows-left-right"></i>
-            </span>
-            <span class="nav-link-title">Stock Ledger</span>
+        {{-- Inventory Category --}}
+        <li class="nav-item nav-group">
+          <a class="nav-link" data-bs-toggle="collapse" href="#inventory-collapse" role="button"
+             aria-expanded="{{ request()->is('inventory*') ? 'true' : 'false' }}" aria-controls="inventory-collapse">
+            <span class="nav-link-icon ti ti-warehouse"></span>
+            <span class="nav-link-title">Inventory</span>
           </a>
+          <div class="collapse {{ request()->is('inventory*') ? 'show' : '' }}" id="inventory-collapse">
+            <ul class="nav nav-pills sub-nav flex-column ms-4">
+              <li><a class="nav-link {{ request()->routeIs('inventory.ledger') ? 'active' : '' }}" href="{{ route('inventory.ledger') }}">Stock Ledger</a></li>
+              <li><a class="nav-link {{ request()->routeIs('inventory.summary') ? 'active' : '' }}" href="{{ route('inventory.summary') }}">Stock Summary</a></li>
+              <li><a class="nav-link {{ request()->routeIs('inventory.adjustments.*') ? 'active' : '' }}" href="{{ route('inventory.adjustments.index') }}">Stock Adjustment</a></li>
+              <li><a class="nav-link {{ request()->routeIs('inventory.reconciliation') ? 'active' : '' }}" href="{{ route('inventory.reconciliation') }}">Reconciliation</a></li>
+            </ul>
+          </div>
         </li>
 
-        <li class="nav-item">
-          <a class="nav-link {{ request()->routeIs('inventory.summary') ? 'active' : '' }}"
-            href="{{ route('inventory.summary') }}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="ti ti-report-analytics"></i>
-            </span>
-            <span class="nav-link-title">Stock Summary</span>
+        {{-- Manufacture Category --}}
+        <li class="nav-item nav-group">
+          <a class="nav-link" data-bs-toggle="collapse" href="#manufacture-collapse" role="button"
+             aria-expanded="{{ request()->is('manufacture-*') ? 'true' : 'false' }}" aria-controls="manufacture-collapse">
+            <span class="nav-link-icon ti ti-tools"></span>
+            <span class="nav-link-title">Manufacture</span>
           </a>
+          <div class="collapse {{ request()->is('manufacture-*') ? 'show' : '' }}" id="manufacture-collapse">
+            <ul class="nav nav-pills sub-nav flex-column ms-4">
+              <li><a class="nav-link {{ request()->is('manufacture-jobs*') ? 'active' : '' }}" href="{{ route('manufacture-jobs.index') }}">Manufacture Jobs</a></li>
+              <li><a class="nav-link {{ request()->is('manufacture-recipes*') ? 'active' : '' }}" href="{{ route('manufacture-recipes.index') }}">Manufacture Recipes</a></li>
+            </ul>
+          </div>
         </li>
 
-        <li class="nav-item">
-          <a class="nav-link {{ request()->routeIs('inventory.adjustments.*') ? 'active' : '' }}"
-            href="{{ route('inventory.adjustments.index') }}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="ti ti-adjustments-alt"></i>
-            </span>
-            <span class="nav-link-title">Stock Adjustment</span>
-          </a>
-        </li>
-
-        <li class="nav-item">
-          <a class="nav-link {{ request()->routeIs('inventory.reconciliation') ? 'active' : '' }}"
-            href="{{ route('inventory.reconciliation') }}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="ti ti-clipboard-check"></i>
-            </span>
-            <span class="nav-link-title">Reconciliation</span>
-          </a>
-        </li>
-
-        @hasanyrole('Admin|SuperAdmin')
-          <li class="nav-item">
-            <a class="nav-link {{ request()->is('manufacture-jobs*') ? 'active' : '' }}"
-              href="{{ route('manufacture-jobs.index') }}">
-              <span class="nav-link-icon d-md-none d-lg-inline-block">
-                <i class="ti ti-tools"></i>
-              </span>
-              <span class="nav-link-title">Manufacture Jobs</span>
-            </a>
-          </li>
-
-          <li class="nav-item">
-            <a class="nav-link {{ request()->is('manufacture-recipes*') ? 'active' : '' }}"
-              href="{{ route('manufacture-recipes.index') }}">
-              <span class="nav-link-icon d-md-none d-lg-inline-block">
-                <i class="ti ti-clipboard-list"></i>
-              </span>
-              <span class="nav-link-title">Manufacture Recipes</span>
-            </a>
-          </li>
-        @endhasanyrole
-
-
-        {{-- Tidak ada menu Admin di sidebar. Admin hanya di top bar. --}}
       </ul>
     </div>
   </div>
 </aside>
-
-
-
