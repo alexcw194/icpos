@@ -287,4 +287,14 @@ class Item extends Model
 
         return 1;
     }
+
+    public function manufactureRecipes()
+    {
+        return $this->hasMany(ManufactureRecipe::class, 'parent_item_id');
+    }
+
+    public function manufactureJobs()
+    {
+        return $this->hasMany(ManufactureJob::class, 'parent_item_id');
+    }
 }

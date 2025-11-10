@@ -177,6 +177,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/inventory/reconciliation', [\App\Http\Controllers\StockReconciliationController::class, 'index'])
         ->name('inventory.reconciliation');
 
+    Route::resource('manufacture-jobs', ManufactureJobController::class)->except(['show', 'edit', 'update', 'destroy']);
+
    Route::prefix('sales-orders/attachments')
     ->name('sales-orders.attachments.')
     ->group(function () {
