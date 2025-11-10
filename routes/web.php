@@ -219,6 +219,9 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::delete('/companies/{company}', [CompanyController::class,'destroy'])
         ->name('companies.destroy');
 
+    Route::resource('manufacture-recipes', ManufactureRecipeController::class)
+        ->only(['index', 'create', 'store', 'destroy']);
+
     // Users (Add & Edit; delete kita tunda)
     Route::resource('users', AdminUserController::class)->except(['show','destroy']);
 

@@ -245,6 +245,28 @@
           </a>
         </li>
 
+        @hasanyrole('Admin|SuperAdmin')
+          <li class="nav-item">
+            <a class="nav-link {{ request()->is('manufacture-jobs*') ? 'active' : '' }}"
+              href="{{ route('manufacture-jobs.index') }}">
+              <span class="nav-link-icon d-md-none d-lg-inline-block">
+                <i class="ti ti-tools"></i>
+              </span>
+              <span class="nav-link-title">Manufacture Jobs</span>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link {{ request()->is('manufacture-recipes*') ? 'active' : '' }}"
+              href="{{ route('manufacture-recipes.index') }}">
+              <span class="nav-link-icon d-md-none d-lg-inline-block">
+                <i class="ti ti-clipboard-list"></i>
+              </span>
+              <span class="nav-link-title">Manufacture Recipes</span>
+            </a>
+          </li>
+        @endhasanyrole
+
 
         {{-- Tidak ada menu Admin di sidebar. Admin hanya di top bar. --}}
       </ul>
