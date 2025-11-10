@@ -163,6 +163,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/sales-orders/{salesOrder}/invoices/create', [InvoiceController::class,'createFromSo'])->name('invoices.create-from-so');
     Route::post('/sales-orders/{salesOrder}/invoices', [InvoiceController::class,'storeFromSo'])->name('invoices.store-from-so');
 
+    Route::get('inventory/ledger', [\App\Http\Controllers\StockLedgerController::class, 'index'])
+            ->name('inventory.ledger');
+    Route::get('/inventory/summary', [\App\Http\Controllers\StockSummaryController::class, 'index'])
+        ->middleware(['auth', \App\Http\Middleware\EnsureAdmin::class])
+        ->name('inventory.summary');
+    Route::get('/inventory/adjustments', [\App\Http\Controllers\StockAdjustmentController::class, 'index'])
+        ->name('inventory.adjustments.index');
+    Route::get('/inventory/adjustments/create', [\App\Http\Controllers\StockAdjustmentController::class, 'create'])
+        ->name('inventory.adjustments.create');
+    Route::post('/inventory/adjustments', [\App\Http\Controllers\StockAdjustmentController::class, 'store'])
+        ->name('inventory.adjustments.store');
+    Route::get('/inventory/reconciliation', [\App\Http\Controllers\StockReconciliationController::class, 'index'])
+        ->name('inventory.reconciliation');
+
    Route::prefix('sales-orders/attachments')
     ->name('sales-orders.attachments.')
     ->group(function () {

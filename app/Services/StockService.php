@@ -271,6 +271,19 @@ class StockService
             'reference_id'    => $referenceId,
             'created_by'      => $userId,
         ]);
+
+        \App\Models\StockSummary::updateOrCreate(
+            [
+                'company_id'   => $companyId,
+                'warehouse_id' => $warehouseId,
+                'item_id'      => $itemId,
+                'variant_id'   => $variantId,
+            ],
+            [
+                'qty_balance'  => $balance,
+                'uom'          => $stock->item->unit->code ?? null,
+            ]
+        );
     }
 
     private static function addStock(
@@ -306,6 +319,19 @@ class StockService
             'reference_id'    => $referenceId,
             'created_by'      => $userId,
         ]);
+
+        \App\Models\StockSummary::updateOrCreate(
+            [
+                'company_id'   => $companyId,
+                'warehouse_id' => $warehouseId,
+                'item_id'      => $itemId,
+                'variant_id'   => $variantId,
+            ],
+            [
+                'qty_balance'  => $balance,
+                'uom'          => $stock->item->unit->code ?? null,
+            ]
+        );
     }
 
     private static function getStockForUpdate(int $companyId, int $warehouseId, int $itemId, ?int $variantId): ItemStock

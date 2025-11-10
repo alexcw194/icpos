@@ -205,6 +205,47 @@
         </li>
         @endhasanyrole
 
+        <li class="nav-item">
+          <a class="nav-link {{ request()->routeIs('inventory.ledger') ? 'active' : '' }}"
+            href="{{ route('inventory.ledger') }}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="ti ti-arrows-left-right"></i>
+            </span>
+            <span class="nav-link-title">Stock Ledger</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link {{ request()->routeIs('inventory.summary') ? 'active' : '' }}"
+            href="{{ route('inventory.summary') }}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="ti ti-report-analytics"></i>
+            </span>
+            <span class="nav-link-title">Stock Summary</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link {{ request()->routeIs('inventory.adjustments.*') ? 'active' : '' }}"
+            href="{{ route('inventory.adjustments.index') }}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="ti ti-adjustments-alt"></i>
+            </span>
+            <span class="nav-link-title">Stock Adjustment</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link {{ request()->routeIs('inventory.reconciliation') ? 'active' : '' }}"
+            href="{{ route('inventory.reconciliation') }}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="ti ti-clipboard-check"></i>
+            </span>
+            <span class="nav-link-title">Reconciliation</span>
+          </a>
+        </li>
+
+
         {{-- Tidak ada menu Admin di sidebar. Admin hanya di top bar. --}}
       </ul>
     </div>
