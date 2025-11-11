@@ -21,6 +21,8 @@ use App\Http\Controllers\{
     StockController,
     PurchaseOrderController, 
     GoodsReceiptController,
+    ManufactureJobController,
+    ManufactureRecipeController,
 };
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\SettingController;

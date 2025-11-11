@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\StockLedger;
-use App\Models\Stock;
+use App\Models\ItemStock;
 
 class StockReconciliationController extends Controller
 {
@@ -18,10 +18,9 @@ class StockReconciliationController extends Controller
             ->groupBy('company_id', 'warehouse_id', 'item_id', 'item_variant_id')
             ->get();
 
-        $stockBalances = Stock::select(
-                'company_id', 'warehouse_id', 'item_id', 'item_variant_id', 'qty_balance'
-            )
-            ->get();
+        $stockBalances = ItemStock::select(
+            'company_id', 'warehouse_id', 'item_id', 'item_variant_id', 'qty_on_hand as qty_balance'
+        )->get();
 
         $rows = [];
         foreach ($ledgerBalances as $ledger) {

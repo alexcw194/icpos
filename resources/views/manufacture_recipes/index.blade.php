@@ -1,4 +1,8 @@
-<x-layouts.tabler title="Resep Produksi">
+@extends('layouts.tabler')
+
+@section('title', 'Resep Produksi')
+
+@section('content')
   <div class="card">
     <div class="card-header d-flex justify-content-between">
       <h3 class="card-title">Daftar Resep</h3>
@@ -36,4 +40,4 @@
     </div>
     <div class="card-footer">{{ $recipes->links() }}</div>
   </div>
-</x-layouts.tabler>
+@endsection

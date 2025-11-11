@@ -108,11 +108,17 @@
         </li>
         @endhasanyrole
 
-        {{-- Inventory Category --}}
+       {{-- Inventory Category --}}
         <li class="nav-item nav-group">
           <a class="nav-link" data-bs-toggle="collapse" href="#inventory-collapse" role="button"
-             aria-expanded="{{ request()->is('inventory*') ? 'true' : 'false' }}" aria-controls="inventory-collapse">
-            <span class="nav-link-icon ti ti-warehouse"></span>
+            aria-expanded="{{ request()->is('inventory*') ? 'true' : 'false' }}" aria-controls="inventory-collapse">
+            <span class="nav-link-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-warehouse" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                <path d="M3 21v-13l9 -4l9 4v13" />
+                <path d="M13 13h4v8h-10v-6h6v-2z" />
+              </svg>
+            </span>
             <span class="nav-link-title">Inventory</span>
           </a>
           <div class="collapse {{ request()->is('inventory*') ? 'show' : '' }}" id="inventory-collapse">
@@ -128,8 +134,16 @@
         {{-- Manufacture Category --}}
         <li class="nav-item nav-group">
           <a class="nav-link" data-bs-toggle="collapse" href="#manufacture-collapse" role="button"
-             aria-expanded="{{ request()->is('manufacture-*') ? 'true' : 'false' }}" aria-controls="manufacture-collapse">
-            <span class="nav-link-icon ti ti-tools"></span>
+            aria-expanded="{{ request()->is('manufacture-*') ? 'true' : 'false' }}" aria-controls="manufacture-collapse">
+            <span class="nav-link-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-tools" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                <path d="M9 12l-1.5 1.5a2.12 2.12 0 0 0 0 3l4 4a2.12 2.12 0 0 0 3 0l1.5 -1.5" />
+                <path d="M15 12l2 -2a3 3 0 0 0 -4.24 -4.24l-2 2" />
+                <path d="M9 12l-2 -2a3 3 0 0 1 4.24 -4.24l2 2" />
+                <path d="M12 9l-2 2" />
+              </svg>
+            </span>
             <span class="nav-link-title">Manufacture</span>
           </a>
           <div class="collapse {{ request()->is('manufacture-*') ? 'show' : '' }}" id="manufacture-collapse">
