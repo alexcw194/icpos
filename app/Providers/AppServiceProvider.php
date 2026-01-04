@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Mail;
 use App\Models\Setting;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,7 +26,6 @@ class AppServiceProvider extends ServiceProvider
         $logoPath = null;
 
         if (Schema::hasTable('settings')) {
-            // Mailer
             config([
                 'mail.mailers.smtp.host'       => Setting::get('mail.host',       config('mail.mailers.smtp.host')),
                 'mail.mailers.smtp.port'       => (int) Setting::get('mail.port', config('mail.mailers.smtp.port')),
@@ -36,20 +36,28 @@ class AppServiceProvider extends ServiceProvider
                 'mail.from.name'               => Setting::get('mail.from.name',    config('mail.from.name')),
             ]);
 
-            // (opsional) app name
             config(['app.name' => Setting::get('company.name', config('app.name'))]);
 
-            // Ambil path logo dari settings (jika ada)
             $logoPath = Setting::get('company.logo_path');
         }
 
-        // Fallback ke logo default kalau belum ada
+        // ✅ FIX #2: hard fallback + enforce From (wajib biar sendResetLink() gak 500)
+        $fromAddress = config('mail.from.address') ?: env('MAIL_FROM_ADDRESS', 'no-reply@inderacipta.com');
+        $fromName    = config('mail.from.name') ?: env('MAIL_FROM_NAME', config('app.name', 'ICPOS'));
+
+        config([
+            'mail.from.address' => $fromAddress,
+            'mail.from.name'    => $fromName,
+        ]);
+
+        Mail::alwaysFrom($fromAddress, $fromName);
+
         $brandLogoUrl = $logoPath
             ? asset('storage/' . $logoPath)
-            : asset('images/logo-default.svg'); // siapkan file ini di public/images
+            : asset('images/logo-default.svg');
 
-        // Share ke semua Blade
         View::share('brandLogoUrl', $brandLogoUrl);
-        Schema::defaultStringLength(191); // effective global, berlaku utk semua migration setelah ini
+
+        Schema::defaultStringLength(191);
     }
 }
