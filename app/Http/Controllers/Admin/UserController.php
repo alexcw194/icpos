@@ -42,12 +42,10 @@ class UserController extends Controller
         $sendInvite = (bool)($data['send_invite'] ?? false);
         $passwordProvided = filled($data['password'] ?? null);
 
-        // Guard: minimal policy
-        // - If password not provided, we require invite checkbox to avoid "unknown password" user.
-        //   (kalau kamu mau allow tanpa invite, hapus block ini)
+        // Hard guard: harus ada password ATAU invite
         if (!$passwordProvided && !$sendInvite) {
             return back()
-                ->withErrors(['password' => 'Isi password atau centang "Send Invite".'])
+                ->withErrors(['password' => 'Isi password atau centang "Kirim undangan".'])
                 ->withInput();
         }
 
@@ -58,30 +56,28 @@ class UserController extends Controller
         $u->email_signature = $data['email_signature'] ?? null;
 
         if ($request->hasFile('avatar')) {
-            $u->profile_image_path = $request->file('avatar')->store('avatars', 'public');
+            $u->profile_image_path = $request->file('avatar')->store('avatars','public');
         }
 
-        // Password handling
         if ($passwordProvided) {
-            // Admin sets password now
             $u->password = Hash::make($data['password']);
-            $u->must_change_password = false; // password sudah ditentukan
+            $u->must_change_password = true;
         } else {
-            // Invite flow: set placeholder so DB insert passes, user will set via reset link
-            $u->password = Hash::make(Str::random(32));
+            // penting: password wajib ada di DB
+            $u->password = Hash::make(Str::random(40));
             $u->must_change_password = true;
         }
 
         $u->save();
         $u->syncRoles([$data['role']]);
 
-        // Invite email (reset link)
         if (!$passwordProvided && $sendInvite) {
             Password::sendResetLink(['email' => $u->email]);
         }
 
-        return redirect()->route('users.index')->with('ok', 'User created.');
+        return redirect()->route('users.index')->with('ok','User created.');
     }
+
 
 
     public function edit(User $user)
