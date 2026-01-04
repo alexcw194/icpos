@@ -320,6 +320,26 @@
   });
   </script>
 
+  <script>
+    (function () {
+      function storageAvailable() {
+        try {
+          const s = window.localStorage;
+          const k = "__t__";
+          s.setItem(k, "1");
+          s.removeItem(k);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      window.safeStorage = storageAvailable()
+        ? window.localStorage
+        : { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} };
+    })();
+    </script>
+
   {{-- Tempat script halaman (termasuk _item_quicksearch_js.blade.php) --}}
   @stack('scripts')
 </body>
