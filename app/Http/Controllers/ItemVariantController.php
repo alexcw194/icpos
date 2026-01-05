@@ -12,7 +12,7 @@ class ItemVariantController extends Controller
 {
     public function index(Item $item)
     {
-        $item->load(['variants' => fn ($q) => $q->orderBy('id')]);
+        $item->load(['variants' => fn($q) => $q->with('item')]);
         return view('items.variants.index', compact('item'));
     }
 

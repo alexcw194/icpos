@@ -76,20 +76,23 @@ class ItemVariant extends Model
         return $this->belongsTo(Size::class);
     }
 
-    public function getLabelAttribute(): string
+   public function getLabelAttribute(): string
     {
-        $attrs = is_array($this->attributes) ? $this->attributes : [];
+        // ambil versi CASTED (array) dari kolom `attributes`
+        $attr = $this->getAttribute('attributes');
+        $attr = is_array($attr) ? $attr : [];
 
-        $parts = [];
+        // kalau item relation sudah di-load (disarankan), ini zero extra query
+        if ($this->relationLoaded('item') && $this->item) {
+            return $this->item->renderVariantLabel($attr);
+        }
 
-        $color  = trim((string)($attrs['color'] ?? ''));
-        $size   = trim((string)($attrs['size'] ?? ''));
-        $length = trim((string)($attrs['length'] ?? ''));
+        // fallback: boleh lazy-load kalau aktif di projectmu
+        if ($this->item) {
+            return $this->item->renderVariantLabel($attr);
+        }
 
-        if ($color !== '')  $parts[] = $color;
-        if ($size !== '')   $parts[] = $size;
-        if ($length !== '') $parts[] = $length;
-
-        return $parts ? implode(' / ', $parts) : '-';
+        // fallback minimal
+        return trim((string) ($this->sku ?? ''));
     }
 }
