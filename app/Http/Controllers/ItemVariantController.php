@@ -31,10 +31,10 @@ class ItemVariantController extends Controller
 
     public function store(Request $request, Item $item)
     {
-        [$price, $stock] = $this->normalizeNumbers($request->input('price'), $request->input('stock'));
-
-        $request->validate([
+        $data = $request->validate([
             'sku'         => ['nullable', 'string', 'max:255', 'unique:item_variants,sku'],
+            'price'       => ['nullable', 'string', 'max:50'],   // string biar bisa "1.234.567,89"
+            'stock'       => ['nullable', 'string', 'max:50'],   // string biar bisa "1.000"
             'is_active'   => ['nullable', 'boolean'],
             'barcode'     => ['nullable', 'string', 'max:64'],
             'min_stock'   => ['nullable', 'integer', 'min:0'],
@@ -43,30 +43,26 @@ class ItemVariantController extends Controller
             'attr_length' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $attrs = [];
-        if ($request->filled('attr_color')) {
-            $attrs['color'] = (string) $request->input('attr_color');
-        }
-        if ($request->filled('attr_size')) {
-            $attrs['size'] = (string) $request->input('attr_size');
-        }
-        if ($request->filled('attr_length')) {
-            $attrs['length'] = (string) $request->input('attr_length');
-        }
+        $attrs = array_filter([
+            'color'  => $data['attr_color']  ?? null,
+            'size'   => $data['attr_size']   ?? null,
+            'length' => $data['attr_length'] ?? null,
+        ], fn ($v) => trim((string) $v) !== '');
 
         $variant = $item->variants()->create([
-            'sku'        => $this->normalizeSku($request->input('sku')),
-            'price'      => $price,
-            'stock'      => $stock,
-            'attributes' => count($attrs) ? $attrs : null,
+            'sku'        => $data['sku'] ?? null,        // mutator handle uppercase/null
+            'price'      => $data['price'] ?? null,      // mutator parse ID/EN format
+            'stock'      => $data['stock'] ?? null,      // mutator parse int & clamp >= 0
+            'attributes' => $attrs ?: null,
             'is_active'  => $request->boolean('is_active', true),
-            'barcode'    => $request->input('barcode'),
-            'min_stock'  => (int) ($request->input('min_stock') ?? 0),
+            'barcode'    => $data['barcode'] ?? null,
+            'min_stock'  => (int) ($data['min_stock'] ?? 0),
         ]);
 
         $this->syncVariantMeta($item);
 
-        return redirect()->route('items.variants.index', $item)
+        return redirect()
+            ->route('items.variants.index', $item)
             ->with('success', 'Variant created: ' . $variant->label);
     }
 
@@ -88,10 +84,11 @@ class ItemVariantController extends Controller
     public function update(Request $request, ItemVariant $variant)
     {
         $variant->load('item');
-        [$price, $stock] = $this->normalizeNumbers($request->input('price'), $request->input('stock'));
 
-        $request->validate([
+        $data = $request->validate([
             'sku'         => ['nullable', 'string', 'max:255', 'unique:item_variants,sku,' . $variant->id],
+            'price'       => ['nullable', 'string', 'max:50'], // string: "1.234.567,89"
+            'stock'       => ['nullable', 'string', 'max:50'], // string: "1.000"
             'is_active'   => ['nullable', 'boolean'],
             'barcode'     => ['nullable', 'string', 'max:64'],
             'min_stock'   => ['nullable', 'integer', 'min:0'],
@@ -100,32 +97,29 @@ class ItemVariantController extends Controller
             'attr_length' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $attrs = [];
-        if ($request->filled('attr_color')) {
-            $attrs['color'] = (string) $request->input('attr_color');
-        }
-        if ($request->filled('attr_size')) {
-            $attrs['size'] = (string) $request->input('attr_size');
-        }
-        if ($request->filled('attr_length')) {
-            $attrs['length'] = (string) $request->input('attr_length');
-        }
+        $attrs = array_filter([
+            'color'  => $data['attr_color']  ?? null,
+            'size'   => $data['attr_size']   ?? null,
+            'length' => $data['attr_length'] ?? null,
+        ], fn ($v) => trim((string) $v) !== '');
 
         $variant->update([
-            'sku'        => $this->normalizeSku($request->input('sku')),
-            'price'      => $price,
-            'stock'      => $stock,
-            'attributes' => count($attrs) ? $attrs : null,
+            'sku'        => $data['sku'] ?? null,        // mutator: uppercase/null
+            'price'      => $data['price'] ?? null,      // mutator: parse ID format
+            'stock'      => $data['stock'] ?? null,      // mutator: int + clamp >=0
+            'attributes' => $attrs ?: null,
             'is_active'  => $request->boolean('is_active', true),
-            'barcode'    => $request->input('barcode'),
-            'min_stock'  => (int) ($request->input('min_stock') ?? 0),
+            'barcode'    => $data['barcode'] ?? null,
+            'min_stock'  => (int) ($data['min_stock'] ?? 0),
         ]);
 
         $this->syncVariantMeta($variant->item);
 
-        return redirect()->route('items.variants.index', $variant->item)
+        return redirect()
+            ->route('items.variants.index', $variant->item)
             ->with('success', 'Variant updated!');
     }
+
 
     public function destroy(ItemVariant $variant)
     {
@@ -146,7 +140,7 @@ class ItemVariantController extends Controller
     /**
      * "1.234,56" => 1234.56; kosong => 0; stok negatif => 0
      */
-    private function normalizeNumbers($priceInput, $stockInput): array
+   /*  private function normalizeNumbers($priceInput, $stockInput): array
     {
         $toDecimal = function ($s) {
             if ($s === null) {
@@ -164,7 +158,7 @@ class ItemVariantController extends Controller
             $stock = 0;
         }
         return [$price, $stock];
-    }
+    } */
 
     private function attributeOptions(Item $item): array
     {

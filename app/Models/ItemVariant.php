@@ -95,4 +95,38 @@ class ItemVariant extends Model
         // fallback minimal
         return trim((string) ($this->sku ?? ''));
     }
+
+    public function setPriceAttribute($value): void
+    {
+        $s = is_null($value) ? '0' : (string) $value;
+        $s = preg_replace('/[^\d,.\-]/', '', $s);
+
+        $hasComma = str_contains($s, ',');
+        $hasDot   = str_contains($s, '.');
+
+        // ID format: 1.234.567,89
+        if ($hasComma && $hasDot) {
+            $s = str_replace('.', '', $s);
+            $s = str_replace(',', '.', $s);
+        }
+        // ID format: 1234,56
+        elseif ($hasComma) {
+            $s = str_replace(',', '.', $s);
+        }
+        // EN format: 1234.56 -> biarkan
+
+        $this->attributes['price'] = (float) $s;
+    }
+
+    public function setStockAttribute($value): void
+    {
+        $n = (int) preg_replace('/[^\d\-]/', '', (string) ($value ?? 0));
+        $this->attributes['stock'] = max(0, $n);
+    }
+
+    public function setSkuAttribute($value): void
+    {
+        $sku = trim((string) $value);
+        $this->attributes['sku'] = $sku === '' ? null : mb_strtoupper($sku, 'UTF-8');
+    }
 }
