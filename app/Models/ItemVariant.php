@@ -65,4 +65,31 @@ class ItemVariant extends Model
             return number_format((float) $this->price, 2, ',', '.');
         });
     }
+
+    public function color()
+    {
+        return $this->belongsTo(Color::class);
+    }
+
+    public function size()
+    {
+        return $this->belongsTo(Size::class);
+    }
+
+    public function getLabelAttribute(): string
+    {
+        $attrs = is_array($this->attributes) ? $this->attributes : [];
+
+        $parts = [];
+
+        $color  = trim((string)($attrs['color'] ?? ''));
+        $size   = trim((string)($attrs['size'] ?? ''));
+        $length = trim((string)($attrs['length'] ?? ''));
+
+        if ($color !== '')  $parts[] = $color;
+        if ($size !== '')   $parts[] = $size;
+        if ($length !== '') $parts[] = $length;
+
+        return $parts ? implode(' / ', $parts) : '-';
+    }
 }
