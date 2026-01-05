@@ -124,7 +124,7 @@
         @include('items.partials.inventory_grouped', ['rows' => $groupedRows])
       @endif
 
-      <div class="mt-3">
+      <div class="card-footer d-flex justify-content-end">
         {{ $items->appends(request()->except('page'))->links() }}
       </div>
     </div>

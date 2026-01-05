@@ -6,6 +6,8 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Pagination\Paginator;
+
 use App\Models\Setting;
 
 class AppServiceProvider extends ServiceProvider
@@ -59,5 +61,7 @@ class AppServiceProvider extends ServiceProvider
         View::share('brandLogoUrl', $brandLogoUrl);
 
         Schema::defaultStringLength(191);
+        Paginator::useBootstrapFive();
+
     }
 }
