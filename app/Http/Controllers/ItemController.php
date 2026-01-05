@@ -121,8 +121,8 @@ class ItemController extends Controller
         $request->merge([
             'sku'                 => $this->normalizeSku($request->input('sku')),
             'price'               => $this->normalizeIdNumber($request->input('price')),
-            'default_roll_length' => $this->normalizeIdNumber($request->input('default_roll_length')),
-            'length_per_piece'    => $this->normalizeIdNumber($request->input('length_per_piece')),
+            'default_roll_length' => $this->normalizeLengthValue($request->input('default_roll_length')),
+            'length_per_piece'    => $this->normalizeLengthValue($request->input('length_per_piece')),
         ]);
 
         $data = $request->validate([
@@ -153,8 +153,8 @@ class ItemController extends Controller
         if ($request->filled('attr_size'))  $attrs['size']  = $request->string('attr_size')->toString();
         if ($request->filled('attr_color')) $attrs['color'] = $request->string('attr_color')->toString();
 
-        $data['sellable']    = $request->boolean('sellable', true);
-        $data['purchasable'] = $request->boolean('purchasable', true);
+        $data['sellable']    = $request->boolean('sellable');
+        $data['purchasable'] = $request->boolean('purchasable');
         $data['attributes']  = count($attrs) ? $attrs : null;
 
         $skuProvided = isset($data['sku']) && $data['sku'] !== null && $data['sku'] !== '';
@@ -217,8 +217,8 @@ class ItemController extends Controller
         $request->merge([
             'sku'                 => $this->normalizeSku($request->input('sku')),
             'price'               => $this->normalizeIdNumber($request->input('price')),
-            'default_roll_length' => $this->normalizeIdNumber($request->input('default_roll_length')),
-            'length_per_piece'    => $this->normalizeIdNumber($request->input('length_per_piece')),
+            'default_roll_length' => $this->normalizeLengthValue($request->input('default_roll_length')),
+            'length_per_piece'    => $this->normalizeLengthValue($request->input('length_per_piece')),
         ]);
 
         // Rule unit: izinkan unit lama walau non-aktif
@@ -258,8 +258,8 @@ class ItemController extends Controller
         if ($request->filled('attr_size'))  $attrs['size']  = $request->string('attr_size')->toString();
         if ($request->filled('attr_color')) $attrs['color'] = $request->string('attr_color')->toString();
 
-        $data['sellable']    = $request->boolean('sellable', true);
-        $data['purchasable'] = $request->boolean('purchasable', true);
+        $data['sellable']    = $request->boolean('sellable');
+        $data['purchasable'] = $request->boolean('purchasable');
         $data['attributes']  = count($attrs) ? $attrs : null;
 
         $skuProvided = isset($data['sku']) && $data['sku'] !== null && $data['sku'] !== '';

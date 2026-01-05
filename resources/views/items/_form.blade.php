@@ -151,6 +151,7 @@
 
     <div class="col-md-4">
       <label class="form-label">Sellable</label>
+      <input type="hidden" name="sellable" value="0">
       <label class="form-check form-switch">
         <input class="form-check-input" type="checkbox" name="sellable" value="1" {{ (int)$sellableOld ? 'checked' : '' }}>
         <span class="form-check-label">Bisa dijual</span>
@@ -161,6 +162,7 @@
 
     <div class="col-md-4">
       <label class="form-label">Purchasable</label>
+      <input type="hidden" name="purchasable" value="0">
       <label class="form-check form-switch">
         <input class="form-check-input" type="checkbox" name="purchasable" value="1" {{ (int)$purchOld ? 'checked' : '' }}>
         <span class="form-check-label">Bisa dibeli</span>
@@ -172,14 +174,14 @@
     {{-- Cutting fields --}}
     <div class="col-md-4 row-cut-raw">
       <label class="form-label">Default Roll Length (untuk Raw)</label>
-      <input type="text" name="default_roll_length" value="{{ old('default_roll_length', $item->default_roll_length ?? '') }}" class="form-control" inputmode="decimal" autocomplete="off" placeholder="mis. 60">
+      <input type="text" name="default_roll_length" value="{{ old('default_roll_length', $item->default_roll_length ?? '') }}" class="form-control" inputmode="numeric" autocomplete="off" placeholder="mis. 60">
       @error('default_roll_length')<div class="text-danger small">{{ $message }}</div>@enderror
       <div class="form-hint">Wajib untuk tipe <b>Raw Roll</b> (panjang asal per roll).</div>
     </div>
 
     <div class="col-md-4 row-cut-piece">
       <label class="form-label">Length per Piece (untuk Finished Piece)</label>
-      <input type="text" name="length_per_piece" value="{{ old('length_per_piece', $item->length_per_piece ?? '') }}" class="form-control" inputmode="decimal" autocomplete="off" placeholder="mis. 20 / 30 / 60">
+      <input type="text" name="length_per_piece" value="{{ old('length_per_piece', $item->length_per_piece ?? '') }}" class="form-control" inputmode="numeric" autocomplete="off" placeholder="mis. 20 / 30 / 60">
       @error('length_per_piece')<div class="text-danger small">{{ $message }}</div>@enderror
       <div class="form-hint">Wajib untuk tipe <b>Finished Piece</b> (panjang per potongan).</div>
     </div>
