@@ -1,4 +1,6 @@
-<x-layouts.tabler :title="'Detail Produksi #' . $job->id">
+@extends('layouts.tabler')
+
+@section('content')
   <div class="card">
     <div class="card-body">
       <h3>{{ $job->parentItem->name }}</h3>
@@ -19,11 +21,11 @@
         </thead>
         <tbody>
           @foreach($job->json_components as $c)
-          @php $item = \App\Models\Item::find($c['item_id']); @endphp
-          <tr>
-            <td>{{ $item?->name ?? 'Item #' . $c['item_id'] }}</td>
-            <td class="text-end">{{ number_format($c['qty_used'], 3) }}</td>
-          </tr>
+            @php $item = \App\Models\Item::find($c['item_id']); @endphp
+            <tr>
+              <td>{{ $item?->name ?? 'Item #' . $c['item_id'] }}</td>
+              <td class="text-end">{{ number_format($c['qty_used'], 3) }}</td>
+            </tr>
           @endforeach
         </tbody>
       </table>
@@ -35,8 +37,9 @@
         </div>
       @endif
     </div>
+
     <div class="card-footer text-end">
       <a href="{{ route('manufacture-jobs.index') }}" class="btn btn-secondary">Kembali</a>
     </div>
   </div>
-</x-layouts.tabler>
+@endsection

@@ -1,6 +1,9 @@
-<x-layouts.tabler title="Proses Produksi">
+@extends('layouts.tabler')
+
+@section('content')
   <form method="POST" action="{{ route('manufacture-jobs.store') }}">
     @csrf
+
     <div class="mb-3">
       <label class="form-label">Item Hasil</label>
       <select name="parent_item_id" class="form-select" required>
@@ -9,10 +12,12 @@
         @endforeach
       </select>
     </div>
+
     <div class="mb-3">
       <label class="form-label">Jumlah Produksi</label>
       <input type="number" step="0.001" name="qty_produced" class="form-control" required>
     </div>
+
     <div class="mb-3">
       <label class="form-label">Tipe Job</label>
       <select name="job_type" class="form-select" required>
@@ -22,10 +27,12 @@
         <option value="bundle">Bundle</option>
       </select>
     </div>
+
     <div class="mb-3">
       <label class="form-label">Catatan</label>
       <textarea name="notes" class="form-control"></textarea>
     </div>
+
     @include('layouts.partials.form_footer', [
       'cancelUrl' => route('manufacture-jobs.index'),
       'cancelLabel' => 'Batal',
@@ -33,4 +40,4 @@
       'buttons' => [['type' => 'submit', 'label' => 'Proses Produksi']]
     ])
   </form>
-</x-layouts.tabler>
+@endsection

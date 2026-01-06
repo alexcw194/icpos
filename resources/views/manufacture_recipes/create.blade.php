@@ -1,6 +1,9 @@
-<x-layouts.tabler title="Tambah Resep Produksi">
+@extends('layouts.tabler')
+
+@section('content')
   <form method="POST" action="{{ route('manufacture-recipes.store') }}">
     @csrf
+
     <div class="mb-3">
       <label class="form-label">Item Hasil</label>
       <select name="parent_item_id" class="form-select" required>
@@ -36,4 +39,4 @@
       'buttons' => [['type' => 'submit', 'label' => 'Simpan']]
     ])
   </form>
-</x-layouts.tabler>
+@endsection
