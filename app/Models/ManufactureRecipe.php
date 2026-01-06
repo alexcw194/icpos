@@ -11,7 +11,10 @@ class ManufactureRecipe extends Model
 
     protected $fillable = [
         'parent_item_id',
+        // legacy (boleh dipertahankan sementara kalau masih ada data lama)
         'component_item_id',
+        // NEW (utama)
+        'component_variant_id',
         'qty_required',
         'unit_factor',
         'notes',
@@ -22,8 +25,15 @@ class ManufactureRecipe extends Model
         return $this->belongsTo(Item::class, 'parent_item_id');
     }
 
+    // legacy relation (opsional; keep sementara)
     public function componentItem()
     {
         return $this->belongsTo(Item::class, 'component_item_id');
+    }
+
+    // NEW: komponen berbasis SKU unik
+    public function componentVariant()
+    {
+        return $this->belongsTo(ItemVariant::class, 'component_variant_id');
     }
 }
