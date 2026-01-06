@@ -72,12 +72,12 @@
             <div class="row-actions">
               @if($isVariant)
                 <a href="{{ route('items.variants.index', $row['item_id']) }}#variant-{{ $row['variant_id'] }}" class="me-2">Lihat</a>
-                <a href="{{ route('variants.edit', $row['variant_id']) }}" class="me-2">Ubah</a>
+                <a href="{{ route('variants.edit', $row['variant_id']) }}?r={{ urlencode(request()->fullUrl()) }}" class="me-2">Ubah</a>
                 <a href="{{ route('items.show', $row['item_id']) }}" class="me-2">Ke Parent</a>
                 <a href="#" class="me-2" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}">Stock</a>
               @else
                 <a href="{{ route('items.show', $row['item_id']) }}" class="me-2">Lihat</a>
-                <a href="{{ route('items.edit', $row['item_id']) }}" class="me-2">Ubah</a>
+                <a href="{{ route('items.edit', $row['item_id']) }}?r={{ urlencode(request()->fullUrl()) }}" class="me-2">Ubah</a>
                 <a href="{{ route('items.variants.index', $row['item_id']) }}" class="me-2">Variant</a>
                 <a href="#" class="me-2" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}">Stock</a>
               @endif
