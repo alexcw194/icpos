@@ -6,6 +6,8 @@ use App\Models\Item;
 use App\Models\ManufactureRecipe;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
+
 
 class ManufactureRecipeController extends Controller
 {
@@ -36,28 +38,62 @@ class ManufactureRecipeController extends Controller
 
     public function store(Request $request)
     {
-        $kitTypes = ['kit', 'bundle']; // SESUAIKAN dengan value item_type kamu
+        // sesuaikan jika value item_type kamu beda
+        $kitTypes = ['kit', 'bundle'];
 
-        $data = $request->validate([
+        $validated = $request->validate([
             'parent_item_id' => [
                 'required',
                 Rule::exists('items', 'id')->whereIn('item_type', $kitTypes),
             ],
-            'component_item_id' => [
-                'required',
-                'different:parent_item_id',
-                Rule::exists('items', 'id'),
-            ],
-            'qty_required' => 'required|numeric|min:0.001',
-            'unit_factor' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string|max:255',
+
+            // INI yang bikin bisa multi row
+            'components' => 'required|array|min:1',
+            'components.*.component_item_id' => 'required|exists:items,id',
+            'components.*.qty_required' => 'required|numeric|min:0.001',
+            'components.*.unit_factor' => 'nullable|numeric|min:0',
+            'components.*.notes' => 'nullable|string|max:255',
         ]);
 
-        ManufactureRecipe::create($data);
+        $parentId = (int) $validated['parent_item_id'];
+
+        // guard: komponen tidak boleh sama dengan item hasil
+        $componentIds = collect($validated['components'])
+            ->pluck('component_item_id')
+            ->map(fn($v) => (int) $v);
+
+        if ($componentIds->contains($parentId)) {
+            return back()->withInput()->withErrors([
+                'components' => 'Komponen tidak boleh sama dengan Item Hasil.',
+            ]);
+        }
+
+        // guard: jangan ada duplikat komponen di 1 submit
+        if ($componentIds->count() !== $componentIds->unique()->count()) {
+            return back()->withInput()->withErrors([
+                'components' => 'Komponen tidak boleh duplikat dalam satu resep.',
+            ]);
+        }
+
+        DB::transaction(function () use ($validated, $parentId) {
+            foreach ($validated['components'] as $row) {
+                ManufactureRecipe::updateOrCreate(
+                    [
+                        'parent_item_id' => $parentId,
+                        'component_item_id' => $row['component_item_id'],
+                    ],
+                    [
+                        'qty_required' => $row['qty_required'],
+                        'unit_factor'  => $row['unit_factor'] ?? null,
+                        'notes'        => $row['notes'] ?? null,
+                    ]
+                );
+            }
+        });
 
         return redirect()
             ->route('manufacture-recipes.index')
-            ->with('success', 'Resep berhasil ditambahkan.');
+            ->with('success', 'Resep berhasil disimpan.');
     }
 
     public function destroy(ManufactureRecipe $manufactureRecipe)
