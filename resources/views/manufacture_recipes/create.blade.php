@@ -7,7 +7,7 @@
     <div class="mb-3">
       <label class="form-label">Item Hasil</label>
       <select name="parent_item_id" class="form-select" required>
-        @foreach($items as $item)
+        @foreach($parentItems as $item)
           <option value="{{ $item->id }}">{{ $item->name }}</option>
         @endforeach
       </select>
@@ -16,7 +16,7 @@
     <div class="mb-3">
       <label class="form-label">Komponen</label>
       <select name="component_item_id" class="form-select" required>
-        @foreach($items as $item)
+        @foreach($componentItems as $item)
           <option value="{{ $item->id }}">{{ $item->name }}</option>
         @endforeach
       </select>
