@@ -221,6 +221,13 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::delete('/companies/{company}', [CompanyController::class,'destroy'])
         ->name('companies.destroy');
 
+    // Manufacture Recipes
+    Route::get('manufacture-recipes/{parentItem}/manage', [ManufactureRecipeController::class, 'manage'])
+        ->name('manufacture-recipes.manage');
+
+    Route::match(['put','patch'], 'manufacture-recipes/{parentItem}', [ManufactureRecipeController::class, 'bulkUpdate'])
+        ->name('manufacture-recipes.bulk-update');
+
     Route::resource('manufacture-recipes', ManufactureRecipeController::class)
         ->only(['index', 'create', 'store', 'destroy']);
 

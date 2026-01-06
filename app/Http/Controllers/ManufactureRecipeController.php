@@ -8,24 +8,45 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 
-
 class ManufactureRecipeController extends Controller
 {
-    public function index()
+    private function kitTypes(): array
     {
-        $recipes = ManufactureRecipe::with(['parentItem', 'componentItem'])
-            ->orderBy('parent_item_id')
-            ->paginate(20);
+        // sesuaikan jika value item_type kamu beda
+        return ['kit', 'bundle'];
+    }
 
-        return view('manufacture_recipes.index', compact('recipes'));
+    public function index(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+
+        $kits = Item::query()
+            ->whereIn('item_type', $this->kitTypes())
+            ->whereHas('manufactureRecipes')
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($sub) use ($q) {
+                    $sub->where('name', 'like', "%{$q}%")
+                        ->orWhere('sku', 'like', "%{$q}%");
+                });
+            })
+            ->withCount('manufactureRecipes')
+            ->withMax('manufactureRecipes', 'updated_at')
+            ->with([
+                'manufactureRecipes' => function ($r) {
+                    $r->with('componentItem')->orderBy('component_item_id');
+                }
+            ])
+            ->orderBy('name')
+            ->paginate(12)
+            ->withQueryString();
+
+        return view('manufacture_recipes.index', compact('kits', 'q'));
     }
 
     public function create()
     {
-        $kitTypes = ['kit', 'bundle']; // sesuaikan dengan value item_type kamu
-
         $parentItems = Item::query()
-            ->whereIn('item_type', $kitTypes)
+            ->whereIn('item_type', $this->kitTypes())
             ->orderBy('name')
             ->get();
 
@@ -36,18 +57,30 @@ class ManufactureRecipeController extends Controller
         return view('manufacture_recipes.create', compact('parentItems', 'componentItems'));
     }
 
+    public function manage(Item $parentItem)
+    {
+        abort_unless(in_array($parentItem->item_type, $this->kitTypes(), true), 404);
+
+        $recipes = ManufactureRecipe::query()
+            ->where('parent_item_id', $parentItem->id)
+            ->with('componentItem')
+            ->orderBy('component_item_id')
+            ->get();
+
+        $componentItems = Item::query()
+            ->orderBy('name')
+            ->get();
+
+        return view('manufacture_recipes.manage', compact('parentItem', 'recipes', 'componentItems'));
+    }
+
     public function store(Request $request)
     {
-        // sesuaikan jika value item_type kamu beda
-        $kitTypes = ['kit', 'bundle'];
-
         $validated = $request->validate([
             'parent_item_id' => [
                 'required',
-                Rule::exists('items', 'id')->whereIn('item_type', $kitTypes),
+                Rule::exists('items', 'id')->whereIn('item_type', $this->kitTypes()),
             ],
-
-            // INI yang bikin bisa multi row
             'components' => 'required|array|min:1',
             'components.*.component_item_id' => 'required|exists:items,id',
             'components.*.qty_required' => 'required|numeric|min:0.001',
@@ -57,7 +90,6 @@ class ManufactureRecipeController extends Controller
 
         $parentId = (int) $validated['parent_item_id'];
 
-        // guard: komponen tidak boleh sama dengan item hasil
         $componentIds = collect($validated['components'])
             ->pluck('component_item_id')
             ->map(fn($v) => (int) $v);
@@ -68,7 +100,6 @@ class ManufactureRecipeController extends Controller
             ]);
         }
 
-        // guard: jangan ada duplikat komponen di 1 submit
         if ($componentIds->count() !== $componentIds->unique()->count()) {
             return back()->withInput()->withErrors([
                 'components' => 'Komponen tidak boleh duplikat dalam satu resep.',
@@ -92,8 +123,64 @@ class ManufactureRecipeController extends Controller
         });
 
         return redirect()
-            ->route('manufacture-recipes.index')
+            ->route('manufacture-recipes.manage', $parentId)
             ->with('success', 'Resep berhasil disimpan.');
+    }
+
+    public function bulkUpdate(Request $request, Item $parentItem)
+    {
+        abort_unless(in_array($parentItem->item_type, $this->kitTypes(), true), 404);
+
+        $validated = $request->validate([
+            'components' => 'required|array|min:1',
+            'components.*.component_item_id' => 'required|exists:items,id',
+            'components.*.qty_required' => 'required|numeric|min:0.001',
+            'components.*.unit_factor' => 'nullable|numeric|min:0',
+            'components.*.notes' => 'nullable|string|max:255',
+        ]);
+
+        $componentIds = collect($validated['components'])
+            ->pluck('component_item_id')
+            ->map(fn($v) => (int) $v)
+            ->values();
+
+        if ($componentIds->contains((int) $parentItem->id)) {
+            return back()->withInput()->withErrors([
+                'components' => 'Komponen tidak boleh sama dengan Item Hasil.',
+            ]);
+        }
+
+        if ($componentIds->count() !== $componentIds->unique()->count()) {
+            return back()->withInput()->withErrors([
+                'components' => 'Komponen tidak boleh duplikat dalam satu resep.',
+            ]);
+        }
+
+        DB::transaction(function () use ($validated, $parentItem, $componentIds) {
+            // delete yang tidak ada lagi di form (sync)
+            ManufactureRecipe::query()
+                ->where('parent_item_id', $parentItem->id)
+                ->whereNotIn('component_item_id', $componentIds->all())
+                ->delete();
+
+            foreach ($validated['components'] as $row) {
+                ManufactureRecipe::updateOrCreate(
+                    [
+                        'parent_item_id' => $parentItem->id,
+                        'component_item_id' => $row['component_item_id'],
+                    ],
+                    [
+                        'qty_required' => $row['qty_required'],
+                        'unit_factor'  => $row['unit_factor'] ?? null,
+                        'notes'        => $row['notes'] ?? null,
+                    ]
+                );
+            }
+        });
+
+        return redirect()
+            ->route('manufacture-recipes.manage', $parentItem)
+            ->with('success', 'Resep berhasil diperbarui.');
     }
 
     public function destroy(ManufactureRecipe $manufactureRecipe)
