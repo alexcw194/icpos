@@ -40,16 +40,17 @@
               @foreach($rows as $i => $row)
                 <tr class="component-row">
                   <td>
-                    <select name="components[{{ $i }}][component_item_id]" class="form-select component-select" required>
-                      @foreach($componentItems as $item)
-                        <option
-                          value="{{ $item->id }}"
-                          @if($row && (int)$row->component_item_id === (int)$item->id) selected @endif
-                        >
-                          {{ $item->name }}
-                        </option>
-                      @endforeach
-                    </select>
+                   <select name="components[{{ $i }}][component_variant_id]" class="form-select component-select" required>
+                    @foreach($componentVariants as $v)
+                      <option
+                        value="{{ $v->id }}"
+                        data-item-id="{{ $v->item_id }}"
+                        @selected($row && (int)$row->component_variant_id === (int)$v->id)
+                      >
+                        {{ $v->label }}{{ $v->sku ? ' — '.$v->sku : '' }}
+                      </option>
+                    @endforeach
+                  </select>
                   </td>
 
                   <td>

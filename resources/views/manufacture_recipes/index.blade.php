@@ -94,7 +94,10 @@
                     <tbody>
                       @foreach($kit->manufactureRecipes as $r)
                         <tr>
-                          <td>{{ $r->componentItem->name ?? '—' }}</td>
+                          <td>
+                            {{ $r->componentVariant?->label ?? '—' }}
+                            <div class="text-muted small">SKU: {{ $r->componentVariant?->sku ?? '—' }}</div>
+                          </td>
                           <td class="text-end">{{ number_format((float) $r->qty_required, 1) }}</td>
                           <td>{{ $r->notes ?: '—' }}</td>
                         </tr>
