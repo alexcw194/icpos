@@ -59,7 +59,7 @@
                       step="0.1"
                       min="0.1"
                       class="form-control text-end"
-                      value="{{ $row?->qty_required }}"
+                      value="{{ $row ? number_format((float) $row->qty_required, 1, '.', '') : '' }}"
                       required
                     >
                   </td>

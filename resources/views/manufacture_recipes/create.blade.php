@@ -44,7 +44,8 @@
               <input
                 type="number"
                 name="components[0][qty_required]"
-                step="0.001"
+                step="0.1"
+                min="0.1"
                 class="form-control text-end"
                 required
               >
