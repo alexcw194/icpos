@@ -35,7 +35,10 @@
 
   // URL saat ini untuk return setelah kelola master
   $returnUrl = request()->fullUrl();
+  $returnTo = old('r', request('r'));
 @endphp
+
+<input type="hidden" name="r" value="{{ $returnTo }}">
 
 <div class="card-body">
   <div class="row g-3">

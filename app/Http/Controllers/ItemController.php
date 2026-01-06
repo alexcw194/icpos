@@ -111,6 +111,8 @@ class ItemController extends Controller
 
     public function store(Request $request)
     {
+        $returnUrl = $this->safeReturnUrl($request->input('r')) ?? route('items.index');
+
         // Default unit ke PCS jika kosong
         if (!$request->filled('unit_id')) {
             $pcsId = Unit::whereRaw('LOWER(code) = ?', ['pcs'])->value('id');
@@ -171,14 +173,20 @@ class ItemController extends Controller
         }
 
         $action = $request->input('action');
+
         if ($action === 'save_add') {
-            return redirect()->route('items.create')->with('success', 'Item created! Silakan tambah item baru.');
-        }
-        if ($action === 'save_variants') {
-            return redirect()->route('items.variants.index', $item)->with('success', 'Item created! Silakan kelola varian.');
+            return redirect()
+                ->route('items.create', ['r' => $returnUrl])
+                ->with('success', 'Item created! Silakan tambah item baru.');
         }
 
-        return redirect()->route('items.index')->with('success','Item created!');
+        if ($action === 'save_variants') {
+            return redirect()
+                ->to(route('items.variants.index', $item) . '?r=' . urlencode($returnUrl))
+                ->with('success', 'Item created! Silakan kelola varian.');
+        }
+
+        return redirect()->to($returnUrl)->with('success', 'Item created!');
     }
 
     public function show(Item $item)
@@ -213,6 +221,8 @@ class ItemController extends Controller
 
     public function update(Request $request, Item $item)
     {
+        $returnUrl = $this->safeReturnUrl($request->input('r')) ?? route('items.index');
+
         // Normalisasi
         $request->merge([
             'sku'                 => $this->normalizeSku($request->input('sku')),
@@ -277,20 +287,30 @@ class ItemController extends Controller
         }
 
         $action = $request->input('action');
+
         if ($action === 'save_add') {
-            return redirect()->route('items.create')->with('success', 'Perubahan disimpan. Silakan tambah item baru.');
-        }
-        if ($action === 'save_variants') {
-            return redirect()->route('items.variants.index', $item)->with('success', 'Perubahan disimpan. Silakan kelola varian.');
+            return redirect()
+                ->route('items.create', ['r' => $returnUrl])
+                ->with('success', 'Perubahan disimpan. Silakan tambah item baru.');
         }
 
-        return redirect()->route('items.index')->with('success','Item updated!');
+        if ($action === 'save_variants') {
+            return redirect()
+                ->to(route('items.variants.index', $item) . '?r=' . urlencode($returnUrl))
+                ->with('success', 'Perubahan disimpan. Silakan kelola varian.');
+        }
+
+        return redirect()->to($returnUrl)->with('success', 'Item updated!');
+
     }
 
-    public function destroy(Item $item)
+    public function destroy(Request $request, Item $item)
     {
+        $returnUrl = $this->safeReturnUrl($request->input('r')) ?? route('items.index');
+
         $item->delete();
-        return redirect()->route('items.index')->with('success','Item deleted!');
+
+        return redirect()->to($returnUrl)->with('success','Item deleted!');
     }
 
     /**
@@ -867,4 +887,19 @@ class ItemController extends Controller
             'color' => $colors,
         ];
     }
+
+    private function safeReturnUrl(?string $r): ?string
+    {
+        if (!$r) return null;
+
+        // allow relative path "/items?..."; block "//evil.com"
+        if (str_starts_with($r, '/') && !str_starts_with($r, '//')) return $r;
+
+        // allow same-host absolute URL
+        $appHost = parse_url(config('app.url'), PHP_URL_HOST);
+        $host    = parse_url($r, PHP_URL_HOST);
+
+        return ($host && $appHost && $host === $appHost) ? $r : null;
+    }
+
 }

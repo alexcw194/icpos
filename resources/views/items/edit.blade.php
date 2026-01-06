@@ -18,7 +18,7 @@
 
     {{-- Footer global --}}
     @include('layouts.partials.form_footer', [
-      'cancelUrl'    => route('items.index'),
+      'cancelUrl'    => request('r', route('items.index')),
       'cancelLabel'  => 'Batal',
       'cancelInline' => true,
       'buttons' => [

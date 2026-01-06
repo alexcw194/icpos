@@ -12,7 +12,7 @@
           <button type="button" class="btn btn-outline-primary {{ $viewMode === 'flat' ? 'active' : '' }}" data-view="flat">Flat List</button>
           <button type="button" class="btn btn-outline-primary {{ $viewMode === 'grouped' ? 'active' : '' }}" data-view="grouped">Grouped</button>
         </div>
-        <a href="{{ route('items.create') }}" class="btn btn-primary">+ Add Item</a>
+        <a href="{{ route('items.create', ['r' => request()->fullUrl()]) }}" class="btn btn-primary">+ Add Item</a>
       </div>
     </div>
 
