@@ -120,6 +120,7 @@
 
   </form>
 
+  @push('scripts')
   <script>
     (function () {
       const parentId = {{ (int) $parentItem->id }};
@@ -127,7 +128,7 @@
       const btnAdd = document.getElementById('btnAddComponent');
 
       const modalEl = document.getElementById('confirmRemoveModal');
-      const modal = new bootstrap.Modal(modalEl);
+      const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
       const btnConfirmRemove = document.getElementById('btnConfirmRemove');
       let rowToRemove = null;
 
@@ -135,19 +136,21 @@
         const rows = tableBody.querySelectorAll('tr.component-row');
         rows.forEach((row, i) => {
           row.querySelectorAll('select, input').forEach(el => {
+            if (!el.name) return;
             el.name = el.name.replace(/components\[\d+\]/, `components[${i}]`);
           });
 
           const btnRemove = row.querySelector('.btnRemoveRow');
-          btnRemove.disabled = (rows.length === 1);
+          if (btnRemove) btnRemove.disabled = (rows.length === 1);
         });
       }
 
-      btnAdd.addEventListener('click', () => {
+      btnAdd?.addEventListener('click', () => {
         const firstRow = tableBody.querySelector('tr.component-row');
+        if (!firstRow) return;
+
         const newRow = firstRow.cloneNode(true);
 
-        // reset values
         newRow.querySelectorAll('input').forEach(i => i.value = '');
         newRow.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
 
@@ -155,44 +158,53 @@
         reindex();
       });
 
-      tableBody.addEventListener('click', (e) => {
+      tableBody?.addEventListener('click', (e) => {
         if (!e.target.classList.contains('btnRemoveRow')) return;
 
         const rows = tableBody.querySelectorAll('tr.component-row');
         if (rows.length <= 1) return;
 
         rowToRemove = e.target.closest('tr.component-row');
+        if (!modal) {
+          // fallback kalau bootstrap modal tidak available
+          if (confirm('Hapus komponen ini dari resep?')) {
+            rowToRemove.remove();
+            rowToRemove = null;
+            reindex();
+          }
+          return;
+        }
         modal.show();
       });
 
-      btnConfirmRemove.addEventListener('click', () => {
+      btnConfirmRemove?.addEventListener('click', () => {
         if (!rowToRemove) return;
         rowToRemove.remove();
         rowToRemove = null;
-        modal.hide();
+        modal?.hide();
         reindex();
       });
 
-      // basic client-side guards (server tetap source of truth)
-      document.querySelector('form').addEventListener('submit', (e) => {
+      document.querySelector('form')?.addEventListener('submit', (e) => {
         const rows = tableBody.querySelectorAll('tr.component-row');
         const ids = [];
+
         for (const row of rows) {
           const sel = row.querySelector('select.component-select');
           const qty = row.querySelector('input[name*="[qty_required]"]');
+          if (!sel || !qty) continue;
+
           const id = parseInt(sel.value, 10);
 
           if (id === parentId) {
             alert('Komponen tidak boleh sama dengan Item Hasil.');
-            e.preventDefault();
-            return;
+            e.preventDefault(); return;
           }
 
           const q = parseFloat(qty.value || '0');
           if (!(q > 0)) {
             alert('Qty harus lebih dari 0.');
-            e.preventDefault();
-            return;
+            e.preventDefault(); return;
           }
 
           ids.push(id);
@@ -201,12 +213,13 @@
         const unique = new Set(ids);
         if (unique.size !== ids.length) {
           alert('Komponen tidak boleh duplikat.');
-          e.preventDefault();
-          return;
+          e.preventDefault(); return;
         }
       });
 
       reindex();
     })();
   </script>
+  @endpush
+
 @endsection

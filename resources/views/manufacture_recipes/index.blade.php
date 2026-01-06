@@ -43,35 +43,41 @@
 
           <div class="accordion-item mb-2">
             <h2 class="accordion-header" id="{{ $headingId }}">
-              <button
-                class="accordion-button collapsed"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#{{ $collapseId }}"
-                aria-expanded="false"
-                aria-controls="{{ $collapseId }}"
-              >
-                <div class="w-100 d-flex justify-content-between align-items-center gap-3">
-                  <div class="d-flex flex-column">
-                    <div class="fw-bold">{{ $kit->name }}</div>
-                    <div class="text-muted small">
-                      SKU: {{ $kit->sku ?? '—' }}
-                      · Unit: {{ $kit->unit->name ?? '—' }}
-                      · Brand: {{ $kit->brand->name ?? '—' }}
+              <div class="d-flex align-items-center gap-2">
+                <button
+                  class="accordion-button collapsed flex-grow-1"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#{{ $collapseId }}"
+                  aria-expanded="false"
+                  aria-controls="{{ $collapseId }}"
+                >
+                  <div class="w-100 d-flex justify-content-between align-items-center gap-3">
+                    <div class="d-flex flex-column">
+                      <div class="fw-bold">{{ $kit->name }}</div>
+                      <div class="text-muted small">
+                        SKU: {{ $kit->sku ?? '—' }}
+                        · Unit: {{ $kit->unit->name ?? '—' }}
+                        · Brand: {{ $kit->brand->name ?? '—' }}
+                      </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="badge bg-azure-lt">{{ $kit->manufacture_recipes_count }} komponen</span>
+                      <span class="text-muted small">
+                        Last updated: {{ $lastUpdated ? \Illuminate\Support\Carbon::parse($lastUpdated)->diffForHumans() : '—' }}
+                      </span>
                     </div>
                   </div>
+                </button>
 
-                  <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-azure-lt">{{ $kit->manufacture_recipes_count }} komponen</span>
-                    <span class="text-muted small">
-                      Last updated: {{ $lastUpdated ? \Illuminate\Support\Carbon::parse($lastUpdated)->diffForHumans() : '—' }}
-                    </span>
-                    <a href="{{ route('manufacture-recipes.manage', $kit) }}" class="btn btn-outline-primary btn-sm">
-                      Kelola Resep
-                    </a>
-                  </div>
-                </div>
-              </button>
+                <a
+                  href="{{ route('manufacture-recipes.manage', $kit) }}"
+                  class="btn btn-outline-primary btn-sm flex-shrink-0"
+                >
+                  Kelola Resep
+                </a>
+              </div>
             </h2>
 
             <div id="{{ $collapseId }}" class="accordion-collapse collapse" aria-labelledby="{{ $headingId }}" data-bs-parent="#recipeKitsAccordion">
