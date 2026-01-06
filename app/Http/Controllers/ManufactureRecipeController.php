@@ -83,7 +83,7 @@ class ManufactureRecipeController extends Controller
             ],
             'components' => 'required|array|min:1',
             'components.*.component_item_id' => 'required|exists:items,id',
-            'components.*.qty_required' => 'required|numeric|min:0.001',
+            'components.*.qty_required' => 'required|numeric|decimal:0,1|min:0.1',
             'components.*.unit_factor' => 'nullable|numeric|min:0',
             'components.*.notes' => 'nullable|string|max:255',
         ]);
@@ -134,7 +134,7 @@ class ManufactureRecipeController extends Controller
         $validated = $request->validate([
             'components' => 'required|array|min:1',
             'components.*.component_item_id' => 'required|exists:items,id',
-            'components.*.qty_required' => 'required|numeric|min:0.001',
+            'components.*.qty_required' => 'required|numeric|decimal:0,1|min:0.1',
             'components.*.unit_factor' => 'nullable|numeric|min:0',
             'components.*.notes' => 'nullable|string|max:255',
         ]);

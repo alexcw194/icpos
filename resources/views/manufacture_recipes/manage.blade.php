@@ -56,7 +56,8 @@
                     <input
                       type="number"
                       name="components[{{ $i }}][qty_required]"
-                      step="0.001"
+                      step="0.1"
+                      min="0.1"
                       class="form-control text-end"
                       value="{{ $row?->qty_required }}"
                       required
