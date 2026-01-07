@@ -38,7 +38,7 @@
         <table class="table table-sm align-middle" id="componentsTable">
           <thead>
             <tr>
-              <th style="width:55%">Variant (SKU)</th>
+              <th style="width:55%">Variant</th>
               <th class="text-end" style="width:20%">Qty</th>
               <th style="width:20%">Catatan</th>
               <th class="text-end" style="width:5%"></th>
@@ -49,7 +49,7 @@
             {{-- DEFAULT ROW (index 0) --}}
             <tr class="component-row">
               <td>
-                <select class="form-select js-variant-picker" name="components[0][component_variant_id]" required>
+                <select name="components[0][component_variant_id]" class="form-select js-variant-picker" required>
                   <option value="">Pilih variant…</option>
                 </select>
               </td>
@@ -90,7 +90,7 @@
       </div>
 
       <div class="text-muted small mt-2">
-        Qty minimal <b>0.1</b>. Komponen disimpan sebagai <b>Variant (SKU unik)</b>.
+        Qty minimal <b>0.1</b>. Komponen disimpan sebagai <b>Variant (unik)</b>.
       </div>
     </div>
 
@@ -120,24 +120,18 @@
     if (!selectEl) return;
     if (selectEl.tomselect) return;
 
-    new TomSelect(selectEl, {
+    new TomSelect(el, {
       valueField: 'id',
       labelField: 'text',
       searchField: 'text',
       maxItems: 1,
       create: false,
-
-      // ini yang bikin “klik langsung ada list”
       preload: 'focus',
       openOnFocus: true,
-
-      // optional, supaya dropdown nggak kepotong container
-      dropdownParent: 'body',
-
       load: function(query, callback) {
         const q = (query || '').trim(); // boleh kosong
         fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`)
-          .then(res => res.json())
+          .then(res => res.ok ? res.json() : Promise.reject(res))
           .then(data => callback(data))
           .catch(() => callback());
       }
