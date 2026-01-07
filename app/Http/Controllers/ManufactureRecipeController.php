@@ -16,6 +16,91 @@ class ManufactureRecipeController extends Controller
         return ['kit', 'bundle'];
     }
 
+    /**
+     * Parse UID dari picker:
+     * - "item-123"    => ['type'=>'item', 'id'=>123]
+     * - "variant-456" => ['type'=>'variant', 'id'=>456]
+     */
+    private function parseComponentRef(string $ref): array
+    {
+        $ref = trim($ref);
+        if (!preg_match('/^(item|variant)-(\d+)$/', $ref, $m)) {
+            abort(422, "Invalid component ref: {$ref}");
+        }
+
+        return ['type' => $m[1], 'id' => (int) $m[2]];
+    }
+
+    /**
+     * Normalize komponen dari request menjadi array rows siap simpan:
+     * [
+     *   [
+     *     component_item_id => int,
+     *     component_variant_id => ?int,
+     *     qty_required => float,
+     *     unit_factor => ?float,
+     *     notes => ?string,
+     *     token => string (unik)
+     *   ],
+     *   ...
+     * ]
+     */
+    private function normalizeComponents(array $components, int $parentId): array
+    {
+        $out = [];
+        $tokens = [];
+
+        foreach ($components as $row) {
+            $ref = (string) ($row['component_variant_id'] ?? '');
+            $parsed = $this->parseComponentRef($ref);
+
+            $componentItemId = null;
+            $componentVariantId = null;
+            $token = null;
+
+            if ($parsed['type'] === 'item') {
+                $item = Item::query()->findOrFail($parsed['id']);
+
+                // guard: tidak boleh komponen = item hasil
+                if ((int) $item->id === (int) $parentId) {
+                    abort(422, 'Komponen tidak boleh berasal dari Item Hasil.');
+                }
+
+                $componentItemId = (int) $item->id;
+                $componentVariantId = null;
+                $token = "item-{$componentItemId}";
+            } else {
+                $variant = ItemVariant::query()->with('item')->findOrFail($parsed['id']);
+
+                // guard: tidak boleh komponen berasal dari item hasil
+                if ((int) $variant->item_id === (int) $parentId) {
+                    abort(422, 'Komponen tidak boleh berasal dari Item Hasil.');
+                }
+
+                $componentItemId = (int) $variant->item_id;
+                $componentVariantId = (int) $variant->id;
+                $token = "variant-{$componentVariantId}";
+            }
+
+            // anti-duplikat (unik berdasarkan token)
+            if (in_array($token, $tokens, true)) {
+                abort(422, 'Komponen tidak boleh duplikat dalam satu resep.');
+            }
+            $tokens[] = $token;
+
+            $out[] = [
+                'component_item_id' => $componentItemId,
+                'component_variant_id' => $componentVariantId,
+                'qty_required' => (float) ($row['qty_required'] ?? 0),
+                'unit_factor' => isset($row['unit_factor']) && $row['unit_factor'] !== '' ? (float) $row['unit_factor'] : null,
+                'notes' => isset($row['notes']) && $row['notes'] !== '' ? (string) $row['notes'] : null,
+                'token' => $token,
+            ];
+        }
+
+        return $out;
+    }
+
     public function index(Request $request)
     {
         $q = trim((string) $request->query('q', ''));
@@ -33,8 +118,9 @@ class ManufactureRecipeController extends Controller
             ->withMax('manufactureRecipes', 'updated_at')
             ->with([
                 'manufactureRecipes' => function ($r) {
-                    $r->with(['componentVariant.item'])
-                      ->orderByRaw('COALESCE(component_variant_id, 0) asc');
+                    $r->with(['componentVariant.item', 'componentItem'])
+                      ->orderByRaw('COALESCE(component_variant_id, 0) asc')
+                      ->orderBy('component_item_id');
                 }
             ])
             ->orderBy('name')
@@ -51,13 +137,8 @@ class ManufactureRecipeController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Komponen = variant (SKU unik)
-        $componentVariants = ItemVariant::query()
-            ->with('item')
-            ->orderByRaw('COALESCE(sku, "") asc')
-            ->get();
-
-        return view('manufacture_recipes.create', compact('parentItems', 'componentVariants'));
+        // Komponen picker via API (TomSelect) -> tidak perlu preload list
+        return view('manufacture_recipes.create', compact('parentItems'));
     }
 
     public function manage(Item $parentItem)
@@ -66,16 +147,13 @@ class ManufactureRecipeController extends Controller
 
         $recipes = ManufactureRecipe::query()
             ->where('parent_item_id', $parentItem->id)
-            ->with(['componentVariant.item'])
+            ->with(['componentVariant.item', 'componentItem'])
             ->orderByRaw('COALESCE(component_variant_id, 0) asc')
+            ->orderBy('component_item_id')
             ->get();
 
-        $componentVariants = ItemVariant::query()
-            ->with('item')
-            ->orderByRaw('COALESCE(sku, "") asc')
-            ->get();
-
-        return view('manufacture_recipes.manage', compact('parentItem', 'recipes', 'componentVariants'));
+        // Komponen picker sebaiknya juga via API di halaman manage
+        return view('manufacture_recipes.manage', compact('parentItem', 'recipes'));
     }
 
     public function store(Request $request)
@@ -86,52 +164,28 @@ class ManufactureRecipeController extends Controller
                 Rule::exists('items', 'id')->whereIn('item_type', $this->kitTypes()),
             ],
             'components' => 'required|array|min:1',
-            'components.*.component_variant_id' => 'required|exists:item_variants,id',
+            // UID dari picker quotation-style
+            'components.*.component_variant_id' => ['required', 'string', 'regex:/^(item|variant)-\d+$/'],
             'components.*.qty_required' => 'required|numeric|decimal:0,1|min:0.1',
             'components.*.unit_factor' => 'nullable|numeric|min:0',
             'components.*.notes' => 'nullable|string|max:255',
         ]);
 
         $parentId = (int) $validated['parent_item_id'];
+        $rows = $this->normalizeComponents($validated['components'], $parentId);
 
-        $variantIds = collect($validated['components'])
-            ->pluck('component_variant_id')
-            ->map(fn ($v) => (int) $v)
-            ->values();
-
-        // duplikat variant (SKU unik)
-        if ($variantIds->count() !== $variantIds->unique()->count()) {
-            return back()->withInput()->withErrors([
-                'components' => 'Komponen (SKU/Variant) tidak boleh duplikat dalam satu resep.',
-            ]);
-        }
-
-        // map variant -> item_id untuk guard parent
-        $variantItemMap = ItemVariant::query()
-            ->whereIn('id', $variantIds->all())
-            ->pluck('item_id', 'id'); // [variant_id => item_id]
-
-        if ($variantItemMap->values()->contains($parentId)) {
-            return back()->withInput()->withErrors([
-                'components' => 'Komponen tidak boleh berasal dari Item Hasil.',
-            ]);
-        }
-
-        DB::transaction(function () use ($validated, $parentId, $variantItemMap) {
-            foreach ($validated['components'] as $row) {
-                $vid = (int) $row['component_variant_id'];
-
+        DB::transaction(function () use ($parentId, $rows) {
+            foreach ($rows as $r) {
                 ManufactureRecipe::updateOrCreate(
                     [
                         'parent_item_id' => $parentId,
-                        'component_variant_id' => $vid,
+                        'component_item_id' => (int) $r['component_item_id'],
+                        'component_variant_id' => $r['component_variant_id'], // null allowed
                     ],
                     [
-                        // derived field (optional tapi berguna untuk reporting/compat)
-                        'component_item_id' => (int) ($variantItemMap[$vid] ?? 0),
-                        'qty_required' => $row['qty_required'],
-                        'unit_factor'  => $row['unit_factor'] ?? null,
-                        'notes'        => $row['notes'] ?? null,
+                        'qty_required' => $r['qty_required'],
+                        'unit_factor'  => $r['unit_factor'],
+                        'notes'        => $r['notes'],
                     ]
                 );
             }
@@ -148,53 +202,44 @@ class ManufactureRecipeController extends Controller
 
         $validated = $request->validate([
             'components' => 'required|array|min:1',
-            'components.*.component_variant_id' => 'required|exists:item_variants,id',
+            'components.*.component_variant_id' => ['required', 'string', 'regex:/^(item|variant)-\d+$/'],
             'components.*.qty_required' => 'required|numeric|decimal:0,1|min:0.1',
             'components.*.unit_factor' => 'nullable|numeric|min:0',
             'components.*.notes' => 'nullable|string|max:255',
         ]);
 
-        $variantIds = collect($validated['components'])
-            ->pluck('component_variant_id')
-            ->map(fn ($v) => (int) $v)
-            ->values();
+        $rows = $this->normalizeComponents($validated['components'], (int) $parentItem->id);
 
-        if ($variantIds->count() !== $variantIds->unique()->count()) {
-            return back()->withInput()->withErrors([
-                'components' => 'Komponen (SKU/Variant) tidak boleh duplikat dalam satu resep.',
-            ]);
-        }
+        DB::transaction(function () use ($parentItem, $rows) {
+            $desiredTokens = collect($rows)->pluck('token')->all();
 
-        $variantItemMap = ItemVariant::query()
-            ->whereIn('id', $variantIds->all())
-            ->pluck('item_id', 'id');
-
-        if ($variantItemMap->values()->contains((int) $parentItem->id)) {
-            return back()->withInput()->withErrors([
-                'components' => 'Komponen tidak boleh berasal dari Item Hasil.',
-            ]);
-        }
-
-        DB::transaction(function () use ($validated, $parentItem, $variantIds, $variantItemMap) {
-            // sync delete by variant_id
-            ManufactureRecipe::query()
+            $existing = ManufactureRecipe::query()
                 ->where('parent_item_id', $parentItem->id)
-                ->whereNotIn('component_variant_id', $variantIds->all())
-                ->delete();
+                ->get(['id', 'component_item_id', 'component_variant_id']);
 
-            foreach ($validated['components'] as $row) {
-                $vid = (int) $row['component_variant_id'];
+            // delete yang tidak ada lagi (composite-safe via token)
+            foreach ($existing as $ex) {
+                $token = $ex->component_variant_id
+                    ? "variant-{$ex->component_variant_id}"
+                    : "item-{$ex->component_item_id}";
 
+                if (!in_array($token, $desiredTokens, true)) {
+                    $ex->delete();
+                }
+            }
+
+            // upsert rows
+            foreach ($rows as $r) {
                 ManufactureRecipe::updateOrCreate(
                     [
                         'parent_item_id' => $parentItem->id,
-                        'component_variant_id' => $vid,
+                        'component_item_id' => (int) $r['component_item_id'],
+                        'component_variant_id' => $r['component_variant_id'],
                     ],
                     [
-                        'component_item_id' => (int) ($variantItemMap[$vid] ?? 0),
-                        'qty_required' => $row['qty_required'],
-                        'unit_factor'  => $row['unit_factor'] ?? null,
-                        'notes'        => $row['notes'] ?? null,
+                        'qty_required' => $r['qty_required'],
+                        'unit_factor'  => $r['unit_factor'],
+                        'notes'        => $r['notes'],
                     ]
                 );
             }
@@ -208,6 +253,7 @@ class ManufactureRecipeController extends Controller
     public function destroy(ManufactureRecipe $manufactureRecipe)
     {
         $manufactureRecipe->delete();
+
         return back()->with('success', 'Resep dihapus.');
     }
 }

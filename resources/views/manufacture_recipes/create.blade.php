@@ -120,46 +120,35 @@
     if (!selectEl || selectEl.tomselect) return;
 
     new TomSelect(selectEl, {
-      valueField: 'id',
-      labelField: 'text',
-      searchField: 'text',
+      valueField: 'uid',     // penting: unik item vs variant
+      labelField: 'name',    // tampilkan nama saja (tanpa sku)
+      searchField: 'name',
       maxItems: 1,
       create: false,
-
       preload: 'focus',
       openOnFocus: true,
       dropdownParent: 'body',
 
-      // IMPORTANT: force remote search per ketikan
-      loadThrottle: 300,
-      onType: function(str) {
-        // buang opsi hasil preload biar tidak “ngunci” di 20 data awal
-        this.clearOptions();
-        this.refreshOptions(false);
-        this.load(str);
+      render: {
+        option: function(item, escape) {
+          const name = escape(item.name || '');
+          return `<div>${item.type === 'variant' ? '- ' : ''}${name}</div>`;
+        },
+        item: function(item, escape) {
+          const name = escape(item.name || '');
+          return `<div>${item.type === 'variant' ? '- ' : ''}${name}</div>`;
+        }
       },
 
-      load: function (query, callback) {
+      load: function(query, callback) {
         const q = (query || '').trim();
-        fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`, {
-          credentials: 'same-origin',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json',
-          },
-          cache: 'no-store',
-        })
-          .then(r => r.text())
-          .then(t => {
-            const clean = t.replace(/^\uFEFF/, '').trimStart();
-            callback(JSON.parse(clean));
-          })
-          .catch((err) => {
-            console.error('Variant search failed:', err);
-            callback();
-          });
+        fetch(`/api/items/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' })
+          .then(r => r.json())
+          .then(data => callback(data))
+          .catch(() => callback());
       }
     });
+
 
   }
 
