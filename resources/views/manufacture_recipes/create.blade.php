@@ -19,7 +19,7 @@
         <select name="parent_item_id" class="form-select" required>
           @foreach($parentItems as $item)
             <option value="{{ $item->id }}">
-              {{ $item->name }}{{ $item->sku ? ' — '.$item->sku : '' }}
+              {{ $item->name }}
             </option>
           @endforeach
         </select>

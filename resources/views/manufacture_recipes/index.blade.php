@@ -56,7 +56,7 @@
                     <div class="d-flex flex-column">
                       <div class="fw-bold">{{ $kit->name }}</div>
                       <div class="text-muted small">
-                        SKU: {{ $kit->sku ?? '—' }}
+                        <span class="badge bg-azure-lt">Kit</span>
                         · Unit: {{ $kit->unit->name ?? '—' }}
                         · Brand: {{ $kit->brand->name ?? '—' }}
                       </div>
@@ -96,7 +96,6 @@
                         <tr>
                           <td>
                             {{ $r->componentVariant?->label ?? '—' }}
-                            <div class="text-muted small">SKU: {{ $r->componentVariant?->sku ?? '—' }}</div>
                           </td>
                           <td class="text-end">{{ number_format((float) $r->qty_required, 1) }}</td>
                           <td>{{ $r->notes ?: '—' }}</td>

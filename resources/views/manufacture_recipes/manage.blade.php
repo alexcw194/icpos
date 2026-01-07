@@ -12,7 +12,7 @@
         <div>
           <h3 class="card-title mb-0">Kelola Resep: {{ $parentItem->name }}</h3>
           <div class="text-muted small">
-            SKU: {{ $parentItem->sku ?? '—' }}
+            Kit / Bundle
           </div>
         </div>
 
@@ -47,7 +47,7 @@
                         data-item-id="{{ $v->item_id }}"
                         @selected($row && (int)$row->component_variant_id === (int)$v->id)
                       >
-                        {{ $v->label }}{{ $v->sku ? ' — '.$v->sku : '' }}
+                        {{ $v->label }}
                       </option>
                     @endforeach
                   </select>
