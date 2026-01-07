@@ -120,31 +120,45 @@
     if (!selectEl || selectEl.tomselect) return;
 
     new TomSelect(selectEl, {
-      valueField: 'uid',     // penting: unik item vs variant
-      labelField: 'name',    // tampilkan nama saja (tanpa sku)
+      valueField: 'uid',      // <-- penting
+      labelField: 'name',     // tampilkan nama
       searchField: 'name',
       maxItems: 1,
       create: false,
+
       preload: 'focus',
       openOnFocus: true,
       dropdownParent: 'body',
 
+      // UI: variant ada "-" di depan, item biasa tidak
       render: {
         option: function(item, escape) {
           const name = escape(item.name || '');
-          return `<div>${item.type === 'variant' ? '- ' : ''}${name}</div>`;
+          const prefix = item.type === 'variant' ? '- ' : '';
+          return `<div>${prefix}${name}</div>`;
         },
         item: function(item, escape) {
           const name = escape(item.name || '');
-          return `<div>${item.type === 'variant' ? '- ' : ''}${name}</div>`;
+          const prefix = item.type === 'variant' ? '- ' : '';
+          return `<div>${prefix}${name}</div>`;
         }
       },
 
       load: function(query, callback) {
         const q = (query || '').trim();
-        fetch(`/api/items/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' })
-          .then(r => r.json())
-          .then(data => callback(data))
+        fetch(`/api/items/search?q=${encodeURIComponent(q)}`, {
+          credentials: 'same-origin',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+          },
+          cache: 'no-store',
+        })
+          .then(r => r.text())
+          .then(t => {
+            const clean = t.replace(/^\uFEFF/, '').trimStart();
+            callback(JSON.parse(clean));
+          })
           .catch(() => callback());
       }
     });
