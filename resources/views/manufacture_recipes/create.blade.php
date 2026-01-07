@@ -126,18 +126,22 @@
       maxItems: 1,
       create: false,
 
-      // klik langsung keluar list
       preload: 'focus',
       openOnFocus: true,
-      shouldLoad: () => true,
-      minLength: 0,
       dropdownParent: 'body',
+
+      // IMPORTANT: force remote search per ketikan
+      loadThrottle: 300,
+      onType: function(str) {
+        // buang opsi hasil preload biar tidak “ngunci” di 20 data awal
+        this.clearOptions();
+        this.refreshOptions(false);
+        this.load(str);
+      },
 
       load: function (query, callback) {
         const q = (query || '').trim();
-        const url = `/api/item-variants/search?q=${encodeURIComponent(q)}`;
-
-        fetch(url, {
+        fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`, {
           credentials: 'same-origin',
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
@@ -147,24 +151,16 @@
         })
           .then(r => r.text())
           .then(t => {
-            // BOM-safe: buang UTF-8 BOM + spasi awal
             const clean = t.replace(/^\uFEFF/, '').trimStart();
-            let data = [];
-            try {
-              data = JSON.parse(clean);
-            } catch (e) {
-              console.error('[variant-picker] JSON parse fail:', e, clean);
-              callback();
-              return;
-            }
-            callback(Array.isArray(data) ? data : []);
+            callback(JSON.parse(clean));
           })
-          .catch(err => {
-            console.error('[variant-picker] fetch error:', err);
+          .catch((err) => {
+            console.error('Variant search failed:', err);
             callback();
           });
       }
     });
+
   }
 
   function reindex() {
