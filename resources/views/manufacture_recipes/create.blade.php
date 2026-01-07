@@ -113,24 +113,36 @@
   const btnAdd = document.getElementById('btnAddComponent');
   if (!tableBody || !btnAdd) return;
 
-  function initVariantPicker(el) {
-    if (!el) return;
-    if (el.tomselect) return;
+  function initVariantPicker(selectEl) {
+    if (!selectEl) return;
+    if (selectEl.tomselect) return;
 
-    new TomSelect(el, {
+    new TomSelect(selectEl, {
       valueField: 'id',
       labelField: 'text',
       searchField: 'text',
       maxItems: 1,
       create: false,
+
+      // biar klik langsung keluar list (recommended)
       preload: 'focus',
       openOnFocus: true,
-      load: function(query, callback) {
+      shouldLoad: () => true,
+      minLength: 0,
+      dropdownParent: 'body',
+
+      load: function (query, callback) {
         const q = (query || '').trim();
-        fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`)
-          .then(res => res.ok ? res.json() : Promise.reject(res))
-          .then(data => callback(data))
-          .catch(() => callback());
+        fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' })
+          .then(async (res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          })
+          .then((data) => callback(data))
+          .catch((err) => {
+            console.error('Variant search failed:', err);
+            callback();
+          });
       }
     });
   }
