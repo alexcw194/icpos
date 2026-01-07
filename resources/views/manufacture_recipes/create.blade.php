@@ -49,11 +49,9 @@
             {{-- DEFAULT ROW (index 0) --}}
             <tr class="component-row">
               <td>
-                <select
-                  name="components[0][component_variant_id]"
-                  class="form-select js-variant-picker"
-                  required
-                ></select>
+                <select class="form-select js-variant-picker" name="components[0][component_variant_id]" required>
+                  <option value="">Pilih variant…</option>
+                </select>
               </td>
 
               <td>
@@ -113,20 +111,32 @@
 (function () {
   const tableBody = document.querySelector('#componentsTable tbody');
   const btnAdd = document.getElementById('btnAddComponent');
+  if (!tableBody || !btnAdd) return;
 
-  function initVariantPicker(el) {
-    if (!el || el.tomselect) return;
+  // Ambil template row MENTAH sebelum TomSelect meng-wrap DOM
+  const templateRow = tableBody.querySelector('tr.component-row')?.cloneNode(true);
 
-    new TomSelect(el, {
+  function initVariantPicker(selectEl) {
+    if (!selectEl) return;
+    if (selectEl.tomselect) return;
+
+    new TomSelect(selectEl, {
       valueField: 'id',
       labelField: 'text',
       searchField: 'text',
       maxItems: 1,
-      preload: false,
       create: false,
+
+      // ini yang bikin “klik langsung ada list”
+      preload: 'focus',
+      openOnFocus: true,
+
+      // optional, supaya dropdown nggak kepotong container
+      dropdownParent: 'body',
+
       load: function(query, callback) {
-        if (!query.length) return callback();
-        fetch(`/api/item-variants/search?q=${encodeURIComponent(query)}`)
+        const q = (query || '').trim(); // boleh kosong
+        fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`)
           .then(res => res.json())
           .then(data => callback(data))
           .catch(() => callback());
@@ -138,7 +148,6 @@
     const rows = tableBody.querySelectorAll('tr.component-row');
     rows.forEach((row, i) => {
       row.querySelectorAll('select, input').forEach(el => {
-        if (!el.name) return;
         el.name = el.name.replace(/components\[\d+\]/, `components[${i}]`);
       });
 
@@ -147,30 +156,24 @@
     });
   }
 
-  // INIT existing row
-  tableBody
-    .querySelectorAll('.js-variant-picker')
-    .forEach(initVariantPicker);
+  // init row pertama
+  tableBody.querySelectorAll('.js-variant-picker').forEach(initVariantPicker);
 
   btnAdd.addEventListener('click', () => {
-    const firstRow = tableBody.querySelector('tr.component-row');
-    if (!firstRow) return;
+    if (!templateRow) return;
 
-    const newRow = firstRow.cloneNode(true);
+    const newRow = templateRow.cloneNode(true);
 
-    // reset input
+    // reset value
     newRow.querySelectorAll('input').forEach(i => i.value = '');
-
-    // reset select + destroy tomselect instance
     newRow.querySelectorAll('select').forEach(s => {
-      if (s.tomselect) s.tomselect.destroy();
-      s.innerHTML = '';
+      s.innerHTML = '<option value="">Pilih variant…</option>';
     });
 
     tableBody.appendChild(newRow);
 
-    // init tomselect again
-    initVariantPicker(newRow.querySelector('.js-variant-picker'));
+    // init tomselect di row baru
+    newRow.querySelectorAll('.js-variant-picker').forEach(initVariantPicker);
 
     reindex();
   });
@@ -181,7 +184,14 @@
     const rows = tableBody.querySelectorAll('tr.component-row');
     if (rows.length <= 1) return;
 
-    e.target.closest('tr.component-row').remove();
+    const row = e.target.closest('tr.component-row');
+
+    // destroy tomselect biar bersih
+    row.querySelectorAll('select').forEach(s => {
+      if (s.tomselect) s.tomselect.destroy();
+    });
+
+    row.remove();
     reindex();
   });
 
@@ -189,4 +199,5 @@
 })();
 </script>
 @endpush
+
 @endsection
