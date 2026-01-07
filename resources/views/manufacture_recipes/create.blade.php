@@ -38,7 +38,7 @@
         <table class="table table-sm align-middle" id="componentsTable">
           <thead>
             <tr>
-              <th style="width:55%">Variant</th>
+              <th style="width:55%">Item/Variant</th>
               <th class="text-end" style="width:20%">Qty</th>
               <th style="width:20%">Catatan</th>
               <th class="text-end" style="width:5%"></th>
@@ -50,7 +50,7 @@
             <tr class="component-row">
               <td>
                 <select name="components[0][component_variant_id]" class="form-select js-variant-picker" required>
-                  <option value="">Pilih variant…</option>
+                  <option value="">Pilih item/variant…</option>
                 </select>
               </td>
 
@@ -132,15 +132,14 @@
 
       // UI: variant ada "-" di depan, item biasa tidak
       render: {
-        option: function(item, escape) {
-          const name = escape(item.name || '');
+        // Dropdown list: variant pakai prefix "- "
+        option(item, escape) {
           const prefix = item.type === 'variant' ? '- ' : '';
-          return `<div>${prefix}${name}</div>`;
+          return `<div>${escape(prefix + item.name)}</div>`;
         },
-        item: function(item, escape) {
-          const name = escape(item.name || '');
-          const prefix = item.type === 'variant' ? '- ' : '';
-          return `<div>${prefix}${name}</div>`;
+        // Selected value: TANPA prefix
+        item(item, escape) {
+          return `<div>${escape(item.name)}</div>`;
         }
       },
 
@@ -192,7 +191,7 @@
     newRow.querySelectorAll('input').forEach(i => i.value = '');
     newRow.querySelectorAll('select').forEach(s => {
       // pastikan select mentah
-      s.innerHTML = '<option value="">Pilih variant…</option>';
+      s.innerHTML = '<option value="">Pilih item/variant…</option>';
     });
 
     tableBody.appendChild(newRow);

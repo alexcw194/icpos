@@ -386,10 +386,6 @@ class ItemController extends Controller
                 $attrsText = collect($attrs)->map(fn($val, $key) => ucfirst($key).': '.$val)->implode(' · ');
 
                 $displayLabel = $label;
-                if ($attrsText !== '') {
-                    $displayLabel .= ' ('.$attrsText.')';
-                }
-
                 $price = (float) (($v->price ?? null) !== null ? $v->price : $it->price);
                 $sku   = $v->sku ?: $it->sku;
 

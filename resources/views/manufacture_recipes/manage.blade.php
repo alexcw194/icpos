@@ -73,7 +73,7 @@
                   $uid = 'variant-' . $r->component_variant_id;
 
                   // Label variant (fallback aman)
-                  $text = '- ' . (
+                  $text = (
                     optional($r->componentVariant)->label
                     ?? optional(optional($r->componentVariant)->item)->name
                     ?? ('Variant #' . $r->component_variant_id)
@@ -121,6 +121,9 @@
                     $selectedUid = $row['component_variant_id'] ?? '';
                     $selectedLabel = $row['_label'] ?? '';
                     $qty = $row['qty_required'] ?? '';
+                    if ($qty !== '' && is_numeric($qty)) {
+                      $qty = number_format((float) $qty, 1, '.', '');
+                    }
                     $notes = $row['notes'] ?? '';
                   @endphp
 
@@ -272,13 +275,16 @@
 
       // Render dropdown tanpa SKU
       render: {
-        option: function (item, escape) {
-          return `<div>${escape(item.name || item.label || '')}</div>`;
+          // Dropdown list: variant pakai prefix "- "
+          option(item, escape) {
+            const prefix = item.type === 'variant' ? '- ' : '';
+            return `<div>${escape(prefix + item.name)}</div>`;
+          },
+          // Selected value: TANPA prefix
+          item(item, escape) {
+            return `<div>${escape(item.name)}</div>`;
+          },
         },
-        item: function (item, escape) {
-          return `<div>${escape(item.name || item.label || '')}</div>`;
-        }
-      },
 
       onChange: function (val) {
         // Guard: jangan boleh ambil item hasil sebagai komponen
