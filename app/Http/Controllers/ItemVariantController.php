@@ -71,25 +71,26 @@ class ItemVariantController extends Controller
         $q = trim((string) $request->get('q'));
 
         $variants = ItemVariant::query()
-            ->with(['item', 'size', 'color'])
+            ->with(['item'])
             ->when($q !== '', function ($qq) use ($q) {
-                $qq->whereHas('item', fn($i) =>
+                $qq->whereHas('item', fn ($i) =>
                     $i->where('name', 'like', "%{$q}%")
                 );
             })
-            ->limit(200) // ambil agak banyak, nanti disort + dipotong
+            ->limit(200)               // ambil lebih banyak dulu
             ->get()
-            ->sortBy(fn($v) => mb_strtolower($v->label, 'UTF-8'))
+            ->sortBy(fn ($v) => mb_strtolower($v->label, 'UTF-8')) // sort pakai accessor label
             ->values()
             ->take(20)
-            ->map(fn($v) => [
+            ->map(fn ($v) => [
                 'id'   => $v->id,
-                'text' => $v->label,
+                'text' => $v->label,    // no SKU
             ])
             ->values();
 
         return response()->json($variants);
-}
+    }
+
 
 
     public function edit(ItemVariant $variant)

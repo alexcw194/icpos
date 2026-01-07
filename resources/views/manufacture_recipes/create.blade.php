@@ -130,7 +130,7 @@
       openOnFocus: true,
       load: function(query, callback) {
         const q = (query || '').trim(); // boleh kosong
-        fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`)
+        fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' })
           .then(res => res.ok ? res.json() : Promise.reject(res))
           .then(data => callback(data))
           .catch(() => callback());
