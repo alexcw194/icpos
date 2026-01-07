@@ -66,6 +66,27 @@ class ItemVariantController extends Controller
             ->with('success', 'Variant created: ' . $variant->label);
     }
 
+    public function quickSearch(Request $request)
+    {
+        $q = trim((string) $request->get('q'));
+
+        $variants = ItemVariant::query()
+            ->with(['item','size','color'])
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->whereHas('item', fn($i) =>
+                    $i->where('name', 'like', "%{$q}%")
+                );
+            })
+            ->orderBy('label')
+            ->limit(20)
+            ->get();
+
+        return $variants->map(fn ($v) => [
+            'id'   => $v->id,
+            'text' => $v->label, // ✅ CLEAN, NO SKU
+        ]);
+    }
+
     public function edit(ItemVariant $variant)
     {
         $variant->load('item');

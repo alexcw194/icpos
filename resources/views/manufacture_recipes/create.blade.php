@@ -51,16 +51,9 @@
               <td>
                 <select
                   name="components[0][component_variant_id]"
-                  class="form-select component-select"
+                  class="form-select js-variant-picker"
                   required
-                >
-                  @foreach($componentVariants as $variant)
-                    <option value="{{ $variant->id }}" data-item-id="{{ $variant->item_id }}">
-                      {{ $variant->sku ?? '—' }}
-                      — {{ $variant->item->name }}
-                    </option>
-                  @endforeach
-                </select>
+                ></select>
               </td>
 
               <td>
@@ -115,31 +108,70 @@
 </form>
 
 {{-- JS --}}
+@push('scripts')
 <script>
 (function () {
   const tableBody = document.querySelector('#componentsTable tbody');
   const btnAdd = document.getElementById('btnAddComponent');
 
+  function initVariantPicker(el) {
+    if (!el || el.tomselect) return;
+
+    new TomSelect(el, {
+      valueField: 'id',
+      labelField: 'text',
+      searchField: 'text',
+      maxItems: 1,
+      preload: false,
+      create: false,
+      load: function(query, callback) {
+        if (!query.length) return callback();
+        fetch(`/api/item-variants/search?q=${encodeURIComponent(query)}`)
+          .then(res => res.json())
+          .then(data => callback(data))
+          .catch(() => callback());
+      }
+    });
+  }
+
   function reindex() {
     const rows = tableBody.querySelectorAll('tr.component-row');
     rows.forEach((row, i) => {
       row.querySelectorAll('select, input').forEach(el => {
+        if (!el.name) return;
         el.name = el.name.replace(/components\[\d+\]/, `components[${i}]`);
       });
 
       const btnRemove = row.querySelector('.btnRemoveRow');
-      btnRemove.disabled = (rows.length === 1);
+      if (btnRemove) btnRemove.disabled = (rows.length === 1);
     });
   }
 
+  // INIT existing row
+  tableBody
+    .querySelectorAll('.js-variant-picker')
+    .forEach(initVariantPicker);
+
   btnAdd.addEventListener('click', () => {
     const firstRow = tableBody.querySelector('tr.component-row');
+    if (!firstRow) return;
+
     const newRow = firstRow.cloneNode(true);
 
+    // reset input
     newRow.querySelectorAll('input').forEach(i => i.value = '');
-    newRow.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+
+    // reset select + destroy tomselect instance
+    newRow.querySelectorAll('select').forEach(s => {
+      if (s.tomselect) s.tomselect.destroy();
+      s.innerHTML = '';
+    });
 
     tableBody.appendChild(newRow);
+
+    // init tomselect again
+    initVariantPicker(newRow.querySelector('.js-variant-picker'));
+
     reindex();
   });
 
@@ -156,4 +188,5 @@
   reindex();
 })();
 </script>
+@endpush
 @endsection

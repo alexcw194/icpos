@@ -119,6 +119,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/invoices/{invoice}/mark-paid', [\App\Http\Controllers\InvoiceController::class, 'markPaid'])
         ->name('invoices.mark-paid');
 
+    Route::get('/api/item-variants/search', [ItemVariantController::class, 'quickSearch'])
+        ->name('item-variants.search');
+
     // =======================
     // Sales Orders
     // =======================
