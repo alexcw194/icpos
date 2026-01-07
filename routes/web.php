@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
@@ -30,9 +30,10 @@ use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Controllers\Auth\PasswordController;
+use Illuminate\Support\Facades\Auth;
 
 // Root -> arahkan ke dashboard/login
-Route::get('/', fn () => auth()->check()
+Route::get('/', fn () => Auth::check()
     ? redirect()->route('dashboard')
     : redirect()->route('login')
 );

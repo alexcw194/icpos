@@ -113,9 +113,11 @@
   const btnAdd = document.getElementById('btnAddComponent');
   if (!tableBody || !btnAdd) return;
 
+  // Simpan template row MENTAH (sebelum TomSelect wrap DOM)
+  const templateRow = tableBody.querySelector('tr.component-row')?.cloneNode(true);
+
   function initVariantPicker(selectEl) {
-    if (!selectEl) return;
-    if (selectEl.tomselect) return;
+    if (!selectEl || selectEl.tomselect) return;
 
     new TomSelect(selectEl, {
       valueField: 'id',
@@ -124,7 +126,7 @@
       maxItems: 1,
       create: false,
 
-      // biar klik langsung keluar list (recommended)
+      // klik langsung keluar list
       preload: 'focus',
       openOnFocus: true,
       shouldLoad: () => true,
@@ -133,25 +135,92 @@
 
       load: function (query, callback) {
         const q = (query || '').trim();
-        fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' })
-          .then(async (res) => {
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res.json();
+        const url = `/api/item-variants/search?q=${encodeURIComponent(q)}`;
+
+        fetch(url, {
+          credentials: 'same-origin',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+          },
+          cache: 'no-store',
+        })
+          .then(r => r.text())
+          .then(t => {
+            // BOM-safe: buang UTF-8 BOM + spasi awal
+            const clean = t.replace(/^\uFEFF/, '').trimStart();
+            let data = [];
+            try {
+              data = JSON.parse(clean);
+            } catch (e) {
+              console.error('[variant-picker] JSON parse fail:', e, clean);
+              callback();
+              return;
+            }
+            callback(Array.isArray(data) ? data : []);
           })
-          .then((data) => callback(data))
-          .catch((err) => {
-            console.error('Variant search failed:', err);
+          .catch(err => {
+            console.error('[variant-picker] fetch error:', err);
             callback();
           });
       }
     });
   }
 
+  function reindex() {
+    const rows = tableBody.querySelectorAll('tr.component-row');
+    rows.forEach((row, i) => {
+      row.querySelectorAll('select, input').forEach(el => {
+        if (!el.name) return;
+        el.name = el.name.replace(/components\[\d+\]/, `components[${i}]`);
+      });
+
+      const btnRemove = row.querySelector('.btnRemoveRow');
+      if (btnRemove) btnRemove.disabled = (rows.length === 1);
+    });
+  }
+
   // init row pertama
   tableBody.querySelectorAll('.js-variant-picker').forEach(initVariantPicker);
+  reindex();
 
+  btnAdd.addEventListener('click', () => {
+    if (!templateRow) return;
+
+    const newRow = templateRow.cloneNode(true);
+
+    // reset fields
+    newRow.querySelectorAll('input').forEach(i => i.value = '');
+    newRow.querySelectorAll('select').forEach(s => {
+      // pastikan select mentah
+      s.innerHTML = '<option value="">Pilih variant…</option>';
+    });
+
+    tableBody.appendChild(newRow);
+
+    // init tomselect untuk row baru
+    newRow.querySelectorAll('.js-variant-picker').forEach(initVariantPicker);
+
+    reindex();
+  });
+
+  tableBody.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('btnRemoveRow')) return;
+
+    const rows = tableBody.querySelectorAll('tr.component-row');
+    if (rows.length <= 1) return;
+
+    const row = e.target.closest('tr.component-row');
+
+    // destroy tomselect sebelum remove
+    row.querySelectorAll('select').forEach(s => {
+      if (s.tomselect) s.tomselect.destroy();
+    });
+
+    row.remove();
+    reindex();
+  });
 })();
 </script>
 @endpush
-
 @endsection
