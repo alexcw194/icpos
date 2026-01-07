@@ -113,12 +113,9 @@
   const btnAdd = document.getElementById('btnAddComponent');
   if (!tableBody || !btnAdd) return;
 
-  // Ambil template row MENTAH sebelum TomSelect meng-wrap DOM
-  const templateRow = tableBody.querySelector('tr.component-row')?.cloneNode(true);
-
-  function initVariantPicker(selectEl) {
-    if (!selectEl) return;
-    if (selectEl.tomselect) return;
+  function initVariantPicker(el) {
+    if (!el) return;
+    if (el.tomselect) return;
 
     new TomSelect(el, {
       valueField: 'id',
@@ -129,8 +126,8 @@
       preload: 'focus',
       openOnFocus: true,
       load: function(query, callback) {
-        const q = (query || '').trim(); // boleh kosong
-        fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' })
+        const q = (query || '').trim();
+        fetch(`/api/item-variants/search?q=${encodeURIComponent(q)}`)
           .then(res => res.ok ? res.json() : Promise.reject(res))
           .then(data => callback(data))
           .catch(() => callback());
@@ -138,58 +135,9 @@
     });
   }
 
-  function reindex() {
-    const rows = tableBody.querySelectorAll('tr.component-row');
-    rows.forEach((row, i) => {
-      row.querySelectorAll('select, input').forEach(el => {
-        el.name = el.name.replace(/components\[\d+\]/, `components[${i}]`);
-      });
-
-      const btnRemove = row.querySelector('.btnRemoveRow');
-      if (btnRemove) btnRemove.disabled = (rows.length === 1);
-    });
-  }
-
   // init row pertama
   tableBody.querySelectorAll('.js-variant-picker').forEach(initVariantPicker);
 
-  btnAdd.addEventListener('click', () => {
-    if (!templateRow) return;
-
-    const newRow = templateRow.cloneNode(true);
-
-    // reset value
-    newRow.querySelectorAll('input').forEach(i => i.value = '');
-    newRow.querySelectorAll('select').forEach(s => {
-      s.innerHTML = '<option value="">Pilih variant…</option>';
-    });
-
-    tableBody.appendChild(newRow);
-
-    // init tomselect di row baru
-    newRow.querySelectorAll('.js-variant-picker').forEach(initVariantPicker);
-
-    reindex();
-  });
-
-  tableBody.addEventListener('click', (e) => {
-    if (!e.target.classList.contains('btnRemoveRow')) return;
-
-    const rows = tableBody.querySelectorAll('tr.component-row');
-    if (rows.length <= 1) return;
-
-    const row = e.target.closest('tr.component-row');
-
-    // destroy tomselect biar bersih
-    row.querySelectorAll('select').forEach(s => {
-      if (s.tomselect) s.tomselect.destroy();
-    });
-
-    row.remove();
-    reindex();
-  });
-
-  reindex();
 })();
 </script>
 @endpush
