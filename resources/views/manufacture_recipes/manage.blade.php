@@ -275,16 +275,13 @@
 
       // Render dropdown tanpa SKU
       render: {
-          // Dropdown list: variant pakai prefix "- "
-          option(item, escape) {
-            const prefix = item.type === 'variant' ? '- ' : '';
-            return `<div>${escape(prefix + item.name)}</div>`;
-          },
-          // Selected value: TANPA prefix
-          item(item, escape) {
-            return `<div>${escape(item.name)}</div>`;
-          },
+        option(item, escape) {
+          return `<div>${escape(item.name)}</div>`;
         },
+        item(item, escape) {
+          return `<div>${escape(item.name)}</div>`;
+        },
+      },
 
       onChange: function (val) {
         // Guard: jangan boleh ambil item hasil sebagai komponen

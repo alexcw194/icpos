@@ -132,12 +132,9 @@
 
       // UI: variant ada "-" di depan, item biasa tidak
       render: {
-        // Dropdown list: variant pakai prefix "- "
         option(item, escape) {
-          const prefix = item.type === 'variant' ? '- ' : '';
-          return `<div>${escape(prefix + item.name)}</div>`;
+          return `<div>${escape(item.name)}</div>`;
         },
-        // Selected value: TANPA prefix
         item(item, escape) {
           return `<div>${escape(item.name)}</div>`;
         }
