@@ -43,7 +43,7 @@ class ManufactureRecipeController extends Controller
             ->with([
                 'manufactureRecipes' => function ($r) {
                     $r->with(['componentVariant.item', 'componentItem'])
-                      ->orderByRaw('COALESCE(component_variant_id, 0) asc, COALESCE(component_item_id, 0) asc');
+                        ->orderByRaw('COALESCE(component_variant_id, 0) asc, COALESCE(component_item_id, 0) asc');
                 }
             ])
             ->orderBy('name')
@@ -57,6 +57,7 @@ class ManufactureRecipeController extends Controller
     {
         $parentItems = Item::query()
             ->whereIn('item_type', $this->kitTypes())
+            ->whereDoesntHave('manufactureRecipes') // hanya kit/bundle yang belum punya resep
             ->orderBy('name')
             ->get();
 
@@ -94,6 +95,13 @@ class ManufactureRecipeController extends Controller
 
         $parentId = (int) $validated['parent_item_id'];
 
+        // guard: kalau sudah ada resep, flow-nya lewat Manage/Bulk Update (konsisten)
+        if (ManufactureRecipe::query()->where('parent_item_id', $parentId)->exists()) {
+            return redirect()
+                ->route('manufacture-recipes.manage', $parentId)
+                ->with('success', 'Resep untuk item ini sudah ada. Silakan kelola di halaman ini.');
+        }
+
         $this->syncRecipe($parentId, $validated['components']);
 
         return redirect()
@@ -123,13 +131,13 @@ class ManufactureRecipeController extends Controller
     private function syncRecipe(int $parentId, array $rows): void
     {
         // normalize uids
-        $uids = collect($rows)->pluck('component_variant_id')->map(fn($v) => trim((string)$v));
+        $uids = collect($rows)->pluck('component_variant_id')->map(fn ($v) => trim((string) $v));
 
         if ($uids->count() !== $uids->unique()->count()) {
             abort(422, 'Komponen tidak boleh duplikat dalam satu resep.');
         }
 
-        $parsed = $uids->map(fn($uid) => ['uid' => $uid] + $this->parseUid($uid));
+        $parsed = $uids->map(fn ($uid) => ['uid' => $uid] + $this->parseUid($uid));
 
         $itemIds = $parsed->where('type', 'item')->pluck('id')->values();
         $variantIds = $parsed->where('type', 'variant')->pluck('id')->values();
@@ -171,7 +179,7 @@ class ManufactureRecipeController extends Controller
                 ->delete();
 
             foreach ($rows as $row) {
-                $uid = trim((string)($row['component_variant_id'] ?? ''));
+                $uid = trim((string) ($row['component_variant_id'] ?? ''));
                 $p = $this->parseUid($uid);
 
                 $payload = [
@@ -208,6 +216,7 @@ class ManufactureRecipeController extends Controller
     public function destroy(ManufactureRecipe $manufactureRecipe)
     {
         $manufactureRecipe->delete();
+
         return back()->with('success', 'Resep dihapus.');
     }
 }
