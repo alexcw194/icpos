@@ -12,7 +12,14 @@
           <button type="button" class="btn btn-outline-primary {{ $viewMode === 'flat' ? 'active' : '' }}" data-view="flat">Flat List</button>
           <button type="button" class="btn btn-outline-primary {{ $viewMode === 'grouped' ? 'active' : '' }}" data-view="grouped">Grouped</button>
         </div>
-        <a href="{{ route('items.create', ['r' => request()->fullUrl()]) }}" class="btn btn-primary">+ Add Item</a>
+       {{-- items/index.blade.php --}}
+        <a
+          href="{{ route('items.create', ['modal' => 1, 'r' => request()->fullUrl()]) }}"
+          class="btn btn-primary"
+          data-modal="#adminModal"
+        >
+          Add Item
+        </a>
       </div>
     </div>
 
@@ -163,62 +170,98 @@
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-  const toggleWrap = document.getElementById('inventory-view-toggle');
-  const filterForm = document.getElementById('inventory-filter-form');
-  const hiddenView = filterForm ? filterForm.querySelector('input[name="view"]') : null;
+(function () {
+  const MODAL_ID = 'adminModal';
 
-  if (toggleWrap) {
-    toggleWrap.querySelectorAll('button[data-view]').forEach(btn => {
-      btn.addEventListener('click', function () {
-        const mode = this.dataset.view;
-        if (!mode) return;
-        try { localStorage.setItem('inventoryViewMode', mode); } catch (e) {}
-        if (hiddenView) hiddenView.value = mode;
-        const url = new URL(window.location.href);
-        url.searchParams.set('view', mode);
-        window.location = url.toString();
-      });
-    });
+  function ensureAdminModal() {
+    if (document.getElementById(MODAL_ID)) return;
+
+    document.body.insertAdjacentHTML('beforeend', `
+      <div class="modal modal-blur fade" id="${MODAL_ID}" tabindex="-1" aria-hidden="true">
+        <div id="adminModalBody"></div>
+      </div>
+    `);
   }
 
-  try {
-    const storedMode = localStorage.getItem('inventoryViewMode');
-    if (storedMode && storedMode !== '{{ $viewMode }}') {
-      const url = new URL(window.location.href);
-      if (url.searchParams.get('view') !== storedMode) {
-        url.searchParams.set('view', storedMode);
-        window.location.replace(url.toString());
-        return;
+  async function openAdminModal(url) {
+    ensureAdminModal();
+
+    const body = document.getElementById('adminModalBody');
+    body.innerHTML = `
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-body text-center py-6">
+            <div class="spinner-border text-muted" role="status"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const el = document.getElementById(MODAL_ID);
+    const modal = bootstrap.Modal.getOrCreateInstance(el);
+    modal.show();
+
+    const res = await fetch(url, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'text/html'
       }
+    });
+
+    body.innerHTML = await res.text();
+    initItemModalEnhancements();
+  }
+
+  // Optional: formatting price agar konsisten dengan create page yang sudah punya formatter :contentReference[oaicite:5]{index=5}
+  function initItemModalEnhancements() {
+    const price = document.querySelector('#itemModalForm input[name="price"]');
+    if (price && !price.dataset.bound) {
+      price.dataset.bound = '1';
+      price.addEventListener('input', () => {
+        const raw = String(price.value || '').replace(/[^\d]/g, '');
+        price.value = raw ? Number(raw).toLocaleString('id-ID') : '';
+      });
     }
-  } catch (e) {}
-
-  if (window.TomSelect) {
-    document.querySelectorAll('.inventory-select').forEach(el => {
-      new TomSelect(el, {
-        plugins: ['remove_button'],
-        persist: false,
-        create: false,
-        sortField: { field: '$order' }
-      });
-    });
   }
 
-  const variantToggle = document.getElementById('toggleVariantParent');
-  if (variantToggle && filterForm) {
-    variantToggle.addEventListener('change', () => {
-      const data = new FormData(filterForm);
-      if (variantToggle.checked) {
-        data.set('show_variant_parent', '1');
-      } else {
-        data.delete('show_variant_parent');
+  // Open modal on click
+  document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('[data-modal="#adminModal"]');
+    if (!trigger) return;
+    e.preventDefault();
+    openAdminModal(trigger.href);
+  });
+
+  // Submit modal form via AJAX; handle 422 (validation) by re-rendering modal HTML
+  document.addEventListener('submit', async (e) => {
+    const form = e.target;
+    if (form.id !== 'itemModalForm') return;
+
+    e.preventDefault();
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    const res = await fetch(form.action, {
+      method: (form.method || 'POST').toUpperCase(),
+      body: new FormData(form),
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'text/html'
       }
-      data.set('view', '{{ $viewMode }}');
-      const params = new URLSearchParams(data);
-      window.location = `${filterForm.action || window.location.pathname}?${params.toString()}`;
     });
-  }
-});
+
+    if (res.redirected) {
+      window.location.href = res.url;
+      return;
+    }
+
+    const html = await res.text();
+    document.getElementById('adminModalBody').innerHTML = html;
+    initItemModalEnhancements();
+
+    if (submitBtn) submitBtn.disabled = false;
+  });
+})();
 </script>
 @endpush

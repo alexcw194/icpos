@@ -12,6 +12,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class ItemController extends Controller
 {
@@ -91,7 +93,7 @@ class ItemController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $units  = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
         $brands = Brand::orderBy('name')->get(['id','name']);
@@ -99,19 +101,28 @@ class ItemController extends Controller
         $sizes  = Size::active()->ordered()->get(['id','name']);
         $colors = Color::active()->ordered()->get(['id','name','hex']);
 
-        // Parent/family
-        $parents = Item::orderBy('name')
-            ->when(isset($item), fn($q) => $q->whereKeyNot($item->id))
-            ->get(['id','name']);
+        $parents = Item::orderBy('name')->get(['id','name']);
         $familyCodes = Item::whereNotNull('family_code')
             ->orderBy('family_code')->distinct()->pluck('family_code');
 
-        return view('items.create', compact('sizes','colors','units','brands','defaultUnitId','parents','familyCodes'));
+        $item = new Item();
+
+        if ($request->ajax() && $request->boolean('modal')) {
+            return view('items._modal_create', compact(
+                'item','sizes','colors','units','brands','defaultUnitId','parents','familyCodes'
+            ));
+        }
+
+        return view('items.create', compact(
+            'sizes','colors','units','brands','defaultUnitId','parents','familyCodes'
+        ));
     }
 
     public function store(Request $request)
     {
         $returnUrl = $this->safeReturnUrl($request->input('r')) ?? route('items.index');
+
+        $isModal = ($request->ajax() && $request->boolean('modal'));
 
         // Default unit ke PCS jika kosong
         if (!$request->filled('unit_id')) {
@@ -127,28 +138,71 @@ class ItemController extends Controller
             'length_per_piece'    => $this->normalizeLengthValue($request->input('length_per_piece')),
         ]);
 
-        $data = $request->validate([
-            'name'        => ['required','string','max:255'],
-            'sku'         => ['nullable','string','max:255','unique:items,sku'],
-            'description' => ['nullable','string'],
-            'price'       => ['required','numeric'],
-            'stock'       => ['required','integer','min:0'],
-            'unit_id'     => ['required', Rule::exists('units','id')->where('is_active', 1)],
-            'brand_id'    => ['nullable','exists:brands,id'],
+        $rules = [
+            'name'        => ['required', 'string', 'max:255'],
+            'sku'         => ['nullable', 'string', 'max:255', 'unique:items,sku'],
+            'description' => ['nullable', 'string'],
+            'price'       => ['required', 'numeric'],
+            'stock'       => ['required', 'integer', 'min:0'],
+            'unit_id'     => ['required', Rule::exists('units', 'id')->where('is_active', 1)],
+            'brand_id'    => ['nullable', 'exists:brands,id'],
 
-            'item_type'           => ['required','in:standard,kit,cut_raw,cut_piece'],
-            'parent_id'           => ['nullable','exists:items,id'],
-            'family_code'         => ['nullable','string','max:50'],
-            'sellable'            => ['nullable','boolean'],
-            'purchasable'         => ['nullable','boolean'],
-            'default_roll_length' => ['nullable','numeric','min:0','required_if:item_type,cut_raw'],
-            'length_per_piece'    => ['nullable','numeric','min:0','required_if:item_type,cut_piece'],
+            'item_type'           => ['required', 'in:standard,kit,cut_raw,cut_piece'],
+            'parent_id'           => ['nullable', 'exists:items,id'],
+            'family_code'         => ['nullable', 'string', 'max:50'],
+            'sellable'            => ['nullable', 'boolean'],
+            'purchasable'         => ['nullable', 'boolean'],
+            'default_roll_length' => ['nullable', 'numeric', 'min:0', 'required_if:item_type,cut_raw'],
+            'length_per_piece'    => ['nullable', 'numeric', 'min:0', 'required_if:item_type,cut_piece'],
 
-            'attr_size'  => ['nullable','string','max:50'],
-            'attr_color' => ['nullable','string','max:50'],
-            'size_id'    => ['nullable','exists:sizes,id'],
-            'color_id'   => ['nullable','exists:colors,id'],
-        ]);
+            'attr_size'  => ['nullable', 'string', 'max:50'],
+            'attr_color' => ['nullable', 'string', 'max:50'],
+            'size_id'    => ['nullable', 'exists:sizes,id'],
+            'color_id'   => ['nullable', 'exists:colors,id'],
+        ];
+
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), $rules);
+
+        if ($validator->fails()) {
+            if ($isModal) {
+                // siapkan data yang dibutuhkan view modal
+                $units  = Unit::active()->orderBy('code')->get(['id', 'code', 'name', 'is_active']);
+                $brands = Brand::orderBy('name')->get(['id', 'name']);
+                $defaultUnitId = Unit::whereRaw('LOWER(code) = ?', ['pcs'])->value('id');
+
+                $sizes  = Size::active()->ordered()->get(['id', 'name']);
+                $colors = Color::active()->ordered()->get(['id', 'name', 'hex']);
+
+                $parents = Item::orderBy('name')->get(['id', 'name']);
+                $familyCodes = Item::whereNotNull('family_code')
+                    ->orderBy('family_code')
+                    ->distinct()
+                    ->pluck('family_code');
+
+                $item = new Item();
+
+                // keep old input di modal
+                session()->flashInput($request->input());
+
+                return response()
+                    ->view('items._modal_create', compact(
+                        'item',
+                        'sizes',
+                        'colors',
+                        'units',
+                        'brands',
+                        'defaultUnitId',
+                        'parents',
+                        'familyCodes'
+                    ))
+                    ->withErrors($validator)
+                    ->setStatusCode(422);
+            }
+
+            throw new \Illuminate\Validation\ValidationException($validator);
+        }
+
+        $data = $validator->validated();
 
         // Attributes JSON
         $attrs = [];
@@ -165,10 +219,44 @@ class ItemController extends Controller
             $item = $this->runWithAutoGeneratedSkuRetry($skuProvided, function () use ($data) {
                 return Item::create($data);
             });
-        } catch (QueryException $e) {
+        } catch (\Illuminate\Database\QueryException $e) {
             if ($this->isDuplicateSkuException($e)) {
+                if ($isModal) {
+                    $units  = Unit::active()->orderBy('code')->get(['id', 'code', 'name', 'is_active']);
+                    $brands = Brand::orderBy('name')->get(['id', 'name']);
+                    $defaultUnitId = Unit::whereRaw('LOWER(code) = ?', ['pcs'])->value('id');
+
+                    $sizes  = Size::active()->ordered()->get(['id', 'name']);
+                    $colors = Color::active()->ordered()->get(['id', 'name', 'hex']);
+
+                    $parents = Item::orderBy('name')->get(['id', 'name']);
+                    $familyCodes = Item::whereNotNull('family_code')
+                        ->orderBy('family_code')
+                        ->distinct()
+                        ->pluck('family_code');
+
+                    $item = new Item();
+
+                    session()->flashInput($request->input());
+
+                    return response()
+                        ->view('items._modal_create', compact(
+                            'item',
+                            'sizes',
+                            'colors',
+                            'units',
+                            'brands',
+                            'defaultUnitId',
+                            'parents',
+                            'familyCodes'
+                        ))
+                        ->withErrors(['sku' => 'SKU sudah digunakan, silakan gunakan kode lain.'])
+                        ->setStatusCode(422);
+                }
+
                 return back()->withInput()->withErrors(['sku' => 'SKU sudah digunakan, silakan gunakan kode lain.']);
             }
+
             throw $e;
         }
 
@@ -188,6 +276,7 @@ class ItemController extends Controller
 
         return redirect()->to($returnUrl)->with('success', 'Item created!');
     }
+
 
     public function show(Item $item)
     {
