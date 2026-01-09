@@ -184,6 +184,10 @@
   }
 
   async function openAdminModal(url) {
+      if (!url || typeof url !== 'string') {
+      console.warn('openAdminModal called with invalid url', url);
+      return;
+    }
     ensureAdminModal();
 
     const body = document.getElementById('adminModalBody');
@@ -225,11 +229,19 @@
   }
 
   // Open modal on click
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', async (e) => {
     const trigger = e.target.closest('[data-modal="#adminModal"]');
     if (!trigger) return;
+
     e.preventDefault();
-    openAdminModal(trigger.href);
+
+    const url = trigger.getAttribute('href') || trigger.dataset.url; // <- string
+    if (!url || typeof url !== 'string') {
+      console.warn('Modal URL invalid', { url, trigger });
+      return;
+    }
+
+    openAdminModal(url);
   });
 
   // Submit modal form via AJAX; handle 422 (validation) by re-rendering modal HTML

@@ -105,7 +105,10 @@ class ItemController extends Controller
         $familyCodes = Item::whereNotNull('family_code')
             ->orderBy('family_code')->distinct()->pluck('family_code');
 
-        $item = new Item();
+        $item = new Item([
+        'sellable' => true,
+        'purchasable' => true,
+        ]);
 
         if ($request->ajax() && $request->boolean('modal')) {
             return view('items._modal_create', compact(
