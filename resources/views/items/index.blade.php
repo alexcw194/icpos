@@ -245,9 +245,9 @@
   });
 
   // Submit modal form via AJAX; handle 422 (validation) by re-rendering modal HTML
-  document.addEventListener('submit', async (e) => {
+  document.addEventListener('submit', async function (e) {
     const form = e.target;
-    if (form.id !== 'itemModalForm') return;
+    if (!form || form.id !== 'itemModalForm') return;
 
     e.preventDefault();
 
@@ -255,23 +255,44 @@
     if (submitBtn) submitBtn.disabled = true;
 
     const res = await fetch(form.action, {
-      method: (form.method || 'POST').toUpperCase(),
-      body: new FormData(form),
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        'Accept': 'text/html'
-      }
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: new FormData(form)
     });
 
-    if (res.redirected) {
-      window.location.href = res.url;
+    // Validation error (Blade modal body)
+    if (res.status === 422) {
+      const html = await res.text();
+      document.getElementById('adminModalBody').innerHTML = html;
+      if (submitBtn) submitBtn.disabled = false;
       return;
     }
 
+    if (res.ok) {
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+
+      // SUCCESS via JSON contract
+      if (ct.includes('application/json')) {
+        const data = await res.json();
+        if (data.redirect_url) {
+          window.location = data.redirect_url;
+          return;
+        }
+      }
+
+      // fallback
+      if (res.redirected) {
+        window.location = res.url;
+        return;
+      }
+
+      window.location.reload();
+      return;
+    }
+
+    // Non-OK: render response to modal for visibility
     const html = await res.text();
     document.getElementById('adminModalBody').innerHTML = html;
-    initItemModalEnhancements();
-
     if (submitBtn) submitBtn.disabled = false;
   });
 })();
