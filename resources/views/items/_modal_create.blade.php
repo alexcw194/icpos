@@ -9,24 +9,16 @@
     <form
       id="itemModalForm"
       method="POST"
-      action="{{ route('items.store', ['modal' => 1, 'r' => request('r')]) }}"
+      action="{{ route('items.store') }}"
     >
       @csrf
+
+      <input type="hidden" name="modal" value="1">
+
+      {{-- r cukup sekali (pilih salah satu). Kalau _form sudah punya r hidden, HAPUS baris ini --}}
       <input type="hidden" name="r" value="{{ request('r') }}">
 
       <div class="modal-body">
-        @if ($errors->any())
-          <div class="alert alert-danger">
-            <div class="fw-bold mb-2">Validasi gagal</div>
-            <ul class="mb-0">
-              @foreach ($errors->all() as $msg)
-                <li>{{ $msg }}</li>
-              @endforeach
-            </ul>
-          </div>
-        @endif
-
-        {{-- Reuse form fields yang sama dengan create page --}}
         @include('items._form', ['item' => $item])
       </div>
 
@@ -35,5 +27,6 @@
         <button type="submit" name="action" value="save" class="btn btn-primary">Simpan</button>
       </div>
     </form>
+
   </div>
 </div>

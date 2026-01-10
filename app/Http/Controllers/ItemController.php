@@ -275,6 +275,7 @@ class ItemController extends Controller
     }
 
 
+
     public function show(Item $item)
     {
         $item->load(['unit','brand','size','color','parent']);

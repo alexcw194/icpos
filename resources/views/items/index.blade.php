@@ -173,78 +173,6 @@
 (function () {
   const MODAL_ID = 'adminModal';
 
-  function ensureAdminModal() {
-    if (document.getElementById(MODAL_ID)) return;
-
-    document.body.insertAdjacentHTML('beforeend', `
-      <div class="modal modal-blur fade" id="${MODAL_ID}" tabindex="-1" aria-hidden="true">
-        <div id="adminModalBody"></div>
-      </div>
-    `);
-  }
-
-  async function openAdminModal(url) {
-      if (!url || typeof url !== 'string') {
-      console.warn('openAdminModal called with invalid url', url);
-      return;
-    }
-    ensureAdminModal();
-
-    const body = document.getElementById('adminModalBody');
-    body.innerHTML = `
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-          <div class="modal-body text-center py-6">
-            <div class="spinner-border text-muted" role="status"></div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const el = document.getElementById(MODAL_ID);
-    const modal = bootstrap.Modal.getOrCreateInstance(el);
-    modal.show();
-
-    const res = await fetch(url, {
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        'Accept': 'text/html'
-      }
-    });
-
-    body.innerHTML = await res.text();
-    initItemModalEnhancements();
-  }
-
-  // Optional: formatting price agar konsisten dengan create page yang sudah punya formatter :contentReference[oaicite:5]{index=5}
-  function initItemModalEnhancements() {
-    const price = document.querySelector('#itemModalForm input[name="price"]');
-    if (price && !price.dataset.bound) {
-      price.dataset.bound = '1';
-      price.addEventListener('input', () => {
-        const raw = String(price.value || '').replace(/[^\d]/g, '');
-        price.value = raw ? Number(raw).toLocaleString('id-ID') : '';
-      });
-    }
-  }
-
-  // Open modal on click
-  document.addEventListener('click', async (e) => {
-    const trigger = e.target.closest('[data-modal="#adminModal"]');
-    if (!trigger) return;
-
-    e.preventDefault();
-
-    const url = trigger.getAttribute('href') || trigger.dataset.url; // <- string
-    if (!url || typeof url !== 'string') {
-      console.warn('Modal URL invalid', { url, trigger });
-      return;
-    }
-
-    openAdminModal(url);
-  });
-
-  // Submit modal form via AJAX; handle 422 (validation) by re-rendering modal HTML
   document.addEventListener('submit', async function (e) {
     const form = e.target;
     if (!form || form.id !== 'itemModalForm') return;
@@ -254,46 +182,65 @@
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.disabled = true;
 
-    const res = await fetch(form.action, {
-      method: 'POST',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      body: new FormData(form)
-    });
+    try {
+      const res = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json' // penting: supaya kontrak JSON konsisten
+        },
+        body: new FormData(form)
+      });
 
-    // Validation error (Blade modal body)
-    if (res.status === 422) {
-      const html = await res.text();
-      document.getElementById('adminModalBody').innerHTML = html;
-      if (submitBtn) submitBtn.disabled = false;
-      return;
-    }
-
-    if (res.ok) {
-      const ct = (res.headers.get('content-type') || '').toLowerCase();
-
-      // SUCCESS via JSON contract
-      if (ct.includes('application/json')) {
-        const data = await res.json();
-        if (data.redirect_url) {
-          window.location = data.redirect_url;
-          return;
-        }
-      }
-
-      // fallback
-      if (res.redirected) {
-        window.location = res.url;
+      // Validation error (Blade modal body)
+      if (res.status === 422) {
+        const html = await res.text();
+        document.getElementById('adminModalBody').innerHTML = html;
+        if (submitBtn) submitBtn.disabled = false;
         return;
       }
 
-      window.location.reload();
-      return;
-    }
+      if (res.ok) {
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
 
-    // Non-OK: render response to modal for visibility
-    const html = await res.text();
-    document.getElementById('adminModalBody').innerHTML = html;
-    if (submitBtn) submitBtn.disabled = false;
+        if (ct.includes('application/json')) {
+          const data = await res.json();
+          if (data.redirect_url) {
+            // === NOMOR 3: TARUH DI SINI (hide modal sebelum redirect) ===
+            const el = document.getElementById('adminModal');
+            const modal = bootstrap.Modal.getInstance(el) || bootstrap.Modal.getOrCreateInstance(el);
+            modal.hide();
+
+            window.location = data.redirect_url;
+            return;
+          }
+        }
+
+        // fallback
+        if (res.redirected) {
+          window.location = res.url;
+          return;
+        }
+
+        window.location.reload();
+        return;
+      }
+
+      // Non-OK: render response to modal for visibility
+      const html = await res.text();
+      document.getElementById('adminModalBody').innerHTML = html;
+      if (submitBtn) submitBtn.disabled = false;
+
+    } catch (err) {
+      console.error(err);
+      document.getElementById('adminModalBody').innerHTML =
+        `<div class="modal-dialog modal-lg"><div class="modal-content">
+          <div class="modal-body">
+            <div class="alert alert-danger mb-0">Request gagal diproses. Cek Console untuk detail.</div>
+          </div>
+        </div></div>`;
+      if (submitBtn) submitBtn.disabled = false;
+    }
   });
 })();
 </script>
