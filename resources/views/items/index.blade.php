@@ -171,75 +171,159 @@
 @push('scripts')
 <script>
 (function () {
-  const MODAL_ID = 'adminModal';
+  function ensureAdminModal() {
+    let modal = document.getElementById('adminModal');
+    if (modal) return modal;
 
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <div class="modal modal-blur fade" id="adminModal" tabindex="-1" aria-hidden="true">
+        <div id="adminModalBody"></div>
+      </div>
+    `.trim();
+
+    document.body.appendChild(wrapper.firstElementChild);
+    return document.getElementById('adminModal');
+  }
+
+  async function openAdminModal(url) {
+    const modalEl = ensureAdminModal();
+    const bodyEl = document.getElementById('adminModalBody');
+
+    bodyEl.innerHTML = `
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-body">
+            <div class="d-flex align-items-center gap-2">
+              <div class="spinner-border" role="status" aria-hidden="true"></div>
+              <div>Loading...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+
+    const res = await fetch(url, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'text/html'
+      }
+    });
+
+    if (!res.ok) {
+      bodyEl.innerHTML = `
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-body">
+              <div class="text-danger">Gagal load form (${res.status}).</div>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    bodyEl.innerHTML = await res.text();
+  }
+
+  // 1) CLICK: buka modal dari link yang punya data-modal="#adminModal"
+  document.addEventListener('click', function (e) {
+    const trigger = e.target.closest('a[data-modal="#adminModal"]');
+    if (!trigger) return;
+
+    e.preventDefault();
+
+    const url = trigger.getAttribute('href');
+    if (!url) return;
+
+    openAdminModal(url).catch(err => {
+      console.error(err);
+      const bodyEl = document.getElementById('adminModalBody');
+      if (bodyEl) {
+        bodyEl.innerHTML = `
+          <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-body">
+                <div class="text-danger">Error: ${String(err)}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    });
+  });
+
+  // 2) SUBMIT: submit form modal via fetch JSON
   document.addEventListener('submit', async function (e) {
-    const form = e.target;
-    if (!form || form.id !== 'itemModalForm') return;
+    const form = e.target.closest('#itemModalForm');
+    if (!form) return;
 
     e.preventDefault();
 
     const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn) submitBtn.disabled = true;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.dataset.originalText = submitBtn.innerHTML;
+      submitBtn.innerHTML = 'Menyimpan...';
+    }
 
     try {
       const res = await fetch(form.action, {
-        method: 'POST',
+        method: form.method || 'POST',
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json' // penting: supaya kontrak JSON konsisten
+          'Accept': 'application/json'
         },
         body: new FormData(form)
       });
 
-      // Validation error (Blade modal body)
-      if (res.status === 422) {
-        const html = await res.text();
-        document.getElementById('adminModalBody').innerHTML = html;
-        if (submitBtn) submitBtn.disabled = false;
+      const ct = res.headers.get('content-type') || '';
+
+      // 422 dari controller modal => HTML form dengan errors
+      if (res.status === 422 && !ct.includes('application/json')) {
+        ensureAdminModal();
+        document.getElementById('adminModalBody').innerHTML = await res.text();
         return;
       }
 
-      if (res.ok) {
-        const ct = (res.headers.get('content-type') || '').toLowerCase();
+      // kalau balik JSON
+      if (ct.includes('application/json')) {
+        const data = await res.json();
 
-        if (ct.includes('application/json')) {
-          const data = await res.json();
-          if (data.redirect_url) {
-            // === NOMOR 3: TARUH DI SINI (hide modal sebelum redirect) ===
-            const el = document.getElementById('adminModal');
-            const modal = bootstrap.Modal.getInstance(el) || bootstrap.Modal.getOrCreateInstance(el);
-            modal.hide();
+        // close modal dulu biar backdrop bersih
+        const modalEl = ensureAdminModal();
+        const inst = bootstrap.Modal.getInstance(modalEl);
+        if (inst) inst.hide();
 
-            window.location = data.redirect_url;
-            return;
-          }
-        }
-
-        // fallback
-        if (res.redirected) {
-          window.location = res.url;
+        // redirect_url dari controller store()
+        if (data && data.redirect_url) {
+          window.location.href = data.redirect_url;
           return;
         }
 
+        // fallback reload
         window.location.reload();
         return;
       }
 
-      // Non-OK: render response to modal for visibility
-      const html = await res.text();
-      document.getElementById('adminModalBody').innerHTML = html;
-      if (submitBtn) submitBtn.disabled = false;
+      // fallback: kalau server balikin HTML normal
+      if (!res.ok) {
+        ensureAdminModal();
+        document.getElementById('adminModalBody').innerHTML = await res.text();
+        return;
+      }
 
+      window.location.reload();
     } catch (err) {
       console.error(err);
-      document.getElementById('adminModalBody').innerHTML =
-        `<div class="modal-dialog modal-lg"><div class="modal-content">
-          <div class="modal-body">
-            <div class="alert alert-danger mb-0">Request gagal diproses. Cek Console untuk detail.</div>
-          </div>
-        </div></div>`;
-      if (submitBtn) submitBtn.disabled = false;
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = submitBtn.dataset.originalText || 'Simpan';
+      }
     }
   });
 })();
