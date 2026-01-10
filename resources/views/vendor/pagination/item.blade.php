@@ -2,7 +2,7 @@
   <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
     {{-- Left info --}}
     <div class="text-secondary">
-      Showing {{ $paginator->firstItem() }} to {{ $paginator->lastItem() }} of {{ $paginator->total() }} {{ Str::plural('entry', $paginator->total()) }}
+      Showing {{ $paginator->firstItem() }} to {{ $paginator->lastItem() }} of {{ $paginator->total() }} entries
     </div>
 
     {{-- Middle: condensed page numbers --}}
