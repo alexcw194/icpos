@@ -171,6 +171,7 @@ class ItemController extends Controller
         // Helper: response sukses (modal => JSON redirect_url, normal => redirect)
         $respondSuccess = function (string $url, string $message) use ($isModal) {
             if ($isModal) {
+                session()->flash('success', $message); // <— TAMBAH INI
                 return response()->json([
                     'redirect_url' => $url,
                     'message'      => $message,
