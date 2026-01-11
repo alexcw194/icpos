@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Spatie\Permission\Models\Role;
+
 
 
 class UserController extends Controller
@@ -22,8 +24,18 @@ class UserController extends Controller
 
     public function create()
     {
-        $roles = ['Admin','Sales','Finance']; // SuperAdmin tidak ditampilkan untuk umum
-        return view('users.create', compact('roles'));
+        $roles = $this->availableRoles();
+        return view('admin.users.create', compact('roles'));
+    }
+
+    private function availableRoles(): array
+    {
+        return Role::query()
+            ->where('guard_name', 'web')
+            ->where('name', '!=', 'SuperAdmin')
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
     }
 
     public function store(Request $request)
@@ -32,7 +44,10 @@ class UserController extends Controller
             'name'   => ['required','string','max:120'],
             'email'  => ['required','email','max:190','unique:users,email'],
             'is_active' => ['nullable','boolean'],
-            'role'   => ['required', Rule::in(['Admin','Sales','Finance'])],
+            'role' => [
+                'required',
+                Rule::exists('roles', 'name')->where('guard_name', 'web'),
+                ],
             'email_signature' => ['nullable','string'],
             'avatar' => ['nullable','image','mimes:jpg,jpeg,png,webp','max:1024'],
             'password' => ['nullable','string','min:8'],
@@ -82,8 +97,8 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
-        $roles = ['Admin','Sales','Finance'];
-        return view('users.edit', compact('user','roles'));
+        $roles = $this->availableRoles();
+        return view('admin.users.edit', compact('user', 'roles'));
     }
 
     public function update(Request $request, User $user)
