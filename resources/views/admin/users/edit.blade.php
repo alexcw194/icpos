@@ -3,12 +3,12 @@
 
 @section('content')
 <div class="container-xl">
-  <form class="card" method="POST" action="{{ route('users.update', $user) }}">
+  <form class="card" method="POST" action="{{ route('users.update', $user) }}" enctype="multipart/form-data">
     @csrf
     @method('PUT')
 
     <div class="card-header">
-      <div class="card-title">Edit Roles: {{ $user->name }}</div>
+      <div class="card-title">Edit User: {{ $user->name }}</div>
     </div>
 
     <div class="card-body">
@@ -23,31 +23,39 @@
         </div>
       @endif
 
-      <div class="mb-3"><strong>Email:</strong> {{ $user->email }}</div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Nama</label>
+          <input class="form-control" name="name" value="{{ old('name', $user->name) }}" required>
+        </div>
 
-      <div class="row g-2">
-        @foreach($roles as $id => $name)
-          <div class="col-md-3">
-            <label class="form-check">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                name="roles[]"
-                value="{{ $id }}"
-                @checked(in_array($name, $userRoles))
-              >
-              <span class="form-check-label">{{ $name }}</span>
-            </label>
-          </div>
-        @endforeach
+        <div class="col-md-6">
+          <label class="form-label">Email</label>
+          <input class="form-control" name="email" type="email" value="{{ old('email', $user->email) }}" required>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Role</label>
+          <select class="form-select" name="role" required>
+            @foreach($roles as $name)
+              <option value="{{ $name }}" @selected(old('role', $currentRole) === $name)>{{ $name }}</option>
+            @endforeach
+          </select>
+        </div>
+
+        <div class="col-md-6 d-flex align-items-end">
+          <label class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" name="is_active" value="1" @checked(old('is_active', $user->is_active))>
+            <span class="form-check-label">Active</span>
+          </label>
+        </div>
       </div>
     </div>
 
-    {{-- Footer standar ICPOS --}}
     @include('layouts.partials.form_footer', [
       'cancelUrl'    => route('users.index'),
       'cancelLabel'  => 'Batal',
-      'cancelInline' => true, // tampil: Batal | Simpan di sisi kanan
+      'cancelInline' => true,
       'buttons'      => [
         ['type' => 'submit', 'label' => 'Simpan', 'class' => 'btn btn-primary'],
       ],
