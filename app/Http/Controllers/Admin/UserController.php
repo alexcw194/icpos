@@ -99,7 +99,7 @@ class UserController extends Controller
     {
         $currentRole = $user->getRoleNames()->first();
         $roles = $this->availableRoles();
-        return view('admin.users.edit', compact('user', 'roles'));
+        return view('admin.users.edit', compact('user', 'roles', 'currentRole'));
     }
 
     public function update(Request $request, User $user)
