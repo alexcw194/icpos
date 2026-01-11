@@ -34,11 +34,8 @@
 
 <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="light">
   <div class="container-fluid">
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
-            aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
 
+    {{-- Brand --}}
     <h1 class="navbar-brand navbar-brand-autodark px-2">
       <a href="{{ route('dashboard') }}" class="d-flex align-items-center gap-2 text-decoration-none w-100">
         @if($logoUrl)
@@ -49,7 +46,8 @@
       </a>
     </h1>
 
-    <div class="navbar-collapse" id="sidebar-menu">
+    {{-- Always open menu (no collapse wrapper, no toggler) --}}
+    <div class="navbar-collapse show" id="sidebar-menu">
       <ul class="navbar-nav pt-lg-3">
 
         {{-- Dashboard --}}
@@ -80,38 +78,63 @@
           </li>
         @endif
 
-        {{-- Sales --}}
+        {{-- Sales (always open) --}}
         <li class="nav-item nav-group">
-          <a class="nav-link" data-bs-toggle="collapse" href="#sales-collapse" role="button"
-             aria-expanded="{{ request()->is('quotations*') || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') ? 'true' : 'false' }}"
-             aria-controls="sales-collapse">
+          <span class="nav-link {{ request()->is('quotations*') || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') ? 'active' : '' }}">
             <span class="nav-link-icon ti ti-file-invoice"></span>
             <span class="nav-link-title">Sales</span>
-          </a>
-          <div class="collapse {{ request()->is('quotations*') || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') ? 'show' : '' }}" id="sales-collapse">
-            <ul class="nav nav-pills sub-nav flex-column ms-4">
-              <li><a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}" href="{{ route('quotations.index') }}">Quotations</a></li>
-              <li><a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}" href="{{ route('sales-orders.index') }}">Sales Orders</a></li>
-              <li><a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}" href="{{ route('deliveries.index') }}">Delivery Orders</a></li>
-              <li><a class="nav-link {{ request()->is('invoices*') ? 'active' : '' }}" href="{{ route('invoices.index') }}">Invoices</a></li>
-            </ul>
-          </div>
+          </span>
+
+          <ul class="nav nav-pills sub-nav flex-column ms-4">
+            @if(Route::has('quotations.index'))
+              <li>
+                <a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}" href="{{ route('quotations.index') }}">
+                  Quotations
+                </a>
+              </li>
+            @endif
+
+            @if(Route::has('sales-orders.index'))
+              <li>
+                <a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}" href="{{ route('sales-orders.index') }}">
+                  Sales Orders
+                </a>
+              </li>
+            @endif
+
+            @if(Route::has('deliveries.index'))
+              <li>
+                <a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}" href="{{ route('deliveries.index') }}">
+                  Delivery Orders
+                </a>
+              </li>
+            @endif
+
+            @if(Route::has('invoices.index'))
+              <li>
+                <a class="nav-link {{ request()->is('invoices*') ? 'active' : '' }}" href="{{ route('invoices.index') }}">
+                  Invoices
+                </a>
+              </li>
+            @endif
+          </ul>
         </li>
 
-        {{-- Purchase --}}
+        {{-- Purchase (Admin/SuperAdmin only) --}}
         @hasanyrole('Admin|SuperAdmin')
-        <li class="nav-item">
-          <a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}" href="{{ route('po.index') }}">
-            <span class="nav-link-icon ti ti-shopping-cart"></span>
-            <span class="nav-link-title">Purchase Orders</span>
-          </a>
-        </li>
+          @if(Route::has('po.index'))
+            <li class="nav-item">
+              <a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}" href="{{ route('po.index') }}">
+                <span class="nav-link-icon ti ti-shopping-cart"></span>
+                <span class="nav-link-title">Purchase Orders</span>
+              </a>
+            </li>
+          @endif
         @endhasanyrole
 
-       {{-- Inventory Category --}}
+        {{-- Inventory (always open) --}}
         <li class="nav-item nav-group">
-          <a class="nav-link" data-bs-toggle="collapse" href="#inventory-collapse" role="button"
-            aria-expanded="{{ request()->is('inventory*') ? 'true' : 'false' }}" aria-controls="inventory-collapse">
+          <span class="nav-link {{ request()->is('inventory*') ? 'active' : '' }}">
             <span class="nav-link-icon">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-warehouse" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
                 <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
@@ -120,21 +143,46 @@
               </svg>
             </span>
             <span class="nav-link-title">Inventory</span>
-          </a>
-          <div class="collapse {{ request()->is('inventory*') ? 'show' : '' }}" id="inventory-collapse">
-            <ul class="nav nav-pills sub-nav flex-column ms-4">
-              <li><a class="nav-link {{ request()->routeIs('inventory.ledger') ? 'active' : '' }}" href="{{ route('inventory.ledger') }}">Stock Ledger</a></li>
-              <li><a class="nav-link {{ request()->routeIs('inventory.summary') ? 'active' : '' }}" href="{{ route('inventory.summary') }}">Stock Summary</a></li>
-              <li><a class="nav-link {{ request()->routeIs('inventory.adjustments.*') ? 'active' : '' }}" href="{{ route('inventory.adjustments.index') }}">Stock Adjustment</a></li>
-              <li><a class="nav-link {{ request()->routeIs('inventory.reconciliation') ? 'active' : '' }}" href="{{ route('inventory.reconciliation') }}">Reconciliation</a></li>
-            </ul>
-          </div>
+          </span>
+
+          <ul class="nav nav-pills sub-nav flex-column ms-4">
+            @if(Route::has('inventory.ledger'))
+              <li>
+                <a class="nav-link {{ request()->routeIs('inventory.ledger') ? 'active' : '' }}" href="{{ route('inventory.ledger') }}">
+                  Stock Ledger
+                </a>
+              </li>
+            @endif
+
+            @if(Route::has('inventory.summary'))
+              <li>
+                <a class="nav-link {{ request()->routeIs('inventory.summary') ? 'active' : '' }}" href="{{ route('inventory.summary') }}">
+                  Stock Summary
+                </a>
+              </li>
+            @endif
+
+            @if(Route::has('inventory.adjustments.index'))
+              <li>
+                <a class="nav-link {{ request()->routeIs('inventory.adjustments.*') ? 'active' : '' }}" href="{{ route('inventory.adjustments.index') }}">
+                  Stock Adjustment
+                </a>
+              </li>
+            @endif
+
+            @if(Route::has('inventory.reconciliation'))
+              <li>
+                <a class="nav-link {{ request()->routeIs('inventory.reconciliation') ? 'active' : '' }}" href="{{ route('inventory.reconciliation') }}">
+                  Reconciliation
+                </a>
+              </li>
+            @endif
+          </ul>
         </li>
 
-        {{-- Manufacture Category --}}
+        {{-- Manufacture (always open) --}}
         <li class="nav-item nav-group">
-          <a class="nav-link" data-bs-toggle="collapse" href="#manufacture-collapse" role="button"
-            aria-expanded="{{ request()->is('manufacture-*') ? 'true' : 'false' }}" aria-controls="manufacture-collapse">
+          <span class="nav-link {{ request()->is('manufacture-*') || request()->is('manufacture-jobs*') || request()->is('manufacture-recipes*') ? 'active' : '' }}">
             <span class="nav-link-icon">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-tools" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
                 <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
@@ -145,13 +193,25 @@
               </svg>
             </span>
             <span class="nav-link-title">Manufacture</span>
-          </a>
-          <div class="collapse {{ request()->is('manufacture-*') ? 'show' : '' }}" id="manufacture-collapse">
-            <ul class="nav nav-pills sub-nav flex-column ms-4">
-              <li><a class="nav-link {{ request()->is('manufacture-jobs*') ? 'active' : '' }}" href="{{ route('manufacture-jobs.index') }}">Manufacture Jobs</a></li>
-              <li><a class="nav-link {{ request()->is('manufacture-recipes*') ? 'active' : '' }}" href="{{ route('manufacture-recipes.index') }}">Manufacture Recipes</a></li>
-            </ul>
-          </div>
+          </span>
+
+          <ul class="nav nav-pills sub-nav flex-column ms-4">
+            @if(Route::has('manufacture-jobs.index'))
+              <li>
+                <a class="nav-link {{ request()->is('manufacture-jobs*') ? 'active' : '' }}" href="{{ route('manufacture-jobs.index') }}">
+                  Manufacture Jobs
+                </a>
+              </li>
+            @endif
+
+            @if(Route::has('manufacture-recipes.index'))
+              <li>
+                <a class="nav-link {{ request()->is('manufacture-recipes*') ? 'active' : '' }}" href="{{ route('manufacture-recipes.index') }}">
+                  Manufacture Recipes
+                </a>
+              </li>
+            @endif
+          </ul>
         </li>
 
       </ul>
