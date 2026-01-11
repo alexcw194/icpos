@@ -49,7 +49,7 @@
       </a>
     </h1>
 
-    <div class="collapse navbar-collapse" id="sidebar-menu">
+    <div class="navbar-collapse" id="sidebar-menu">
       <ul class="navbar-nav pt-lg-3">
 
         {{-- Dashboard --}}
