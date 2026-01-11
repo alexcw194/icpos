@@ -28,7 +28,8 @@ class GoodsReceiptController extends Controller
                     qty:            (float)$ln->qty_received,
                     refType:        'GR',
                     refId:          $gr->id,
-                    note:           'Goods Receipt posted'
+                    note:           'Goods Receipt posted',
+                    unitCost:       $ln->unit_cost !== null ? (float)$ln->unit_cost : null,
                 );
             }
 

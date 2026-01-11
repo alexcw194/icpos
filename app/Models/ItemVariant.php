@@ -17,6 +17,9 @@ class ItemVariant extends Model
         'is_active',
         'barcode',
         'min_stock',
+        'last_cost',
+        'avg_cost',
+        'default_cost',
     ];
 
     protected $casts = [
@@ -24,6 +27,9 @@ class ItemVariant extends Model
         'stock'      => 'integer',
         'attributes' => 'array',
         'is_active'  => 'boolean',
+        'last_cost'    => 'decimal:2',
+        'avg_cost'     => 'decimal:2',
+        'default_cost' => 'decimal:2',
     ];
 
     // ========== RELATIONS ==========
@@ -128,5 +134,14 @@ class ItemVariant extends Model
     {
         $sku = trim((string) $value);
         $this->attributes['sku'] = $sku === '' ? null : mb_strtoupper($sku, 'UTF-8');
+    }
+
+    public function getMarginAttribute(): ?string
+    {
+        $sell = $this->price;
+        $cost = $this->avg_cost ?? $this->last_cost ?? $this->default_cost;
+
+        if ($sell === null || $cost === null) return null;
+        return number_format(((float)$sell - (float)$cost), 2, '.', '');
     }
 }
