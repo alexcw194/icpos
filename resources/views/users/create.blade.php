@@ -36,9 +36,9 @@
             <div class="mb-3">
               <label class="form-label">Role</label>
               <select name="role" class="form-select" required>
-                @foreach(($roles ?? []) as $role)
-                  <option value="{{ $role->name }}" @selected(old('role', 'Sales') === $role->name)>
-                    {{ $role->name }}
+                @foreach(($roles ?? []) as $roleName)
+                  <option value="{{ $roleName }}" @selected(old('role', 'Sales') === $roleName)>
+                    {{ $roleName }}
                   </option>
                 @endforeach
               </select>
@@ -57,7 +57,7 @@
         <div class="mb-3">
           <label class="form-label">Password (opsional)</label>
           <input type="password" name="password" class="form-control" autocomplete="new-password">
-          <small class="text-muted">Kosongkan untuk kirim link set password (jika fitur invite dipakai).</small>
+          <small class="text-muted">Kosongkan untuk kirim link set password (jika invite dipakai).</small>
         </div>
 
         <div class="mb-3">
