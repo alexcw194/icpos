@@ -14,4 +14,13 @@ class Jenis extends Model
     protected $casts = ['is_active' => 'boolean'];
 
     public function customers() { return $this->hasMany(Customer::class); }
+    public function scopeActive($q)
+    {
+        return $q->where('is_active', true);
+    }
+
+    public function scopeOrdered($q)
+    {
+        return $q->orderBy('name');
+    }
 }
