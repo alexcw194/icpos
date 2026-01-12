@@ -277,7 +277,9 @@ class SalesOrderController extends Controller
         $status  = $request->query('status');
         if ($status && !in_array($status, $allowed, true)) $status = null;
 
-        $q = SalesOrder::with(['customer','company'])
+        $q = SalesOrder::query()
+            ->visibleTo(auth()->user())
+            ->with(['customer','company'])
             ->when($status, fn($x) => $x->where('status',$status))
             ->latest();
 
@@ -288,6 +290,8 @@ class SalesOrderController extends Controller
     /** Detail SO. */
     public function show(SalesOrder $salesOrder)
     {
+        $this->authorize('view', $salesOrder);
+
         $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation']);
         return view('sales_orders.show', compact('salesOrder'));
     }

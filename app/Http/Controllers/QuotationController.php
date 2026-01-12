@@ -29,7 +29,9 @@ class QuotationController extends Controller
         $selectedId  = request()->has('selected') ? request('selected') : request('preview');
         $highlightId = (int) $selectedId;
 
-        $query = Quotation::with(['customer','company'])
+        $query = Quotation::query()
+            ->visibleTo(auth()->user())
+            ->with(['customer','company'])
             ->latest('date')->latest('id');
 
         if ($cid) {
@@ -41,29 +43,34 @@ class QuotationController extends Controller
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('number', 'like', "%{$q}%")
-                  ->orWhereHas('customer', fn($c) => $c->where('name','like',"%{$q}%"));
+                ->orWhereHas('customer', fn($c) => $c->where('name','like',"%{$q}%"));
             });
         }
 
         $quotations = $query->paginate(15)->withQueryString();
         $companies  = Company::orderBy('name')->get(['id','alias','name']);
 
-        // Data untuk panel preview (kanan)
+        // Data untuk panel preview (kanan) — wajib ikut visibleTo
         $active = null;
         if ($highlightId) {
-            $active = Quotation::with(['customer','company','salesUser','lines'])->find($highlightId);
+            $active = Quotation::query()
+                ->visibleTo(auth()->user())
+                ->with(['customer','company','salesUser','lines'])
+                ->whereKey($highlightId)
+                ->first();
         }
 
         // Kompat untuk Blade lama agar tidak "undefined variable"
-        $rows      = $quotations;      // jika Blade masih pakai $rows
-        $preview   = $active;          // jika Blade masih pakai $preview
-        $previewId = $highlightId;     // jika Blade masih pakai $previewId
+        $rows      = $quotations;
+        $preview   = $active;
+        $previewId = $highlightId;
 
         return view('quotations.index', compact(
             'quotations','companies','cid','status','q',
             'active','rows','preview','previewId'
         ));
     }
+
 
     public function create()
     {
@@ -181,14 +188,20 @@ class QuotationController extends Controller
 
     public function show(Quotation $quotation)
     {
+        abort_unless(
+            Quotation::query()->visibleTo(auth()->user())->whereKey($quotation->id)->exists(),
+            403,
+            'This action is unauthorized.'
+        );
+
         $quotation->load([
             'customer','company','salesUser','lines','invoice.delivery',
-            // related SO untuk daftar “Related Sales Orders” (urut terbaru dulu)
             'salesOrders' => fn($q) => $q->latest()
         ]);
 
         return view('quotations.show', compact('quotation'));
     }
+
 
     public function print(Quotation $quotation)
     {

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany, HasOne};
 
 class Quotation extends Model
@@ -50,6 +51,24 @@ class Quotation extends Model
         'sent_at'               => 'datetime',
         'won_at'                => 'datetime',
     ];
+
+    /**
+     * Scope visibility:
+     * - Admin/SuperAdmin: bisa lihat semua
+     * - selain itu: hanya data milik sendiri (sales_user_id = user.id)
+     */
+    public function scopeVisibleTo(Builder $query, ?User $user): Builder
+    {
+        if (!$user) {
+            return $query->whereRaw('1=0');
+        }
+
+        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+            return $query;
+        }
+
+        return $query->where('sales_user_id', $user->id);
+    }
 
     // ---- Relations ----
     public function lines(): HasMany

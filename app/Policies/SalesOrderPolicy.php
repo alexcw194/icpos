@@ -11,10 +11,14 @@ class SalesOrderPolicy
 {
     use HandlesAuthorization;
 
-    /** Semua user login boleh melihat (sesuaikan jika perlu) */
+    /** View: Admin/SuperAdmin lihat semua, selain itu hanya SO miliknya */
     public function view(User $user, SalesOrder $so): bool
     {
-        return true;
+        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+            return true;
+        }
+
+        return (int) $so->sales_user_id === (int) $user->id;
     }
 
     /** Edit header/lines — hanya saat OPEN & belum punya DN/Invoice */
@@ -98,5 +102,4 @@ class SalesOrderPolicy
     {
         return true;
     }
-
 }
