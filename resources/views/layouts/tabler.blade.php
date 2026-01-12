@@ -72,6 +72,34 @@
       text-align: left;
     }
 
+      aside.navbar-vertical .navbar-nav .nav-link{
+    justify-content: flex-start !important; /* stop centering */
+    text-align: left !important;
+  }
+
+    /* icon jangan bikin center */
+    aside.navbar-vertical .navbar-nav .nav-link .nav-link-icon{
+      margin-right: .5rem;
+      justify-content: flex-start !important;
+    }
+
+    /* title selalu rata kiri */
+    aside.navbar-vertical .navbar-nav .nav-link .nav-link-title{
+      text-align: left !important;
+      flex: 1 1 auto;
+    }
+
+    /* submenu list jangan ketengah */
+    aside.navbar-vertical .sub-nav{
+      margin-left: 0 !important;       /* buang offset ms-4 kalau bikin aneh */
+      padding-left: 2rem !important;   /* indent konsisten untuk submenu */
+    }
+
+    aside.navbar-vertical .sub-nav .nav-link{
+      justify-content: flex-start !important;
+      text-align: left !important;
+    }
+
     /* ===== Topbar layering & alignment ===== */
     .navbar-vertical { z-index: 1030; }        /* sidebar di atas */
     .navbar.sticky-top { z-index: 1020; }      /* topbar di bawah sidebar */
