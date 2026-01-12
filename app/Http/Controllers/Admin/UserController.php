@@ -25,7 +25,7 @@ class UserController extends Controller
     public function create()
     {
         $roles = $this->availableRoles();
-        return view('admin.users.create', compact('roles'));
+        return view('users.create', compact('roles'));
     }
 
     private function availableRoles(): array
@@ -95,11 +95,12 @@ class UserController extends Controller
 
 
 
+    
     public function edit(User $user)
     {
         $currentRole = $user->getRoleNames()->first();
         $roles = $this->availableRoles();
-        return view('admin.users.edit', compact('user', 'roles', 'currentRole'));
+        return view('users.edit', compact('user', 'roles', 'currentRole'));
     }
 
     public function update(Request $request, User $user)
