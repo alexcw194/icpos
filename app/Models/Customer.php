@@ -96,18 +96,22 @@ class Customer extends Model
         return $jenisId ? $q->where('jenis_id', $jenisId) : $q;
     }
 
-    /** VISIBILITY: admin/finance => semua; sales => hanya buatannya */
+    /**
+     * VISIBILITY:
+     * - Admin / SuperAdmin / Finance => lihat semua customer
+     * - Role lain => hanya customer yang dibuatnya (created_by = user)
+     */
     public function scopeVisibleTo($q, $user = null)
     {
         $u = $user ?: auth()->user();
         if (!$u) return $q->whereRaw('1=0');
 
-        // spatie/laravel-permission
-        if ($u->hasAnyRole(['admin', 'finance'])) {
+        // spatie/laravel-permission (ROLE NAMES sesuai seeder: Admin, SuperAdmin, Finance)
+        if ($u->hasAnyRole(['Admin', 'SuperAdmin', 'Finance'])) {
             return $q;
         }
 
-        // default: sales hanya miliknya
+        // default: hanya miliknya
         return $q->where('created_by', $u->id);
     }
 
