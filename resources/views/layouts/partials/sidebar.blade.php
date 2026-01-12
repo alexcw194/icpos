@@ -3,11 +3,7 @@
 
     $hasCustomers    = Route::has('customers.index');
     $hasItems        = Route::has('items.index');
-    $hasQuotations   = Route::has('quotations.index');
-    $hasSalesOrders  = Route::has('sales-orders.index');
-    $hasDeliveries   = Route::has('deliveries.index');
 
-    $user = auth()->user();
     $appName = config('app.name','ICPOS');
     $logoUrl = null;
 
@@ -35,6 +31,13 @@
 <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="light">
   <div class="container-fluid">
 
+    {{-- Mobile toggler (ONLY mobile) --}}
+    <button class="navbar-toggler d-lg-none" type="button"
+            data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
+            aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
     {{-- Brand --}}
     <h1 class="navbar-brand navbar-brand-autodark px-2">
       <a href="{{ route('dashboard') }}" class="d-flex align-items-center gap-2 text-decoration-none w-100">
@@ -46,8 +49,8 @@
       </a>
     </h1>
 
-    {{-- Always open menu (no collapse wrapper, no toggler) --}}
-    <div class="navbar-collapse show" id="sidebar-menu">
+    {{-- Sidebar container: collapsible on mobile, open on desktop by navbar-expand-lg --}}
+    <div class="collapse navbar-collapse" id="sidebar-menu">
       <ul class="navbar-nav pt-lg-3">
 
         {{-- Dashboard --}}
@@ -78,7 +81,7 @@
           </li>
         @endif
 
-        {{-- Sales (always open) --}}
+        {{-- Sales (always open, no collapse) --}}
         <li class="nav-item nav-group">
           <span class="nav-link {{ request()->is('quotations*') || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') ? 'active' : '' }}">
             <span class="nav-link-icon ti ti-file-invoice"></span>
@@ -87,35 +90,16 @@
 
           <ul class="nav nav-pills sub-nav flex-column ms-4">
             @if(Route::has('quotations.index'))
-              <li>
-                <a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}" href="{{ route('quotations.index') }}">
-                  Quotations
-                </a>
-              </li>
+              <li><a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}" href="{{ route('quotations.index') }}">Quotations</a></li>
             @endif
-
             @if(Route::has('sales-orders.index'))
-              <li>
-                <a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}" href="{{ route('sales-orders.index') }}">
-                  Sales Orders
-                </a>
-              </li>
+              <li><a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}" href="{{ route('sales-orders.index') }}">Sales Orders</a></li>
             @endif
-
             @if(Route::has('deliveries.index'))
-              <li>
-                <a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}" href="{{ route('deliveries.index') }}">
-                  Delivery Orders
-                </a>
-              </li>
+              <li><a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}" href="{{ route('deliveries.index') }}">Delivery Orders</a></li>
             @endif
-
             @if(Route::has('invoices.index'))
-              <li>
-                <a class="nav-link {{ request()->is('invoices*') ? 'active' : '' }}" href="{{ route('invoices.index') }}">
-                  Invoices
-                </a>
-              </li>
+              <li><a class="nav-link {{ request()->is('invoices*') ? 'active' : '' }}" href="{{ route('invoices.index') }}">Invoices</a></li>
             @endif
           </ul>
         </li>
@@ -132,7 +116,7 @@
           @endif
         @endhasanyrole
 
-        {{-- Inventory (always open) --}}
+        {{-- Inventory (always open, no collapse) --}}
         <li class="nav-item nav-group">
           <span class="nav-link {{ request()->is('inventory*') ? 'active' : '' }}">
             <span class="nav-link-icon">
@@ -147,40 +131,21 @@
 
           <ul class="nav nav-pills sub-nav flex-column ms-4">
             @if(Route::has('inventory.ledger'))
-              <li>
-                <a class="nav-link {{ request()->routeIs('inventory.ledger') ? 'active' : '' }}" href="{{ route('inventory.ledger') }}">
-                  Stock Ledger
-                </a>
-              </li>
+              <li><a class="nav-link {{ request()->routeIs('inventory.ledger') ? 'active' : '' }}" href="{{ route('inventory.ledger') }}">Stock Ledger</a></li>
             @endif
-
             @if(Route::has('inventory.summary'))
-              <li>
-                <a class="nav-link {{ request()->routeIs('inventory.summary') ? 'active' : '' }}" href="{{ route('inventory.summary') }}">
-                  Stock Summary
-                </a>
-              </li>
+              <li><a class="nav-link {{ request()->routeIs('inventory.summary') ? 'active' : '' }}" href="{{ route('inventory.summary') }}">Stock Summary</a></li>
             @endif
-
             @if(Route::has('inventory.adjustments.index'))
-              <li>
-                <a class="nav-link {{ request()->routeIs('inventory.adjustments.*') ? 'active' : '' }}" href="{{ route('inventory.adjustments.index') }}">
-                  Stock Adjustment
-                </a>
-              </li>
+              <li><a class="nav-link {{ request()->routeIs('inventory.adjustments.*') ? 'active' : '' }}" href="{{ route('inventory.adjustments.index') }}">Stock Adjustment</a></li>
             @endif
-
             @if(Route::has('inventory.reconciliation'))
-              <li>
-                <a class="nav-link {{ request()->routeIs('inventory.reconciliation') ? 'active' : '' }}" href="{{ route('inventory.reconciliation') }}">
-                  Reconciliation
-                </a>
-              </li>
+              <li><a class="nav-link {{ request()->routeIs('inventory.reconciliation') ? 'active' : '' }}" href="{{ route('inventory.reconciliation') }}">Reconciliation</a></li>
             @endif
           </ul>
         </li>
 
-        {{-- Manufacture (always open) --}}
+        {{-- Manufacture (always open, no collapse) --}}
         <li class="nav-item nav-group">
           <span class="nav-link {{ request()->is('manufacture-*') || request()->is('manufacture-jobs*') || request()->is('manufacture-recipes*') ? 'active' : '' }}">
             <span class="nav-link-icon">
@@ -197,19 +162,10 @@
 
           <ul class="nav nav-pills sub-nav flex-column ms-4">
             @if(Route::has('manufacture-jobs.index'))
-              <li>
-                <a class="nav-link {{ request()->is('manufacture-jobs*') ? 'active' : '' }}" href="{{ route('manufacture-jobs.index') }}">
-                  Manufacture Jobs
-                </a>
-              </li>
+              <li><a class="nav-link {{ request()->is('manufacture-jobs*') ? 'active' : '' }}" href="{{ route('manufacture-jobs.index') }}">Manufacture Jobs</a></li>
             @endif
-
             @if(Route::has('manufacture-recipes.index'))
-              <li>
-                <a class="nav-link {{ request()->is('manufacture-recipes*') ? 'active' : '' }}" href="{{ route('manufacture-recipes.index') }}">
-                  Manufacture Recipes
-                </a>
-              </li>
+              <li><a class="nav-link {{ request()->is('manufacture-recipes*') ? 'active' : '' }}" href="{{ route('manufacture-recipes.index') }}">Manufacture Recipes</a></li>
             @endif
           </ul>
         </li>
