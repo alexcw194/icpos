@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css">
 
   <style>
-    .page-wrapper { margin-left: 0; }
+    .page-wrapper { margin-left: 0; }a
     @media (min-width: 992px) {
       .navbar-vertical + .page-wrapper { margin-left: 280px; } /* lebar sidebar */
     }
@@ -46,6 +46,30 @@
       font-weight:800; letter-spacing:.5px; text-transform:uppercase;
       background:linear-gradient(90deg,#22d3ee,#6366f1);
       -webkit-background-clip:text; background-clip:text; color:transparent;
+    }
+
+    /* Sidebar: force left alignment */
+    .navbar-vertical .navbar-nav {
+      align-items: stretch;        /* jangan center kolomnya */
+    }
+
+    .navbar-vertical .nav-link,
+    .navbar-vertical .nav-link-title {
+      text-align: left;
+    }
+
+    .navbar-vertical .nav-link {
+      justify-content: flex-start; /* ikon + teks rata kiri */
+    }
+
+    .navbar-vertical .nav-link-icon {
+      margin-right: .5rem;         /* jarak ikon ke teks */
+    }
+
+    /* Sub menu (pills) juga rata kiri */
+    .navbar-vertical .sub-nav .nav-link {
+      justify-content: flex-start;
+      text-align: left;
     }
 
     /* ===== Topbar layering & alignment ===== */
