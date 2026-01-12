@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css">
 
   <style>
-    .page-wrapper { margin-left: 0; }a
+    .page-wrapper { margin-left: 0; }
     @media (min-width: 992px) {
       .navbar-vertical + .page-wrapper { margin-left: 280px; } /* lebar sidebar */
     }
@@ -391,6 +391,21 @@
         : { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} };
     })();
     </script>
+
+  {{-- Mobile: auto-close sidebar offcanvas tanpa blok navigasi --}}
+  <script>
+    document.addEventListener('click', function (e) {
+      const link = e.target.closest('#sidebar-menu a[href]');
+      if (!link) return;
+
+      const el = document.getElementById('sidebar-menu');
+      if (!el) return;
+
+      // Kalau sedang offcanvas (mobile), close setelah klik. Jangan preventDefault.
+      const instance = bootstrap.Offcanvas.getInstance(el) || new bootstrap.Offcanvas(el);
+      instance.hide();
+    });
+  </script>
 
   {{-- Tempat script halaman (termasuk _item_quicksearch_js.blade.php) --}}
   @stack('scripts')

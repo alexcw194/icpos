@@ -14,9 +14,6 @@
           $logoUrl  = $logoPath ? asset('storage/'.$logoPath) : null;
       }
   } catch (\Throwable $e) {}
-
-  // Auto-close offcanvas on mobile when a menu item is clicked
-  $dismiss = 'data-bs-dismiss="offcanvas"';
 @endphp
 
 <style>
@@ -68,7 +65,7 @@
           {{-- Dashboard --}}
           <li class="nav-item">
             <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"
-               href="{{ route('dashboard') }}" {!! $dismiss !!}>
+               href="{{ route('dashboard') }}">
               <span class="nav-link-icon ti ti-home"></span>
               <span class="nav-link-title">Dashboard</span>
             </a>
@@ -78,7 +75,7 @@
           @if($hasCustomers)
             <li class="nav-item">
               <a class="nav-link {{ request()->is('customers*') ? 'active' : '' }}"
-                 href="{{ route('customers.index') }}" {!! $dismiss !!}>
+                 href="{{ route('customers.index') }}">
                 <span class="nav-link-icon ti ti-users"></span>
                 <span class="nav-link-title">Customers</span>
               </a>
@@ -89,7 +86,7 @@
           @if($hasItems)
             <li class="nav-item">
               <a class="nav-link {{ request()->is('items*') ? 'active' : '' }}"
-                 href="{{ route('items.index') }}" {!! $dismiss !!}>
+                 href="{{ route('items.index') }}">
                 <span class="nav-link-icon ti ti-box"></span>
                 <span class="nav-link-title">Items</span>
               </a>
@@ -107,7 +104,7 @@
               @if(Route::has('quotations.index'))
                 <li>
                   <a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}"
-                     href="{{ route('quotations.index') }}" {!! $dismiss !!}>
+                     href="{{ route('quotations.index') }}">
                     Quotations
                   </a>
                 </li>
@@ -116,7 +113,7 @@
               @if(Route::has('sales-orders.index'))
                 <li>
                   <a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}"
-                     href="{{ route('sales-orders.index') }}" {!! $dismiss !!}>
+                     href="{{ route('sales-orders.index') }}">
                     Sales Orders
                   </a>
                 </li>
@@ -125,7 +122,7 @@
               @if(Route::has('deliveries.index'))
                 <li>
                   <a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}"
-                     href="{{ route('deliveries.index') }}" {!! $dismiss !!}>
+                     href="{{ route('deliveries.index') }}">
                     Delivery Orders
                   </a>
                 </li>
@@ -134,7 +131,7 @@
               @if(Route::has('invoices.index'))
                 <li>
                   <a class="nav-link {{ request()->is('invoices*') ? 'active' : '' }}"
-                     href="{{ route('invoices.index') }}" {!! $dismiss !!}>
+                     href="{{ route('invoices.index') }}">
                     Invoices
                   </a>
                 </li>
@@ -147,7 +144,7 @@
             @if(Route::has('po.index'))
               <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}"
-                   href="{{ route('po.index') }}" {!! $dismiss !!}>
+                   href="{{ route('po.index') }}">
                   <span class="nav-link-icon ti ti-shopping-cart"></span>
                   <span class="nav-link-title">Purchase Orders</span>
                 </a>
@@ -173,19 +170,19 @@
             <ul class="nav nav-pills sub-nav flex-column ms-4">
               @if(Route::has('inventory.ledger'))
                 <li><a class="nav-link {{ request()->routeIs('inventory.ledger') ? 'active' : '' }}"
-                       href="{{ route('inventory.ledger') }}" {!! $dismiss !!}>Stock Ledger</a></li>
+                       href="{{ route('inventory.ledger') }}">Stock Ledger</a></li>
               @endif
               @if(Route::has('inventory.summary'))
                 <li><a class="nav-link {{ request()->routeIs('inventory.summary') ? 'active' : '' }}"
-                       href="{{ route('inventory.summary') }}" {!! $dismiss !!}>Stock Summary</a></li>
+                       href="{{ route('inventory.summary') }}">Stock Summary</a></li>
               @endif
               @if(Route::has('inventory.adjustments.index'))
                 <li><a class="nav-link {{ request()->routeIs('inventory.adjustments.*') ? 'active' : '' }}"
-                       href="{{ route('inventory.adjustments.index') }}" {!! $dismiss !!}>Stock Adjustment</a></li>
+                       href="{{ route('inventory.adjustments.index') }}">Stock Adjustment</a></li>
               @endif
               @if(Route::has('inventory.reconciliation'))
                 <li><a class="nav-link {{ request()->routeIs('inventory.reconciliation') ? 'active' : '' }}"
-                       href="{{ route('inventory.reconciliation') }}" {!! $dismiss !!}>Reconciliation</a></li>
+                       href="{{ route('inventory.reconciliation') }}">Reconciliation</a></li>
               @endif
             </ul>
           </li>
@@ -210,11 +207,11 @@
             <ul class="nav nav-pills sub-nav flex-column ms-4">
               @if(Route::has('manufacture-jobs.index'))
                 <li><a class="nav-link {{ request()->is('manufacture-jobs*') ? 'active' : '' }}"
-                       href="{{ route('manufacture-jobs.index') }}" {!! $dismiss !!}>Manufacture Jobs</a></li>
+                       href="{{ route('manufacture-jobs.index') }}">Manufacture Jobs</a></li>
               @endif
               @if(Route::has('manufacture-recipes.index'))
                 <li><a class="nav-link {{ request()->is('manufacture-recipes*') ? 'active' : '' }}"
-                       href="{{ route('manufacture-recipes.index') }}" {!! $dismiss !!}>Manufacture Recipes</a></li>
+                       href="{{ route('manufacture-recipes.index') }}">Manufacture Recipes</a></li>
               @endif
             </ul>
           </li>
