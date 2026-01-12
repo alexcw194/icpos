@@ -1,22 +1,86 @@
 @extends('layouts.tabler')
+
 @section('content')
 <div class="container-xl">
-  <form action="{{ route('users.store') }}" method="POST" enctype="multipart/form-data" class="card">
-    @csrf
-    <div class="card-header"><div class="card-title">Add User</div></div>
-    <div class="card-body">
-      <div class="row g-3">
-        <div class="col-md-6"><label class="form-label">Nama</label><input type="text" name="name" value="{{ old('name') }}" class="form-control" required>@error('name')<div class="text-danger small">{{ $message }}</div>@enderror</div>
-        <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" value="{{ old('email') }}" class="form-control" required>@error('email')<div class="text-danger small">{{ $message }}</div>@enderror</div>
-        <div class="col-md-4"><label class="form-label">Role</label><select name="role" class="form-select" required>@foreach(['Admin','Sales','Finance'] as $r)<option value="{{ $r }}" @selected(old('role')===$r)>{{ $r }}</option>@endforeach</select></div>
-        <div class="col-md-4 d-flex align-items-end"><label class="form-check form-switch"><input class="form-check-input" type="checkbox" name="is_active" value="1" {{ old('is_active',1) ? 'checked' : '' }}><span class="form-check-label">Active</span></label></div>
-        <div class="col-md-4"><label class="form-label">Profile Image</label><input type="file" name="avatar" class="form-control" accept="image/*">@error('avatar')<div class="text-danger small">{{ $message }}</div>@enderror</div>
-        <div class="col-12"><label class="form-label">Email Signature (opsional)</label><textarea name="email_signature" class="form-control" rows="3">{{ old('email_signature') }}</textarea></div>
-        <div class="col-md-6"><label class="form-label">Password (opsional)</label><input type="password" name="password" class="form-control" autocomplete="new-password"><small class="form-hint">Kosongkan untuk kirim link set password.</small></div>
-        <div class="col-md-6 d-flex align-items-end"><label class="form-check"><input class="form-check-input" type="checkbox" name="send_invite" value="1" {{ old('send_invite',1) ? 'checked' : '' }}><span class="form-check-label">Kirim link set password</span></label></div>
-      </div>
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Add User</h3>
     </div>
-    <div class="card-footer text-end"><a href="{{ route('users.index') }}" class="btn">Batal</a><button class="btn btn-primary">Simpan</button></div>
-  </form>
+
+    <form method="POST" action="{{ route('users.store') }}" enctype="multipart/form-data">
+      @csrf
+
+      <div class="card-body">
+        @if ($errors->any())
+          <div class="alert alert-danger">
+            <ul class="mb-0">
+              @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+              @endforeach
+            </ul>
+          </div>
+        @endif
+
+        <div class="mb-3">
+          <label class="form-label">Nama</label>
+          <input type="text" name="name" value="{{ old('name') }}" class="form-control" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" value="{{ old('email') }}" class="form-control" required>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-8">
+            <div class="mb-3">
+              <label class="form-label">Role</label>
+              <select name="role" class="form-select" required>
+                @foreach(($roles ?? []) as $role)
+                  <option value="{{ $role->name }}" @selected(old('role', 'Sales') === $role->name)>
+                    {{ $role->name }}
+                  </option>
+                @endforeach
+              </select>
+              <small class="text-muted">Role diambil dari database (Spatie).</small>
+            </div>
+          </div>
+
+          <div class="col-md-4 d-flex align-items-center">
+            <label class="form-check form-switch mt-4">
+              <input class="form-check-input" type="checkbox" name="is_active" value="1" @checked(old('is_active', 1))>
+              <span class="form-check-label">Active</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Password (opsional)</label>
+          <input type="password" name="password" class="form-control" autocomplete="new-password">
+          <small class="text-muted">Kosongkan untuk kirim link set password (jika fitur invite dipakai).</small>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Avatar (opsional)</label>
+          <input type="file" name="avatar" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Email Signature (opsional)</label>
+          <textarea name="email_signature" class="form-control" rows="4">{{ old('email_signature') }}</textarea>
+        </div>
+
+        <label class="form-check">
+          <input class="form-check-input" type="checkbox" name="send_invite" value="1" @checked(old('send_invite'))>
+          <span class="form-check-label">Kirim undangan (reset password link)</span>
+        </label>
+      </div>
+
+      <div class="card-footer d-flex justify-content-between">
+        <a href="{{ route('users.index') }}" class="btn btn-light">Batal</a>
+        <button type="submit" class="btn btn-primary">Simpan</button>
+      </div>
+    </form>
+  </div>
 </div>
 @endsection
