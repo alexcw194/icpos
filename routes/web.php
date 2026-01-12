@@ -78,11 +78,12 @@ Route::middleware(['auth'])->group(function () {
     // Google Places proxy
     Route::get('/api/places/search', [AiSuggestController::class, 'company'])->name('places.search');
 
-    // Items
-    Route::resource('items', ItemController::class);
-    Route::resource('items.variants', ItemVariantController::class)
-        ->parameters(['variants' => 'variant'])
-        ->shallow();
+    // =======================
+    // Items (READ-ONLY untuk semua user login)
+    // =======================
+    Route::resource('items', ItemController::class)->only(['index','show']);
+
+    // Quick search items (tetap auth)
     Route::get('/api/items/search', [ItemController::class, 'quickSearch'])->name('items.search'); // <- tanpa ->middleware(['auth'])
 
     // Quotations
@@ -218,6 +219,15 @@ Route::middleware(['auth'])->group(function () {
 // Admin-only area (EnsureAdmin)
 // =======================
 Route::middleware(['auth', EnsureAdmin::class])->group(function () {
+    // =======================
+    // Items (WRITE untuk Admin/SuperAdmin)
+    // =======================
+    Route::resource('items', ItemController::class)->except(['index','show']);
+
+    Route::resource('items.variants', ItemVariantController::class)
+        ->parameters(['variants' => 'variant'])
+        ->shallow();
+
     // Companies
     Route::resource('companies', CompanyController::class)->only(['index','create','store','edit','update']);
     Route::post('companies/{company}/make-default', [CompanyController::class, 'makeDefault'])

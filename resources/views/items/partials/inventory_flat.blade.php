@@ -85,10 +85,14 @@
                    href="{{ route('items.variants.index', $row['item_id']) }}#variant-{{ $row['variant_id'] }}">
                   Lihat
                 </a>
-                <a class="btn btn-outline-primary btn-sm"
-                   href="{{ route('variants.edit', $row['variant_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
-                  Ubah
-                </a>
+
+                @hasanyrole('SuperAdmin|Admin')
+                  <a class="btn btn-outline-primary btn-sm"
+                     href="{{ route('variants.edit', $row['variant_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
+                    Ubah
+                  </a>
+                @endhasanyrole
+
                 <a class="btn btn-outline-secondary btn-sm"
                    href="{{ route('items.show', $row['item_id']) }}">
                   Parent
@@ -98,14 +102,17 @@
                    href="{{ route('items.show', $row['item_id']) }}">
                   Lihat
                 </a>
-                <a class="btn btn-outline-primary btn-sm"
-                   href="{{ route('items.edit', $row['item_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
-                  Ubah
-                </a>
-                <a class="btn btn-outline-secondary btn-sm"
-                   href="{{ route('items.variants.index', $row['item_id']) }}">
-                  Variant
-                </a>
+
+                @hasanyrole('SuperAdmin|Admin')
+                  <a class="btn btn-outline-primary btn-sm"
+                     href="{{ route('items.edit', $row['item_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
+                    Ubah
+                  </a>
+                  <a class="btn btn-outline-secondary btn-sm"
+                     href="{{ route('items.variants.index', $row['item_id']) }}">
+                    Variant
+                  </a>
+                @endhasanyrole
               @endif
             </div>
           </td>
@@ -179,10 +186,14 @@
                    href="{{ route('items.variants.index', $row['item_id']) }}#variant-{{ $row['variant_id'] }}">
                   Lihat
                 </a>
-                <a class="btn btn-outline-primary btn-sm"
-                   href="{{ route('variants.edit', $row['variant_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
-                  Ubah
-                </a>
+
+                @hasanyrole('SuperAdmin|Admin')
+                  <a class="btn btn-outline-primary btn-sm"
+                     href="{{ route('variants.edit', $row['variant_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
+                    Ubah
+                  </a>
+                @endhasanyrole
+
                 <a class="btn btn-outline-secondary btn-sm"
                    href="{{ route('items.show', $row['item_id']) }}">
                   Parent
@@ -192,14 +203,17 @@
                    href="{{ route('items.show', $row['item_id']) }}">
                   Lihat
                 </a>
-                <a class="btn btn-outline-primary btn-sm"
-                   href="{{ route('items.edit', $row['item_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
-                  Ubah
-                </a>
-                <a class="btn btn-outline-secondary btn-sm"
-                   href="{{ route('items.variants.index', $row['item_id']) }}">
-                  Variant
-                </a>
+
+                @hasanyrole('SuperAdmin|Admin')
+                  <a class="btn btn-outline-primary btn-sm"
+                     href="{{ route('items.edit', $row['item_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
+                    Ubah
+                  </a>
+                  <a class="btn btn-outline-secondary btn-sm"
+                     href="{{ route('items.variants.index', $row['item_id']) }}">
+                    Variant
+                  </a>
+                @endhasanyrole
               @endif
             </div>
           </div>

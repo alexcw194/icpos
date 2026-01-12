@@ -12,14 +12,17 @@
           <button type="button" class="btn btn-outline-primary {{ $viewMode === 'flat' ? 'active' : '' }}" data-view="flat">Flat List</button>
           <button type="button" class="btn btn-outline-primary {{ $viewMode === 'grouped' ? 'active' : '' }}" data-view="grouped">Grouped</button>
         </div>
-       {{-- items/index.blade.php --}}
-        <a
-          href="{{ route('items.create', ['modal' => 1, 'r' => request()->fullUrl()]) }}"
-          class="btn btn-primary"
-          data-modal="#adminModal"
-        >
-          Add Item
-        </a>
+
+        {{-- items/index.blade.php --}}
+        @hasanyrole('SuperAdmin|Admin')
+          <a
+            href="{{ route('items.create', ['modal' => 1, 'r' => request()->fullUrl()]) }}"
+            class="btn btn-primary"
+            data-modal="#adminModal"
+          >
+            Add Item
+          </a>
+        @endhasanyrole
       </div>
     </div>
 

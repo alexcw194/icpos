@@ -9,9 +9,13 @@
       <div class="card-title">Variants - {{ $item->name }}</div>
       <div class="ms-auto btn-list">
         <a href="{{ route('items.edit', $item) }}" class="btn btn-secondary">Back to Item</a>
-        <a href="{{ route('items.variants.create', $item) }}" class="btn btn-primary">+ Add Variant</a>
+
+        @hasanyrole('SuperAdmin|Admin')
+          <a href="{{ route('items.variants.create', $item) }}" class="btn btn-primary">+ Add Variant</a>
+        @endhasanyrole
       </div>
     </div>
+
     <div class="card-body table-responsive">
       <table class="table table-sm">
         <thead>
@@ -35,11 +39,15 @@
                 @endif
               </td>
               <td class="text-end">
-                <a href="{{ route('variants.edit', $v) }}" class="btn btn-sm btn-warning">Edit</a>
-                <form action="{{ route('variants.destroy', $v) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this variant?')">
-                  @csrf @method('DELETE')
-                  <button class="btn btn-sm btn-danger">Delete</button>
-                </form>
+                @hasanyrole('SuperAdmin|Admin')
+                  <a href="{{ route('variants.edit', $v) }}" class="btn btn-sm btn-warning">Edit</a>
+                  <form action="{{ route('variants.destroy', $v) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this variant?')">
+                    @csrf @method('DELETE')
+                    <button class="btn btn-sm btn-danger">Delete</button>
+                  </form>
+                @else
+                  <span class="text-muted small">Read-only</span>
+                @endhasanyrole
               </td>
             </tr>
           @empty
