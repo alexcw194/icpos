@@ -26,6 +26,8 @@ class Customer extends Model
         'notes',
         'jenis_id',              // 🔰 master Jenis (pengganti "industry")
         'created_by',
+        'sales_user_id',         // ✅ owner sales
+
         'npwp_number','npwp_name','npwp_address',
 
         // ===============================
@@ -58,6 +60,11 @@ class Customer extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function salesOwner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'sales_user_id');
+    }
+
     public function contacts(): HasMany
     {
         return $this->hasMany(Contact::class);
@@ -66,6 +73,16 @@ class Customer extends Model
     public function jenis(): BelongsTo
     {
         return $this->belongsTo(Jenis::class);
+    }
+
+    public function quotations(): HasMany
+    {
+        return $this->hasMany(\App\Models\Quotation::class);
+    }
+
+    public function salesOrders()
+    {
+        return $this->hasMany(\App\Models\SalesOrder::class);
     }
 
     /* =========================
@@ -99,20 +116,26 @@ class Customer extends Model
     /**
      * VISIBILITY:
      * - Admin / SuperAdmin / Finance => lihat semua customer
-     * - Role lain => hanya customer yang dibuatnya (created_by = user)
+     * - Role lain (Sales, dll) => hanya customer miliknya (sales_user_id = user)
      */
     public function scopeVisibleTo($q, $user = null)
     {
         $u = $user ?: auth()->user();
         if (!$u) return $q->whereRaw('1=0');
 
-        // spatie/laravel-permission (ROLE NAMES sesuai seeder: Admin, SuperAdmin, Finance)
         if ($u->hasAnyRole(['Admin', 'SuperAdmin', 'Finance'])) {
             return $q;
         }
 
         // default: hanya miliknya
-        return $q->where('created_by', $u->id);
+        return $q->where(function ($w) use ($u) {
+            $w->where('sales_user_id', $u->id)
+              ->orWhere(function ($w2) use ($u) {
+                  // fallback legacy data yang belum punya sales_user_id
+                  $w2->whereNull('sales_user_id')
+                     ->where('created_by', $u->id);
+              });
+        });
     }
 
     /* =========================
@@ -124,6 +147,14 @@ class Customer extends Model
             if (!$c->created_by) {
                 $c->created_by = auth()->id();
             }
+
+            // default owner:
+            // - kalau user Sales, owner = dia
+            // - kalau bukan Sales dan belum dipilih, biarkan null (admin wajib pilih via UI)
+            if (!$c->sales_user_id && auth()->check() && auth()->user()?->hasRole('Sales')) {
+                $c->sales_user_id = auth()->id();
+            }
+
             $c->name_key = self::makeNameKey($c->name ?? '');
         });
 
@@ -216,7 +247,6 @@ class Customer extends Model
     {
         $d = $this->npwp_number;
         if (!$d) return null;
-        // Biarkan apa adanya; formatting spesifik bisa dibuat nanti bila perlu
         return $d;
     }
 
@@ -229,15 +259,5 @@ class Customer extends Model
             $this->shipping_state,
             $this->shipping_zip,
         ])->filter()->implode(', ');
-    }
-
-    public function quotations(): HasMany
-    {
-        return $this->hasMany(\App\Models\Quotation::class);
-    }
-
-    public function salesOrders()
-    {
-        return $this->hasMany(\App\Models\SalesOrder::class);
     }
 }

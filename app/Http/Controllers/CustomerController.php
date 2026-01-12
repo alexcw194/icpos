@@ -3,241 +3,188 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
-use App\Models\Contact;
 use App\Models\Jenis;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
     public function index(Request $request)
     {
-        $kw      = $request->string('q')->toString();
-        $jenisId = $request->input('jenis_id');
+        $this->authorize('viewAny', Customer::class);
 
-        $customers = Customer::with('jenis')
-            ->visibleTo()
-            ->keyword($kw)
-            ->inJenis($jenisId)
-            ->ordered()
-            ->paginate(20)
-            ->withQueryString();
+        $q = Customer::query()
+            ->with(['jenis', 'creator', 'salesOwner'])
+            ->visibleTo(Auth::user())
+            ->keyword($request->get('q'))
+            ->inJenis($request->get('jenis_id'))
+            ->ordered();
 
-        $jenises = Jenis::where('is_active', true)
-            ->orderBy('name')
-            ->get(['id','name']);
+        $customers = $q->paginate(20)->withQueryString();
 
-        return view('customers.index', compact('customers','jenises','kw','jenisId'));
+        $jenisList = Jenis::query()->active()->ordered()->get();
+
+        return view('customers.index', compact('customers', 'jenisList'));
     }
 
     public function create()
     {
-        $jenises = Jenis::where('is_active', true)->orderBy('name')->get(['id','name']);
-        return view('customers.create', compact('jenises'));
-    }
+        $this->authorize('create', Customer::class);
 
-    public function dupCheck(Request $request)
-    {
-        $name = trim((string) $request->query('name', ''));
-        if ($name === '') {
-            return response()->json(['exists' => false]);
-        }
+        $customer = new Customer();
 
-        // Cek exact (case-insensitive), lalu fallback "mirip" (LIKE) agar informatif saat user mengetik
-        $kwLower = mb_strtolower($name);
-        $exists = Customer::query()
-            ->whereRaw('LOWER(name) = ?', [$kwLower])
-            ->exists();
+        $jenisList = Jenis::query()->active()->ordered()->get();
 
-        if (!$exists && mb_strlen($name) >= 3) {
-            $like = '%' . str_replace(['%','_'], ['\\%','\\_'], $name) . '%';
-            $exists = Customer::where('name', 'like', $like)->exists();
-        }
+        // hanya list Sales untuk assignment owner
+        $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
 
-        return response()->json(['exists' => $exists]);
+        return view('customers.create', compact('customer', 'jenisList', 'salesUsers'));
     }
 
     public function store(Request $request)
     {
+        $this->authorize('create', Customer::class);
+
+        $isPrivileged = $request->user()->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']);
+
         $data = $request->validate([
-            'name'    => ['required','string','max:255'],
-            'jenis_id'=> ['required','integer','exists:jenis,id'],
+            'name' => ['required', 'string', 'max:190'],
+            'jenis_id' => ['required', 'exists:jenis,id'],
 
-            // alamat & info lain → opsional
-            'email'   => ['nullable','string','max:255'],
-            'phone'   => ['nullable','string','max:100'],
-            'npwp'    => ['nullable','string','max:100'],
+            // ✅ owner (privileged boleh pilih, Sales akan di-lock)
+            'sales_user_id' => [
+                $isPrivileged ? 'required' : 'nullable',
+                'nullable',
+                'exists:users,id',
+            ],
 
-            'address'  => ['nullable','string','max:255'],
-            'city'     => ['nullable','string','max:100'],
-            'province' => ['nullable','string','max:100'],
-            'country'  => ['nullable','string','max:100'],
-            'website'  => ['nullable','string','max:255'],
-            'billing_terms_days' => ['nullable','integer','min:0'],
-            'notes'    => ['nullable','string'],
+            'phone' => ['nullable', 'string', 'max:60'],
+            'email' => ['nullable', 'email', 'max:190'],
+            'website' => ['nullable', 'string', 'max:190'],
+            'billing_terms_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
 
-            'billing_street'   => ['nullable','string','max:255'],
-            'billing_city'     => ['nullable','string','max:100'],
-            'billing_state'    => ['nullable','string','max:100'],
-            'billing_zip'      => ['nullable','string','max:20'],
-            'billing_country'  => ['nullable','string','max:100'],
-            'billing_notes'    => ['nullable','string'],
+            'address' => ['nullable', 'string'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'province' => ['nullable', 'string', 'max:100'],
+            'country' => ['nullable', 'string', 'max:100'],
 
-            'shipping_street'  => ['nullable','string','max:255'],
-            'shipping_city'    => ['nullable','string','max:100'],
-            'shipping_state'   => ['nullable','string','max:100'],
-            'shipping_zip'     => ['nullable','string','max:20'],
-            'shipping_country' => ['nullable','string','max:100'],
-            'shipping_notes'   => ['nullable','string'],
+            'npwp' => ['nullable', 'string', 'max:80'],
+            'npwp_number' => ['nullable', 'string', 'max:40'],
+            'npwp_name' => ['nullable', 'string', 'max:190'],
+            'npwp_address' => ['nullable', 'string'],
+
+            'notes' => ['nullable', 'string'],
+
+            // Billing & Shipping (optional)
+            'billing_street' => ['nullable', 'string'],
+            'billing_city' => ['nullable', 'string', 'max:100'],
+            'billing_state' => ['nullable', 'string', 'max:100'],
+            'billing_zip' => ['nullable', 'string', 'max:30'],
+            'billing_country' => ['nullable', 'string', 'max:10'],
+            'billing_notes' => ['nullable', 'string'],
+
+            'shipping_street' => ['nullable', 'string'],
+            'shipping_city' => ['nullable', 'string', 'max:100'],
+            'shipping_state' => ['nullable', 'string', 'max:100'],
+            'shipping_zip' => ['nullable', 'string', 'max:30'],
+            'shipping_country' => ['nullable', 'string', 'max:10'],
+            'shipping_notes' => ['nullable', 'string'],
         ]);
 
-        // (opsional) default kalau ingin isi otomatis
-        // $data['country'] = $data['country'] ?? 'ID';
-
-        $data['created_by'] = auth()->id();
-        $data['name_key']   = mb_strtolower($data['name']);
+        // hard lock untuk role Sales: owner = dirinya
+        if ($request->user()->hasRole('Sales')) {
+            $data['sales_user_id'] = $request->user()->id;
+        }
 
         $customer = Customer::create($data);
 
+        // sesuai preferensi kamu: setelah create, redirect ke show #contacts
         return redirect()
             ->route('customers.show', $customer)
-            ->with('success', 'Customer berhasil dibuat');
+            ->with('success', 'Customer berhasil dibuat.');
     }
 
     public function show(Customer $customer)
     {
-        $tab = request('tab', 'profile');
+        $this->authorize('view', $customer);
 
-        // preload relasi dasar + hitungan untuk badge
-        $customer->load('jenis', 'contacts');
-        $customer->loadCount([
-            'contacts',
-            'quotations',
-            'salesOrders',        // << counter SO (sales_orders_count)
-        ]);
+        $customer->load(['contacts', 'jenis', 'creator', 'salesOwner']);
 
-        $quotations  = null;
-        $salesOrders = null;
-
-        if ($tab === 'quotations') {
-            $q = trim((string) request('q', ''));
-            $qq = \App\Models\Quotation::with('company')
-                ->where('customer_id', $customer->id)
-                ->latest('date')->latest('id');
-
-            if ($q !== '') {
-                $qq->where('number', 'like', "%{$q}%");
-            }
-
-            $quotations = $qq->paginate(15)->withQueryString();
-        } elseif ($tab === 'sales_orders') {
-            $q = trim((string) request('q', ''));
-            $soq = \App\Models\SalesOrder::with('company')
-                ->where('customer_id', $customer->id)
-                ->latest('order_date')->latest('id');
-
-            if ($q !== '') {
-                $soq->where('so_number', 'like', "%{$q}%");
-            }
-
-            $salesOrders = $soq->paginate(15)->withQueryString();
-        }
-
-        return view('customers.show', compact('customer', 'tab', 'quotations', 'salesOrders'));
-    }
-
-    public function quickSearch(\Illuminate\Http\Request $req)
-    {
-        $q = trim((string) $req->input('q', ''));
-
-        $customers = Customer::query()
-            ->select('id','name')
-            ->when($q !== '', fn($qq) => $qq->where('name','like',"%{$q}%"))
-            ->orderBy('name')->limit(20)->get()
-            ->map(fn($c) => [
-                'uid'         => 'customer-'.$c->id,
-                'type'        => 'customer',
-                'label'       => $c->name,
-                'name'        => $c->name,
-                'customer_id' => $c->id,
-                'contact_id'  => null,
-            ]);
-
-        $contacts = Contact::query()
-            ->select('id','customer_id','first_name','last_name')
-            ->with(['customer:id,name'])
-            ->when($q !== '', function ($qq) use ($q) {
-                $qq->where(function ($w) use ($q) {
-                    $w->where('first_name','like',"%{$q}%")
-                    ->orWhere('last_name','like',"%{$q}%");
-                })->orWhereHas('customer', fn($c)=>$c->where('name','like',"%{$q}%"));
-            })
-            ->orderBy('first_name')->orderBy('last_name')
-            ->limit(20)->get()
-            ->map(function ($ct) {
-                $person  = trim(($ct->first_name ?? '') . ' ' . ($ct->last_name ?? ''));
-                $company = optional($ct->customer)->name;
-                return [
-                    'uid'         => 'contact-'.$ct->id,
-                    'type'        => 'contact',
-                    'label'       => $company ? "{$company} ({$person})" : $person,
-                    'name'        => $person,
-                    'customer_id' => $ct->customer_id,
-                    'contact_id'  => $ct->id,
-                ];
-            });
-
-        return response()->json($customers->merge($contacts)->take(30)->values());
+        return view('customers.show', compact('customer'));
     }
 
     public function edit(Customer $customer)
     {
         $this->authorize('update', $customer);
 
-        $jenises = Jenis::where('is_active', true)->orderBy('name')->get(['id','name']);
+        $jenisList = Jenis::query()->active()->ordered()->get();
+        $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
 
-        return view('customers.edit', compact('customer','jenises'));
+        return view('customers.edit', compact('customer', 'jenisList', 'salesUsers'));
     }
 
     public function update(Request $request, Customer $customer)
     {
+        $this->authorize('update', $customer);
+
+        $isPrivileged = $request->user()->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']);
+
         $data = $request->validate([
-            'name'    => ['required','string','max:255'],
-            'jenis_id'=> ['required','integer','exists:jenis,id'],
+            'name' => ['required', 'string', 'max:190'],
+            'jenis_id' => ['required', 'exists:jenis,id'],
 
-            'email'   => ['nullable','string','max:255'],
-            'phone'   => ['nullable','string','max:100'],
-            'npwp'    => ['nullable','string','max:100'],
+            'sales_user_id' => [
+                $isPrivileged ? 'required' : 'nullable',
+                'nullable',
+                'exists:users,id',
+            ],
 
-            'address'  => ['nullable','string','max:255'],
-            'city'     => ['nullable','string','max:100'],
-            'province' => ['nullable','string','max:100'],
-            'country'  => ['nullable','string','max:100'],
-            'website'  => ['nullable','string','max:255'],
-            'billing_terms_days' => ['nullable','integer','min:0'],
-            'notes'    => ['nullable','string'],
+            'phone' => ['nullable', 'string', 'max:60'],
+            'email' => ['nullable', 'email', 'max:190'],
+            'website' => ['nullable', 'string', 'max:190'],
+            'billing_terms_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
 
-            'billing_street'   => ['nullable','string','max:255'],
-            'billing_city'     => ['nullable','string','max:100'],
-            'billing_state'    => ['nullable','string','max:100'],
-            'billing_zip'      => ['nullable','string','max:20'],
-            'billing_country'  => ['nullable','string','max:100'],
-            'billing_notes'    => ['nullable','string'],
+            'address' => ['nullable', 'string'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'province' => ['nullable', 'string', 'max:100'],
+            'country' => ['nullable', 'string', 'max:100'],
 
-            'shipping_street'  => ['nullable','string','max:255'],
-            'shipping_city'    => ['nullable','string','max:100'],
-            'shipping_state'   => ['nullable','string','max:100'],
-            'shipping_zip'     => ['nullable','string','max:20'],
-            'shipping_country' => ['nullable','string','max:100'],
-            'shipping_notes'   => ['nullable','string'],
+            'npwp' => ['nullable', 'string', 'max:80'],
+            'npwp_number' => ['nullable', 'string', 'max:40'],
+            'npwp_name' => ['nullable', 'string', 'max:190'],
+            'npwp_address' => ['nullable', 'string'],
+
+            'notes' => ['nullable', 'string'],
+
+            // Billing & Shipping (optional)
+            'billing_street' => ['nullable', 'string'],
+            'billing_city' => ['nullable', 'string', 'max:100'],
+            'billing_state' => ['nullable', 'string', 'max:100'],
+            'billing_zip' => ['nullable', 'string', 'max:30'],
+            'billing_country' => ['nullable', 'string', 'max:10'],
+            'billing_notes' => ['nullable', 'string'],
+
+            'shipping_street' => ['nullable', 'string'],
+            'shipping_city' => ['nullable', 'string', 'max:100'],
+            'shipping_state' => ['nullable', 'string', 'max:100'],
+            'shipping_zip' => ['nullable', 'string', 'max:30'],
+            'shipping_country' => ['nullable', 'string', 'max:10'],
+            'shipping_notes' => ['nullable', 'string'],
         ]);
 
-        $data['name_key'] = mb_strtolower($data['name']);
+        // hard lock untuk role Sales: tidak boleh re-assign
+        if ($request->user()->hasRole('Sales')) {
+            $data['sales_user_id'] = $customer->sales_user_id ?: $request->user()->id;
+        }
 
         $customer->update($data);
 
+        // sesuai preferensi: setelah update balik ke index
         return redirect()
-            ->route('customers.show', $customer)
-            ->with('success', 'Customer berhasil diperbarui');
+            ->route('customers.index')
+            ->with('success', 'Customer berhasil diperbarui.');
     }
 
     public function destroy(Customer $customer)
@@ -246,16 +193,8 @@ class CustomerController extends Controller
 
         $customer->delete();
 
-        return redirect()->route('customers.index')->with('ok','Customer deleted.');
-    }
-
-    public function updateNotes(Customer $customer)
-    {
-        $data = request()->validate([
-            'notes' => ['nullable','string'],
-        ]);
-        $customer->update($data);
-
-        return back()->with('success','Notes updated.');
+        return redirect()
+            ->route('customers.index')
+            ->with('success', 'Customer berhasil dihapus.');
     }
 }
