@@ -32,7 +32,7 @@
     </div>
 
     {{-- PDF Area --}}
-    <div class="card-body p-0" style="height: calc(100vh - 220px);">
+    <div class="card-body p-0" style="height: calc(100vh - 220px);" id="pdfArea">
       <iframe
         id="pdfFrame"
         src="{{ $pdfUrl }}"
@@ -44,6 +44,30 @@
 </div>
 
 <script>
+/**
+ * Android Chrome sering tidak render PDF di <iframe> (muncul placeholder + tombol "Open").
+ * Solusi: tetap pakai halaman viewer ini (biar tombol Bagikan/Unduh tetap ada),
+ * tapi area viewer diganti jadi tombol "Buka PDF" yang buka viewer native di tab baru.
+ */
+(function () {
+  const ua = navigator.userAgent || '';
+  const isAndroid = /Android/i.test(ua);
+
+  if (isAndroid) {
+    const area = document.getElementById('pdfArea');
+    if (!area) return;
+
+    area.innerHTML = `
+      <div class="p-4">
+        <div class="text-muted mb-3">PDF akan dibuka di viewer bawaan perangkat (tab baru).</div>
+        <a class="btn btn-primary" href="{{ $pdfUrl }}" target="_blank" rel="noopener">
+          Buka PDF
+        </a>
+      </div>
+    `;
+  }
+})();
+
 /**
  * Bagikan PDF: download -> share file (WhatsApp sheet, dll)
  * Tanpa "salin link".
