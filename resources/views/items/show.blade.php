@@ -59,14 +59,22 @@
       <div class="mb-3">
         <div class="d-flex align-items-start justify-content-between gap-3">
           <div class="min-w-0">
-            <div class="text-muted small">
-              {{ $item->sku ?? '—' }}
+            {{-- Row 1: SKU + Type badge (scan-first) --}}
+            <div class="d-flex align-items-center justify-content-between gap-2">
+              <div class="text-muted small text-truncate">
+                {{ $item->sku ?? '—' }}
+              </div>
+              <span class="badge bg-secondary-lt text-secondary-9 flex-shrink-0">
+                {{ $typeLabel }}
+              </span>
             </div>
 
-            <div class="h3 m-0 text-truncate">
+            {{-- Row 2: Name (primary entity) --}}
+            <div class="h3 m-0 text-truncate mt-1">
               {{ $item->name }}
             </div>
 
+            {{-- Row 3: Micro meta --}}
             <div class="text-muted small mt-1">
               Unit:
               {{ $item->unit?->code ? $item->unit->code.' — '.$item->unit->name : ($item->unit?->name ?? '—') }}
