@@ -19,6 +19,11 @@
   {{-- TomSelect CSS (untuk kotak pencarian item) --}}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css">
 
+  {{-- Enterprise typography: Inter --}}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+
   <style>
     .page-wrapper { margin-left: 0; }
     @media (min-width: 992px) {
@@ -30,6 +35,21 @@
 
     .avatar.rounded-circle { border-radius: 50% }
     .avatar-ring { box-shadow: 0 0 0 2px rgba(0,0,0,.05), 0 0 0 4px rgba(59,130,246,.25) }
+
+    /* ===== Enterprise typography (minimal, global) ===== */
+    :root{
+      --icpos-font: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    body{
+      font-family: var(--icpos-font);
+      font-size: 14px;
+      line-height: 1.45;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .small, small{ font-size: 12px; }
+    .fw-semibold{ font-weight: 600 !important; }
 
     /* Submenu di dalam dropdown (collapse) */
     .dropdown-menu .dropdown-submenu { padding: .25rem 0 .5rem; }

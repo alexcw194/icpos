@@ -136,49 +136,71 @@
 
       $size = $row['attributes']['size'] ?? '-';
       $color = $row['attributes']['color'] ?? '-';
+
+      $detailId = 'inv-detail-' . ($row['entity'] ?? 'item') . '-' . ($row['variant_id'] ?? $row['item_id']);
     @endphp
 
     <div class="card mb-3 {{ $inactive ? 'text-muted' : '' }}">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start gap-2">
           <div class="flex-grow-1">
-            <div class="fw-semibold">
-              {{ $row['display_name'] ?? '-' }}
-              @if($isVariant)
-                <span class="badge bg-primary-subtle text-primary ms-1">V</span>
-              @endif
-            </div>
-
-            @if($isVariant && !empty($row['parent_name']))
-              <div class="text-muted small mt-1">
-                Parent:
-                <a href="{{ route('items.show', $row['item_id']) }}">{{ $row['parent_name'] }}</a>
+            {{-- Row 1: Identity + badges --}}
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="text-muted small">
+                {{ $row['sku'] ?? '—' }}
               </div>
-            @endif
-
-            <div class="text-muted small mt-2">
-              SKU: {{ $row['sku'] ?? '-' }}
-              • Brand: {{ $row['brand'] ?? '-' }}
+              <div class="d-flex gap-1">
+                @if($isVariant)
+                  <span class="badge bg-primary-subtle text-primary">V</span>
+                @endif
+                @if($lowStock)
+                  <span class="badge bg-warning text-dark">Stok Rendah</span>
+                @endif
+                @if($inactive)
+                  <span class="badge bg-secondary">Nonaktif</span>
+                @endif
+              </div>
             </div>
 
-            <div class="text-muted small mt-1">
-              Size: {{ $size }} • Color: {{ $color }}
+            {{-- Row 2: Name (primary) --}}
+            <div class="fw-semibold mt-1">
+              {{ $row['display_name'] ?? '-' }}
             </div>
 
-            <div class="text-muted small mt-1">
-              {{ $row['price_label'] ?? '-' }} • Stok {{ $row['stock_label'] ?? '-' }}
+            {{-- Row 3: Decision info --}}
+            <div class="d-flex justify-content-between align-items-end mt-1">
+              <div class="fw-semibold">
+                {{ $row['price_label'] ?? '-' }}
+              </div>
+              <div class="text-muted small">
+                Stok {{ $row['stock_label'] ?? '-' }}
+              </div>
             </div>
 
-            <div class="d-flex gap-2 mt-2">
-              @if($lowStock)
-                <span class="badge bg-warning text-dark">Stok Rendah</span>
-              @endif
-              @if($inactive)
-                <span class="badge bg-secondary">Nonaktif</span>
-              @endif
+            {{-- Progressive disclosure (optional) --}}
+            <div class="mt-2">
+              <a class="small text-decoration-none" data-bs-toggle="collapse"
+                 href="#{{ $detailId }}" role="button"
+                 aria-expanded="false" aria-controls="{{ $detailId }}">
+                Detail
+              </a>
+
+              <div class="collapse mt-2" id="{{ $detailId }}">
+                <div class="text-muted small">
+                  Brand: {{ $row['brand'] ?? '-' }} • Size: {{ $size }} • Color: {{ $color }}
+                </div>
+
+                @if($isVariant && !empty($row['parent_name']))
+                  <div class="text-muted small mt-1">
+                    Parent:
+                    <a href="{{ route('items.show', $row['item_id']) }}">{{ $row['parent_name'] }}</a>
+                  </div>
+                @endif
+              </div>
             </div>
           </div>
 
+          {{-- Actions: tidak diubah (tetap) --}}
           <div class="text-end">
             <div class="btn-list flex-column">
               @if($isVariant)

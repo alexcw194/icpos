@@ -27,17 +27,25 @@
     </div>
 
     <div class="card-body">
-      <form method="get" class="row g-2 g-md-3 mb-4 align-items-end" id="inventory-filter-form">
+      <form method="get" class="row g-2 g-md-3 mb-3 align-items-end" id="inventory-filter-form">
         <input type="hidden" name="view" value="{{ $viewMode }}">
 
+        {{-- Tier 1 (mobile always visible) --}}
         <div class="col-12 col-md-4">
           <label class="form-label">Cari Item / SKU / Atribut</label>
-          <input type="text" name="q" value="{{ $filters['q'] }}" class="form-control" placeholder="Ketik nama, SKU, varian…">
+          <input
+            type="text"
+            name="q"
+            value="{{ $filters['q'] }}"
+            class="form-control"
+            placeholder="Ketik nama, SKU, varian…"
+            data-auto-submit="1"
+          >
         </div>
 
         <div class="col-6 col-md-2">
           <label class="form-label">Tipe</label>
-          <select name="type" class="form-select">
+          <select name="type" class="form-select" data-auto-submit="1">
             <option value="all"     @selected($filters['type'] === 'all')>Item & Variant</option>
             <option value="item"    @selected($filters['type'] === 'item')>Item saja</option>
             <option value="variant" @selected($filters['type'] === 'variant')>Variant saja</option>
@@ -46,14 +54,40 @@
 
         <div class="col-6 col-md-2">
           <label class="form-label">Stock</label>
-          <select name="stock" class="form-select">
+          <select name="stock" class="form-select" data-auto-submit="1">
             <option value="all" @selected($filters['stock'] === 'all')>Semua</option>
             <option value="gt0" @selected($filters['stock'] === 'gt0')>> 0</option>
             <option value="eq0" @selected($filters['stock'] === 'eq0')>= 0</option>
           </select>
         </div>
 
-        <div class="col-6 col-md-2">
+        <div class="col-12 col-md-2">
+          <label class="form-label">Urutkan</label>
+          <select name="sort" class="form-select" data-auto-submit="1">
+            <option value="name_asc"       @selected($filters['sort'] === 'name_asc')>Nama A–Z</option>
+            <option value="price_lowest"   @selected($filters['sort'] === 'price_lowest')>Harga Terendah</option>
+            <option value="price_highest"  @selected($filters['sort'] === 'price_highest')>Harga Tertinggi</option>
+            <option value="stock_highest"  @selected($filters['sort'] === 'stock_highest')>Stok Terbanyak</option>
+            <option value="newest"         @selected($filters['sort'] === 'newest')>Terbaru</option>
+          </select>
+        </div>
+
+        {{-- Mobile: Advanced + Reset (no scroll) --}}
+        <div class="col-12 d-md-none d-flex gap-2">
+          <button
+            type="button"
+            class="btn btn-outline-secondary w-100"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#inventoryFiltersOffcanvas"
+            aria-controls="inventoryFiltersOffcanvas"
+          >
+            Filter Lanjutan
+          </button>
+          <a href="{{ route('items.index', ['view' => $viewMode]) }}" class="btn btn-light">Reset</a>
+        </div>
+
+        {{-- Tier 2 (desktop inline) --}}
+        <div class="col-6 col-md-2 d-none d-md-block">
           <label class="form-label">Brand</label>
           <select name="brand_id" class="form-select">
             <option value="">Semua Brand</option>
@@ -63,7 +97,7 @@
           </select>
         </div>
 
-        <div class="col-6 col-md-2">
+        <div class="col-6 col-md-2 d-none d-md-block">
           <label class="form-label">Unit</label>
           <select name="unit_id" class="form-select">
             <option value="">Semua Unit</option>
@@ -75,7 +109,7 @@
           </select>
         </div>
 
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-4 d-none d-md-block">
           <label class="form-label">Size</label>
           <select name="sizes[]" class="form-select inventory-select" multiple>
             @foreach($sizesList as $size)
@@ -84,7 +118,7 @@
           </select>
         </div>
 
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-4 d-none d-md-block">
           <label class="form-label">Color</label>
           <select name="colors[]" class="form-select inventory-select" multiple>
             @foreach($colorsList as $color)
@@ -93,28 +127,17 @@
           </select>
         </div>
 
-        <div class="col-6 col-md-2">
+        <div class="col-6 col-md-2 d-none d-md-block">
           <label class="form-label">Length Min</label>
           <input type="number" step="0.01" name="length_min" value="{{ $filters['length_min'] }}" class="form-control" placeholder="Min">
         </div>
 
-        <div class="col-6 col-md-2">
+        <div class="col-6 col-md-2 d-none d-md-block">
           <label class="form-label">Length Max</label>
           <input type="number" step="0.01" name="length_max" value="{{ $filters['length_max'] }}" class="form-control" placeholder="Max">
         </div>
 
-        <div class="col-12 col-md-2">
-          <label class="form-label">Urutkan</label>
-          <select name="sort" class="form-select">
-            <option value="name_asc"       @selected($filters['sort'] === 'name_asc')>Nama A–Z</option>
-            <option value="price_lowest"   @selected($filters['sort'] === 'price_lowest')>Harga Terendah</option>
-            <option value="price_highest"  @selected($filters['sort'] === 'price_highest')>Harga Tertinggi</option>
-            <option value="stock_highest"  @selected($filters['sort'] === 'stock_highest')>Stok Terbanyak</option>
-            <option value="newest"         @selected($filters['sort'] === 'newest')>Terbaru</option>
-          </select>
-        </div>
-
-        <div class="col-12 col-md-auto">
+        <div class="col-12 col-md-auto d-none d-md-block">
           <label class="form-label">&nbsp;</label>
           <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" id="toggleVariantParent" name="show_variant_parent" value="1" @checked($filters['show_variant_parent'])>
@@ -122,9 +145,84 @@
           </div>
         </div>
 
-        <div class="col-12 d-flex gap-2 mt-2">
+        {{-- Desktop buttons --}}
+        <div class="col-12 d-none d-md-flex gap-2 mt-2">
           <button class="btn btn-primary">Terapkan</button>
           <a href="{{ route('items.index', ['view' => $viewMode]) }}" class="btn btn-light">Reset</a>
+        </div>
+
+        {{-- Offcanvas: Advanced Filters (mobile) --}}
+        <div class="offcanvas offcanvas-bottom d-md-none" tabindex="-1" id="inventoryFiltersOffcanvas" aria-labelledby="inventoryFiltersOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="inventoryFiltersOffcanvasLabel">Filter Lanjutan</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+          </div>
+
+          <div class="offcanvas-body">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label">Brand</label>
+                <select name="brand_id" class="form-select">
+                  <option value="">Semua Brand</option>
+                  @foreach($brands as $brand)
+                    <option value="{{ $brand->id }}" @selected((string)$filters['brand_id'] === (string)$brand->id)>{{ $brand->name }}</option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Unit</label>
+                <select name="unit_id" class="form-select">
+                  <option value="">Semua Unit</option>
+                  @foreach($units as $unit)
+                    <option value="{{ $unit->id }}" @selected((string)$filters['unit_id'] === (string)$unit->id)>
+                      {{ $unit->code ? $unit->code.' — ' : '' }}{{ $unit->name }}
+                    </option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Size</label>
+                <select name="sizes[]" class="form-select inventory-select" multiple>
+                  @foreach($sizesList as $size)
+                    <option value="{{ $size }}" @selected(in_array($size, $filters['sizes'], true))>{{ $size }}</option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Color</label>
+                <select name="colors[]" class="form-select inventory-select" multiple>
+                  @foreach($colorsList as $color)
+                    <option value="{{ $color }}" @selected(in_array($color, $filters['colors'], true))>{{ $color }}</option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Length Min</label>
+                <input type="number" step="0.01" name="length_min" value="{{ $filters['length_min'] }}" class="form-control" placeholder="Min">
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Length Max</label>
+                <input type="number" step="0.01" name="length_max" value="{{ $filters['length_max'] }}" class="form-control" placeholder="Max">
+              </div>
+
+              <div class="col-12">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="toggleVariantParentMobile" name="show_variant_parent" value="1" @checked($filters['show_variant_parent'])>
+                  <label class="form-check-label" for="toggleVariantParentMobile">Tampilkan Variant Parent</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-top p-3 d-flex gap-2">
+            <button class="btn btn-primary w-100">Terapkan</button>
+            <a class="btn btn-light w-100" href="{{ route('items.index', ['view' => $viewMode]) }}">Reset</a>
+          </div>
         </div>
       </form>
 
@@ -327,6 +425,31 @@
         submitBtn.disabled = false;
         submitBtn.innerHTML = submitBtn.dataset.originalText || 'Simpan';
       }
+    }
+  });
+})();
+</script>
+
+{{-- Mobile: auto-apply Quick Filters (Tier 1) --}}
+<script>
+(function () {
+  const form = document.getElementById('inventory-filter-form');
+  if (!form) return;
+
+  const isMobile = window.matchMedia('(max-width: 767.98px)').matches;
+  if (!isMobile) return;
+
+  let t = null;
+  const submit = () => (form.requestSubmit ? form.requestSubmit() : form.submit());
+
+  form.querySelectorAll('[data-auto-submit="1"]').forEach((el) => {
+    if (el.name === 'q') {
+      el.addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(submit, 300);
+      });
+    } else {
+      el.addEventListener('change', submit);
     }
   });
 })();
