@@ -27,6 +27,29 @@
       ],
     ])
   </form>
+
+  {{-- Enterprise safety: Delete only here (Danger Zone) --}}
+  @hasanyrole('SuperAdmin|Admin')
+    <div class="card mt-3 border-danger">
+      <div class="card-header">
+        <div class="card-title text-danger">Danger Zone</div>
+      </div>
+      <div class="card-body">
+        <div class="text-muted mb-3">
+          Aksi ini bersifat permanen dan berdampak ke data terkait. Pastikan item sudah benar untuk dihapus.
+        </div>
+
+        <form action="{{ route('items.destroy', $item) }}" method="POST"
+              onsubmit="return confirm('Hapus item ini? Tindakan ini tidak bisa dibatalkan.');">
+          @csrf
+          @method('DELETE')
+          <button type="submit" class="btn btn-danger">
+            Hapus Item
+          </button>
+        </form>
+      </div>
+    </div>
+  @endhasanyrole
 </div>
 @endsection
 

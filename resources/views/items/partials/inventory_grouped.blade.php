@@ -59,17 +59,28 @@
             <div class="text-muted small">Stok: {{ $row['stock_label'] }}</div>
           </td>
           <td class="text-end">
-            <div class="row-actions">
-              <a href="{{ route('items.show', $item) }}" class="me-2">Lihat</a>
-              <a href="{{ route('items.edit', $item) }}" class="me-2">Ubah</a>
+            <div class="row-actions d-inline-flex align-items-center gap-2">
+              {{-- Enterprise safety: NO delete in list --}}
+              @include('layouts.partials.crud_actions', [
+                'view' => route('items.show', $item),
+                'edit' => route('items.edit', $item),
+                'delete' => null,
+                'size' => 'sm',
+              ])
+
               @if($hasVariants)
-                <a href="{{ route('items.variants.index', $item) }}" class="me-2">Kelola Varian</a>
+                <a href="{{ route('items.variants.index', $item) }}" class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex">Kelola Varian</a>
+                <a href="{{ route('items.variants.index', $item) }}" class="btn btn-icon btn-sm btn-outline-secondary d-md-none" aria-label="Kelola Varian" title="Kelola Varian">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                       stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                       aria-hidden="true">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                    <path d="M4 7h16"></path>
+                    <path d="M4 12h16"></path>
+                    <path d="M4 17h16"></path>
+                  </svg>
+                </a>
               @endif
-              <form action="{{ route('items.destroy', $item) }}" method="POST" class="d-inline">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="btn btn-link text-danger p-0" onclick="return confirm('Hapus item ini?')">Hapus</button>
-              </form>
             </div>
           </td>
         </tr>
@@ -155,17 +166,18 @@
           </div>
         @endif
 
-        <div class="row-actions mt-3">
-          <a href="{{ route('items.show', $item) }}" class="btn btn-outline-primary btn-sm">Lihat</a>
-          <a href="{{ route('items.edit', $item) }}" class="btn btn-outline-primary btn-sm">Ubah</a>
+        <div class="row-actions mt-3 d-flex align-items-center gap-2">
+          {{-- Enterprise safety: NO delete in list --}}
+          @include('layouts.partials.crud_actions', [
+            'view' => route('items.show', $item),
+            'edit' => route('items.edit', $item),
+            'delete' => null,
+            'size' => 'sm',
+          ])
+
           @if($row['has_variants'])
             <a href="{{ route('items.variants.index', $item) }}" class="btn btn-outline-secondary btn-sm">Kelola Varian</a>
           @endif
-          <form action="{{ route('items.destroy', $item) }}" method="POST" class="d-inline">
-            @csrf
-            @method('DELETE')
-            <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Hapus item ini?')">Hapus</button>
-          </form>
         </div>
       </div>
     </div>

@@ -116,11 +116,16 @@
                         <span class="qtn-m-total">{{ $row->total_idr ?? '-' }}</span>
                       </div>
 
-                      {{-- Actions (mobile needs visible actions; no hover) --}}
-                      <div class="qtn-actions">
-                        <a class="qtn-act" href="{{ route('quotations.pdf', $row) }}" target="_blank" rel="noopener">View</a>
-                        <span class="text-muted"> | </span>
-                        <a class="qtn-act" href="{{ route('quotations.edit', $row) }}">Edit</a>
+                      {{-- Actions (mobile: overflow) --}}
+                      <div class="qtn-actions mt-2">
+                        @include('layouts.partials.crud_actions', [
+                          'view' => route('quotations.pdf', $row),
+                          'viewTarget' => '_blank',
+                          'viewRel' => 'noopener',
+                          'edit' => route('quotations.edit', $row),
+                          'delete' => null,
+                          'size' => 'sm',
+                        ])
                       </div>
                     </div>
 
@@ -132,10 +137,15 @@
                         {{ $row->number }}
                       </a>
 
-                      <div class="qtn-actions">
-                        <a class="qtn-act" href="{{ route('quotations.pdf', $row) }}" target="_blank" rel="noopener">View</a>
-                        <span class="text-muted"> | </span>
-                        <a class="qtn-act" href="{{ route('quotations.edit', $row) }}">Edit</a>
+                      <div class="qtn-actions mt-2">
+                        @include('layouts.partials.crud_actions', [
+                          'view' => route('quotations.pdf', $row),
+                          'viewTarget' => '_blank',
+                          'viewRel' => 'noopener',
+                          'edit' => route('quotations.edit', $row),
+                          'delete' => null,
+                          'size' => 'sm',
+                        ])
                       </div>
                     </div>
                   </td>
@@ -176,9 +186,9 @@
 
 @push('styles')
 <style>
-  #qtn-list .qtn-actions{ display:none; margin-top:.25rem; font-size:.85rem; }
+  /* Desktop: actions appear on hover */
+  #qtn-list .qtn-actions{ display:none; margin-top:.25rem; }
   #qtn-list tr:hover .qtn-desktop .qtn-actions{ display:block; }
-  #qtn-list .qtn-actions a{ text-decoration:none; }
   #qtn-list .qtn-number { cursor:pointer; }   /* hanya nomor yang klik-able */
 
   /* MOBILE: enterprise stacked list (dense, no wasted columns) */
@@ -285,8 +295,8 @@
   }
 
   list?.addEventListener('click', async (e) => {
-    // Klik "View | Edit": biarkan default
-    if (e.target.closest('.qtn-act')) return;
+    // Klik area actions: biarkan default (Lihat/Ubah)
+    if (e.target.closest('.qtn-actions')) return;
 
     // Hanya klik nomor yang memicu preview
     const a = e.target.closest('a.qtn-number');

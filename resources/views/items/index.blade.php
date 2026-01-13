@@ -20,7 +20,7 @@
             class="btn btn-primary"
             data-modal="#adminModal"
           >
-            Add Item
+            + Tambah Item
           </a>
         @endhasanyrole
       </div>

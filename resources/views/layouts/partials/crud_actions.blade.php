@@ -7,17 +7,34 @@
   $size    = ($size ?? 'sm') === 'sm' ? 'btn-sm' : '';
   $confirm = $confirm ?? 'Hapus data ini?';
 
+  // Optional targets (for PDF / external)
+  $viewTarget = $viewTarget ?? null;
+  $viewRel    = $viewRel    ?? ($viewTarget ? 'noopener' : null);
+
+  $editTarget = $editTarget ?? null;
+  $editRel    = $editRel    ?? ($editTarget ? 'noopener' : null);
+
   $uid = 'act_' . uniqid();
 @endphp
 
 {{-- DESKTOP: tombol --}}
 <div class="btn-list d-none d-md-inline-flex">
   @if($view)
-    <a href="{{ $view }}" class="btn {{ $size }} btn-outline-secondary">Lihat</a>
+    <a
+      href="{{ $view }}"
+      class="btn {{ $size }} btn-outline-secondary"
+      @if($viewTarget) target="{{ $viewTarget }}" @endif
+      @if($viewRel) rel="{{ $viewRel }}" @endif
+    >Lihat</a>
   @endif
 
   @if($edit)
-    <a href="{{ $edit }}" class="btn {{ $size }} btn-outline-primary">Ubah</a>
+    <a
+      href="{{ $edit }}"
+      class="btn {{ $size }} btn-outline-primary"
+      @if($editTarget) target="{{ $editTarget }}" @endif
+      @if($editRel) rel="{{ $editRel }}" @endif
+    >Ubah</a>
   @endif
 
   @if($delete)
@@ -47,11 +64,21 @@
 
     <div class="dropdown-menu dropdown-menu-end">
       @if($view)
-        <a href="{{ $view }}" class="dropdown-item">Lihat</a>
+        <a
+          href="{{ $view }}"
+          class="dropdown-item"
+          @if($viewTarget) target="{{ $viewTarget }}" @endif
+          @if($viewRel) rel="{{ $viewRel }}" @endif
+        >Lihat</a>
       @endif
 
       @if($edit)
-        <a href="{{ $edit }}" class="dropdown-item">Ubah</a>
+        <a
+          href="{{ $edit }}"
+          class="dropdown-item"
+          @if($editTarget) target="{{ $editTarget }}" @endif
+          @if($editRel) rel="{{ $editRel }}" @endif
+        >Ubah</a>
       @endif
 
       @if($delete)

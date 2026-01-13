@@ -17,6 +17,7 @@
    *   - inactive (bool)
    *   - low_stock (bool)
    */
+  $returnUrl = request()->fullUrl();
 @endphp
 
 {{-- ===================== Desktop table ===================== --}}
@@ -43,6 +44,22 @@
 
           $size = $row['attributes']['size'] ?? '-';
           $color = $row['attributes']['color'] ?? '-';
+
+          $itemId = $row['item_id'];
+          $variantId = $row['variant_id'] ?? null;
+
+          $itemView = route('items.show', $itemId);
+
+          // admin-only edit URLs keep return
+          $itemEdit = route('items.edit', $itemId) . '?r=' . urlencode($returnUrl);
+
+          $variantView = $isVariant
+            ? (route('items.variants.index', $itemId) . '#variant-' . $variantId)
+            : null;
+
+          $variantEdit = $isVariant && $variantId
+            ? (route('variants.edit', $variantId) . '?r=' . urlencode($returnUrl))
+            : null;
         @endphp
 
         <tr class="{{ $inactive ? 'text-muted' : '' }}">
@@ -59,7 +76,7 @@
             @if($isVariant && !empty($row['parent_name']))
               <div class="small text-muted">
                 Parent:
-                <a href="{{ route('items.show', $row['item_id']) }}">{{ $row['parent_name'] }}</a>
+                <a href="{{ route('items.show', $itemId) }}">{{ $row['parent_name'] }}</a>
               </div>
             @endif
 
@@ -81,35 +98,28 @@
           <td class="text-end">
             <div class="btn-list justify-content-end">
               @if($isVariant)
-                <a class="btn btn-outline-primary btn-sm"
-                   href="{{ route('items.variants.index', $row['item_id']) }}#variant-{{ $row['variant_id'] }}">
-                  Lihat
-                </a>
-
-                @hasanyrole('SuperAdmin|Admin')
-                  <a class="btn btn-outline-primary btn-sm"
-                     href="{{ route('variants.edit', $row['variant_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
-                    Ubah
-                  </a>
-                @endhasanyrole
+                @include('layouts.partials.crud_actions', [
+                  'view'   => $variantView,
+                  'edit'   => auth()->user()?->hasAnyRole('SuperAdmin|Admin') ? $variantEdit : null,
+                  'delete' => null, // enterprise safety: no delete in list
+                  'size'   => 'sm',
+                ])
 
                 <a class="btn btn-outline-secondary btn-sm"
-                   href="{{ route('items.show', $row['item_id']) }}">
+                   href="{{ $itemView }}">
                   Parent
                 </a>
               @else
-                <a class="btn btn-outline-primary btn-sm"
-                   href="{{ route('items.show', $row['item_id']) }}">
-                  Lihat
-                </a>
+                @include('layouts.partials.crud_actions', [
+                  'view'   => $itemView,
+                  'edit'   => auth()->user()?->hasAnyRole('SuperAdmin|Admin') ? $itemEdit : null,
+                  'delete' => null, // enterprise safety: no delete in list
+                  'size'   => 'sm',
+                ])
 
                 @hasanyrole('SuperAdmin|Admin')
-                  <a class="btn btn-outline-primary btn-sm"
-                     href="{{ route('items.edit', $row['item_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
-                    Ubah
-                  </a>
                   <a class="btn btn-outline-secondary btn-sm"
-                     href="{{ route('items.variants.index', $row['item_id']) }}">
+                     href="{{ route('items.variants.index', $itemId) }}">
                     Variant
                   </a>
                 @endhasanyrole
@@ -137,7 +147,21 @@
       $size = $row['attributes']['size'] ?? '-';
       $color = $row['attributes']['color'] ?? '-';
 
-      $detailId = 'inv-detail-' . ($row['entity'] ?? 'item') . '-' . ($row['variant_id'] ?? $row['item_id']);
+      $itemId = $row['item_id'];
+      $variantId = $row['variant_id'] ?? null;
+
+      $itemView = route('items.show', $itemId);
+      $itemEdit = route('items.edit', $itemId) . '?r=' . urlencode($returnUrl);
+
+      $variantView = $isVariant
+        ? (route('items.variants.index', $itemId) . '#variant-' . $variantId)
+        : null;
+
+      $variantEdit = $isVariant && $variantId
+        ? (route('variants.edit', $variantId) . '?r=' . urlencode($returnUrl))
+        : null;
+
+      $detailId = 'inv-detail-' . ($row['entity'] ?? 'item') . '-' . ($variantId ?? $itemId);
     @endphp
 
     <div class="card mb-3 {{ $inactive ? 'text-muted' : '' }}">
@@ -193,46 +217,39 @@
                 @if($isVariant && !empty($row['parent_name']))
                   <div class="text-muted small mt-1">
                     Parent:
-                    <a href="{{ route('items.show', $row['item_id']) }}">{{ $row['parent_name'] }}</a>
+                    <a href="{{ route('items.show', $itemId) }}">{{ $row['parent_name'] }}</a>
                   </div>
                 @endif
               </div>
             </div>
           </div>
 
-          {{-- Actions: tidak diubah (tetap) --}}
+          {{-- Actions --}}
           <div class="text-end">
             <div class="btn-list flex-column">
               @if($isVariant)
-                <a class="btn btn-outline-primary btn-sm"
-                   href="{{ route('items.variants.index', $row['item_id']) }}#variant-{{ $row['variant_id'] }}">
-                  Lihat
-                </a>
-
-                @hasanyrole('SuperAdmin|Admin')
-                  <a class="btn btn-outline-primary btn-sm"
-                     href="{{ route('variants.edit', $row['variant_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
-                    Ubah
-                  </a>
-                @endhasanyrole
+                @include('layouts.partials.crud_actions', [
+                  'view'   => $variantView,
+                  'edit'   => auth()->user()?->hasAnyRole('SuperAdmin|Admin') ? $variantEdit : null,
+                  'delete' => null, // enterprise safety: no delete in list
+                  'size'   => 'sm',
+                ])
 
                 <a class="btn btn-outline-secondary btn-sm"
-                   href="{{ route('items.show', $row['item_id']) }}">
+                   href="{{ $itemView }}">
                   Parent
                 </a>
               @else
-                <a class="btn btn-outline-primary btn-sm"
-                   href="{{ route('items.show', $row['item_id']) }}">
-                  Lihat
-                </a>
+                @include('layouts.partials.crud_actions', [
+                  'view'   => $itemView,
+                  'edit'   => auth()->user()?->hasAnyRole('SuperAdmin|Admin') ? $itemEdit : null,
+                  'delete' => null, // enterprise safety: no delete in list
+                  'size'   => 'sm',
+                ])
 
                 @hasanyrole('SuperAdmin|Admin')
-                  <a class="btn btn-outline-primary btn-sm"
-                     href="{{ route('items.edit', $row['item_id']) }}?r={{ urlencode(request()->fullUrl()) }}">
-                    Ubah
-                  </a>
                   <a class="btn btn-outline-secondary btn-sm"
-                     href="{{ route('items.variants.index', $row['item_id']) }}">
+                     href="{{ route('items.variants.index', $itemId) }}">
                     Variant
                   </a>
                 @endhasanyrole

@@ -9,11 +9,9 @@
         <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAdjust">
           Penyesuaian Stok
         </button>
+
         <a href="{{ route('items.edit', $item) }}" class="btn btn-warning">Edit</a>
-        <form action="{{ route('items.destroy', $item) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus item ini?')">
-          @csrf @method('DELETE')
-          <button class="btn btn-danger">Delete</button>
-        </form>
+
         <a href="{{ route('items.variants.index', $item) }}" class="btn btn-primary">Kelola Varian</a>
         <a href="{{ route('items.index') }}" class="btn btn-secondary">Kembali</a>
       </div>
