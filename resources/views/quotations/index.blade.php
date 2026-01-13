@@ -95,14 +95,29 @@
                   <td class="fw-bold">
                     {{-- MOBILE: Rulebook stacked rows --}}
                     <div class="qtn-mobile d-md-none">
-                      {{-- Row 1: ID + Status --}}
+                      {{-- Row 1: ID + Status (+ kebab inline) --}}
                       <div class="qtn-m-row1">
                         <a href="{{ route('quotations.index', array_merge(request()->except('page'), ['preview' => $row->id])) }}"
                            class="qtn-number text-decoration-none"
                            data-id="{{ $row->id }}">
                           {{ $row->number }}
                         </a>
-                        <span class="badge {{ $row->status_badge_class }}">{{ $row->status_label }}</span>
+
+                        <div class="qtn-m-row1-right">
+                          <span class="badge {{ $row->status_badge_class }}">{{ $row->status_label }}</span>
+
+                          {{-- Actions (mobile: kebab inline, di samping status) --}}
+                          <div class="qtn-actions">
+                            @include('layouts.partials.crud_actions', [
+                              'view' => route('quotations.pdf', $row),
+                              'viewTarget' => '_blank',
+                              'viewRel' => 'noopener',
+                              'edit' => route('quotations.edit', $row),
+                              'delete' => null,
+                              'size' => 'sm',
+                            ])
+                          </div>
+                        </div>
                       </div>
 
                       {{-- Row 2: Entity --}}
@@ -114,18 +129,6 @@
                       <div class="qtn-m-row3">
                         <span class="qtn-m-date">{{ optional($row->date)->format('d M Y') }}</span>
                         <span class="qtn-m-total">{{ $row->total_idr ?? '-' }}</span>
-                      </div>
-
-                      {{-- Actions (mobile: overflow) --}}
-                      <div class="qtn-actions mt-2">
-                        @include('layouts.partials.crud_actions', [
-                          'view' => route('quotations.pdf', $row),
-                          'viewTarget' => '_blank',
-                          'viewRel' => 'noopener',
-                          'edit' => route('quotations.edit', $row),
-                          'delete' => null,
-                          'size' => 'sm',
-                        ])
                       </div>
                     </div>
 
@@ -217,6 +220,18 @@
       justify-content:space-between;
       gap:.5rem;
     }
+
+    .qtn-m-row1-right{
+      display:flex;
+      align-items:center;
+      gap:.5rem;
+      margin-left:auto;
+    }
+
+    /* Kebab rapat, tidak nambah tinggi row */
+    .qtn-m-row1-right .qtn-actions{ margin-top:0; }
+    .qtn-m-row1-right .qtn-actions .btn-icon{ padding:.2rem .3rem; height:32px; width:32px; }
+    .qtn-m-row1-right .qtn-actions .icon{ width:18px; height:18px; }
 
     .qtn-m-row2{
       font-weight:600;
