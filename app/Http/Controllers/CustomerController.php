@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\Jenis;
 use App\Models\User;
+use App\Models\Contact;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -196,5 +197,61 @@ class CustomerController extends Controller
         return redirect()
             ->route('customers.index')
             ->with('success', 'Customer berhasil dihapus.');
+    }
+
+    public function quickSearch(Request $req)
+    {
+        $q = trim((string) $req->input('q', ''));
+        $user = Auth::user();
+
+        // Customers (respect visibility)
+        $customers = Customer::query()
+            ->visibleTo($user) // Sales: miliknya; Admin/SuperAdmin/Finance: semua :contentReference[oaicite:4]{index=4}
+            ->select('id', 'name')
+            ->when($q !== '', fn ($qq) => $qq->where('name', 'like', "%{$q}%"))
+            ->orderBy('name')
+            ->limit(20)
+            ->get()
+            ->map(fn ($c) => [
+                'uid'         => 'customer-' . $c->id,
+                'type'        => 'customer',
+                'label'       => $c->name,
+                'name'        => $c->name,
+                'customer_id' => $c->id,
+                'contact_id'  => null,
+            ]);
+
+        // Contacts (only from visible customers)
+        $contacts = Contact::query()
+            ->select('id', 'customer_id', 'first_name', 'last_name')
+            ->with(['customer:id,name'])
+            ->whereHas('customer', fn ($cq) => $cq->visibleTo($user))
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('first_name', 'like', "%{$q}%")
+                    ->orWhere('last_name', 'like', "%{$q}%");
+                })->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%{$q}%"));
+            })
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->limit(20)
+            ->get()
+            ->map(function ($ct) {
+                $person  = trim(($ct->first_name ?? '') . ' ' . ($ct->last_name ?? ''));
+                $company = optional($ct->customer)->name;
+
+                return [
+                    'uid'         => 'contact-' . $ct->id,
+                    'type'        => 'contact',
+                    'label'       => $company ? "{$company} ({$person})" : $person,
+                    'name'        => $person,
+                    'customer_id' => $ct->customer_id,
+                    'contact_id'  => $ct->id,
+                ];
+            });
+
+        return response()->json(
+            $customers->merge($contacts)->take(30)->values()
+        );
     }
 }
