@@ -1,19 +1,45 @@
+{{-- resources/views/items/show.blade.php --}}
 @extends('layouts.tabler')
 
 @section('content')
 <div class="container-xl">
   <div class="card">
-    <div class="card-header">
-      <div class="card-title">Detail Item</div>
-      <div class="ms-auto btn-list">
-        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAdjust">
-          Penyesuaian Stok
-        </button>
+    <div class="card-header d-flex align-items-center">
+      <div class="card-title mb-0">Detail Item</div>
 
-        <a href="{{ route('items.edit', $item) }}" class="btn btn-warning">Edit</a>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        {{-- Primary CTA --}}
+        <a href="{{ route('items.edit', $item) }}" class="btn btn-warning btn-sm">Ubah</a>
 
-        <a href="{{ route('items.variants.index', $item) }}" class="btn btn-primary">Kelola Varian</a>
-        <a href="{{ route('items.index') }}" class="btn btn-secondary">Kembali</a>
+        {{-- Overflow actions (enterprise) --}}
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary btn-icon btn-sm" data-bs-toggle="dropdown" aria-label="Menu">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                 stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+              <circle cx="5" cy="12" r="1"></circle>
+              <circle cx="12" cy="12" r="1"></circle>
+              <circle cx="19" cy="12" r="1"></circle>
+            </svg>
+          </button>
+
+          <div class="dropdown-menu dropdown-menu-end">
+            <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalAdjust">
+              Penyesuaian Stok
+            </button>
+
+            <a href="{{ route('items.variants.index', $item) }}" class="dropdown-item">
+              Kelola Varian
+            </a>
+
+            <div class="dropdown-divider"></div>
+
+            <a href="{{ route('items.index') }}" class="dropdown-item">
+              Kembali
+            </a>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -25,133 +51,233 @@
           'cut_raw'    => 'Raw Roll (dipotong)',
           'cut_piece'  => 'Finished Piece (hasil potong)',
         ];
+
+        $typeLabel = $typeLabels[$item->item_type] ?? ucfirst($item->item_type ?? 'standard');
       @endphp
 
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">Nama</label>
-          <div class="form-control-plaintext fw-bold">{{ $item->name }}</div>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">SKU / Kode</label>
-          <div class="form-control-plaintext">{{ $item->sku ?? '—' }}</div>
-        </div>
+      {{-- ===================== Scan-first Summary (ERP) ===================== --}}
+      <div class="mb-3">
+        <div class="d-flex align-items-start justify-content-between gap-3">
+          <div class="min-w-0">
+            <div class="text-muted small">
+              {{ $item->sku ?? '—' }}
+            </div>
 
-        <div class="col-md-6">
-          <label class="form-label">Unit</label>
-          <div class="form-control-plaintext">
-            {{ $item->unit?->code ? $item->unit->code.' — '.$item->unit->name : ($item->unit?->name ?? '—') }}
+            <div class="h3 m-0 text-truncate">
+              {{ $item->name }}
+            </div>
+
+            <div class="text-muted small mt-1">
+              Unit:
+              {{ $item->unit?->code ? $item->unit->code.' — '.$item->unit->name : ($item->unit?->name ?? '—') }}
+              <span class="mx-1">•</span>
+              Brand: {{ $item->brand?->name ?? '—' }}
+            </div>
+          </div>
+
+          <div class="text-end flex-shrink-0">
+            <div class="badge bg-secondary-lt text-secondary-9">{{ $typeLabel }}</div>
+
+            <div class="mt-2 fw-bold">
+              Rp {{ $item->price_id }}
+            </div>
+            <div class="text-muted small">
+              Stok {{ $item->stock }}
+            </div>
           </div>
         </div>
-        <div class="col-md-6">
-          <label class="form-label">Brand</label>
-          <div class="form-control-plaintext">{{ $item->brand?->name ?? '—' }}</div>
-        </div>
+      </div>
 
-        <div class="col-md-6">
-          <label class="form-label">Harga (Rp)</label>
-          <div class="form-control-plaintext">Rp {{ $item->price_id }}</div>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Stok</label>
-          <div class="form-control-plaintext">{{ $item->stock }}</div>
-        </div>
+      <hr class="my-3">
 
-        {{-- ===== Atribut Item: Size & Color ===== --}}
-        <div class="col-12"><hr></div>
+      {{-- ===================== Detail (compact, grouped) ===================== --}}
+      <div class="row g-2">
+        {{-- Identity --}}
         <div class="col-12">
-          <div class="text-secondary fw-bold small mb-1">Atribut Item</div>
+          <div class="text-secondary fw-bold small mb-1">Identitas</div>
         </div>
 
-        <div class="col-md-6">
-          <label class="form-label">Size</label>
-          <div class="form-control-plaintext">
-            {{ $item->size?->name ?? '—' }}
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">SKU / Kode</div>
+            <div class="kv-v">{{ $item->sku ?? '—' }}</div>
           </div>
         </div>
-        <div class="col-md-6">
-          <label class="form-label">Color</label>
-          <div class="form-control-plaintext d-inline-flex align-items-center">
-            @if($item->color)
-              @if($item->color->hex)
-                <i class="me-2" style="display:inline-block;width:14px;height:14px;border-radius:50%;border:1px solid #ddd;background:{{ $item->color->hex }}"></i>
+
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">Unit</div>
+            <div class="kv-v">
+              {{ $item->unit?->code ? $item->unit->code.' — '.$item->unit->name : ($item->unit?->name ?? '—') }}
+            </div>
+          </div>
+        </div>
+
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">Brand</div>
+            <div class="kv-v">{{ $item->brand?->name ?? '—' }}</div>
+          </div>
+        </div>
+
+        {{-- Commerce --}}
+        <div class="col-12 mt-2">
+          <div class="text-secondary fw-bold small mb-1">Harga & Stok</div>
+        </div>
+
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">Harga (Rp)</div>
+            <div class="kv-v fw-bold">Rp {{ $item->price_id }}</div>
+          </div>
+        </div>
+
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">Stok</div>
+            <div class="kv-v fw-bold">{{ $item->stock }}</div>
+          </div>
+        </div>
+
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">Tipe Item</div>
+            <div class="kv-v">{{ $typeLabel }}</div>
+          </div>
+        </div>
+
+        {{-- Attributes --}}
+        <div class="col-12 mt-2">
+          <div class="text-secondary fw-bold small mb-1">Atribut</div>
+        </div>
+
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">Size</div>
+            <div class="kv-v">{{ $item->size?->name ?? '—' }}</div>
+          </div>
+        </div>
+
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">Color</div>
+            <div class="kv-v d-inline-flex align-items-center">
+              @if($item->color)
+                @if($item->color->hex)
+                  <i class="me-2" style="display:inline-block;width:12px;height:12px;border-radius:50%;border:1px solid #ddd;background:{{ $item->color->hex }}"></i>
+                @endif
+                {{ $item->color->name }}
+              @else
+                <span class="text-muted">—</span>
               @endif
-              {{ $item->color->name }}
-            @else
-              —
-            @endif
+            </div>
           </div>
         </div>
 
-        {{-- ===== Info Varian & Cutting ===== --}}
-        <div class="col-md-4">
-          <label class="form-label">Tipe Item</label>
-          <div class="form-control-plaintext">{{ $typeLabels[$item->item_type] ?? ucfirst($item->item_type ?? 'standard') }}</div>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Family Code</label>
-          <div class="form-control-plaintext">{{ $item->family_code ?: '—' }}</div>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Parent</label>
-          <div class="form-control-plaintext">
-            @if($item->parent)
-              <a href="{{ route('items.show', $item->parent) }}">{{ $item->parent->name }}</a>
-            @else
-              —
-            @endif
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">Family Code</div>
+            <div class="kv-v">{{ $item->family_code ?: '—' }}</div>
           </div>
         </div>
 
-        <div class="col-md-4">
-          <label class="form-label">Sellable</label>
-          <div class="form-control-plaintext">
-            @if($item->sellable)
-              <span class="badge bg-success">Ya</span>
-            @else
-              <span class="badge bg-secondary">Tidak</span>
-            @endif
+        <div class="col-12 col-md-6">
+          <div class="kv">
+            <div class="kv-k">Parent</div>
+            <div class="kv-v">
+              @if($item->parent)
+                <a href="{{ route('items.show', $item->parent) }}">{{ $item->parent->name }}</a>
+              @else
+                <span class="text-muted">—</span>
+              @endif
+            </div>
           </div>
         </div>
-        <div class="col-md-4">
-          <label class="form-label">Purchasable</label>
-          <div class="form-control-plaintext">
-            @if($item->purchasable)
-              <span class="badge bg-success">Ya</span>
-            @else
-              <span class="badge bg-secondary">Tidak</span>
-            @endif
+
+        {{-- Flags --}}
+        <div class="col-12 mt-2">
+          <div class="text-secondary fw-bold small mb-1">Flags</div>
+        </div>
+
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">Sellable</div>
+            <div class="kv-v">
+              @if($item->sellable)
+                <span class="text-success d-inline-flex align-items-center gap-1">
+                  <i class="ti ti-check"></i><span class="small fw-semibold">Ya</span>
+                </span>
+              @else
+                <span class="text-muted d-inline-flex align-items-center gap-1">
+                  <i class="ti ti-x"></i><span class="small">Tidak</span>
+                </span>
+              @endif
+            </div>
+          </div>
+        </div>
+
+        <div class="col-6 col-md-4">
+          <div class="kv">
+            <div class="kv-k">Purchasable</div>
+            <div class="kv-v">
+              @if($item->purchasable)
+                <span class="text-success d-inline-flex align-items-center gap-1">
+                  <i class="ti ti-check"></i><span class="small fw-semibold">Ya</span>
+                </span>
+              @else
+                <span class="text-muted d-inline-flex align-items-center gap-1">
+                  <i class="ti ti-x"></i><span class="small">Tidak</span>
+                </span>
+              @endif
+            </div>
           </div>
         </div>
 
         @if($item->default_roll_length)
-          <div class="col-md-4">
-            <label class="form-label">Default Roll Length</label>
-            <div class="form-control-plaintext">{{ $item->default_roll_length }}</div>
+          <div class="col-6 col-md-4">
+            <div class="kv">
+              <div class="kv-k">Default Roll Length</div>
+              <div class="kv-v">{{ $item->default_roll_length }}</div>
+            </div>
           </div>
         @endif
 
         @if($item->length_per_piece)
-          <div class="col-md-4">
-            <label class="form-label">Length per Piece</label>
-            <div class="form-control-plaintext">{{ $item->length_per_piece }}</div>
+          <div class="col-6 col-md-4">
+            <div class="kv">
+              <div class="kv-k">Length per Piece</div>
+              <div class="kv-v">{{ $item->length_per_piece }}</div>
+            </div>
           </div>
         @endif
 
-        <div class="col-12">
-          <label class="form-label">Deskripsi</label>
-          <div class="form-control-plaintext" style="white-space: pre-line;">
-            {{ $item->description ?: '—' }}
+        {{-- Description (hide noise when empty) --}}
+        @if(!empty($item->description))
+          <div class="col-12 mt-2">
+            <div class="text-secondary fw-bold small mb-1">Deskripsi</div>
+            <div class="kv-v" style="white-space: pre-line;">{{ $item->description }}</div>
           </div>
-        </div>
+        @endif
 
-        <div class="col-md-6">
-          <label class="form-label">Dibuat</label>
-          <div class="form-control-plaintext">{{ optional($item->created_at)->format('d M Y H:i') ?? '—' }}</div>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Diubah</label>
-          <div class="form-control-plaintext">{{ optional($item->updated_at)->format('d M Y H:i') ?? '—' }}</div>
+        {{-- Metadata (low priority, collapsed) --}}
+        <div class="col-12 mt-2">
+          <details class="mt-1">
+            <summary class="text-muted small">Metadata</summary>
+            <div class="row g-2 mt-2">
+              <div class="col-6 col-md-4">
+                <div class="kv">
+                  <div class="kv-k">Dibuat</div>
+                  <div class="kv-v">{{ optional($item->created_at)->format('d M Y H:i') ?? '—' }}</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-4">
+                <div class="kv">
+                  <div class="kv-k">Diubah</div>
+                  <div class="kv-v">{{ optional($item->updated_at)->format('d M Y H:i') ?? '—' }}</div>
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -279,5 +405,19 @@ document.addEventListener('DOMContentLoaded', function(){
   modalEl.addEventListener('hidden.bs.modal', () => triggerEl?.focus({ preventScroll: true }));
 });
 </script>
-{{-- =======================  [END ADD] Modal Penyesuaian Stok  ======================= --}}
+
+@push('styles')
+<style>
+  /* Compact label-value (ERP density) */
+  .kv { padding: .25rem 0; }
+  .kv-k { font-size: .75rem; color: var(--tblr-muted); line-height: 1.1; }
+  .kv-v { margin-top: .15rem; line-height: 1.25; }
+
+  /* Make summary tighter on mobile */
+  @media (max-width: 767.98px){
+    .card-body { padding-top: 1rem; padding-bottom: 1rem; }
+    .h3 { font-size: 1.1rem; }
+  }
+</style>
+@endpush
 @endsection
