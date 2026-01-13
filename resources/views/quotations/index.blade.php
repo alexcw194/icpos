@@ -58,23 +58,60 @@
             <tbody id="qtn-list">
               @forelse($quotations as $row)
                 <tr class="{{ (int)request('preview') === (int)$row->id ? 'table-primary' : '' }}" data-id="{{ $row->id }}">
+                  {{-- Desktop table cell (kept), Mobile will use stacked block --}}
                   <td class="fw-bold">
-                    <a href="{{ route('quotations.index', array_merge(request()->except('page'), ['preview' => $row->id])) }}"
-                       class="qtn-number text-decoration-none"
-                       data-id="{{ $row->id }}">
-                      {{ $row->number }}
-                    </a>
+                    {{-- MOBILE: 3-row stacked pattern (Rulebook) --}}
+                    <div class="qtn-mobile d-md-none">
+                      {{-- Row 1: ID + Status --}}
+                      <div class="qtn-m-row1">
+                        <a href="{{ route('quotations.index', array_merge(request()->except('page'), ['preview' => $row->id])) }}"
+                           class="qtn-number text-decoration-none"
+                           data-id="{{ $row->id }}">
+                          {{ $row->number }}
+                        </a>
+                        <span class="badge {{ $row->status_badge_class }}">{{ $row->status_label }}</span>
+                      </div>
 
-                    <div class="qtn-actions">
-                      <a class="qtn-act" href="{{ route('quotations.pdf', $row) }}" target="_blank" rel="noopener">View</a>
-                      <span class="text-muted"> | </span>
-                      <a class="qtn-act" href="{{ route('quotations.edit', $row) }}">Edit</a>
+                      {{-- Row 2: Entity --}}
+                      <div class="qtn-m-row2">
+                        {{ $row->customer->name ?? '-' }}
+                      </div>
+
+                      {{-- Row 3: Date + Total --}}
+                      <div class="qtn-m-row3">
+                        <span class="qtn-m-date">{{ optional($row->date)->format('d M Y') }}</span>
+                        <span class="qtn-m-total">{{ $row->total_idr ?? '-' }}</span>
+                      </div>
+
+                      {{-- Actions (mobile): tampilkan (tidak bisa hover) --}}
+                      <div class="qtn-actions">
+                        <a class="qtn-act" href="{{ route('quotations.pdf', $row) }}" target="_blank" rel="noopener">View</a>
+                        <span class="text-muted"> | </span>
+                        <a class="qtn-act" href="{{ route('quotations.edit', $row) }}">Edit</a>
+                      </div>
+                    </div>
+
+                    {{-- DESKTOP: existing number + hover actions --}}
+                    <div class="qtn-desktop d-none d-md-block">
+                      <a href="{{ route('quotations.index', array_merge(request()->except('page'), ['preview' => $row->id])) }}"
+                         class="qtn-number text-decoration-none"
+                         data-id="{{ $row->id }}">
+                        {{ $row->number }}
+                      </a>
+
+                      <div class="qtn-actions">
+                        <a class="qtn-act" href="{{ route('quotations.pdf', $row) }}" target="_blank" rel="noopener">View</a>
+                        <span class="text-muted"> | </span>
+                        <a class="qtn-act" href="{{ route('quotations.edit', $row) }}">Edit</a>
+                      </div>
                     </div>
                   </td>
-                  <td>{{ optional($row->date)->format('d-m-Y') }}</td>
-                  <td class="text-wrap">{{ $row->customer->name ?? '-' }}</td>
-                  <td class="text-end">{{ $row->total_idr ?? '-' }}</td>
-                  <td><span class="badge {{ $row->status_badge_class }}">{{ $row->status_label }}</span></td>
+
+                  {{-- Desktop-only columns --}}
+                  <td class="d-none d-md-table-cell">{{ optional($row->date)->format('d-m-Y') }}</td>
+                  <td class="d-none d-md-table-cell text-wrap">{{ $row->customer->name ?? '-' }}</td>
+                  <td class="d-none d-md-table-cell text-end">{{ $row->total_idr ?? '-' }}</td>
+                  <td class="d-none d-md-table-cell"><span class="badge {{ $row->status_badge_class }}">{{ $row->status_label }}</span></td>
                 </tr>
               @empty
                 <tr><td colspan="5" class="text-center text-muted">No data.</td></tr>
@@ -107,9 +144,41 @@
 @push('styles')
 <style>
   #qtn-list .qtn-actions{ display:none; margin-top:.25rem; font-size:.85rem; }
-  #qtn-list tr:hover .qtn-actions{ display:block; }
+  #qtn-list tr:hover .qtn-desktop .qtn-actions{ display:block; }
   #qtn-list .qtn-actions a{ text-decoration:none; }
   #qtn-list .qtn-number { cursor:pointer; }   /* hanya nomor yang klik-able */
+
+  /* MOBILE: enterprise stacked rows */
+  @media (max-width: 767.98px){
+    /* actions must be visible (no hover on mobile) */
+    #qtn-list .qtn-mobile .qtn-actions{ display:block; }
+
+    .qtn-mobile{
+      display:flex;
+      flex-direction:column;
+      gap:.35rem;
+      padding:.25rem 0;
+    }
+    .qtn-m-row1{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.5rem;
+    }
+    .qtn-m-row2{
+      font-weight:600;
+      line-height:1.2;
+    }
+    .qtn-m-row3{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.75rem;
+      font-weight:500;
+    }
+    .qtn-m-date{ color: var(--tblr-muted); font-weight:500; }
+    .qtn-m-total{ font-weight:700; }
+  }
 </style>
 @endpush
 
