@@ -33,16 +33,35 @@
         {{-- Tier 1 (mobile always visible) --}}
         <div class="col-12 col-md-4">
           <label class="form-label">Cari Item / SKU / Atribut</label>
-          <input
-            type="search"
-            name="q"
-            value="{{ $filters['q'] }}"
-            class="form-control"
-            placeholder="Ketik nama, SKU, varian…"
-            enterkeyhint="search"
-            inputmode="search"
-            autocomplete="off"
-          >
+          <div class="input-group">
+            <input
+              id="itemsSearch"
+              type="search"
+              name="q"
+              value="{{ $filters['q'] }}"
+              class="form-control"
+              placeholder="Ketik nama, SKU, varian…"
+              enterkeyhint="search"
+              inputmode="search"
+              autocomplete="off"
+            >
+            <button
+              type="button"
+              class="btn btn-icon"
+              id="itemsSearchBtn"
+              aria-label="Search"
+              title="Search"
+            >
+              <!-- Tabler icon: search -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                   stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <circle cx="10" cy="10" r="7"></circle>
+                <line x1="21" y1="21" x2="15" y2="15"></line>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div class="col-6 col-md-2">
@@ -448,7 +467,7 @@
     el.addEventListener('change', submit);
   });
 
-  // Search: submit ONLY when user presses Enter/Search on keyboard
+  // Enter on keyboard triggers submit
   const q = form.querySelector('input[name="q"]');
   if (q) {
     q.addEventListener('keydown', (e) => {
@@ -457,6 +476,12 @@
         submit();
       }
     });
+  }
+
+  // Click icon button triggers submit
+  const btn = document.getElementById('itemsSearchBtn');
+  if (btn) {
+    btn.addEventListener('click', () => submit());
   }
 })();
 </script>
