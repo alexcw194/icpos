@@ -34,12 +34,14 @@
         <div class="col-12 col-md-4">
           <label class="form-label">Cari Item / SKU / Atribut</label>
           <input
-            type="text"
+            type="search"
             name="q"
             value="{{ $filters['q'] }}"
             class="form-control"
             placeholder="Ketik nama, SKU, varian…"
-            data-auto-submit="1"
+            enterkeyhint="search"
+            inputmode="search"
+            autocomplete="off"
           >
         </div>
 
@@ -441,19 +443,21 @@
 
   const submit = () => (form.requestSubmit ? form.requestSubmit() : form.submit());
 
-  form.querySelectorAll('[data-auto-submit="1"]').forEach((el) => {
-    if (el.name === 'q') {
-      // Search hanya saat tekan Enter (tidak realtime)
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          submit();
-        }
-      });
-    } else {
-      el.addEventListener('change', submit);
-    }
+  // Dropdown quick filters: auto apply (enterprise-safe)
+  form.querySelectorAll('select[data-auto-submit="1"]').forEach((el) => {
+    el.addEventListener('change', submit);
   });
+
+  // Search: submit ONLY when user presses Enter/Search on keyboard
+  const q = form.querySelector('input[name="q"]');
+  if (q) {
+    q.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submit();
+      }
+    });
+  }
 })();
 </script>
 @endpush
