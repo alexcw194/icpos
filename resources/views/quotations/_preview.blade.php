@@ -246,7 +246,15 @@
 async function icposSharePdfFile(btn){
   const url = btn.getAttribute('data-share-url');
   const title = btn.getAttribute('data-share-title') || 'Quotation';
-  const filename = `${title}.pdf`;
+  const safe = (title || 'Quotation')
+    .trim()
+    .replaceAll('/', '-')          // QO/ICP/2026/00003 -> QO-ICP-2026-00003
+    .replaceAll('\\', '-')         // just in case
+    .replace(/[^A-Za-z0-9._-]+/g, '-') // rapihin karakter aneh
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const filename = `${safe}.pdf`;
 
   try {
     const res = await fetch(url, { credentials: 'include' });
