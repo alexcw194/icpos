@@ -232,7 +232,16 @@ class QuotationController extends Controller
         $pdf->setPaper('A4', 'portrait');
         $pdf->render();
 
-        $filename = $quotation->number . '.pdf';
+        // ====== FIX: sanitize filename (number berisi "/") ======
+        $raw = (string) $quotation->number;
+        $safe = trim($raw);
+        $safe = str_replace(['/', '\\'], '-', $safe);
+        $safe = preg_replace('/[^A-Za-z0-9._-]+/', '-', $safe);
+        $safe = preg_replace('/-+/', '-', $safe);
+        $safe = trim($safe, '-');
+        $filename = ($safe !== '' ? $safe : 'quotation') . '.pdf';
+        // =======================================================
+
         return response($pdf->output(), 200)
             ->header('Content-Type', 'application/pdf')
             ->header('Content-Disposition', 'inline; filename="'.$filename.'"');
@@ -252,7 +261,16 @@ class QuotationController extends Controller
         $pdf->setPaper('A4', 'portrait');
         $pdf->render();
 
-        $filename = $quotation->number . '.pdf';
+        // ====== FIX: sanitize filename (number berisi "/") ======
+        $raw = (string) $quotation->number;
+        $safe = trim($raw);
+        $safe = str_replace(['/', '\\'], '-', $safe);
+        $safe = preg_replace('/[^A-Za-z0-9._-]+/', '-', $safe);
+        $safe = preg_replace('/-+/', '-', $safe);
+        $safe = trim($safe, '-');
+        $filename = ($safe !== '' ? $safe : 'quotation') . '.pdf';
+        // =======================================================
+
         return response($pdf->output(), 200)
             ->header('Content-Type', 'application/pdf')
             ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
