@@ -196,31 +196,31 @@
               <div class="fw-semibold">
                 {{ $row['price_label'] ?? '-' }}
               </div>
-              <div class="text-muted small">
-                Stok {{ $row['stock_label'] ?? '-' }}
+
+              <div class="d-flex align-items-center gap-2">
+                <div class="text-muted small">
+                  Stok {{ $row['stock_label'] ?? '-' }}
+                </div>
+
+                <a class="small text-decoration-none" data-bs-toggle="collapse"
+                  href="#{{ $detailId }}" role="button"
+                  aria-expanded="false" aria-controls="{{ $detailId }}">
+                  Detail
+                </a>
               </div>
             </div>
 
-            {{-- Progressive disclosure (optional) --}}
-            <div class="mt-2">
-              <a class="small text-decoration-none" data-bs-toggle="collapse"
-                 href="#{{ $detailId }}" role="button"
-                 aria-expanded="false" aria-controls="{{ $detailId }}">
-                Detail
-              </a>
-
-              <div class="collapse mt-2" id="{{ $detailId }}">
-                <div class="text-muted small">
-                  Brand: {{ $row['brand'] ?? '-' }} • Size: {{ $size }} • Color: {{ $color }}
-                </div>
-
-                @if($isVariant && !empty($row['parent_name']))
-                  <div class="text-muted small mt-1">
-                    Parent:
-                    <a href="{{ route('items.show', $itemId) }}">{{ $row['parent_name'] }}</a>
-                  </div>
-                @endif
+            <div class="collapse mt-2" id="{{ $detailId }}">
+              <div class="text-muted small">
+                Brand: {{ $row['brand'] ?? '-' }} • Size: {{ $size }} • Color: {{ $color }}
               </div>
+
+              @if($isVariant && !empty($row['parent_name']))
+                <div class="text-muted small mt-1">
+                  Parent:
+                  <a href="{{ route('items.show', $itemId) }}">{{ $row['parent_name'] }}</a>
+                </div>
+              @endif
             </div>
           </div>
 
