@@ -43,7 +43,7 @@
             <span class="badge subrail-badge">{{ $customer->quotations_count ?? 0 }}</span>
           </a>
 
-          {{-- NEW: Sales Orders tab --}}
+          {{-- Sales Orders tab --}}
           <a href="{{ route('customers.show', [$customer,'tab'=>'sales_orders']) }}"
              class="list-group-item subrail-link d-flex align-items-center justify-content-between {{ $tab==='sales_orders' ? 'active' : '' }}">
             <span><i class="ti ti-file-invoice me-2"></i> Sales Orders</span>
@@ -183,15 +183,48 @@
             </div>
           </div>
 
+          {{-- Search standard: icon search + filter kecil (kanan) --}}
           <div class="card-body border-bottom">
-            <form class="row g-2" method="get" action="{{ route('customers.show',$customer) }}">
+            <form id="customer-qtn-search" class="row g-2" method="get" action="{{ route('customers.show',$customer) }}">
               <input type="hidden" name="tab" value="quotations">
-              <div class="col-md-4">
-                <input class="form-control" name="q" value="{{ $q }}" placeholder="Search number…">
+
+              <div class="col-12 col-md-6">
+                <div class="input-group">
+                  <input
+                    id="qtnSearch"
+                    type="search"
+                    class="form-control"
+                    name="q"
+                    value="{{ $q }}"
+                    placeholder="Search number…"
+                    enterkeyhint="search"
+                    inputmode="search"
+                    autocomplete="off"
+                  >
+
+                  <button type="button" class="btn btn-icon" id="qtnSearchBtn" aria-label="Search" title="Search">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                         stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true">
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                      <circle cx="10" cy="10" r="7"></circle>
+                      <line x1="21" y1="21" x2="15" y2="15"></line>
+                    </svg>
+                  </button>
+
+                  {{-- Filter kecil di kanan search (submit) --}}
+                  <button type="submit" class="btn btn-outline-secondary" aria-label="Filter" title="Filter">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                         stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true">
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                      <path d="M5.5 5h13l-5 6v6l-3 -2v-4z"></path>
+                    </svg>
+                    <span class="d-none d-md-inline">Filter</span>
+                  </button>
+                </div>
               </div>
-              <div class="col-md-2">
-                <button class="btn btn-outline w-100">Filter</button>
-              </div>
+
             </form>
           </div>
 
@@ -207,61 +240,63 @@
               </thead>
               <tbody>
                 @forelse($quotations as $qo)
-                  @php
-                    $coName = $qo->company->alias ?? $qo->company->name ?? null;
-                  @endphp
                   <tr>
-                    {{-- MOBILE: single cell only --}}
-                    <td class="fw-bold d-md-none">
-                      <div class="doc-mobile">
-                        {{-- Row 1: ID + Status --}}
+                    {{-- Cell 1: mobile stacked + desktop number --}}
+                    <td class="fw-bold">
+                      {{-- MOBILE (rulebook): Row1 ID+Status+Kebab | Row3 Date+Total --}}
+                      <div class="doc-mobile d-md-none">
                         <div class="doc-m-row1">
                           <a class="doc-number" href="{{ route('quotations.index', ['preview' => $qo->id]) }}">
                             {{ $qo->number }}
                           </a>
-                          <span class="badge {{ $qo->status_badge_class }}">{{ $qo->status_label }}</span>
+
+                          <div class="doc-m-row1-right">
+                            <span class="badge {{ $qo->status_badge_class }}">{{ $qo->status_label }}</span>
+
+                            {{-- Kebab standar (di samping status) --}}
+                            <div class="doc-kebab">
+                              @include('layouts.partials.crud_actions', [
+                                'view' => route('quotations.pdf',$qo),
+                                'viewTarget' => '_blank',
+                                'viewRel' => 'noopener',
+                                'edit' => route('quotations.edit',$qo),
+                                'delete' => null,
+                                'size' => 'sm',
+                              ])
+                            </div>
+                          </div>
                         </div>
 
-                        {{-- Row 2: Entity (Company context for multi-company) --}}
-                        <div class="doc-m-row2">
-                          {{ $coName ?: '—' }}
-                        </div>
-
-                        {{-- Row 3: Date + Total --}}
                         <div class="doc-m-row3">
                           <span class="doc-m-date">{{ optional($qo->date)->format('d M Y') }}</span>
                           <span class="doc-m-total">{{ $qo->total_idr }}</span>
                         </div>
+                      </div>
 
-                        {{-- Actions: secondary, predictable, no row click --}}
-                        <div class="doc-m-actions">
-                          <a class="doc-act" href="{{ route('quotations.pdf',$qo) }}" target="_blank" rel="noopener">Lihat</a>
+                      {{-- DESKTOP --}}
+                      <div class="doc-desktop d-none d-md-block">
+                        <a class="doc-number" href="{{ route('quotations.index', ['preview' => $qo->id]) }}">
+                          {{ $qo->number }}
+                        </a>
+                        <div class="hover-actions">
+                          <a class="doc-act" href="{{ route('quotations.pdf',$qo) }}" target="_blank" rel="noopener">View PDF</a>
                           <span class="text-muted"> | </span>
-                          <a class="doc-act" href="{{ route('quotations.edit',$qo) }}">Ubah</a>
+                          <a class="doc-act" href="{{ route('quotations.edit',$qo) }}">Edit</a>
                         </div>
                       </div>
                     </td>
 
-                    {{-- DESKTOP: original cells preserved --}}
-                    <td class="fw-bold d-none d-md-table-cell">
-                      <a class="doc-number" href="{{ route('quotations.index', ['preview' => $qo->id]) }}">
-                        {{ $qo->number }}
-                      </a>
-                      <div class="hover-actions">
-                        <a class="doc-act" href="{{ route('quotations.pdf',$qo) }}" target="_blank" rel="noopener">View PDF</a>
-                        <span class="text-muted"> | </span>
-                        <a class="doc-act" href="{{ route('quotations.edit',$qo) }}">Edit</a>
-                      </div>
-                    </td>
+                    {{-- Desktop-only columns --}}
                     <td class="d-none d-md-table-cell">{{ optional($qo->date)->format('d-m-Y') }}</td>
                     <td class="text-end d-none d-md-table-cell">{{ $qo->total_idr }}</td>
-                    <td class="d-none d-md-table-cell"><span class="badge {{ $qo->status_badge_class }}">{{ $qo->status_label }}</span></td>
+                    <td class="d-none d-md-table-cell">
+                      <span class="badge {{ $qo->status_badge_class }}">{{ $qo->status_label }}</span>
+                    </td>
                   </tr>
                 @empty
                   <tr><td colspan="4" class="text-center text-muted">No quotations.</td></tr>
                 @endforelse
               </tbody>
-
             </table>
           </div>
 
@@ -271,7 +306,7 @@
         </div>
       @endif
 
-      {{-- ---------- SALES ORDERS (NEW) ---------- --}}
+      {{-- ---------- SALES ORDERS ---------- --}}
       @if($tab === 'sales_orders')
         <div class="card">
           <div class="card-header">
@@ -281,15 +316,47 @@
             </div>
           </div>
 
+          {{-- Search standard --}}
           <div class="card-body border-bottom">
-            <form class="row g-2" method="get" action="{{ route('customers.show',$customer) }}">
+            <form id="customer-so-search" class="row g-2" method="get" action="{{ route('customers.show',$customer) }}">
               <input type="hidden" name="tab" value="sales_orders">
-              <div class="col-md-4">
-                <input class="form-control" name="q" value="{{ $q }}" placeholder="Search SO number…">
+
+              <div class="col-12 col-md-6">
+                <div class="input-group">
+                  <input
+                    id="soSearch"
+                    type="search"
+                    class="form-control"
+                    name="q"
+                    value="{{ $q }}"
+                    placeholder="Search SO number…"
+                    enterkeyhint="search"
+                    inputmode="search"
+                    autocomplete="off"
+                  >
+
+                  <button type="button" class="btn btn-icon" id="soSearchBtn" aria-label="Search" title="Search">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                         stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true">
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                      <circle cx="10" cy="10" r="7"></circle>
+                      <line x1="21" y1="21" x2="15" y2="15"></line>
+                    </svg>
+                  </button>
+
+                  <button type="submit" class="btn btn-outline-secondary" aria-label="Filter" title="Filter">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                         stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true">
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                      <path d="M5.5 5h13l-5 6v6l-3 -2v-4z"></path>
+                    </svg>
+                    <span class="d-none d-md-inline">Filter</span>
+                  </button>
+                </div>
               </div>
-              <div class="col-md-2">
-                <button class="btn btn-outline w-100">Filter</button>
-              </div>
+
             </form>
           </div>
 
@@ -315,45 +382,34 @@
                       'closed' => 'Closed',
                     ];
                     $stLabel = $stMap[$so->status] ?? ucfirst(str_replace('_',' ', $so->status));
-                    $coName = $so->company->alias ?? $so->company->name ?? null;
                   @endphp
                   <tr>
-                    {{-- MOBILE --}}
-                    <td class="fw-bold d-md-none">
-                      <div class="doc-mobile">
+                    <td class="fw-bold">
+                      {{-- MOBILE --}}
+                      <div class="doc-mobile d-md-none">
                         <div class="doc-m-row1">
                           <a class="doc-number" href="{{ route('sales-orders.show',$so) }}">{{ $so->so_number }}</a>
                           <span class="badge bg-blue-lt text-blue-9">{{ $stLabel }}</span>
                         </div>
-
-                        <div class="doc-m-row2">
-                          {{ $coName ?: '—' }}
-                          @if(!empty($so->quotation?->number))
-                            <span class="text-muted">• {{ $so->quotation->number }}</span>
-                          @endif
-                        </div>
-
                         <div class="doc-m-row3">
                           <span class="doc-m-date">{{ \Illuminate\Support\Carbon::parse($so->order_date)->format('d M Y') }}</span>
                           <span class="doc-m-total">Rp {{ number_format((float)$so->total, 2, ',', '.') }}</span>
                         </div>
+                      </div>
 
-                        <div class="doc-m-actions">
-                          <a class="doc-act" href="{{ route('sales-orders.show',$so) }}">Lihat</a>
+                      {{-- DESKTOP --}}
+                      <div class="doc-desktop d-none d-md-block">
+                        <a class="doc-number" href="{{ route('sales-orders.show',$so) }}">{{ $so->so_number }}</a>
+                        <div class="hover-actions">
+                          <a class="doc-act" href="{{ route('sales-orders.show',$so) }}">View</a>
                         </div>
                       </div>
                     </td>
 
-                    {{-- DESKTOP --}}
-                    <td class="fw-bold d-none d-md-table-cell">
-                      <a class="doc-number" href="{{ route('sales-orders.show',$so) }}">{{ $so->so_number }}</a>
-                      <div class="hover-actions">
-                        <a class="doc-act" href="{{ route('sales-orders.show',$so) }}">View</a>
-                      </div>
-                    </td>
                     <td class="d-none d-md-table-cell">{{ \Illuminate\Support\Carbon::parse($so->order_date)->format('d-m-Y') }}</td>
                     <td class="text-end d-none d-md-table-cell">Rp {{ number_format((float)$so->total, 2, ',', '.') }}</td>
                     <td class="d-none d-md-table-cell"><span class="badge bg-blue-lt text-blue-9">{{ $stLabel }}</span></td>
+                    <td class="d-none d-md-table-cell"></td>
                   </tr>
                 @empty
                   <tr><td colspan="4" class="text-center text-muted">No sales orders.</td></tr>
@@ -400,15 +456,16 @@
     background:#eef2ff; color:#4338ca; border-radius:12px;
   }
 
-  /* Aksi yang hanya muncul saat hover baris (desktop) */
+  /* Aksi yang hanya muncul saat hover baris */
   .hover-actions{
     display:none;
     margin-top:.25rem;
     font-size:.85rem;
   }
   tr:hover .hover-actions{ display:block; }
-  .doc-number { text-decoration:none; }
-  .doc-act { text-decoration:none; }
+
+  .doc-number { text-decoration:none; }      /* nomor terlihat seperti link rapi */
+  .doc-act { text-decoration:none; }         /* action links sederhana */
 
   .badge-count{ padding:.2rem .45rem; line-height:1; border-radius:.35rem;
     background:rgba(132,204,22,.18); color:#3f6212; border:1px solid rgba(132,204,22,.35);
@@ -428,9 +485,20 @@
       justify-content:space-between;
       gap:.5rem;
     }
-    .doc-m-row2{
-      font-weight:600;
-      line-height:1.2;
+    .doc-m-row1-right{
+      display:flex;
+      align-items:center;
+      gap:.5rem;
+      margin-left:auto;
+    }
+    .doc-kebab .btn-icon{
+      padding:.2rem .3rem;
+      height:32px;
+      width:32px;
+    }
+    .doc-kebab .icon{
+      width:18px;
+      height:18px;
     }
     .doc-m-row3{
       display:flex;
@@ -448,9 +516,6 @@
       text-align:right;
       margin-left:auto;
     }
-    .doc-m-actions{
-      font-size:.85rem;
-    }
   }
 
   @media (max-width: 991.98px){
@@ -460,5 +525,30 @@
 @endpush
 
 @push('scripts')
+<script>
+(function(){
+  function wireSearch(formId, inputId, btnId){
+    const form = document.getElementById(formId);
+    if (!form) return;
+    const q = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    const submit = () => (form.requestSubmit ? form.requestSubmit() : form.submit());
+
+    if (q) {
+      q.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submit();
+        }
+      });
+    }
+    if (btn) btn.addEventListener('click', () => submit());
+  }
+
+  wireSearch('customer-qtn-search', 'qtnSearch', 'qtnSearchBtn');
+  wireSearch('customer-so-search', 'soSearch', 'soSearchBtn');
+})();
+</script>
+
 {{-- (script kontak milikmu tetap, biarkan apa adanya) --}}
 @endpush
