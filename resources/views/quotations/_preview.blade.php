@@ -76,8 +76,8 @@
       </div>
     </div>
 
-    {{-- Lines --}}
-    <div class="table-responsive mb-3">
+    {{-- Lines (Desktop: table) --}}
+    <div class="d-none d-md-block table-responsive mb-3">
       <table class="table table-sm">
         <thead>
           <tr>
@@ -119,9 +119,52 @@
       </table>
     </div>
 
+    {{-- Lines (Mobile: stacked rows, no horizontal scroll) --}}
+    <div class="d-md-none mb-3">
+      @forelse($quotation->lines as $ln)
+        @php
+          $qtyTxt = rtrim(rtrim(number_format((float)$ln->qty, 2, '.', ''), '0'), '.');
+          $unitPriceTxt = number_format((float)$ln->unit_price, 2, ',', '.');
+          $lineTotalTxt = number_format((float)$ln->line_total, 2, ',', '.');
+
+          $discTxt = '';
+          if (($ln->discount_type ?? 'amount') === 'percent') {
+            $discTxt = rtrim(rtrim(number_format((float)$ln->discount_value, 2, '.', ''), '0'), '.') . '%';
+          } else {
+            $discTxt = number_format((float)($ln->discount_amount ?? 0), 2, ',', '.');
+          }
+        @endphp
+
+        <div class="border rounded p-2 mb-2">
+          {{-- Row 1: ID/Entity/Value (scan-first) --}}
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="fw-medium me-2" style="min-width:0;">
+              <div class="text-truncate">{{ $ln->name }}</div>
+            </div>
+            <div class="text-end fw-medium">{{ $lineTotalTxt }}</div>
+          </div>
+
+          {{-- Row 2: secondary info --}}
+          @if($ln->description)
+            <div class="text-muted small mt-1" style="white-space: normal;">
+              {{ $ln->description }}
+            </div>
+          @endif
+
+          {{-- Row 3: qty/price/discount --}}
+          <div class="d-flex justify-content-between text-muted small mt-1">
+            <span>{{ $qtyTxt }} {{ $ln->unit }} × {{ $unitPriceTxt }}</span>
+            <span>Disc {{ $discTxt }}</span>
+          </div>
+        </div>
+      @empty
+        <div class="text-center text-muted">No lines.</div>
+      @endforelse
+    </div>
+
     {{-- Totals --}}
     <div class="d-flex justify-content-end">
-      <div style="min-width:320px">
+      <div class="w-100" style="max-width:360px">
         <div class="d-flex justify-content-between">
           <span>Subtotal</span>
           <span>{{ number_format((float)$quotation->lines_subtotal, 2, ',', '.') }}</span>
