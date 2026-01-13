@@ -202,6 +202,15 @@ class QuotationController extends Controller
         return view('quotations.show', compact('quotation'));
     }
 
+    public function pdfViewer(Quotation $quotation)
+    {
+        return view('quotations.pdf_viewer', [
+            'quotation' => $quotation,
+            'pdfUrl' => route('quotations.pdf', $quotation),           // stream
+            'downloadUrl' => route('quotations.pdf-download', $quotation),
+        ]);
+    }
+
 
     public function print(Quotation $quotation)
     {

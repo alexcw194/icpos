@@ -21,7 +21,7 @@
 
         $soLabel = $soCount ? 'Repeat SO' : 'Create SO';
 
-        $pdfViewUrl = route('quotations.pdf', $quotation);
+        $pdfViewUrl = route('quotations.pdf-viewer', $quotation);
         $pdfDownloadUrl = route('quotations.pdf-download', $quotation);
       @endphp
 
