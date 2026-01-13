@@ -5,8 +5,8 @@
   @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
 
   <div class="card">
-    <div class="card-header align-items-center gap-2 flex-wrap">
-      <h3 class="card-title mb-0 me-2">Inventory</h3>
+    <div class="card-header d-flex align-items-center flex-nowrap inventory-header">
+      <h3 class="card-title mb-0 me-3 flex-shrink-0">Inventory</h3>
       <div class="ms-auto d-flex align-items-center gap-2 flex-nowrap">
         <div class="btn-group flex-nowrap" role="group" id="inventory-view-toggle">
           <button type="button" class="btn btn-outline-primary {{ $viewMode === 'flat' ? 'active' : '' }}" data-view="flat">List</button>
@@ -290,6 +290,8 @@
   }
   @media (max-width: 767.98px){
     .items-sort{ width:auto; min-width:14.5rem; }
+    .inventory-header .btn{ white-space:nowrap; }
+    .inventory-header .btn-group .btn{ padding-left:.75rem; padding-right:.75rem; }
   }
 </style>
 @endpush
