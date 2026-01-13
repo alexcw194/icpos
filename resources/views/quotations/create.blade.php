@@ -226,53 +226,70 @@
 
 {{-- ===== Inline template row ===== --}}
 <template id="rowTpl">
-  <tr data-line-row class="qline">
-    <td class="col-item">
-      <input type="text" name="lines[__IDX__][name]" class="form-control form-control-sm q-item-name" placeholder="pilih dari kotak atas" readonly>
-      <input type="hidden" name="lines[__IDX__][item_id]" class="q-item-id">
-      <input type="hidden" name="lines[__IDX__][item_variant_id]" class="q-item-variant-id">
-    </td>
-    <td class="col-desc">
-      <textarea name="lines[__IDX__][description]" class="form-control form-control-sm line_desc q-item-desc" rows="1"></textarea>
-    </td>
-    <td class="col-qty">
-      <input type="text" name="lines[__IDX__][qty]" class="form-control form-control-sm text-end qty q-item-qty" inputmode="decimal" placeholder="0" maxlength="6">
-    </td>
-    <td class="col-unit">
-      <input type="text" name="lines[__IDX__][unit]" class="form-control form-control-sm unit q-item-unit" value="pcs" readonly tabindex="-1">
-    </td>
-    <td class="col-price text-end">
-      <input type="text" name="lines[__IDX__][unit_price]" class="form-control form-control-sm text-end price q-item-rate" inputmode="decimal" placeholder="0">
-    </td>
-    <td class="col-disc disc-cell">
-      <div class="row g-2 align-items-center">
-        <div class="col-auto">
-          <select name="lines[__IDX__][discount_type]" class="form-select form-select-sm disc-type">
-            <option value="amount">Nominal (IDR)</option>
-            <option value="percent">Persen (%)</option>
-          </select>
-        </div>
-        <div class="col-auto">
-          <div class="input-group input-group-sm">
-            <input type="text" name="lines[__IDX__][discount_value]" class="form-control text-end disc-value" inputmode="decimal" value="0">
-            <span class="input-group-text disc-unit">IDR</span>
+    <tr data-line-row class="qline">
+      <td class="col-item" data-label="Item">
+        <input type="text" name="lines[__IDX__][name]" class="form-control form-control-sm q-item-name" placeholder="pilih dari kotak atas" readonly>
+        <input type="hidden" name="lines[__IDX__][item_id]" class="q-item-id">
+        <input type="hidden" name="lines[__IDX__][item_variant_id]" class="q-item-variant-id">
+      </td>
+
+      <td class="col-desc" data-label="Deskripsi">
+        <textarea name="lines[__IDX__][description]" class="form-control form-control-sm line_desc q-item-desc" rows="1"></textarea>
+      </td>
+
+      <td class="col-qty" data-label="Qty">
+        <input type="text" name="lines[__IDX__][qty]" class="form-control form-control-sm text-end qty q-item-qty" inputmode="decimal" placeholder="0" maxlength="6">
+      </td>
+
+      <td class="col-unit" data-label="Unit">
+        <input type="text" name="lines[__IDX__][unit]" class="form-control form-control-sm unit q-item-unit" value="pcs" readonly tabindex="-1">
+      </td>
+
+      <td class="col-price text-end" data-label="Unit Price">
+        <input type="text" name="lines[__IDX__][unit_price]" class="form-control form-control-sm text-end price q-item-rate" inputmode="decimal" placeholder="0">
+      </td>
+
+      <td class="col-disc disc-cell" data-label="Diskon">
+        <div class="row g-2 align-items-center">
+          <div class="col-auto">
+            <select name="lines[__IDX__][discount_type]" class="form-select form-select-sm disc-type">
+              <option value="amount">Nominal (IDR)</option>
+              <option value="percent">Persen (%)</option>
+            </select>
+          </div>
+          <div class="col-auto">
+            <div class="input-group input-group-sm">
+              <input type="text" name="lines[__IDX__][discount_value]" class="form-control text-end disc-value" inputmode="decimal" value="0">
+              <span class="input-group-text disc-unit">IDR</span>
+            </div>
           </div>
         </div>
-      </div>
-    </td>
-    <td class="col-subtotal text-end"><span class="line_subtotal_view">Rp 0</span></td>
-    <td class="col-disc-amount text-end"><span class="line_disc_amount_view">Rp 0</span></td>
-    <td class="col-total text-end"><span class="line_total_view">Rp 0</span></td>
-    <td class="col-actions text-center"><button type="button" class="btn btn-link text-danger p-0 removeRowBtn" title="Hapus">&times;</button></td>
-  </tr>
-</template>
+      </td>
+
+      <td class="col-subtotal text-end" data-label="Subtotal">
+        <span class="line_subtotal_view">Rp 0</span>
+      </td>
+
+      <td class="col-disc-amount text-end" data-label="Disc Rp">
+        <span class="line_disc_amount_view">Rp 0</span>
+      </td>
+
+      <td class="col-total text-end" data-label="Line Total">
+        <span class="line_total_view">Rp 0</span>
+      </td>
+
+      <td class="col-actions text-center" data-label="">
+        <button type="button" class="btn btn-link text-danger p-0 removeRowBtn" title="Hapus">&times;</button>
+      </td>
+    </tr>
+  </template>
+
 
 {{-- Modal Quick Customer --}}
 @include('customers._quick_modal')
 @endsection
 
 @push('styles')
-{{-- TomSelect CSS (fallback) --}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
 <style>
   #linesTable th, #linesTable td { vertical-align: middle; }
@@ -286,14 +303,78 @@
   /* Dropdown TomSelect selalu opaque & di atas */
   .ts-dropdown{ z-index:1060 !important; background:#fff !important; box-shadow:0 10px 24px rgba(0,0,0,.12) !important; }
 
-  /* ===== Mobile staging optimization ===== */
+  /* ===== Mobile staging optimization (tetap 3 baris) ===== */
   @media (max-width: 576px){
     #stageWrap .card-body{ padding: .75rem; }
     #stageWrap #stage_name{ font-size: 1rem; }
     #stageWrap .stage-r3 .btn{ white-space: nowrap; }
   }
+
+  /* ===== Mobile: Lines table jadi stacked (tanpa scroll kanan) ===== */
+  @media (max-width: 576px){
+    /* matikan horizontal scroll wrapper */
+    .table-responsive { overflow-x: visible !important; }
+
+    #linesTable thead { display: none; }
+    #linesTable, #linesTable tbody { display: block; width: 100%; }
+
+    #linesTable tr.qline{
+      display: block;
+      width: 100%;
+      border: 1px solid var(--tblr-border-color, #e6e7e9);
+      border-radius: .5rem;
+      padding: .5rem .75rem;
+      margin-bottom: .75rem;
+      background: #fff;
+    }
+
+    #linesTable tr.qline td{
+      display: flex;
+      width: 100%;
+      padding: .35rem 0;
+      border: 0;
+      gap: .75rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* label kiri */
+    #linesTable tr.qline td[data-label]::before{
+      content: attr(data-label);
+      flex: 0 0 7.5rem;
+      max-width: 7.5rem;
+      color: #6c757d;
+      font-size: .85rem;
+    }
+
+    /* Item & Deskripsi: jadi block biar kebaca */
+    #linesTable tr.qline td.col-item,
+    #linesTable tr.qline td.col-desc{
+      display: block;
+    }
+    #linesTable tr.qline td.col-item::before,
+    #linesTable tr.qline td.col-desc::before{
+      display: block;
+      margin-bottom: .25rem;
+    }
+    #linesTable tr.qline td.col-item input,
+    #linesTable tr.qline td.col-desc textarea{
+      width: 100%;
+    }
+
+    /* total lebih tegas */
+    #linesTable tr.qline td.col-total { font-weight: 700; }
+
+    /* tombol hapus rapihin */
+    #linesTable tr.qline td.col-actions{
+      justify-content: flex-end;
+      padding-top: .25rem;
+    }
+    #linesTable tr.qline td.col-actions::before{ content: ""; display:none; }
+  }
 </style>
 @endpush
+
 
 @php
   $CUSTOMER_SEARCH_URL = route('customers.search', [], false);
