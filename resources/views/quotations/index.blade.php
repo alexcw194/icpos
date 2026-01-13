@@ -60,7 +60,8 @@
               </select>
             </div>
 
-            <div class="col-6 col-md-2">
+            {{-- Status dipendekkan: mobile col-4, desktop tetap rapi --}}
+            <div class="col-4 col-md-2">
               <select name="status" class="form-select" data-auto-submit="1">
                 <option value="">All</option>
                 <option value="draft" @selected($status === 'draft')>Draft</option>
@@ -69,10 +70,14 @@
               </select>
             </div>
 
-            <div class="col-12 col-md-2 d-flex gap-2">
-              {{-- Keep existing button for desktop (not needed on mobile) --}}
-              <button class="btn btn-outline w-100 d-none d-md-inline-flex">Filter</button>
-              <a class="btn btn-link" href="{{ route('quotations.index') }}">Reset</a>
+            {{-- Reset sejajar status (mobile kanan) --}}
+            <div class="col-2 col-md-2 d-flex align-items-center justify-content-end">
+              <a class="btn btn-link px-0" href="{{ route('quotations.index') }}">Reset</a>
+            </div>
+
+            {{-- Desktop-only Filter button tetap ada tapi sekarang pindah ke baris atas (optional) --}}
+            <div class="col-12 col-md-2 d-none d-md-flex gap-2 justify-content-end">
+              <button class="btn btn-outline w-100">Filter</button>
             </div>
           </form>
         </div>
