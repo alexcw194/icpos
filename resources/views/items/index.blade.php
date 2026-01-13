@@ -5,11 +5,11 @@
   @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
 
   <div class="card">
-    <div class="card-header align-items-center">
-      <h3 class="card-title mb-0">Inventory</h3>
+    <div class="card-header align-items-center gap-2 flex-wrap">
+      <h3 class="card-title mb-0 me-2">Inventory</h3>
       <div class="ms-auto d-flex align-items-center gap-2 flex-nowrap">
         <div class="btn-group flex-nowrap" role="group" id="inventory-view-toggle">
-          <button type="button" class="btn btn-outline-primary {{ $viewMode === 'flat' ? 'active' : '' }}" data-view="flat">Flat List</button>
+          <button type="button" class="btn btn-outline-primary {{ $viewMode === 'flat' ? 'active' : '' }}" data-view="flat">List</button>
           <button type="button" class="btn btn-outline-primary {{ $viewMode === 'grouped' ? 'active' : '' }}" data-view="grouped">Group</button>
         </div>
 
