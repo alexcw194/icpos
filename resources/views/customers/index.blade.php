@@ -29,8 +29,8 @@
               type="button"
               class="btn btn-icon"
               id="customersSearchBtn"
-              aria-label="Search"
-              title="Search"
+              aria-label="Cari"
+              title="Cari"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
                    stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
@@ -58,7 +58,7 @@
 
         <div class="col-12 col-md-auto d-flex gap-2">
           <a href="{{ route('customers.index') }}" class="btn btn-outline-secondary">Reset</a>
-          <a href="{{ route('customers.create') }}" class="btn btn-success">+ Add Customer</a>
+          <a href="{{ route('customers.create') }}" class="btn btn-primary">+ Tambah Customer</a>
         </div>
       </form>
 
@@ -87,17 +87,20 @@
                   <a href="{{ route('customers.show', $c) }}" class="fw-bold text-decoration-none">
                     {{ $c->name }}
                   </a>
+
                   @if($c->jenis)
                     <div class="small mt-1">
                       <span class="badge bg-light text-dark border">{{ $c->jenis->name }}</span>
                     </div>
                   @endif
+
                   @if($c->address)
                     <div class="text-muted small mt-1">
                       {{ Str::limit($c->address, 120) }}
                     </div>
                   @endif
                 </td>
+
                 <td class="d-none d-md-table-cell">{{ $c->city ?? '-' }}</td>
                 <td class="d-none d-md-table-cell">{{ $c->phone ?? '-' }}</td>
                 <td class="d-none d-md-table-cell">
@@ -107,13 +110,14 @@
                     -
                   @endif
                 </td>
+
                 <td class="text-end">
                   @include('layouts.partials.crud_actions', [
                     'view'    => Route::has('customers.show') ? route('customers.show', $c) : null,
                     'edit'    => route('customers.edit', $c),
                     'delete'  => route('customers.destroy', $c),
                     'size'    => 'sm',
-                    'confirm' => 'Delete this customer?'
+                    'confirm' => 'Hapus customer ini?'
                   ])
                 </td>
               </tr>
