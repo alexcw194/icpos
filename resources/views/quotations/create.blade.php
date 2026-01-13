@@ -405,10 +405,16 @@
       render:{ option(d,esc){ return `<div class="d-flex justify-content-between"><span>${esc(d.label||'')}</span><span class="text-muted small">${esc(d.unit||'')}</span></div>`; } },
       onChange(val){
         const o = this.options[val];
-        stageId.value   = o ? o.value : '';
-        stageVarId.value= '';
-        stageUnit.value = o ? (o.unit||'pcs') : 'pcs';
-        stagePrice.value= o ? String(o.price||0) : '';
+        stageId.value    = o ? o.value : '';
+        stageVarId.value = '';
+        stageUnit.value  = o ? (o.unit||'pcs') : 'pcs';
+        stagePrice.value = o ? String(o.price||0) : '';
+
+        // UX mobile: anggap "next field" setelah pilih item
+        this.close();
+        requestAnimationFrame(() => {
+          if (stageDesc) stageDesc.focus();
+        });
       }
     });
 
