@@ -8,8 +8,8 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('stock_ledgers', function (Blueprint $table) {
-            $table->decimal('unit_cost', 18, 2)->nullable()->after('qty_out');
-            $table->decimal('value_change', 18, 2)->nullable()->after('unit_cost'); // qty_in/out * unit_cost
+            $table->decimal('unit_cost', 18, 2)->nullable()->after('qty_change');
+            $table->decimal('value_change', 18, 2)->nullable()->after('unit_cost'); // qty_change * unit_cost
         });
     }
 
