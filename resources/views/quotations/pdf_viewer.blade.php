@@ -1,12 +1,22 @@
+{{-- resources/views/quotations/pdf_viewer.blade.php --}}
 @extends('layouts.tabler')
 
 @section('content')
 <div class="container-xl">
   <div class="card">
     <div class="card-header d-flex align-items-center">
-      <div class="card-title m-0">{{ $quotation->number }}</div>
+      <div class="min-w-0">
+        <div class="card-title m-0">{{ $quotation->number }}</div>
+        <div class="text-muted small">
+          {{ optional($quotation->date)->format('d M Y') }}
+          •
+          <span class="badge {{ $quotation->status_badge_class ?? '' }}">
+            {{ $quotation->status_label ?? strtoupper($quotation->status) }}
+          </span>
+        </div>
+      </div>
 
-      <div class="ms-auto d-flex gap-2">
+      <div class="ms-auto d-flex align-items-center gap-2">
         <button type="button"
           class="btn btn-primary btn-sm"
           data-share-url="{{ $pdfUrl }}"
@@ -15,17 +25,81 @@
           Bagikan PDF
         </button>
 
-        <a class="btn btn-outline-secondary btn-sm" href="{{ $downloadUrl }}">Unduh</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ $downloadUrl }}">
+          Unduh
+        </a>
       </div>
     </div>
 
+    {{-- PDF Area --}}
     <div class="card-body p-0" style="height: calc(100vh - 220px);">
-      <iframe src="{{ $pdfUrl }}" style="width:100%; height:100%; border:0;"></iframe>
+      <iframe
+        id="pdfFrame"
+        src="{{ $pdfUrl }}"
+        style="width:100%; height:100%; border:0;"
+        loading="eager">
+      </iframe>
     </div>
   </div>
 </div>
 
 <script>
-  // paste function icposSharePdfFile + filename sanitize (replace / -> -) di sini
+/**
+ * Bagikan PDF: download -> share file (WhatsApp sheet, dll)
+ * Tanpa "salin link".
+ */
+async function icposSharePdfFile(btn){
+  const url = btn.getAttribute('data-share-url');
+  const title = btn.getAttribute('data-share-title') || 'Quotation';
+
+  // Filename: QO/ICP/2026/00003 -> QO-ICP-2026-00003.pdf
+  const safe = (title || 'Quotation')
+    .trim()
+    .replaceAll('/', '-')
+    .replaceAll('\\', '-')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const filename = `${safe}.pdf`;
+
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error('PDF download failed: ' + res.status);
+
+    const blob = await res.blob();
+    const file = new File([blob], filename, { type: 'application/pdf' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share({ title, files: [file] });
+      return false;
+    }
+
+    // fallback: download saja (tanpa copy link)
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+
+    alert('Browser tidak mendukung share. PDF sudah diunduh.');
+    return false;
+
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Autoload helper:
+ * - Minta browser fokus ke iframe setelah load agar PDF renderer lebih cepat aktif di sebagian device.
+ * - Tidak akan mengalahkan "attachment" behavior (kalau PDF route masih download).
+ */
+window.addEventListener('load', () => {
+  const f = document.getElementById('pdfFrame');
+  if (f) f.focus();
+});
 </script>
 @endsection
