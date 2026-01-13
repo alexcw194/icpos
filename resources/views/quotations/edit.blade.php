@@ -133,34 +133,45 @@
 
       <hr class="my-3">
 
-      {{-- STAGING ROW (TomSelect menyatu di kolom pertama) --}}
+      {{-- STAGING ROW (Mobile: 3 baris biar kebaca, tanpa scroll kanan) --}}
       <div id="stageWrap" class="card mb-3">
         <div class="card-body py-2">
-          <div class="row g-2 align-items-center">
-            <div class="col-xxl-4 col-lg-5">
-              <input id="stage_name" type="text" class="form-control" placeholder="Ketik nama/SKU lalu pilih…">
+          <div class="row g-2 align-items-center stage-row">
+            {{-- Row 1: Nama Item --}}
+            <div class="col-12 stage-r1">
+              <input id="stage_name" type="text" class="form-control fw-semibold" placeholder="Ketik nama/SKU lalu pilih…">
               <input id="stage_item_id" type="hidden">
               <input id="stage_item_variant_id" type="hidden">
             </div>
-            <div class="col-xxl-3 col-lg-4">
+
+            {{-- Row 2: Description --}}
+            <div class="col-12 stage-r2">
               <textarea id="stage_desc" class="form-control" rows="1" placeholder="Deskripsi (opsional)"></textarea>
             </div>
-            <div class="col-auto" style="width:8ch">
-              <input id="stage_qty" type="text" class="form-control text-end" inputmode="decimal" value="1">
-            </div>
-            <div class="col-auto" style="width:7ch">
-              <input id="stage_unit" type="text" class="form-control" value="pcs" readonly>
-            </div>
-            <div class="col-xxl-2 col-lg-2">
-              <input id="stage_price" type="text" class="form-control text-end" inputmode="decimal" placeholder="0">
-            </div>
-            <div class="col-auto">
-              <button type="button" id="stage_add_btn" class="btn btn-primary">Tambah</button>
-              <button type="button" id="stage_clear_btn" class="btn btn-link">Kosongkan</button>
+
+            {{-- Row 3: Qty + Unit + Price + Actions --}}
+            <div class="col-12 stage-r3">
+              <div class="row g-2 align-items-center">
+                <div class="col-4">
+                  <input id="stage_qty" type="text" class="form-control text-end" inputmode="decimal" value="1">
+                </div>
+                <div class="col-3">
+                  <input id="stage_unit" type="text" class="form-control" value="pcs" readonly>
+                </div>
+                <div class="col-5">
+                  <input id="stage_price" type="text" class="form-control text-end" inputmode="decimal" placeholder="0">
+                </div>
+
+                <div class="col-12 d-flex gap-2 mt-1">
+                  <button type="button" id="stage_add_btn" class="btn btn-primary flex-grow-1">Tambah</button>
+                  <button type="button" id="stage_clear_btn" class="btn btn-outline-secondary">Kosongkan</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
 
       {{-- ITEMS TABLE --}}
       <div class="fw-bold mb-2">Items</div>

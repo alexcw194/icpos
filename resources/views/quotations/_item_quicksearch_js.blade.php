@@ -114,9 +114,22 @@
     onChange(val){
       const data = this.options[val];
       if (!data) return;
+
+      // Simpan posisi scroll saat ini (mobile sering auto-scroll pas focus pindah)
+      const y = window.scrollY;
+
       applyItem(data);
+
+      // Close dropdown & reset search box
       this.clear(true); this.setTextboxValue(''); this.close();
-      (STAGE.qty || wrap?.querySelector(CFG.fields.qty))?.focus();
+
+      // Fokus ke field berikutnya: Description dulu (biar user baca item yang kepilih tanpa “ketarik scroll”)
+      const next = (STAGE.desc || wrap?.querySelector(CFG.fields.desc) || STAGE.qty || wrap?.querySelector(CFG.fields.qty));
+      if (next) {
+        // preventScroll support di mobile modern, fallback ke scroll restore
+        try { next.focus({ preventScroll: true }); } catch(e){ next.focus(); }
+        setTimeout(() => window.scrollTo(0, y), 0);
+      }
     }
   });
 })();
