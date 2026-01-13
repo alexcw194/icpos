@@ -1,4 +1,5 @@
-﻿@extends('layouts.tabler')
+﻿{{-- resources/views/customers/show.blade.php --}}
+@extends('layouts.tabler')
 
 @section('content')
 @php
@@ -196,7 +197,7 @@
 
           <div class="table-responsive">
             <table class="table card-table table-vcenter">
-              <thead>
+              <thead class="d-none d-md-table-header-group">
                 <tr>
                   <th>Quotation #</th>
                   <th>Date</th>
@@ -206,8 +207,43 @@
               </thead>
               <tbody>
                 @forelse($quotations as $qo)
+                  @php
+                    $coName = $qo->company->alias ?? $qo->company->name ?? null;
+                  @endphp
                   <tr>
-                    <td class="fw-bold">
+                    {{-- MOBILE: single cell only --}}
+                    <td class="fw-bold d-md-none">
+                      <div class="doc-mobile">
+                        {{-- Row 1: ID + Status --}}
+                        <div class="doc-m-row1">
+                          <a class="doc-number" href="{{ route('quotations.index', ['preview' => $qo->id]) }}">
+                            {{ $qo->number }}
+                          </a>
+                          <span class="badge {{ $qo->status_badge_class }}">{{ $qo->status_label }}</span>
+                        </div>
+
+                        {{-- Row 2: Entity (Company context for multi-company) --}}
+                        <div class="doc-m-row2">
+                          {{ $coName ?: '—' }}
+                        </div>
+
+                        {{-- Row 3: Date + Total --}}
+                        <div class="doc-m-row3">
+                          <span class="doc-m-date">{{ optional($qo->date)->format('d M Y') }}</span>
+                          <span class="doc-m-total">{{ $qo->total_idr }}</span>
+                        </div>
+
+                        {{-- Actions: secondary, predictable, no row click --}}
+                        <div class="doc-m-actions">
+                          <a class="doc-act" href="{{ route('quotations.pdf',$qo) }}" target="_blank" rel="noopener">Lihat</a>
+                          <span class="text-muted"> | </span>
+                          <a class="doc-act" href="{{ route('quotations.edit',$qo) }}">Ubah</a>
+                        </div>
+                      </div>
+                    </td>
+
+                    {{-- DESKTOP: original cells preserved --}}
+                    <td class="fw-bold d-none d-md-table-cell">
                       <a class="doc-number" href="{{ route('quotations.index', ['preview' => $qo->id]) }}">
                         {{ $qo->number }}
                       </a>
@@ -217,9 +253,9 @@
                         <a class="doc-act" href="{{ route('quotations.edit',$qo) }}">Edit</a>
                       </div>
                     </td>
-                    <td>{{ optional($qo->date)->format('d-m-Y') }}</td>
-                    <td class="text-end">{{ $qo->total_idr }}</td>
-                    <td><span class="badge {{ $qo->status_badge_class }}">{{ $qo->status_label }}</span></td>
+                    <td class="d-none d-md-table-cell">{{ optional($qo->date)->format('d-m-Y') }}</td>
+                    <td class="text-end d-none d-md-table-cell">{{ $qo->total_idr }}</td>
+                    <td class="d-none d-md-table-cell"><span class="badge {{ $qo->status_badge_class }}">{{ $qo->status_label }}</span></td>
                   </tr>
                 @empty
                   <tr><td colspan="4" class="text-center text-muted">No quotations.</td></tr>
@@ -259,7 +295,7 @@
 
           <div class="table-responsive">
             <table class="table card-table table-vcenter">
-              <thead>
+              <thead class="d-none d-md-table-header-group">
                 <tr>
                   <th>SO Number</th>
                   <th>Date</th>
@@ -279,17 +315,45 @@
                       'closed' => 'Closed',
                     ];
                     $stLabel = $stMap[$so->status] ?? ucfirst(str_replace('_',' ', $so->status));
+                    $coName = $so->company->alias ?? $so->company->name ?? null;
                   @endphp
                   <tr>
-                    <td class="fw-bold">
+                    {{-- MOBILE --}}
+                    <td class="fw-bold d-md-none">
+                      <div class="doc-mobile">
+                        <div class="doc-m-row1">
+                          <a class="doc-number" href="{{ route('sales-orders.show',$so) }}">{{ $so->so_number }}</a>
+                          <span class="badge bg-blue-lt text-blue-9">{{ $stLabel }}</span>
+                        </div>
+
+                        <div class="doc-m-row2">
+                          {{ $coName ?: '—' }}
+                          @if(!empty($so->quotation?->number))
+                            <span class="text-muted">• {{ $so->quotation->number }}</span>
+                          @endif
+                        </div>
+
+                        <div class="doc-m-row3">
+                          <span class="doc-m-date">{{ \Illuminate\Support\Carbon::parse($so->order_date)->format('d M Y') }}</span>
+                          <span class="doc-m-total">Rp {{ number_format((float)$so->total, 2, ',', '.') }}</span>
+                        </div>
+
+                        <div class="doc-m-actions">
+                          <a class="doc-act" href="{{ route('sales-orders.show',$so) }}">Lihat</a>
+                        </div>
+                      </div>
+                    </td>
+
+                    {{-- DESKTOP --}}
+                    <td class="fw-bold d-none d-md-table-cell">
                       <a class="doc-number" href="{{ route('sales-orders.show',$so) }}">{{ $so->so_number }}</a>
                       <div class="hover-actions">
                         <a class="doc-act" href="{{ route('sales-orders.show',$so) }}">View</a>
                       </div>
                     </td>
-                    <td>{{ \Illuminate\Support\Carbon::parse($so->order_date)->format('d-m-Y') }}</td>
-                    <td class="text-end">Rp {{ number_format((float)$so->total, 2, ',', '.') }}</td>
-                    <td><span class="badge bg-blue-lt text-blue-9">{{ $stLabel }}</span></td>
+                    <td class="d-none d-md-table-cell">{{ \Illuminate\Support\Carbon::parse($so->order_date)->format('d-m-Y') }}</td>
+                    <td class="text-end d-none d-md-table-cell">Rp {{ number_format((float)$so->total, 2, ',', '.') }}</td>
+                    <td class="d-none d-md-table-cell"><span class="badge bg-blue-lt text-blue-9">{{ $stLabel }}</span></td>
                   </tr>
                 @empty
                   <tr><td colspan="4" class="text-center text-muted">No sales orders.</td></tr>
@@ -335,18 +399,60 @@
   .subrail-badge{
     background:#eef2ff; color:#4338ca; border-radius:12px;
   }
-  /* Aksi yang hanya muncul saat hover baris */
+
+  /* Aksi yang hanya muncul saat hover baris (desktop) */
   .hover-actions{
     display:none;
     margin-top:.25rem;
     font-size:.85rem;
   }
   tr:hover .hover-actions{ display:block; }
-  .doc-number { text-decoration:none; }      /* nomor terlihat seperti link rapi */
-  .doc-act { text-decoration:none; }         /* action links sederhana */
+  .doc-number { text-decoration:none; }
+  .doc-act { text-decoration:none; }
+
   .badge-count{ padding:.2rem .45rem; line-height:1; border-radius:.35rem;
     background:rgba(132,204,22,.18); color:#3f6212; border:1px solid rgba(132,204,22,.35);
     box-shadow:0 0 0 1px rgba(255,255,255,.35) inset; font-weight:600; }
+
+  /* Mobile: stacked rows for document list (rulebook) */
+  @media (max-width: 767.98px){
+    .doc-mobile{
+      display:flex;
+      flex-direction:column;
+      gap:.35rem;
+      padding:.1rem 0;
+    }
+    .doc-m-row1{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.5rem;
+    }
+    .doc-m-row2{
+      font-weight:600;
+      line-height:1.2;
+    }
+    .doc-m-row3{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:1rem;
+    }
+    .doc-m-date{
+      color: var(--tblr-muted);
+      white-space: nowrap;
+    }
+    .doc-m-total{
+      font-weight:700;
+      white-space: nowrap;
+      text-align:right;
+      margin-left:auto;
+    }
+    .doc-m-actions{
+      font-size:.85rem;
+    }
+  }
+
   @media (max-width: 991.98px){
     .subrail-card{ position:static !important; top:auto !important; }
   }
