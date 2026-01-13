@@ -4,6 +4,7 @@
 @section('content')
 <div class="container-xl">
   <div class="card">
+    {{-- ===================== Header (enterprise action hierarchy) ===================== --}}
     <div class="card-header d-flex align-items-center">
       <div class="card-title mb-0">Detail Item</div>
 
@@ -11,7 +12,7 @@
         {{-- Primary CTA --}}
         <a href="{{ route('items.edit', $item) }}" class="btn btn-warning btn-sm">Ubah</a>
 
-        {{-- Overflow actions (enterprise) --}}
+        {{-- Overflow actions --}}
         <div class="dropdown">
           <button class="btn btn-outline-secondary btn-icon btn-sm" data-bs-toggle="dropdown" aria-label="Menu">
             <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
@@ -51,47 +52,33 @@
           'cut_raw'    => 'Raw Roll (dipotong)',
           'cut_piece'  => 'Finished Piece (hasil potong)',
         ];
-
         $typeLabel = $typeLabels[$item->item_type] ?? ucfirst($item->item_type ?? 'standard');
       @endphp
 
-      {{-- ===================== Scan-first Summary (ERP) ===================== --}}
+      {{-- ===================== Scan-first Summary (NO price/stock here) ===================== --}}
       <div class="mb-3">
-        <div class="d-flex align-items-start justify-content-between gap-3">
-          <div class="min-w-0">
-            {{-- Row 1: SKU + Type badge (scan-first) --}}
-            <div class="d-flex align-items-center justify-content-between gap-2">
-              <div class="text-muted small text-truncate">
-                {{ $item->sku ?? '—' }}
-              </div>
-              <span class="badge bg-secondary-lt text-secondary-9 flex-shrink-0">
-                {{ $typeLabel }}
-              </span>
+        <div class="min-w-0">
+          {{-- Row 1: SKU + Type badge (ONLY ONE badge here) --}}
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="text-muted small text-truncate">
+              {{ $item->sku ?? '—' }}
             </div>
-
-            {{-- Row 2: Name (primary entity) --}}
-            <div class="h3 m-0 text-truncate mt-1">
-              {{ $item->name }}
-            </div>
-
-            {{-- Row 3: Micro meta --}}
-            <div class="text-muted small mt-1">
-              Unit:
-              {{ $item->unit?->code ? $item->unit->code.' — '.$item->unit->name : ($item->unit?->name ?? '—') }}
-              <span class="mx-1">•</span>
-              Brand: {{ $item->brand?->name ?? '—' }}
-            </div>
+            <span class="badge bg-secondary-lt text-secondary-9 flex-shrink-0">
+              {{ $typeLabel }}
+            </span>
           </div>
 
-          <div class="text-end flex-shrink-0">
-            <div class="badge bg-secondary-lt text-secondary-9">{{ $typeLabel }}</div>
+          {{-- Row 2: Name --}}
+          <div class="h3 m-0 text-truncate mt-1">
+            {{ $item->name }}
+          </div>
 
-            <div class="mt-2 fw-bold">
-              Rp {{ $item->price_id }}
-            </div>
-            <div class="text-muted small">
-              Stok {{ $item->stock }}
-            </div>
+          {{-- Row 3: Micro meta --}}
+          <div class="text-muted small mt-1">
+            Unit:
+            {{ $item->unit?->code ? $item->unit->code.' — '.$item->unit->name : ($item->unit?->name ?? '—') }}
+            <span class="mx-1">•</span>
+            Brand: {{ $item->brand?->name ?? '—' }}
           </div>
         </div>
       </div>
@@ -100,9 +87,10 @@
 
       {{-- ===================== Detail (compact, grouped) ===================== --}}
       <div class="row g-2">
-        {{-- Identity --}}
+
+        {{-- Identitas --}}
         <div class="col-12">
-          <div class="text-secondary fw-bold small mb-1">Identitas</div>
+          <div class="section-h">Identitas</div>
         </div>
 
         <div class="col-6 col-md-4">
@@ -128,22 +116,22 @@
           </div>
         </div>
 
-        {{-- Commerce --}}
+        {{-- Harga & Stok (VISUAL STRONG) --}}
         <div class="col-12 mt-2">
-          <div class="text-secondary fw-bold small mb-1">Harga & Stok</div>
+          <div class="section-h">Harga & Stok</div>
         </div>
 
         <div class="col-6 col-md-4">
-          <div class="kv">
-            <div class="kv-k">Harga (Rp)</div>
-            <div class="kv-v fw-bold">Rp {{ $item->price_id }}</div>
+          <div class="metric-box">
+            <div class="metric-k">Harga (Rp)</div>
+            <div class="metric-v">Rp {{ $item->price_id }}</div>
           </div>
         </div>
 
         <div class="col-6 col-md-4">
-          <div class="kv">
-            <div class="kv-k">Stok</div>
-            <div class="kv-v fw-bold">{{ $item->stock }}</div>
+          <div class="metric-box">
+            <div class="metric-k">Stok</div>
+            <div class="metric-v">{{ $item->stock }}</div>
           </div>
         </div>
 
@@ -154,9 +142,9 @@
           </div>
         </div>
 
-        {{-- Attributes --}}
+        {{-- Atribut --}}
         <div class="col-12 mt-2">
-          <div class="text-secondary fw-bold small mb-1">Atribut</div>
+          <div class="section-h">Atribut</div>
         </div>
 
         <div class="col-6 col-md-4">
@@ -171,7 +159,7 @@
             <div class="kv-k">Color</div>
             <div class="kv-v d-inline-flex align-items-center">
               @if($item->color)
-                @if($item->color->hex)
+                @if(!empty($item->color->hex))
                   <i class="me-2" style="display:inline-block;width:12px;height:12px;border-radius:50%;border:1px solid #ddd;background:{{ $item->color->hex }}"></i>
                 @endif
                 {{ $item->color->name }}
@@ -204,7 +192,7 @@
 
         {{-- Flags --}}
         <div class="col-12 mt-2">
-          <div class="text-secondary fw-bold small mb-1">Flags</div>
+          <div class="section-h">Flags</div>
         </div>
 
         <div class="col-6 col-md-4">
@@ -241,7 +229,7 @@
           </div>
         </div>
 
-        @if($item->default_roll_length)
+        @if(!empty($item->default_roll_length))
           <div class="col-6 col-md-4">
             <div class="kv">
               <div class="kv-k">Default Roll Length</div>
@@ -250,7 +238,7 @@
           </div>
         @endif
 
-        @if($item->length_per_piece)
+        @if(!empty($item->length_per_piece))
           <div class="col-6 col-md-4">
             <div class="kv">
               <div class="kv-k">Length per Piece</div>
@@ -259,15 +247,15 @@
           </div>
         @endif
 
-        {{-- Description (hide noise when empty) --}}
+        {{-- Deskripsi (jangan makan tempat kalau kosong) --}}
         @if(!empty($item->description))
           <div class="col-12 mt-2">
-            <div class="text-secondary fw-bold small mb-1">Deskripsi</div>
+            <div class="section-h">Deskripsi</div>
             <div class="kv-v" style="white-space: pre-line;">{{ $item->description }}</div>
           </div>
         @endif
 
-        {{-- Metadata (low priority, collapsed) --}}
+        {{-- Metadata collapsed --}}
         <div class="col-12 mt-2">
           <details class="mt-1">
             <summary class="text-muted small">Metadata</summary>
@@ -292,12 +280,11 @@
   </div>
 </div>
 
-{{-- =======================  [ADD ONLY] Modal Penyesuaian Stok  ======================= --}}
+{{-- ======================= Modal Penyesuaian Stok (logic dipertahankan) ======================= --}}
 @php
-  // Resolve default company & default warehouse for initial preview only
   $__company    = $company ?? \App\Models\Company::where('is_default', true)->first();
   $__warehouses = \App\Models\Warehouse::orderBy('name')->get(['id','name']);
-  $__warehouse  = $__warehouses->first(); // fallback default
+  $__warehouse  = $__warehouses->first();
   $__variantId  = $currentVariant->id ?? null;
 
   $__onhand = 0.0;
@@ -327,7 +314,6 @@
         </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-
 
       <div class="modal-body">
         <input type="hidden" name="company_id" value="{{ $__company?->id }}">
@@ -380,7 +366,6 @@
   </div>
 </div>
 
-{{-- Inline JS: preview + live on-hand when warehouse changes --}}
 <script>
 document.addEventListener('DOMContentLoaded', function(){
   let awal    = parseFloat((document.getElementById('stockAwal').value || '0').replace(/,/g,'')) || 0;
@@ -396,34 +381,48 @@ document.addEventListener('DOMContentLoaded', function(){
     akhir.value = (isFinite(val) ? val : 0).toFixed(2);
   }
 
-  async function refreshOnHand(){
-    // Keep as-is for now (no API yet). If you add an endpoint later, fetch and update `awal` here.
-    awal = parseFloat((document.getElementById('stockAwal').value || '0').replace(/,/g,'')) || awal;
-    recalc();
-  }
-
   tipeEl.addEventListener('change', recalc);
   qtyEl.addEventListener('input', recalc);
-  whEl.addEventListener('change', refreshOnHand);
-
-  // Accessibility fix: clear focus before hide, return to trigger after hidden
-  const modalEl   = document.getElementById('modalAdjust');
-  const triggerEl = document.querySelector('[data-bs-target="#modalAdjust"]');
-  modalEl.addEventListener('hide.bs.modal',   () => document.activeElement?.blur());
-  modalEl.addEventListener('hidden.bs.modal', () => triggerEl?.focus({ preventScroll: true }));
 });
 </script>
 
 @push('styles')
 <style>
-  /* Compact label-value (ERP density) */
-  .kv { padding: .25rem 0; }
-  .kv-k { font-size: .75rem; color: var(--tblr-muted); line-height: 1.1; }
-  .kv-v { margin-top: .15rem; line-height: 1.25; }
+  /* Compact sections */
+  .section-h{
+    font-weight: 700;
+    font-size: .85rem;
+    color: var(--tblr-muted);
+    margin-bottom: .25rem;
+  }
 
-  /* Make summary tighter on mobile */
+  /* Compact label-value */
+  .kv { padding: .20rem 0; }
+  .kv-k { font-size: .75rem; color: var(--tblr-muted); line-height: 1.1; }
+  .kv-v { margin-top: .12rem; line-height: 1.25; }
+
+  /* Strong metrics (Price/Stock) */
+  .metric-box{
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: .5rem;
+    padding: .5rem .6rem;
+    background: rgba(0,0,0,.015);
+  }
+  .metric-k{
+    font-size: .75rem;
+    color: var(--tblr-muted);
+    line-height: 1.1;
+  }
+  .metric-v{
+    margin-top: .2rem;
+    font-weight: 800;
+    font-size: 1.15rem;
+    line-height: 1.2;
+    letter-spacing: .2px;
+    white-space: nowrap;
+  }
+
   @media (max-width: 767.98px){
-    .card-body { padding-top: 1rem; padding-bottom: 1rem; }
     .h3 { font-size: 1.1rem; }
   }
 </style>
