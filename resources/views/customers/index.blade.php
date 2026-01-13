@@ -13,11 +13,34 @@
       {{-- FILTERS --}}
       <form class="row g-2 mb-3" method="get" action="{{ route('customers.index') }}">
         <div class="col-12 col-md">
-          <input type="text"
-                 name="q"
-                 value="{{ request('q','') }}"
-                 class="form-control"
-                 placeholder="Cari nama / kota / email">
+          <div class="input-group">
+            <input
+              id="customersSearch"
+              type="search"
+              name="q"
+              value="{{ request('q','') }}"
+              class="form-control"
+              placeholder="Cari nama / kota / email"
+              enterkeyhint="search"
+              inputmode="search"
+              autocomplete="off"
+            >
+            <button
+              type="button"
+              class="btn btn-icon"
+              id="customersSearchBtn"
+              aria-label="Search"
+              title="Search"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                   stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <circle cx="10" cy="10" r="7"></circle>
+                <line x1="21" y1="21" x2="15" y2="15"></line>
+              </svg>
+            </button>
+          </div>
         </div>
 
         @isset($jenises)
@@ -34,7 +57,6 @@
         @endisset
 
         <div class="col-12 col-md-auto d-flex gap-2">
-          <button class="btn btn-primary">Search</button>
           <a href="{{ route('customers.index') }}" class="btn btn-outline-secondary">Reset</a>
           <a href="{{ route('customers.create') }}" class="btn btn-success">+ Add Customer</a>
         </div>
@@ -112,4 +134,26 @@
     </div>
   </div>
 </div>
+
+<script>
+(function () {
+  const form = document.querySelector('form[action="{{ route('customers.index') }}"]');
+  if (!form) return;
+
+  const submit = () => (form.requestSubmit ? form.requestSubmit() : form.submit());
+
+  const q = document.getElementById('customersSearch');
+  if (q) {
+    q.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submit();
+      }
+    });
+  }
+
+  const btn = document.getElementById('customersSearchBtn');
+  if (btn) btn.addEventListener('click', submit);
+})();
+</script>
 @endsection
