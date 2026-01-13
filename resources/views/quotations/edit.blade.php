@@ -318,7 +318,7 @@
 
     <td class="col-desc" data-label="Deskripsi">
       <textarea name="lines[__IDX__][description]"
-                class="form-control form-control-sm line_desc"
+                class="form-control form-control-sm line_desc q-item-desc"
                 rows="2"
                 placeholder="Deskripsi (opsional)"></textarea>
     </td>
@@ -328,18 +328,40 @@
       <div class="meta-grid">
         <input type="text"
                name="lines[__IDX__][qty]"
-               class="form-control form-control-sm text-end qty"
+               class="form-control form-control-sm text-end qty q-item-qty"
                inputmode="decimal">
 
         <input type="text"
                name="lines[__IDX__][unit]"
-               class="form-control form-control-sm unit text-center"
+               class="form-control form-control-sm unit text-center q-item-unit"
                readonly>
 
         <input type="text"
                name="lines[__IDX__][unit_price]"
-               class="form-control form-control-sm text-end price"
+               class="form-control form-control-sm text-end price q-item-rate"
                inputmode="decimal">
+      </div>
+    </td>
+
+    {{-- ===== DISKON PER-ITEM (WAJIB ADA untuk JS, bisa disembunyikan saat mode Total) ===== --}}
+    <td class="col-disc disc-cell" data-label="Diskon">
+      <div class="row g-2 align-items-center">
+        <div class="col-5">
+          <select name="lines[__IDX__][discount_type]" class="form-select form-select-sm disc-type">
+            <option value="amount">Nominal (IDR)</option>
+            <option value="percent">Persen (%)</option>
+          </select>
+        </div>
+        <div class="col-7">
+          <div class="input-group input-group-sm">
+            <input type="text"
+                   name="lines[__IDX__][discount_value]"
+                   class="form-control text-end disc-value"
+                   inputmode="decimal"
+                   value="0">
+            <span class="input-group-text disc-unit">IDR</span>
+          </div>
+        </div>
       </div>
     </td>
 
@@ -350,12 +372,10 @@
           <small class="text-muted">Sub</small>
           <div class="line_subtotal_view">Rp 0</div>
         </div>
-
         <div>
           <small class="text-muted">Disc</small>
           <div class="line_disc_amount_view">Rp 0</div>
         </div>
-
         <div class="fw-bold">
           <small class="text-muted">Total</small>
           <div class="line_total_view">Rp 0</div>
@@ -364,13 +384,14 @@
     </td>
 
     {{-- ===== ACTION ===== --}}
-    <td class="col-actions text-center">
+    <td class="col-actions text-center" data-label="">
       <button type="button"
               class="btn btn-link text-danger p-0 removeRowBtn"
               title="Hapus">&times;</button>
     </td>
   </tr>
 </template>
+
 
 
 
