@@ -79,9 +79,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/places/search', [AiSuggestController::class, 'company'])->name('places.search');
 
     // =======================
-    // Items (READ-ONLY untuk semua user login)
-    // =======================
-    Route::resource('items', ItemController::class)->only(['index','show']);
+// Items (READ-ONLY untuk semua user login)
+// =======================
+// NOTE: jangan pakai resource only(index,show) karena /items/{item} akan “nangkep” /items/create
+Route::get('items', [ItemController::class, 'index'])->name('items.index');
+
+// penting: batasi parameter {item} supaya /items/create tidak masuk ke show
+Route::get('items/{item}', [ItemController::class, 'show'])
+    ->whereNumber('item')
+    ->name('items.show');
 
     // Quick search items (tetap auth)
     Route::get('/api/items/search', [ItemController::class, 'quickSearch'])->name('items.search'); // <- tanpa ->middleware(['auth'])
