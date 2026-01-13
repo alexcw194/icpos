@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\Contact;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Quotation;
+use App\Models\SalesOrder;
 use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
@@ -111,10 +113,46 @@ class CustomerController extends Controller
     {
         $this->authorize('view', $customer);
 
-        $customer->load(['contacts', 'jenis', 'creator', 'salesOwner']);
+        // tab & query (selaras dengan view)
+        $tab = request('tab', 'profile');
+        $q   = trim((string) request('q', ''));
 
-        return view('customers.show', compact('customer'));
+        // Load data inti + counts untuk badge rail kiri (contacts/quotations/sales_orders)
+        $customer->load(['contacts', 'jenis', 'creator', 'salesOwner'])
+            ->loadCount([
+                'contacts',
+                'quotations',
+                'salesOrders as sales_orders_count',
+            ]);
+
+        // Selalu define, supaya view tidak pernah undefined variable.
+        // Filter "q" mengikuti form di tab masing-masing.
+        $quotations = $customer->quotations()
+            ->with(['company', 'salesUser'])
+            ->visibleTo(auth()->user())
+            ->when($q !== '' && $tab === 'quotations', function ($qq) use ($q) {
+                $qq->where('number', 'like', "%{$q}%");
+            })
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        $salesOrders = $customer->salesOrders()
+            ->with(['company', 'salesUser', 'quotation'])
+            ->visibleTo(auth()->user())
+            ->when($q !== '' && $tab === 'sales_orders', function ($qq) use ($q) {
+                // so_number sesuai view sales order tab
+                $qq->where('so_number', 'like', "%{$q}%");
+            })
+            ->orderByDesc('order_date')
+            ->orderByDesc('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('customers.show', compact('customer', 'quotations', 'salesOrders'));
     }
+
 
     public function edit(Customer $customer)
     {
