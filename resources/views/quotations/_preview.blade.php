@@ -1,61 +1,87 @@
 {{-- resources/views/quotations/_preview.blade.php --}}
 <div class="card">
   {{-- HEADER --}}
-  <div class="card-header d-flex align-items-center">
-    <div>
-      <div class="card-title m-0">{{ $quotation->number }}</div>
-      <div class="text-muted small">
-        {{ optional($quotation->date)->format('d M Y') }} •
-        <span class="badge {{ $quotation->status_badge_class ?? '' }}">
-          {{ $quotation->status_label ?? strtoupper($quotation->status) }}
-        </span>
-      </div>
-    </div>
-
-    <div class="ms-auto btn-list">
-      <a href="{{ route('quotations.edit', $quotation) }}" class="btn btn-warning">Edit</a>
-
-      <div class="btn-group">
-        <button class="btn btn-outline dropdown-toggle" data-bs-toggle="dropdown">PDF</button>
-        <div class="dropdown-menu dropdown-menu-end">
-          <a class="dropdown-item" target="_blank" href="{{ route('quotations.pdf', $quotation) }}">
-            Open in New Tab
-          </a>
-          <a class="dropdown-item" href="{{ route('quotations.pdf-download', $quotation) }}">
-            Download PDF
-          </a>
-          <form action="{{ route('quotations.email', $quotation) }}" method="POST"
-                onsubmit="return confirm('Kirim PDF ke {{ $quotation->customer->email ?? 'email customer' }} ?');">
-            @csrf
-            <button type="submit" class="dropdown-item">E-Mail PDF</button>
-          </form>
+  <div class="card-header">
+    <div class="d-flex align-items-start justify-content-between gap-2">
+      <div class="min-w-0">
+        <div class="card-title m-0">{{ $quotation->number }}</div>
+        <div class="text-muted small">
+          {{ optional($quotation->date)->format('d M Y') }}
+          •
+          <span class="badge {{ $quotation->status_badge_class ?? '' }}">
+            {{ $quotation->status_label ?? strtoupper($quotation->status) }}
+          </span>
         </div>
       </div>
 
-      {{-- Aksi status: draft ↔ sent (tanpa "PO") --}}
-      @if($quotation->status === 'draft')
-        <form class="d-inline" method="post" action="{{ route('quotations.sent',$quotation) }}">
-          @csrf
-          <button class="btn btn-outline">Mark as Sent</button>
-        </form>
-      @elseif($quotation->status === 'sent')
-        <form class="d-inline" method="post" action="{{ route('quotations.draft',$quotation) }}">
-          @csrf
-          <button class="btn btn-secondary">Back to Draft</button>
-        </form>
-      @endif
+      @php
+        $soCount = (method_exists($quotation, 'salesOrders'))
+          ? ($quotation->relationLoaded('salesOrders') ? $quotation->salesOrders->count() : $quotation->salesOrders()->count())
+          : 0;
 
-      {{-- Create / Repeat SO — SELALU tampil --}}
-      @if(Route::has('sales-orders.create-from-quotation'))
-        @php
-          $soCount = method_exists($quotation, 'salesOrders')
-            ? $quotation->salesOrders()->count()
-            : 0;
-        @endphp
-        <a href="{{ route('sales-orders.create-from-quotation', $quotation) }}" class="btn btn-primary">
-          {{ $soCount ? 'Repeat SO' : 'Create SO' }}
-        </a>
-      @endif
+        $soLabel = $soCount ? 'Repeat SO' : 'Create SO';
+
+        $pdfViewUrl = route('quotations.pdf', $quotation);
+        $pdfDownloadUrl = route('quotations.pdf-download', $quotation);
+      @endphp
+
+      <div class="d-flex align-items-center gap-2 flex-shrink-0">
+        {{-- Primary CTA --}}
+        @if(Route::has('sales-orders.create-from-quotation'))
+          <a href="{{ route('sales-orders.create-from-quotation', $quotation) }}" class="btn btn-primary btn-sm">
+            {{ $soLabel }}
+          </a>
+        @endif
+
+        {{-- Secondary CTA --}}
+        <a href="{{ route('quotations.edit', $quotation) }}" class="btn btn-warning btn-sm">Edit</a>
+
+        {{-- Overflow (PDF + Status actions) --}}
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary btn-icon btn-sm" data-bs-toggle="dropdown" aria-label="Menu">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                 stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+              <circle cx="5" cy="12" r="1"></circle>
+              <circle cx="12" cy="12" r="1"></circle>
+              <circle cx="19" cy="12" r="1"></circle>
+            </svg>
+          </button>
+
+          <div class="dropdown-menu dropdown-menu-end">
+            <a class="dropdown-item" target="_blank" href="{{ $pdfViewUrl }}">
+              Lihat PDF
+            </a>
+
+            <a class="dropdown-item" href="{{ $pdfDownloadUrl }}">
+              Unduh PDF
+            </a>
+
+            <button type="button"
+              class="dropdown-item"
+              data-share-url="{{ $pdfViewUrl }}"
+              data-share-title="{{ $quotation->number }}"
+              onclick="return icposSharePdfFile(this)">
+              Bagikan PDF…
+            </button>
+
+            <div class="dropdown-divider"></div>
+
+            @if($quotation->status === 'draft')
+              <form method="post" action="{{ route('quotations.sent',$quotation) }}">
+                @csrf
+                <button class="dropdown-item" type="submit">Mark as Sent</button>
+              </form>
+            @elseif($quotation->status === 'sent')
+              <form method="post" action="{{ route('quotations.draft',$quotation) }}">
+                @csrf
+                <button class="dropdown-item" type="submit">Back to Draft</button>
+              </form>
+            @endif
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -119,7 +145,7 @@
       </table>
     </div>
 
-    {{-- Lines (Mobile: stacked rows, no horizontal scroll) --}}
+    {{-- Lines (Mobile: stacked rows, NO ellipsis for name) --}}
     <div class="d-md-none mb-3">
       @forelse($quotation->lines as $ln)
         @php
@@ -136,25 +162,30 @@
         @endphp
 
         <div class="border rounded p-2 mb-2">
-          {{-- Row 1: ID/Entity/Value (scan-first) --}}
-          <div class="d-flex justify-content-between align-items-start">
-            <div class="fw-medium me-2" style="min-width:0;">
-              <div class="text-truncate">{{ $ln->name }}</div>
-            </div>
-            <div class="text-end fw-medium">{{ $lineTotalTxt }}</div>
+          {{-- Row 1: Item name FULL WIDTH (wrap allowed) --}}
+          <div class="fw-medium">
+            {{ $ln->name }}
           </div>
 
-          {{-- Row 2: secondary info --}}
           @if($ln->description)
             <div class="text-muted small mt-1" style="white-space: normal;">
               {{ $ln->description }}
             </div>
           @endif
 
-          {{-- Row 3: qty/price/discount --}}
-          <div class="d-flex justify-content-between text-muted small mt-1">
-            <span>{{ $qtyTxt }} {{ $ln->unit }} × {{ $unitPriceTxt }}</span>
-            <span>Disc {{ $discTxt }}</span>
+          {{-- Row 2: Qty×Price (left) + Line Total (right) --}}
+          <div class="d-flex justify-content-between align-items-baseline mt-2">
+            <div class="text-muted small">
+              {{ $qtyTxt }} {{ $ln->unit }} × {{ $unitPriceTxt }}
+            </div>
+            <div class="fw-bold">
+              {{ $lineTotalTxt }}
+            </div>
+          </div>
+
+          {{-- Row 3: Discount below (secondary) --}}
+          <div class="text-muted small mt-1">
+            Disc {{ $discTxt }}
           </div>
         </div>
       @empty
@@ -189,9 +220,7 @@
 
         <div class="d-flex justify-content-between fw-bold border-top mt-2 pt-2">
           <span>Total</span>
-          <span>
-            {{ $quotation->total_idr ?? number_format((float)$quotation->total, 2, ',', '.') }}
-          </span>
+          <span>{{ $quotation->total_idr ?? number_format((float)$quotation->total, 2, ',', '.') }}</span>
         </div>
       </div>
     </div>
@@ -199,8 +228,6 @@
     {{-- Related Sales Orders --}}
     @includeIf('quotations.partials._so_list', [
       'quotation' => $quotation,
-      // di header preview kamu sudah ada tombol Repeat SO,
-      // jadi sembunyikan tombol di partial
       'showRepeatButton' => false,
     ])
 
@@ -213,3 +240,42 @@
     @endif
   </div>
 </div>
+
+{{-- Bagikan PDF: download -> share file (no copy link) --}}
+<script>
+async function icposSharePdfFile(btn){
+  const url = btn.getAttribute('data-share-url');
+  const title = btn.getAttribute('data-share-title') || 'Quotation';
+  const filename = `${title}.pdf`;
+
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error('PDF download failed: ' + res.status);
+
+    const blob = await res.blob();
+    const file = new File([blob], filename, { type: 'application/pdf' });
+
+    // Best: share as FILE (WhatsApp sheet, etc.)
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share({ title, files: [file] });
+      return false;
+    }
+
+    // Fallback: just download (NO copy link)
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+
+    alert('Browser tidak mendukung share. PDF sudah diunduh.');
+    return false;
+
+  } catch (e) {
+    // user cancel / error → no-op
+    return false;
+  }
+}
+</script>
