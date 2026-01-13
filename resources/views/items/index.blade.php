@@ -82,7 +82,7 @@
           </select>
         </div>
 
-        <div class="col-12 col-md-2">
+        <div class="col-7 col-md-2">
           <label class="form-label">Urutkan</label>
           <select name="sort" class="form-select" data-auto-submit="1">
             <option value="name_asc"       @selected($filters['sort'] === 'name_asc')>Nama A–Z</option>
@@ -94,17 +94,18 @@
         </div>
 
         {{-- Mobile: Advanced + Reset (no scroll) --}}
-        <div class="col-12 d-md-none d-flex gap-2">
+        <div class="col-5 d-md-none d-flex align-items-end justify-content-end gap-2">
           <button
             type="button"
-            class="btn btn-outline-secondary w-100"
+            class="btn btn-outline-secondary"
             data-bs-toggle="offcanvas"
             data-bs-target="#inventoryFiltersOffcanvas"
             aria-controls="inventoryFiltersOffcanvas"
           >
-            Filter Lanjutan
+            Filter
           </button>
-          <a href="{{ route('items.index', ['view' => $viewMode]) }}" class="btn btn-light">Reset</a>
+
+          <a href="{{ route('items.index', ['view' => $viewMode]) }}" class="btn btn-link px-0">Reset</a>
         </div>
 
         {{-- Tier 2 (desktop inline) --}}
@@ -286,6 +287,9 @@
   }
   .variant-expand[aria-expanded="true"] {
     transform: rotate(90deg);
+  }
+  @media (max-width: 767.98px){
+    .items-sort{ width:auto; min-width:14.5rem; }
   }
 </style>
 @endpush
