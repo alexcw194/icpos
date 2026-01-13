@@ -226,63 +226,75 @@
 
 {{-- ===== Inline template row ===== --}}
 <template id="rowTpl">
-    <tr data-line-row class="qline">
-      <td class="col-item" data-label="Item">
-        <input type="text" name="lines[__IDX__][name]" class="form-control form-control-sm q-item-name" placeholder="pilih dari kotak atas" readonly>
-        <input type="hidden" name="lines[__IDX__][item_id]" class="q-item-id">
-        <input type="hidden" name="lines[__IDX__][item_variant_id]" class="q-item-variant-id">
-      </td>
+  <tr data-line-row class="qline">
 
-      <td class="col-desc" data-label="Deskripsi">
-        <textarea name="lines[__IDX__][description]" class="form-control form-control-sm line_desc q-item-desc" rows="1"></textarea>
-      </td>
+    {{-- ===== BLOCK 1: ITEM + DESCRIPTION ===== --}}
+    <td class="col-item" data-label="Item">
+      <input type="text"
+             name="lines[__IDX__][name]"
+             class="form-control form-control-sm fw-semibold q-item-name"
+             readonly>
 
-      <td class="col-qty" data-label="Qty">
-        <input type="text" name="lines[__IDX__][qty]" class="form-control form-control-sm text-end qty q-item-qty" inputmode="decimal" placeholder="0" maxlength="6">
-      </td>
+      <input type="hidden" name="lines[__IDX__][item_id]" class="q-item-id">
+      <input type="hidden" name="lines[__IDX__][item_variant_id]" class="q-item-variant-id">
+    </td>
 
-      <td class="col-unit" data-label="Unit">
-        <input type="text" name="lines[__IDX__][unit]" class="form-control form-control-sm unit q-item-unit" value="pcs" readonly tabindex="-1">
-      </td>
+    <td class="col-desc" data-label="Deskripsi">
+      <textarea name="lines[__IDX__][description]"
+                class="form-control form-control-sm line_desc"
+                rows="2"
+                placeholder="Deskripsi (opsional)"></textarea>
+    </td>
 
-      <td class="col-price text-end" data-label="Unit Price">
-        <input type="text" name="lines[__IDX__][unit_price]" class="form-control form-control-sm text-end price q-item-rate" inputmode="decimal" placeholder="0">
-      </td>
+    {{-- ===== BLOCK 2: QTY · UNIT · PRICE ===== --}}
+    <td class="col-meta" data-label="Qty / Unit / Harga">
+      <div class="meta-grid">
+        <input type="text"
+               name="lines[__IDX__][qty]"
+               class="form-control form-control-sm text-end qty"
+               inputmode="decimal">
 
-      <td class="col-disc disc-cell" data-label="Diskon">
-        <div class="row g-2 align-items-center">
-          <div class="col-auto">
-            <select name="lines[__IDX__][discount_type]" class="form-select form-select-sm disc-type">
-              <option value="amount">Nominal (IDR)</option>
-              <option value="percent">Persen (%)</option>
-            </select>
-          </div>
-          <div class="col-auto">
-            <div class="input-group input-group-sm">
-              <input type="text" name="lines[__IDX__][discount_value]" class="form-control text-end disc-value" inputmode="decimal" value="0">
-              <span class="input-group-text disc-unit">IDR</span>
-            </div>
-          </div>
+        <input type="text"
+               name="lines[__IDX__][unit]"
+               class="form-control form-control-sm unit text-center"
+               readonly>
+
+        <input type="text"
+               name="lines[__IDX__][unit_price]"
+               class="form-control form-control-sm text-end price"
+               inputmode="decimal">
+      </div>
+    </td>
+
+    {{-- ===== BLOCK 3: SUMMARY ===== --}}
+    <td class="col-summary" data-label="Ringkasan">
+      <div class="summary-grid">
+        <div>
+          <small class="text-muted">Sub</small>
+          <div class="line_subtotal_view">Rp 0</div>
         </div>
-      </td>
 
-      <td class="col-subtotal text-end" data-label="Subtotal">
-        <span class="line_subtotal_view">Rp 0</span>
-      </td>
+        <div>
+          <small class="text-muted">Disc</small>
+          <div class="line_disc_amount_view">Rp 0</div>
+        </div>
 
-      <td class="col-disc-amount text-end" data-label="Disc Rp">
-        <span class="line_disc_amount_view">Rp 0</span>
-      </td>
+        <div class="fw-bold">
+          <small class="text-muted">Total</small>
+          <div class="line_total_view">Rp 0</div>
+        </div>
+      </div>
+    </td>
 
-      <td class="col-total text-end" data-label="Line Total">
-        <span class="line_total_view">Rp 0</span>
-      </td>
+    {{-- ===== ACTION ===== --}}
+    <td class="col-actions text-center">
+      <button type="button"
+              class="btn btn-link text-danger p-0 removeRowBtn"
+              title="Hapus">&times;</button>
+    </td>
+  </tr>
+</template>
 
-      <td class="col-actions text-center" data-label="">
-        <button type="button" class="btn btn-link text-danger p-0 removeRowBtn" title="Hapus">&times;</button>
-      </td>
-    </tr>
-  </template>
 
 
 {{-- Modal Quick Customer --}}
@@ -292,88 +304,105 @@
 @push('styles')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
 <style>
+  /* ===============================
+     DESKTOP TABLE BASE
+     =============================== */
   #linesTable th, #linesTable td { vertical-align: middle; }
-  #linesTable .col-item{ width:22% } .col-desc{ width:20% } .col-qty{ width:6.5ch } .col-unit{ width:7ch }
-  #linesTable .col-price{ width:14% } .col-disc{ width:16% } .col-subtotal{ width:9% } .col-disc-amount{ width:9% } .col-total{ width:14% } .col-actions{ width:4% }
-  #linesTable input.qty{ max-width:6.5ch } #linesTable input.unit{ max-width:7ch }
-  #linesTable .disc-cell .form-select{ min-width:120px } .disc-cell .disc-value{ max-width:8ch }
-  #linesTable .disc-cell .input-group-text.disc-unit{ min-width:46px; justify-content:center }
-  #linesTable .line_total_view{ font-weight:700; font-size:1.06rem } .line_subtotal_view{ font-size:.92rem }
+
+  /* Lebar kolom (desktop) */
+  #linesTable .col-item{ width:22% }
+  #linesTable .col-desc{ width:20% }
+  #linesTable .col-meta{ width:22% } /* qty+unit+price jadi satu kolom */
+  #linesTable .col-summary{ width:18% } /* subtotal+disc+total jadi satu kolom */
+  #linesTable .col-actions{ width:4% }
+
+  /* Input sizing (desktop) */
+  #linesTable input.qty{ max-width:6.5ch }
+  #linesTable input.unit{ max-width:7ch }
+
+  /* Angka ringkasan */
+  #linesTable .line_total_view{ font-weight:700; font-size:1.06rem }
+  #linesTable .line_subtotal_view{ font-size:.92rem }
 
   /* Dropdown TomSelect selalu opaque & di atas */
-  .ts-dropdown{ z-index:1060 !important; background:#fff !important; box-shadow:0 10px 24px rgba(0,0,0,.12) !important; }
+  .ts-dropdown{
+    z-index:1060 !important;
+    background:#fff !important;
+    box-shadow:0 10px 24px rgba(0,0,0,.12) !important;
+  }
 
-  /* ===== Mobile staging optimization (tetap 3 baris) ===== */
+  /* ===============================
+     STAGING (yang atas) - MOBILE OPT
+     =============================== */
   @media (max-width: 576px){
     #stageWrap .card-body{ padding: .75rem; }
     #stageWrap #stage_name{ font-size: 1rem; }
     #stageWrap .stage-r3 .btn{ white-space: nowrap; }
   }
 
-  /* ===== Mobile: Lines table jadi stacked (tanpa scroll kanan) ===== */
+  /* ===============================
+     MOBILE: LINES TABLE -> STACKED CARD
+     3 BLOK:
+       1) Item + Desc
+       2) Qty · Unit · Harga (1 baris)
+       3) Sub · Disc · Total (1 baris)
+     =============================== */
   @media (max-width: 576px){
-    /* matikan horizontal scroll wrapper */
-    .table-responsive { overflow-x: visible !important; }
+    /* biar tidak ada horizontal scroll dari wrapper */
+    .table-responsive{ overflow-x: visible !important; }
 
-    #linesTable thead { display: none; }
-    #linesTable, #linesTable tbody { display: block; width: 100%; }
+    #linesTable thead{ display:none; }
+    #linesTable, #linesTable tbody{ display:block; width:100%; }
 
     #linesTable tr.qline{
-      display: block;
-      width: 100%;
-      border: 1px solid var(--tblr-border-color, #e6e7e9);
-      border-radius: .5rem;
-      padding: .5rem .75rem;
-      margin-bottom: .75rem;
-      background: #fff;
+      display:block;
+      width:100%;
+      border:1px solid var(--tblr-border-color, #e6e7e9);
+      border-radius:.65rem;
+      padding:.75rem;
+      margin-bottom:.75rem;
+      background:#fff;
     }
 
     #linesTable tr.qline td{
-      display: flex;
-      width: 100%;
-      padding: .35rem 0;
-      border: 0;
-      gap: .75rem;
-      align-items: center;
-      justify-content: space-between;
+      display:block;
+      width:100%;
+      padding:.35rem 0;
+      border:0 !important;
     }
 
-    /* label kiri */
-    #linesTable tr.qline td[data-label]::before{
-      content: attr(data-label);
-      flex: 0 0 7.5rem;
-      max-width: 7.5rem;
-      color: #6c757d;
-      font-size: .85rem;
+    /* BLOK 2: meta-grid (qty/unit/price) */
+    #linesTable .meta-grid{
+      display:grid;
+      grid-template-columns: 1fr .7fr 1.3fr; /* qty kecil, unit paling kecil, price lebih lebar */
+      gap:.5rem;
+      align-items:end;
     }
 
-    /* Item & Deskripsi: jadi block biar kebaca */
-    #linesTable tr.qline td.col-item,
-    #linesTable tr.qline td.col-desc{
-      display: block;
-    }
-    #linesTable tr.qline td.col-item::before,
-    #linesTable tr.qline td.col-desc::before{
-      display: block;
-      margin-bottom: .25rem;
-    }
-    #linesTable tr.qline td.col-item input,
-    #linesTable tr.qline td.col-desc textarea{
-      width: 100%;
+    /* BLOK 3: summary-grid (sub/disc/total) */
+    #linesTable .summary-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1.3fr; /* total lebih lebar */
+      gap:.5rem;
+      align-items:end;
     }
 
-    /* total lebih tegas */
-    #linesTable tr.qline td.col-total { font-weight: 700; }
-
-    /* tombol hapus rapihin */
-    #linesTable tr.qline td.col-actions{
-      justify-content: flex-end;
-      padding-top: .25rem;
+    #linesTable .summary-grid small{
+      display:block;
+      font-size:.75rem;
+      color:#6c757d;
+      margin-bottom:.1rem;
     }
-    #linesTable tr.qline td.col-actions::before{ content: ""; display:none; }
+
+    /* Action rapihin */
+    #linesTable td.col-actions{
+      text-align:right;
+      padding-top:.25rem;
+    }
   }
 </style>
 @endpush
+
 
 
 @php
