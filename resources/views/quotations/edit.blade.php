@@ -383,7 +383,7 @@
 
     {{-- ===== DISKON PER-ITEM (WAJIB ADA untuk JS, bisa disembunyikan saat mode Total) ===== --}}
     <td class="col-disc text-end disc-cell" data-label="Diskon">
-      <div class="input-group input-group-sm">
+      <div class="input-group input-group-sm line-disc-wrap">
         <select name="lines[__IDX__][discount_type]" class="form-select form-select-sm disc-type line-discount-type">
           <option value="amount">Nominal (IDR)</option>
           <option value="percent">Persen (%)</option>
@@ -543,10 +543,47 @@
     .quotation-items-table td.col-total .line-total,
     .quotation-items-table td.col-total .line_total_view,
     .quotation-items-table td.col-total strong{
-      font-size: 22px;
+      display: inline-block !important;
+      white-space: nowrap !important;
       font-weight: 800;
       line-height: 1.05;
-      display:block;
+      font-size: clamp(18px, 6vw, 22px);
+    }
+    .quotation-items-table td.col-total,
+    .quotation-items-table td.col-total *{
+      white-space: nowrap !important;
+    }
+    .quotation-items-table td.col-total .currency,
+    .quotation-items-table td.col-total .rp{
+      display:inline !important;
+      margin-right: 4px;
+    }
+
+    .line-disc-wrap{
+      display:flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .line-disc-wrap .line-discount-type{
+      flex: 0 0 100%;
+      min-width: 0;
+    }
+    .line-disc-wrap .line-discount-value{
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+    .line-disc-wrap .disc-unit{
+      flex: 0 0 auto;
+    }
+    .line-disc-wrap.is-percent{
+      flex-wrap: nowrap;
+    }
+    .line-disc-wrap.is-percent .line-discount-type{
+      flex: 0 0 55%;
+    }
+    .line-disc-wrap.is-percent .line-discount-value{
+      flex: 1 1 0;
     }
   }
 
@@ -735,9 +772,12 @@
 
     unitInput.readOnly = true;
 
+    const discWrap = row.querySelector('.line-disc-wrap');
     const syncDiscUnit = () => discUnitSp.textContent = (discTypeSel.value==='percent') ? '%' : 'IDR';
-    discTypeSel.addEventListener('change', () => { syncDiscUnit(); recalc(); });
+    const syncDiscWrap = () => { if (discWrap) discWrap.classList.toggle('is-percent', discTypeSel.value==='percent'); };
+    discTypeSel.addEventListener('change', () => { syncDiscUnit(); syncDiscWrap(); recalc(); });
     syncDiscUnit();
+    syncDiscWrap();
 
     [qtyInput, priceInput, discValInp].forEach(el => { el.addEventListener('input', recalc); el.addEventListener('blur', recalc); });
     qtyInput.addEventListener('blur', () => { qtyInput.value = String(clampQty(qtyInput.value)); recalc(); });
@@ -864,6 +904,8 @@
     if (!e.target.classList.contains('line-discount-type')) return;
     const row = e.target.closest('tr');
     if (!row) return;
+    const wrap = row.querySelector('.line-disc-wrap');
+    if (wrap) wrap.classList.toggle('is-percent', e.target.value === 'percent');
     const valInput = row.querySelector('.line-discount-value');
     if (!valInput) return;
     valInput.value = '0';
