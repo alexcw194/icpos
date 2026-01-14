@@ -176,15 +176,15 @@
       {{-- ITEMS TABLE --}}
       <div class="fw-bold mb-2">Items</div>
       <div class="table-responsive" id="quotation-lines">
-        <table class="table table-sm" id="linesTable">
+        <table class="table table-vcenter table-sm quotation-items-table" id="linesTable">
           <thead class="table-light">
             <tr>
               <th class="col-item">Item</th>
               <th class="col-desc">Deskripsi</th>
               <th class="col-qty text-end">Qty</th>
-              <th class="col-unit">Unit</th>
+              <th class="col-unit text-end">Unit</th>
               <th class="col-price text-end">Unit Price</th>
-              <th class="col-disc" data-col="disc-input">Diskon (tipe + nilai)</th>
+              <th class="col-disc text-end" data-col="disc-input">Diskon (tipe + nilai)</th>
               <th class="col-subtotal text-end">Subtotal</th>
               <th class="col-disc-amount text-end">Disc Rp</th>
               <th class="col-total text-end">Line Total</th>
@@ -357,28 +357,32 @@
                 placeholder="Deskripsi (opsional)"></textarea>
     </td>
 
-    {{-- ===== BLOCK 2: QTY · UNIT · PRICE ===== --}}
-    <td class="col-meta" data-label="Qty / Unit / Harga">
-      <div class="meta-grid">
-        <input type="text"
-               name="lines[__IDX__][qty]"
-               class="form-control form-control-sm text-end qty q-item-qty"
-               inputmode="decimal">
+    {{-- ===== QTY ===== --}}
+    <td class="col-qty text-end" data-label="Qty">
+      <input type="text"
+             name="lines[__IDX__][qty]"
+             class="form-control form-control-sm text-end qty q-item-qty"
+             inputmode="decimal">
+    </td>
 
-        <input type="text"
-               name="lines[__IDX__][unit]"
-               class="form-control form-control-sm unit text-center q-item-unit"
-               readonly>
+    {{-- ===== UNIT ===== --}}
+    <td class="col-unit text-end" data-label="Unit">
+      <input type="text"
+             name="lines[__IDX__][unit]"
+             class="form-control form-control-sm text-end unit q-item-unit"
+             readonly>
+    </td>
 
-        <input type="text"
-               name="lines[__IDX__][unit_price]"
-               class="form-control form-control-sm text-end price q-item-rate"
-               inputmode="decimal">
-      </div>
+    {{-- ===== UNIT PRICE ===== --}}
+    <td class="col-price text-end" data-label="Unit Price">
+      <input type="text"
+             name="lines[__IDX__][unit_price]"
+             class="form-control form-control-sm text-end price q-item-rate"
+             inputmode="decimal">
     </td>
 
     {{-- ===== DISKON PER-ITEM (WAJIB ADA untuk JS, bisa disembunyikan saat mode Total) ===== --}}
-    <td class="col-disc disc-cell" data-label="Diskon">
+    <td class="col-disc text-end disc-cell" data-label="Diskon">
       <div class="row g-2 align-items-center">
         <div class="col-5">
           <select name="lines[__IDX__][discount_type]" class="form-select form-select-sm disc-type">
@@ -399,22 +403,15 @@
       </div>
     </td>
 
-    {{-- ===== BLOCK 3: SUMMARY ===== --}}
-    <td class="col-summary" data-label="Ringkasan">
-      <div class="summary-grid">
-        <div>
-          <small class="text-muted">Sub</small>
-          <div class="line_subtotal_view">Rp 0</div>
-        </div>
-        <div>
-          <small class="text-muted">Disc</small>
-          <div class="line_disc_amount_view">Rp 0</div>
-        </div>
-        <div class="fw-bold">
-          <small class="text-muted">Total</small>
-          <div class="line_total_view">Rp 0</div>
-        </div>
-      </div>
+    {{-- ===== SUMMARY ===== --}}
+    <td class="col-subtotal text-end" data-label="Subtotal">
+      <div class="line_subtotal_view">Rp 0</div>
+    </td>
+    <td class="col-disc-amount text-end" data-label="Disc Rp">
+      <div class="line_disc_amount_view">Rp 0</div>
+    </td>
+    <td class="col-total text-end" data-label="Line Total">
+      <div class="line_total_view fw-bold">Rp 0</div>
     </td>
 
     {{-- ===== ACTION ===== --}}
@@ -437,24 +434,35 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
 <style>
   /* ===============================
-     DESKTOP TABLE BASE
+     ITEMS TABLE BASE
      =============================== */
-  #linesTable th, #linesTable td { vertical-align: middle; }
+  .quotation-items-table{ table-layout: fixed; width: 100%; }
+  .quotation-items-table th,
+  .quotation-items-table td{ vertical-align: middle; }
 
-  /* Lebar kolom (desktop) */
-  #linesTable .col-item{ width:22% }
-  #linesTable .col-desc{ width:20% }
-  #linesTable .col-meta{ width:22% } /* qty+unit+price jadi satu kolom */
-  #linesTable .col-summary{ width:18% } /* subtotal+disc+total jadi satu kolom */
-  #linesTable .col-actions{ width:4% }
+  .quotation-items-table th.col-qty,
+  .quotation-items-table td.col-qty{ width: 90px; }
+  .quotation-items-table th.col-unit,
+  .quotation-items-table td.col-unit{ width: 90px; }
+  .quotation-items-table th.col-price,
+  .quotation-items-table td.col-price{ width: 140px; }
+  .quotation-items-table th.col-subtotal,
+  .quotation-items-table td.col-subtotal{ width: 140px; }
+  .quotation-items-table th.col-disc,
+  .quotation-items-table td.col-disc{ width: 120px; }
+  .quotation-items-table th.col-disc-amount,
+  .quotation-items-table td.col-disc-amount{ width: 140px; }
+  .quotation-items-table th.col-total,
+  .quotation-items-table td.col-total{ width: 160px; }
+  .quotation-items-table th.col-actions,
+  .quotation-items-table td.col-actions{ width: 60px; }
 
-  /* Input sizing (desktop) */
-  #linesTable input.qty{ max-width:6.5ch }
-  #linesTable input.unit{ max-width:7ch }
+  .quotation-items-table input,
+  .quotation-items-table select,
+  .quotation-items-table textarea{ width: 100%; }
 
-  /* Angka ringkasan */
-  #linesTable .line_total_view{ font-weight:700; font-size:1.06rem }
-  #linesTable .line_subtotal_view{ font-size:.92rem }
+  .quotation-items-table .line_total_view{ font-weight:700; font-size:1.06rem; }
+  .quotation-items-table .line_subtotal_view{ font-size:.92rem; }
 
   /* Dropdown TomSelect selalu opaque & di atas */
   .ts-dropdown{
@@ -472,66 +480,6 @@
     #stageWrap .stage-r3 .btn{ white-space: nowrap; }
   }
 
-  /* ===============================
-     MOBILE: LINES TABLE -> STACKED CARD
-     3 BLOK:
-       1) Item + Desc
-       2) Qty · Unit · Harga (1 baris)
-       3) Sub · Disc · Total (1 baris)
-     =============================== */
-  @media (max-width: 576px){
-    /* biar tidak ada horizontal scroll dari wrapper */
-    .table-responsive{ overflow-x: visible !important; }
-
-    #linesTable thead{ display:none; }
-    #linesTable, #linesTable tbody{ display:block; width:100%; }
-
-    #linesTable tr.qline{
-      display:block;
-      width:100%;
-      border:1px solid var(--tblr-border-color, #e6e7e9);
-      border-radius:.65rem;
-      padding:.75rem;
-      margin-bottom:.75rem;
-      background:#fff;
-    }
-
-    #linesTable tr.qline td{
-      display:block;
-      width:100%;
-      padding:.35rem 0;
-      border:0 !important;
-    }
-
-    /* BLOK 2: meta-grid (qty/unit/price) */
-    #linesTable .meta-grid{
-      display:grid;
-      grid-template-columns: 1fr .7fr 1.3fr; /* qty kecil, unit paling kecil, price lebih lebar */
-      gap:.5rem;
-      align-items:end;
-    }
-
-    /* BLOK 3: summary-grid (sub/disc/total) */
-    #linesTable .summary-grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr 1.3fr; /* total lebih lebar */
-      gap:.5rem;
-      align-items:end;
-    }
-
-    #linesTable .summary-grid small{
-      display:block;
-      font-size:.75rem;
-      color:#6c757d;
-      margin-bottom:.1rem;
-    }
-
-    /* Action rapihin */
-    #linesTable td.col-actions{
-      text-align:right;
-      padding-top:.25rem;
-    }
-  }
 </style>
 @endpush
 
