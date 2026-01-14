@@ -7,7 +7,9 @@ use App\Models\StockSummary;
 use App\Models\Item;
 use App\Models\ItemVariant;
 use App\Models\Warehouse;
+use App\Models\Company;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class StockAdjustmentController extends Controller
 {
@@ -21,15 +23,14 @@ class StockAdjustmentController extends Controller
 
     public function create(Request $r)
     {
-        $companyId = auth()->user()?->company_id;
+        $companyId = (int) ($r->company_id ?? Company::where('is_default', true)->value('id'));
 
         $items = Item::query()
-            ->when($companyId, fn($q) => $q->where('company_id', $companyId))
             ->orderBy('name')
             ->get(['id', 'name', 'sku']);
 
         $warehouses = Warehouse::query()
-            ->when($companyId, fn($q) => $q->where('company_id', $companyId))
+            ->when(Schema::hasColumn('warehouses', 'company_id') && $companyId, fn($q) => $q->where('company_id', $companyId))
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -39,14 +40,11 @@ class StockAdjustmentController extends Controller
         $selectedVariantId = null;
 
         if ($r->filled('item_id')) {
-            $item = Item::query()
-                ->when($companyId, fn($q) => $q->where('company_id', $companyId))
-                ->find($r->item_id);
+            $item = Item::find($r->item_id);
         }
 
         $variantsAll = ItemVariant::query()
             ->with(['item:id,name,variant_type,name_template'])
-            ->when($companyId, fn($q) => $q->whereHas('item', fn($iq) => $iq->where('company_id', $companyId)))
             ->orderBy('id')
             ->get(['id', 'item_id', 'sku', 'attributes']);
 
