@@ -398,14 +398,32 @@
     </td>
 
     {{-- ===== SUMMARY ===== --}}
-    <td class="col-subtotal text-end" data-label="Subtotal">
+    <td class="col-subtotal text-end d-none d-md-table-cell" data-label="Subtotal">
       <div class="line_subtotal_view">Rp 0</div>
     </td>
-    <td class="col-disc-amount text-end" data-label="Disc Rp">
+    <td class="col-disc-amount text-end d-none d-md-table-cell" data-label="Disc Rp">
       <div class="line_disc_amount_view">Rp 0</div>
     </td>
     <td class="col-total text-end" data-label="Line Total">
-      <div class="line_total_view fw-bold">Rp 0</div>
+      <div class="d-none d-md-block">
+        <div class="line_total_view fw-bold">Rp 0</div>
+      </div>
+      <div class="d-md-none mobile-item-summary">
+        <div class="row g-2 align-items-end">
+          <div class="col-6">
+            <div class="text-muted small">Sub</div>
+            <div class="fw-semibold"><span class="line_subtotal_view">Rp 0</span></div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">Disc</div>
+            <div class="fw-semibold"><span class="line_disc_amount_view">Rp 0</span></div>
+          </div>
+          <div class="col-12 mt-1">
+            <div class="text-muted small">Total</div>
+            <div class="fw-bold fs-2 text-end"><span class="line_total_view">Rp 0</span></div>
+          </div>
+        </div>
+      </div>
     </td>
 
     {{-- ===== ACTION ===== --}}
@@ -460,6 +478,8 @@
 
   .quotation-items-table .line_total_view{ font-weight:700; font-size:1.06rem; }
   .quotation-items-table .line_subtotal_view{ font-size:.92rem; }
+  .quotation-items-table .mobile-item-summary .fw-semibold{ white-space: nowrap; }
+  .quotation-items-table .mobile-item-summary .fs-2{ line-height:1.05; }
 
   /* Dropdown TomSelect selalu opaque & di atas */
   .ts-dropdown{
@@ -831,9 +851,9 @@
 
       const lineTotal = Math.max(lineSubtotal - discAmount, 0);
 
-      tr.querySelector('.line_subtotal_view').textContent   = rupiah(lineSubtotal);
-      tr.querySelector('.line_disc_amount_view').textContent= rupiah(discAmount);
-      tr.querySelector('.line_total_view').textContent      = rupiah(lineTotal);
+      tr.querySelectorAll('.line_subtotal_view').forEach(el => { el.textContent = rupiah(lineSubtotal); });
+      tr.querySelectorAll('.line_disc_amount_view').forEach(el => { el.textContent = rupiah(discAmount); });
+      tr.querySelectorAll('.line_total_view').forEach(el => { el.textContent = rupiah(lineTotal); });
 
       linesSubtotal += lineTotal;
     });
