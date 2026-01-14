@@ -314,9 +314,16 @@
     .inventory-table-desktop th.col-price,
     .inventory-table-desktop td.col-price{ width: 10%; }
     .inventory-table-desktop th.col-stock,
-    .inventory-table-desktop td.col-stock{ width: 5%; }
+    .inventory-table-desktop td.col-stock{
+      width: 48px;
+      text-align: right;
+      white-space: nowrap;
+    }
     .inventory-table-desktop th.col-actions,
-    .inventory-table-desktop td.col-actions{ width: 5%; }
+    .inventory-table-desktop td.col-actions{
+      width: 120px;
+      white-space: nowrap;
+    }
 
     .inventory-table-desktop td.col-name{
       overflow: hidden;
@@ -329,10 +336,23 @@
     }
     .inventory-table-desktop th.col-price,
     .inventory-table-desktop td.col-price,
-    .inventory-table-desktop th.col-stock,
-    .inventory-table-desktop td.col-stock,
     .inventory-table-desktop th.col-actions,
     .inventory-table-desktop td.col-actions{
+      white-space: nowrap;
+    }
+    .inventory-table-desktop .inv-actions{
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+    .inventory-table-desktop .inv-actions .btn{
+      padding: 2px 8px;
+      line-height: 1.2;
+    }
+    .inventory-table-desktop .inv-actions a,
+    .inventory-table-desktop .inv-actions button{
       white-space: nowrap;
     }
   }

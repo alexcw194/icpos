@@ -96,7 +96,7 @@
           <td class="text-end col-price">{{ $row['price_label'] ?? '-' }}</td>
           <td class="text-end col-stock">{{ $row['stock_label'] ?? '-' }}</td>
           <td class="text-end col-actions">
-            <div class="btn-list justify-content-end">
+            <div class="inv-actions">
               @if($isVariant)
                 @include('layouts.partials.crud_actions', [
                   'view'   => $variantView,
