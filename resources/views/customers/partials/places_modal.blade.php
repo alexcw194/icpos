@@ -160,8 +160,29 @@
 
     btn.addEventListener('click', () => {
       resetModal();
+
+      const customerNameEl = document.querySelector('input[name="name"]');
+      const customerName = (customerNameEl?.value || '').trim();
+
       modal.show();
-      setTimeout(() => queryInput && queryInput.focus(), 150);
+
+      setTimeout(() => {
+        if (!queryInput) return;
+
+        if (customerName.length) {
+          queryInput.value = customerName;
+
+          if (customerName.length >= 3) {
+            runSearch(customerName);
+          } else {
+            clearResults();
+            setHint('Min 3 karakter.');
+          }
+        }
+
+        queryInput.focus();
+        queryInput.select();
+      }, 180);
     });
 
     if (queryInput) {
