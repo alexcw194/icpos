@@ -260,6 +260,7 @@ class CustomerController extends Controller
         $this->authorize('update', $customer);
 
         $data = $request->validate([
+            'title' => ['nullable', 'string', 'max:30'],
             'first_name' => ['required', 'string', 'max:120'],
             'last_name' => ['nullable', 'string', 'max:120'],
             'position' => ['nullable', 'string', 'max:120'],
@@ -293,6 +294,7 @@ class CustomerController extends Controller
         }
 
         $data = $request->validate([
+            'title' => ['nullable', 'string', 'max:30'],
             'first_name' => ['required', 'string', 'max:120'],
             'last_name' => ['nullable', 'string', 'max:120'],
             'position' => ['nullable', 'string', 'max:120'],

@@ -12,6 +12,7 @@ class Contact extends Model
 
     protected $fillable = [
         'customer_id',
+        'title',
         'first_name',
         'last_name',
         'position',
@@ -36,5 +37,12 @@ class Contact extends Model
     public function getNameAttribute(): string
     {
         return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+    }
+
+    public function getFullNameAttribute(): string
+    {
+        $title = trim((string) ($this->title ?? ''));
+        $name = $this->getNameAttribute();
+        return trim($title.' '.$name);
     }
 }

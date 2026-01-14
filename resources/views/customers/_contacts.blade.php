@@ -14,6 +14,10 @@
           method="POST"
           class="row g-2 align-items-end">
       @csrf
+      <div class="col-md-2">
+        <label class="form-label">Sapaan</label>
+        <input name="title" class="form-control" maxlength="30" placeholder="Bpk/Ibu/Dr">
+      </div>
       <div class="col-md-3">
         <label class="form-label">First name</label>
         <input name="first_name" class="form-control" required>
@@ -23,7 +27,7 @@
         <input name="last_name" class="form-control">
       </div>
       <div class="col-md-3">
-        <label class="form-label">Title</label>
+        <label class="form-label">Jabatan</label>
         <input name="position" class="form-control">
       </div>
       <div class="col-md-3">
@@ -47,8 +51,9 @@
       <table class="table table-sm table-vcenter">
         <thead class="table-light">
           <tr>
+            <th>Sapaan</th>
             <th>Name</th>
-            <th>Title</th>
+            <th>Jabatan</th>
             <th>Phone</th>
             <th>Email</th>
             <th>Notes</th>
@@ -61,6 +66,7 @@
               $fullName = trim(($c->first_name ?? '') . ' ' . ($c->last_name ?? ''));
             @endphp
             <tr data-contact-id="{{ $c->id }}">
+              <td class="contact-title">{{ $c->title }}</td>
               <td class="contact-name">{{ $fullName }}</td>
               <td class="contact-position">{{ $c->position }}</td>
               <td class="contact-phone">{{ $c->phone }}</td>
@@ -71,6 +77,7 @@
                   <button type="button"
                           class="btn btn-outline-primary btn-edit-contact"
                           data-id="{{ $c->id }}"
+                          data-title="{{ $c->title }}"
                           data-first-name="{{ $c->first_name }}"
                           data-last-name="{{ $c->last_name }}"
                           data-position="{{ $c->position }}"
@@ -89,7 +96,7 @@
               </td>
             </tr>
           @empty
-            <tr data-empty><td colspan="6" class="text-muted">Belum ada kontak.</td></tr>
+            <tr data-empty><td colspan="7" class="text-muted">Belum ada kontak.</td></tr>
           @endforelse
         </tbody>
       </table>
@@ -111,6 +118,10 @@
         <div class="modal-body">
           <div class="row g-3">
             <div class="col-md-6">
+              <label class="form-label">Sapaan</label>
+              <input type="text" name="title" class="form-control" maxlength="30" placeholder="Bpk/Ibu/Dr">
+            </div>
+            <div class="col-md-6">
               <label class="form-label">First name</label>
               <input type="text" name="first_name" class="form-control" required>
             </div>
@@ -119,7 +130,7 @@
               <input type="text" name="last_name" class="form-control">
             </div>
             <div class="col-md-6">
-              <label class="form-label">Title</label>
+              <label class="form-label">Jabatan</label>
               <input type="text" name="position" class="form-control">
             </div>
             <div class="col-md-6">
@@ -173,6 +184,7 @@
   function rowHtml(c, urls) {
     const full = [c.first_name, c.last_name || ''].join(' ').trim();
     return `<tr data-contact-id="${escapeHTML(c.id)}">
+      <td class="contact-title">${escapeHTML(c.title || '')}</td>
       <td class="contact-name">${escapeHTML(full)}</td>
       <td class="contact-position">${escapeHTML(c.position || '')}</td>
       <td class="contact-phone">${escapeHTML(c.phone || '')}</td>
@@ -183,6 +195,7 @@
           <button type="button"
                   class="btn btn-outline-primary btn-edit-contact"
                   data-id="${escapeHTML(c.id)}"
+                  data-title="${escapeHTML(c.title || '')}"
                   data-first-name="${escapeHTML(c.first_name || '')}"
                   data-last-name="${escapeHTML(c.last_name || '')}"
                   data-position="${escapeHTML(c.position || '')}"
@@ -202,6 +215,7 @@
     const row = rows.querySelector(`[data-contact-id="${contact.id}"]`);
     if (!row) return;
     const full = [contact.first_name, contact.last_name || ''].join(' ').trim();
+    row.querySelector('.contact-title').textContent = contact.title || '';
     row.querySelector('.contact-name').textContent = full;
     row.querySelector('.contact-position').textContent = contact.position || '';
     row.querySelector('.contact-phone').textContent = contact.phone || '';
@@ -209,6 +223,7 @@
     row.querySelector('.contact-notes').textContent = contact.notes || '';
     const editBtn = row.querySelector('.btn-edit-contact');
     if (editBtn) {
+      editBtn.dataset.title = contact.title || '';
       editBtn.dataset.firstName = contact.first_name || '';
       editBtn.dataset.lastName = contact.last_name || '';
       editBtn.dataset.position = contact.position || '';
@@ -244,6 +259,7 @@
     const editBtn = e.target.closest('.btn-edit-contact');
     if (editBtn) {
       editForm.action = editBtn.dataset.updateUrl || '';
+      editForm.querySelector('[name="title"]').value = editBtn.dataset.title || '';
       editForm.querySelector('[name="first_name"]').value = editBtn.dataset.firstName || '';
       editForm.querySelector('[name="last_name"]').value = editBtn.dataset.lastName || '';
       editForm.querySelector('[name="position"]').value = editBtn.dataset.position || '';
@@ -273,7 +289,7 @@
             const row = deleteBtn.closest('tr');
             row?.remove();
             if (!rows.querySelector('tr')) {
-              rows.innerHTML = '<tr data-empty><td colspan="6" class="text-muted">Belum ada kontak.</td></tr>';
+              rows.innerHTML = '<tr data-empty><td colspan="7" class="text-muted">Belum ada kontak.</td></tr>';
             }
             showAlert('Kontak berhasil dihapus.');
           } else {
