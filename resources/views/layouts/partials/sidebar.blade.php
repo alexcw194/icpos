@@ -3,6 +3,7 @@
 
   $hasCustomers = Route::has('customers.index');
   $hasItems     = Route::has('items.index');
+  $hasProjects  = Route::has('projects.index');
 
   $appName = config('app.name','ICPOS');
   $logoUrl = null;
@@ -89,6 +90,17 @@
                  href="{{ route('items.index') }}">
                 <span class="nav-link-icon ti ti-box"></span>
                 <span class="nav-link-title">Items</span>
+              </a>
+            </li>
+          @endif
+
+          {{-- Projects --}}
+          @if($hasProjects)
+            <li class="nav-item">
+              <a class="nav-link {{ request()->is('projects*') ? 'active' : '' }}"
+                 href="{{ route('projects.index') }}">
+                <span class="nav-link-icon ti ti-briefcase"></span>
+                <span class="nav-link-title">Projects</span>
               </a>
             </li>
           @endif

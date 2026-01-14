@@ -19,6 +19,8 @@ class AuthServiceProvider extends ServiceProvider
         \App\Models\Customer::class   => \App\Policies\CustomerPolicy::class,
         \App\Models\SalesOrder::class => \App\Policies\SalesOrderPolicy::class, // + Sales Order
         Invoice::class => InvoicePolicy::class,
+        \App\Models\Project::class => \App\Policies\ProjectPolicy::class,
+        \App\Models\ProjectQuotation::class => \App\Policies\ProjectQuotationPolicy::class,
     ];
 
     /**

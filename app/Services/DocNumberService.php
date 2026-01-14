@@ -15,11 +15,13 @@ class DocNumberService
 
         // Tambah dukungan 'sales_order' + fallback prefix 'SO'
         $prefix = match ($docType) {
-            'quotation'  => $company->quotation_prefix ?? 'QO',
-            'invoice'    => $company->invoice_prefix   ?? 'INV',
-            'delivery'   => $company->delivery_prefix  ?? 'DO',
-            'sales_order'=> $company->sales_order_prefix ?? 'SO',
-            default      => strtoupper(substr($docType, 0, 3)),
+            'quotation'        => $company->quotation_prefix ?? 'QO',
+            'invoice'          => $company->invoice_prefix   ?? 'INV',
+            'delivery'         => $company->delivery_prefix  ?? 'DO',
+            'sales_order'      => $company->sales_order_prefix ?? 'SO',
+            'project'          => 'PRJ',
+            'project_quotation'=> 'BQ',
+            default            => strtoupper(substr($docType, 0, 3)),
         };
 
         $alias  = strtoupper($company->alias ?? 'CO');

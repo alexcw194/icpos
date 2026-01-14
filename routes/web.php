@@ -8,6 +8,8 @@ use App\Http\Controllers\{
     CustomerController,
     ItemController,
     ItemVariantController,
+    ProjectController,
+    ProjectQuotationController,
     QuotationController,
     InvoiceController,
     DeliveryController,
@@ -92,6 +94,16 @@ Route::get('items/{item}', [ItemController::class, 'show'])
 
     // Quick search items (tetap auth)
     Route::get('/api/items/search', [ItemController::class, 'quickSearch'])->name('items.search'); // <- tanpa ->middleware(['auth'])
+
+    // Projects & Project Quotations (BQ)
+    Route::resource('projects', ProjectController::class);
+    Route::resource('projects.quotations', ProjectQuotationController::class);
+    Route::post('projects/{project}/quotations/{quotation}/issue', [ProjectQuotationController::class, 'issue'])
+        ->name('projects.quotations.issue');
+    Route::post('projects/{project}/quotations/{quotation}/won', [ProjectQuotationController::class, 'markWon'])
+        ->name('projects.quotations.won');
+    Route::post('projects/{project}/quotations/{quotation}/lost', [ProjectQuotationController::class, 'markLost'])
+        ->name('projects.quotations.lost');
 
     // Quotations
     Route::resource('quotations', QuotationController::class);

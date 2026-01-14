@@ -123,6 +123,7 @@ class CustomerController extends Controller
                 'contacts',
                 'quotations',
                 'salesOrders as sales_orders_count',
+                'projects as projects_count',
             ]);
 
         // Selalu define, supaya view tidak pernah undefined variable.
@@ -150,7 +151,24 @@ class CustomerController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return view('customers.show', compact('customer', 'quotations', 'salesOrders'));
+        $projects = $customer->projects()
+            ->visibleTo(auth()->user())
+            ->with([
+                'company:id,alias,name',
+                'salesOwner:id,name',
+                'quotations' => fn($qq) => $qq->latest('quotation_date')->limit(1),
+            ])
+            ->when($q !== '' && $tab === 'projects', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('code', 'like', "%{$q}%")
+                      ->orWhere('name', 'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('updated_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('customers.show', compact('customer', 'quotations', 'salesOrders', 'projects'));
     }
 
 

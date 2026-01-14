@@ -86,6 +86,11 @@ class Customer extends Model
         return $this->hasMany(\App\Models\SalesOrder::class);
     }
 
+    public function projects()
+    {
+        return $this->hasMany(\App\Models\Project::class);
+    }
+
     /* =========================
      * SCOPES
      * ========================= */

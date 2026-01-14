@@ -50,6 +50,13 @@
             <span class="badge subrail-badge">{{ $customer->sales_orders_count ?? 0 }}</span>
           </a>
 
+          {{-- Projects tab --}}
+          <a href="{{ route('customers.show', [$customer,'tab'=>'projects']) }}"
+             class="list-group-item subrail-link d-flex align-items-center justify-content-between {{ $tab==='projects' ? 'active' : '' }}">
+            <span><i class="ti ti-briefcase me-2"></i> Projects</span>
+            <span class="badge subrail-badge">{{ $customer->projects_count ?? 0 }}</span>
+          </a>
+
         </div>
       </div>
     </div>
@@ -426,6 +433,126 @@
         </div>
       @endif
 
+      {{-- ---------- PROJECTS ---------- --}}
+      @if($tab === 'projects')
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Projects</div>
+            <div class="ms-auto btn-list">
+              @can('create', \App\Models\Project::class)
+                <a href="{{ route('projects.create', ['customer_id' => $customer->id]) }}" class="btn btn-primary">
+                  + Create Project
+                </a>
+              @endcan
+            </div>
+          </div>
+
+          <div class="card-body border-bottom">
+            <form id="customer-prj-search" class="row g-2" method="get" action="{{ route('customers.show',$customer) }}">
+              <input type="hidden" name="tab" value="projects">
+              <div class="col-12 col-md-6">
+                <div class="input-group">
+                  <input
+                    id="prjSearch"
+                    type="search"
+                    class="form-control"
+                    name="q"
+                    value="{{ $q }}"
+                    placeholder="Search project code or name."
+                    enterkeyhint="search"
+                    inputmode="search"
+                    autocomplete="off"
+                  >
+                  <button type="button" class="btn btn-icon" id="prjSearchBtn" aria-label="Search" title="Search">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                         stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true">
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                      <circle cx="10" cy="10" r="7"></circle>
+                      <line x1="21" y1="21" x2="15" y2="15"></line>
+                    </svg>
+                  </button>
+                  <button type="submit" class="btn btn-outline-secondary" aria-label="Filter" title="Filter">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                         stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true">
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                      <path d="M5.5 5h13l-5 6v6l-3 -2v-4z"></path>
+                    </svg>
+                    <span class="d-none d-md-inline">Filter</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table card-table table-vcenter">
+              <thead class="d-none d-md-table-header-group">
+                <tr>
+                  <th>Project Code</th>
+                  <th>Project Name</th>
+                  <th>Status</th>
+                  <th class="text-end">Current Value</th>
+                  <th>Last BQ</th>
+                </tr>
+              </thead>
+              <tbody>
+                @forelse($projects as $project)
+                  @php
+                    $lastBQ = $project->quotations->first();
+                    $stLabel = ucfirst($project->status);
+                  @endphp
+                  <tr>
+                    <td class="fw-bold">
+                      <div class="doc-mobile d-md-none">
+                        <div class="doc-m-row1">
+                          <a class="doc-number" href="{{ route('projects.show', $project) }}">{{ $project->code }}</a>
+                          <span class="badge bg-blue-lt text-blue-9">{{ $stLabel }}</span>
+                        </div>
+                        <div class="doc-m-row3">
+                          <span class="doc-m-date">{{ $project->name }}</span>
+                          <span class="doc-m-total">Rp {{ number_format((float)$project->contract_value_current, 2, ',', '.') }}</span>
+                        </div>
+                      </div>
+
+                      <div class="doc-desktop d-none d-md-block">
+                        <a class="doc-number" href="{{ route('projects.show', $project) }}">{{ $project->code }}</a>
+                        <div class="hover-actions">
+                          <a class="doc-act" href="{{ route('projects.show', $project) }}">View</a>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="d-none d-md-table-cell">{{ $project->name }}</td>
+                    <td class="d-none d-md-table-cell">
+                      <span class="badge bg-blue-lt text-blue-9">{{ $stLabel }}</span>
+                    </td>
+                    <td class="text-end d-none d-md-table-cell">Rp {{ number_format((float)$project->contract_value_current, 2, ',', '.') }}</td>
+                    <td class="d-none d-md-table-cell">
+                      @if($lastBQ)
+                        <a class="doc-number" href="{{ route('projects.quotations.show', [$project, $lastBQ]) }}">
+                          {{ $lastBQ->number }}
+                        </a>
+                      @else
+                        <span class="text-muted">-</span>
+                      @endif
+                    </td>
+                  </tr>
+                @empty
+                  <tr><td colspan="5" class="text-center text-muted">No projects.</td></tr>
+                @endforelse
+              </tbody>
+            </table>
+          </div>
+
+          @if(($projects ?? null) && method_exists($projects,'links'))
+            <div class="card-footer">
+              {{ $projects->links() }}
+            </div>
+          @endif
+        </div>
+      @endif
+
     </div>
   </div>
 </div>
@@ -547,6 +674,7 @@
 
   wireSearch('customer-qtn-search', 'qtnSearch', 'qtnSearchBtn');
   wireSearch('customer-so-search', 'soSearch', 'soSearchBtn');
+  wireSearch('customer-prj-search', 'prjSearch', 'prjSearchBtn');
 })();
 </script>
 
