@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\Project;
 use App\Models\User;
 use App\Support\Number;
+use App\Support\ProjectSystems;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -49,14 +50,7 @@ class ProjectController extends Controller
             ?? ($companies->first()->id ?? null);
         $defaultCustomerId = $request->get('customer_id');
 
-        $systemsOptions = [
-            'fire_alarm' => 'Fire Alarm',
-            'fire_hydrant' => 'Fire Hydrant',
-            'fire_sprinkler' => 'Fire Sprinkler',
-            'cctv' => 'CCTV',
-            'access_control' => 'Access Control',
-            'others' => 'Lain-lain',
-        ];
+        $systemsOptions = ProjectSystems::all();
 
         return view('projects.create', compact(
             'customers',
@@ -77,8 +71,8 @@ class ProjectController extends Controller
             'customer_id' => ['required', 'exists:customers,id'],
             'code' => ['nullable', 'string', 'max:50', 'unique:projects,code'],
             'name' => ['required', 'string', 'max:190'],
-            'systems_json' => ['nullable', 'array'],
-            'systems_json.*' => ['string', 'max:50'],
+            'systems' => ['required', 'array', 'min:1'],
+            'systems.*' => [Rule::in(ProjectSystems::allowedKeys())],
             'status' => ['required', 'in:draft,active,closed,cancelled'],
             'sales_owner_user_id' => ['required', 'exists:users,id'],
             'start_date' => ['nullable', 'date'],
@@ -99,6 +93,8 @@ class ProjectController extends Controller
 
         $data['contract_value_baseline'] = Number::idToFloat($data['contract_value_baseline'] ?? 0);
         $data['contract_value_current'] = Number::idToFloat($data['contract_value_current'] ?? 0);
+        $data['systems_json'] = ProjectSystems::normalizeSelection($data['systems'] ?? []);
+        unset($data['systems']);
 
         if (empty($data['code'])) {
             if ($company) {
@@ -138,14 +134,7 @@ class ProjectController extends Controller
         $companies = Company::orderBy('name')->get(['id', 'alias', 'name']);
         $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
 
-        $systemsOptions = [
-            'fire_alarm' => 'Fire Alarm',
-            'fire_hydrant' => 'Fire Hydrant',
-            'fire_sprinkler' => 'Fire Sprinkler',
-            'cctv' => 'CCTV',
-            'access_control' => 'Access Control',
-            'others' => 'Lain-lain',
-        ];
+        $systemsOptions = ProjectSystems::all();
 
         return view('projects.edit', compact(
             'project',
@@ -165,8 +154,8 @@ class ProjectController extends Controller
             'customer_id' => ['required', 'exists:customers,id'],
             'code' => ['required', 'string', 'max:50', Rule::unique('projects', 'code')->ignore($project->id)],
             'name' => ['required', 'string', 'max:190'],
-            'systems_json' => ['nullable', 'array'],
-            'systems_json.*' => ['string', 'max:50'],
+            'systems' => ['required', 'array', 'min:1'],
+            'systems.*' => [Rule::in(ProjectSystems::allowedKeys())],
             'status' => ['required', 'in:draft,active,closed,cancelled'],
             'sales_owner_user_id' => ['required', 'exists:users,id'],
             'start_date' => ['nullable', 'date'],
@@ -178,6 +167,8 @@ class ProjectController extends Controller
 
         $data['contract_value_baseline'] = Number::idToFloat($data['contract_value_baseline'] ?? 0);
         $data['contract_value_current'] = Number::idToFloat($data['contract_value_current'] ?? 0);
+        $data['systems_json'] = ProjectSystems::normalizeSelection($data['systems'] ?? []);
+        unset($data['systems']);
 
         $project->update($data);
 

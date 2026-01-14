@@ -73,7 +73,8 @@
         <tbody>
           @forelse($projects as $project)
             @php
-              $systems = collect($project->systems_json ?? [])->map(fn($s) => ucwords(str_replace('_',' ', $s)))->implode(', ');
+              $systems = \App\Support\ProjectSystems::labelsFor($project->systems_json ?? []);
+              $systems = implode(', ', $systems);
               $statusLabel = ucfirst($project->status);
             @endphp
             <tr>

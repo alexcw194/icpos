@@ -2,8 +2,9 @@
   $selectedCompany = old('company_id', $project->company_id ?? ($defaultCompanyId ?? null));
   $selectedCustomer = old('customer_id', $project->customer_id ?? ($defaultCustomerId ?? null));
   $selectedSales = old('sales_owner_user_id', $project->sales_owner_user_id ?? auth()->id());
-  $selectedSystems = old('systems_json', $project->systems_json ?? []);
+  $selectedSystems = old('systems', old('systems_json', $project->systems_json ?? []));
   $selectedSystems = is_array($selectedSystems) ? $selectedSystems : [];
+  $systemsOptions = $systemsOptions ?? \App\Support\ProjectSystems::all();
 @endphp
 
 <div class="card mb-3">
@@ -53,7 +54,7 @@
 
       <div class="col-md-6">
         <label class="form-label">Systems</label>
-        <select name="systems_json[]" class="form-select" multiple>
+        <select name="systems[]" class="form-select" multiple required>
           @foreach($systemsOptions as $key => $label)
             <option value="{{ $key }}" @selected(in_array($key, $selectedSystems, true))>{{ $label }}</option>
           @endforeach
