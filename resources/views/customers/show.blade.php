@@ -129,35 +129,7 @@
 
       {{-- ---------- CONTACTS ---------- --}}
       @if($tab === 'contacts')
-        <div class="card" id="contacts">
-          <div class="card-header">
-            <div class="card-title">Contacts</div>
-            <a href="{{ route('customers.edit',$customer) }}#contacts" class="btn btn-primary btn-sm ms-auto">
-              Manage Contacts
-            </a>
-          </div>
-          <div class="table-responsive">
-            <table class="table card-table">
-              <thead>
-                <tr>
-                  <th>Name</th><th>Position</th><th>Phone</th><th>Email</th>
-                </tr>
-              </thead>
-              <tbody id="contactsBody">
-                @forelse($customer->contacts as $c)
-                  <tr>
-                    <td class="text-wrap contact-name">{{ $c->first_name }} {{ $c->last_name }}</td>
-                    <td class="d-none d-md-table-cell contact-position">{{ $c->position ?: '-' }}</td>
-                    <td class="d-none d-md-table-cell contact-phone">{{ $c->phone ?: '-' }}</td>
-                    <td class="d-none d-md-table-cell contact-email">{{ $c->email ?: '-' }}</td>
-                  </tr>
-                @empty
-                  <tr class="empty-row"><td colspan="4" class="text-center text-muted">No contacts.</td></tr>
-                @endforelse
-              </tbody>
-            </table>
-          </div>
-        </div>
+        @include('customers._contacts')
       @endif
 
       {{-- ---------- NOTES ---------- --}}

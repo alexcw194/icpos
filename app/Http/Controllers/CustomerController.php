@@ -255,6 +255,81 @@ class CustomerController extends Controller
             ->with('success', 'Customer berhasil dihapus.');
     }
 
+    public function storeContact(Request $request, Customer $customer)
+    {
+        $this->authorize('update', $customer);
+
+        $data = $request->validate([
+            'first_name' => ['required', 'string', 'max:120'],
+            'last_name' => ['nullable', 'string', 'max:120'],
+            'position' => ['nullable', 'string', 'max:120'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:120'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $contact = $customer->contacts()->create($data);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'contact' => $contact,
+                'urls' => [
+                    'update_url' => route('customers.contacts.update', [$customer, $contact]),
+                    'delete_url' => route('customers.contacts.destroy', [$customer, $contact]),
+                ],
+            ]);
+        }
+
+        return back()->with('success', 'Kontak berhasil ditambahkan.');
+    }
+
+    public function updateContact(Request $request, Customer $customer, Contact $contact)
+    {
+        $this->authorize('update', $customer);
+
+        if ((int) $contact->customer_id !== (int) $customer->id) {
+            abort(404);
+        }
+
+        $data = $request->validate([
+            'first_name' => ['required', 'string', 'max:120'],
+            'last_name' => ['nullable', 'string', 'max:120'],
+            'position' => ['nullable', 'string', 'max:120'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:120'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $contact->update($data);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'contact' => $contact->fresh(),
+            ]);
+        }
+
+        return back()->with('success', 'Kontak berhasil diperbarui.');
+    }
+
+    public function destroyContact(Request $request, Customer $customer, Contact $contact)
+    {
+        $this->authorize('update', $customer);
+
+        if ((int) $contact->customer_id !== (int) $customer->id) {
+            abort(404);
+        }
+
+        $contact->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back()->with('success', 'Kontak berhasil dihapus.');
+    }
+
     public function quickSearch(Request $req)
     {
         $q = trim((string) $req->input('q', ''));
