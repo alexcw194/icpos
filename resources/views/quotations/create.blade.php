@@ -363,32 +363,14 @@
     </td>
 
     {{-- ===== SUMMARY ===== --}}
-    <td class="col-subtotal text-end d-none d-md-table-cell" data-label="Subtotal">
+    <td class="col-subtotal text-end" data-label="Subtotal">
       <div class="line_subtotal_view">Rp 0</div>
     </td>
-    <td class="col-disc-amount text-end d-none d-md-table-cell" data-label="Disc Rp">
+    <td class="col-disc-amount text-end" data-label="Disc Rp">
       <div class="line_disc_amount_view">Rp 0</div>
     </td>
     <td class="col-total text-end" data-label="Line Total">
-      <div class="d-none d-md-block">
-        <div class="line_total_view fw-bold">Rp 0</div>
-      </div>
-      <div class="d-md-none mobile-item-summary">
-        <div class="row g-2 align-items-end">
-          <div class="col-6">
-            <div class="text-muted small">Sub</div>
-            <div class="fw-semibold"><span class="line_subtotal_view">Rp 0</span></div>
-          </div>
-          <div class="col-6">
-            <div class="text-muted small">Disc</div>
-            <div class="fw-semibold"><span class="line_disc_amount_view">Rp 0</span></div>
-          </div>
-          <div class="col-12 mt-1">
-            <div class="text-muted small">Total</div>
-            <div class="fw-bold fs-2 text-end"><span class="line_total_view">Rp 0</span></div>
-          </div>
-        </div>
-      </div>
+      <div class="line_total_view fw-bold">Rp 0</div>
     </td>
 
     {{-- ===== ACTION ===== --}}
@@ -440,8 +422,6 @@
 
   .quotation-items-table .line_total_view{ font-weight:700; font-size:1.06rem; }
   .quotation-items-table .line_subtotal_view{ font-size:.92rem; }
-  .quotation-items-table .mobile-item-summary .fw-semibold{ white-space: nowrap; }
-  .quotation-items-table .mobile-item-summary .fs-2{ line-height:1.05; }
 
   /* Dropdown TomSelect selalu opaque & di atas */
   .ts-dropdown{
@@ -457,6 +437,79 @@
     #stageWrap .card-body{ padding: .75rem; }
     #stageWrap #stage_name{ font-size: 1rem; }
     #stageWrap .stage-r3 .btn{ white-space: nowrap; }
+  }
+
+  @media (max-width: 767.98px){
+    .quotation-items-table{ table-layout:auto !important; }
+    .quotation-items-table thead{ display:none; }
+
+    .quotation-items-table tbody tr{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-areas:
+        "item item item"
+        "desc desc desc"
+        "qty  unit price"
+        "disc disc disc"
+        "sub  discamt discamt"
+        "total total total"
+        "act  act  act";
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--tblr-border-color);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      background: var(--tblr-bg-surface);
+    }
+
+    .quotation-items-table tbody tr > td{
+      display:block;
+      border:0 !important;
+      padding:0 !important;
+      min-width:0;
+    }
+
+    .quotation-items-table td.col-item{ grid-area:item; }
+    .quotation-items-table td.col-desc{ grid-area:desc; }
+    .quotation-items-table td.col-qty{ grid-area:qty; }
+    .quotation-items-table td.col-unit{ grid-area:unit; }
+    .quotation-items-table td.col-price{ grid-area:price; }
+    .quotation-items-table td.col-disc{ grid-area:disc; }
+    .quotation-items-table td.col-subtotal{ grid-area:sub; }
+    .quotation-items-table td.col-disc-amount{ grid-area:discamt; }
+    .quotation-items-table td.col-total{ grid-area:total; }
+    .quotation-items-table td.col-actions{ grid-area:act; justify-self:end; }
+
+    .quotation-items-table td.col-item input,
+    .quotation-items-table td.col-item .form-control{
+      font-weight: 600;
+    }
+
+    .quotation-items-table input,
+    .quotation-items-table select,
+    .quotation-items-table textarea,
+    .quotation-items-table .input-group{
+      width:100%;
+    }
+
+    .quotation-items-table td.col-disc .input-group{ width:100%; }
+
+    .quotation-items-table td.col-subtotal,
+    .quotation-items-table td.col-disc-amount{
+      font-size: 13px;
+    }
+
+    .quotation-items-table td.col-total{
+      text-align:right;
+    }
+    .quotation-items-table td.col-total .line-total,
+    .quotation-items-table td.col-total .line_total_view,
+    .quotation-items-table td.col-total strong{
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.05;
+      display:block;
+    }
   }
 
 </style>
@@ -796,9 +849,9 @@
 
       const lineTotal = Math.max(lineSubtotal - discAmount, 0);
 
-      tr.querySelectorAll('.line_subtotal_view').forEach(el => { el.textContent = rupiah(lineSubtotal); });
-      tr.querySelectorAll('.line_disc_amount_view').forEach(el => { el.textContent = rupiah(discAmount); });
-      tr.querySelectorAll('.line_total_view').forEach(el => { el.textContent = rupiah(lineTotal); });
+      tr.querySelector('.line_subtotal_view').textContent   = rupiah(lineSubtotal);
+      tr.querySelector('.line_disc_amount_view').textContent= rupiah(discAmount);
+      tr.querySelector('.line_total_view').textContent      = rupiah(lineTotal);
 
       linesSubtotal += lineTotal;
     });
