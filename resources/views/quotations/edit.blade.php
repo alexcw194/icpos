@@ -559,6 +559,21 @@
     .quotation-items-table td.col-disc-amount{
       font-size: 13px;
     }
+    .quotation-items-table td.col-subtotal{
+      display:flex !important;
+      align-items:flex-end;
+      justify-content:flex-start;
+      text-align:left !important;
+      white-space:nowrap;
+    }
+    .quotation-items-table td.col-subtotal *{
+      white-space:nowrap;
+    }
+    .quotation-items-table td.col-subtotal .rp,
+    .quotation-items-table td.col-subtotal .currency{
+      margin-right:4px;
+      display:inline;
+    }
 
     .quotation-items-table td.col-total{
       text-align:right;
