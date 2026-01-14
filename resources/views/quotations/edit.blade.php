@@ -514,8 +514,7 @@
         "qty  unit price"
         "disc disc disc"
         "sub  discamt discamt"
-        "total total total"
-        "act  act  act";
+        "total total act";
       gap: 8px;
       padding: 10px;
       border: 1px solid var(--tblr-border-color);
@@ -540,7 +539,7 @@
     .quotation-items-table td.col-subtotal{ grid-area:sub; }
     .quotation-items-table td.col-disc-amount{ grid-area:discamt; }
     .quotation-items-table td.col-total{ grid-area:total; }
-    .quotation-items-table td.col-actions{ grid-area:act; justify-self:end; }
+    .quotation-items-table td.col-actions{ grid-area:act; justify-self:end; align-self: center; }
 
     .quotation-items-table td.col-item input,
     .quotation-items-table td.col-item .form-control{
@@ -563,6 +562,7 @@
 
     .quotation-items-table td.col-total{
       text-align:right;
+      align-self: center;
     }
     .quotation-items-table td.col-total .line-total,
     .quotation-items-table td.col-total .line_total_view,
@@ -581,6 +581,11 @@
     .quotation-items-table td.col-total .rp{
       display:inline !important;
       margin-right: 4px;
+    }
+    .quotation-items-table td.col-actions .btn,
+    .quotation-items-table td.col-actions button{
+      margin: 0 !important;
+      padding: 4px 10px;
     }
 
     .line-disc-wrap{
