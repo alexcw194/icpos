@@ -234,5 +234,5 @@
   </div>
 </div>
 
-{{-- Modal Google Places tetap seperti file kamu (kalau ada) --}}
+@include('customers.partials.places_modal')
 @endsection
