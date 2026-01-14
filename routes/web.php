@@ -251,9 +251,6 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::resource('manufacture-recipes', ManufactureRecipeController::class)
         ->only(['index', 'create', 'store', 'destroy']);
 
-    Route::get('/quotations/{quotation}/pdf/view', [QuotationController::class, 'pdfViewer'])
-        ->name('quotations.pdf-viewer');
-
     // Users (Add & Edit; delete kita tunda)
     Route::resource('users', AdminUserController::class)->except(['show','destroy']);
 
