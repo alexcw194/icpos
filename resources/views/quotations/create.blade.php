@@ -317,7 +317,7 @@
 
     <td class="col-desc" data-label="Deskripsi">
       <textarea name="lines[__IDX__][description]"
-                class="form-control form-control-sm line_desc q-item-desc"
+                class="form-control form-control-sm line_desc q-item-desc item-desc"
                 rows="2"
                 placeholder="Deskripsi (opsional)"></textarea>
     </td>
@@ -348,23 +348,17 @@
 
     {{-- ===== DISKON PER-ITEM (WAJIB ADA untuk JS, bisa disembunyikan saat mode Total) ===== --}}
     <td class="col-disc text-end disc-cell" data-label="Diskon">
-      <div class="row g-2 align-items-center">
-        <div class="col-5">
-          <select name="lines[__IDX__][discount_type]" class="form-select form-select-sm disc-type">
-            <option value="amount">Nominal (IDR)</option>
-            <option value="percent">Persen (%)</option>
-          </select>
-        </div>
-        <div class="col-7">
-          <div class="input-group input-group-sm">
-            <input type="text"
-                   name="lines[__IDX__][discount_value]"
-                   class="form-control text-end disc-value"
-                   inputmode="decimal"
-                   value="0">
-            <span class="input-group-text disc-unit">IDR</span>
-          </div>
-        </div>
+      <div class="input-group input-group-sm">
+        <select name="lines[__IDX__][discount_type]" class="form-select form-select-sm disc-type line-discount-type">
+          <option value="amount">Nominal (IDR)</option>
+          <option value="percent">Persen (%)</option>
+        </select>
+        <input type="text"
+               name="lines[__IDX__][discount_value]"
+               class="form-control text-end disc-value line-discount-value"
+               inputmode="decimal"
+               value="0">
+        <span class="input-group-text disc-unit">IDR</span>
       </div>
     </td>
 
@@ -402,16 +396,18 @@
   .quotation-items-table th,
   .quotation-items-table td{ vertical-align: middle; }
 
+  .quotation-items-table th.col-desc,
+  .quotation-items-table td.col-desc{ width: 320px; }
   .quotation-items-table th.col-qty,
-  .quotation-items-table td.col-qty{ width: 90px; }
+  .quotation-items-table td.col-qty{ width: 70px; }
   .quotation-items-table th.col-unit,
-  .quotation-items-table td.col-unit{ width: 90px; }
+  .quotation-items-table td.col-unit{ width: 70px; }
   .quotation-items-table th.col-price,
   .quotation-items-table td.col-price{ width: 140px; }
   .quotation-items-table th.col-subtotal,
   .quotation-items-table td.col-subtotal{ width: 140px; }
   .quotation-items-table th.col-disc,
-  .quotation-items-table td.col-disc{ width: 120px; }
+  .quotation-items-table td.col-disc{ width: 240px; }
   .quotation-items-table th.col-disc-amount,
   .quotation-items-table td.col-disc-amount{ width: 140px; }
   .quotation-items-table th.col-total,
@@ -422,6 +418,7 @@
   .quotation-items-table input,
   .quotation-items-table select,
   .quotation-items-table textarea{ width: 100%; }
+  .quotation-items-table textarea.item-desc{ min-height: 38px; }
 
   .quotation-items-table .line_total_view{ font-weight:700; font-size:1.06rem; }
   .quotation-items-table .line_subtotal_view{ font-size:.92rem; }
@@ -733,6 +730,16 @@
     recalc();
   }
   document.querySelectorAll('input[name="discount_mode"]').forEach(r=>r.addEventListener('change',e=>applyDiscountMode(e.target.value)));
+
+  document.addEventListener('change', (e) => {
+    if (!e.target.classList.contains('line-discount-type')) return;
+    const row = e.target.closest('tr');
+    if (!row) return;
+    const valInput = row.querySelector('.line-discount-value');
+    if (!valInput) return;
+    valInput.value = '0';
+    valInput.dispatchEvent(new Event('input', { bubbles: true }));
+  });
 
   // ✅ CHANGE: toggle unit + show/hide extra nominal field when percent
   function syncTotalDiscUI(){
