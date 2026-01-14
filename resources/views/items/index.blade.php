@@ -159,7 +159,7 @@
           <input type="number" step="0.01" name="length_max" value="{{ $filters['length_max'] }}" class="form-control" placeholder="Max">
         </div>
 
-        <div class="col-12 col-md-auto d-none d-md-block">
+        <div class="col-12 col-md-auto d-none d-md-flex align-items-end">
           <label class="form-label">&nbsp;</label>
           <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" id="toggleVariantParent" name="show_variant_parent" value="1" @checked($filters['show_variant_parent'])>
@@ -168,7 +168,7 @@
         </div>
 
         {{-- Desktop buttons --}}
-        <div class="col-12 d-none d-md-flex gap-2 mt-2">
+        <div class="col-12 col-md-auto d-none d-md-flex align-items-end gap-2">
           <button class="btn btn-primary">Terapkan</button>
           <a href="{{ route('items.index', ['view' => $viewMode]) }}" class="btn btn-light">Reset</a>
         </div>
@@ -292,6 +292,49 @@
     .items-sort{ width:auto; min-width:14.5rem; }
     .inventory-header .btn{ white-space:nowrap; }
     .inventory-header .btn-group .btn{ padding-left:.75rem; padding-right:.75rem; }
+  }
+  @media (min-width: 768px){
+    .inventory-table-desktop{ table-layout: fixed; width: 100%; }
+    .inventory-table-desktop th,
+    .inventory-table-desktop td{
+      padding-top: .45rem;
+      padding-bottom: .45rem;
+      vertical-align: middle;
+    }
+    .inventory-table-desktop th.col-name,
+    .inventory-table-desktop td.col-name{ width: 40%; }
+    .inventory-table-desktop th.col-sku,
+    .inventory-table-desktop td.col-sku{ width: 12%; }
+    .inventory-table-desktop th.col-brand,
+    .inventory-table-desktop td.col-brand{ width: 10%; }
+    .inventory-table-desktop th.col-size,
+    .inventory-table-desktop td.col-size{ width: 8%; }
+    .inventory-table-desktop th.col-color,
+    .inventory-table-desktop td.col-color{ width: 10%; }
+    .inventory-table-desktop th.col-price,
+    .inventory-table-desktop td.col-price{ width: 10%; }
+    .inventory-table-desktop th.col-stock,
+    .inventory-table-desktop td.col-stock{ width: 5%; }
+    .inventory-table-desktop th.col-actions,
+    .inventory-table-desktop td.col-actions{ width: 5%; }
+
+    .inventory-table-desktop td.col-name{
+      overflow: hidden;
+    }
+    .inventory-table-desktop td.col-name .inventory-name{
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
+    }
+    .inventory-table-desktop th.col-price,
+    .inventory-table-desktop td.col-price,
+    .inventory-table-desktop th.col-stock,
+    .inventory-table-desktop td.col-stock,
+    .inventory-table-desktop th.col-actions,
+    .inventory-table-desktop td.col-actions{
+      white-space: nowrap;
+    }
   }
 </style>
 @endpush

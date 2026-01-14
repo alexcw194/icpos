@@ -21,18 +21,18 @@
 @endphp
 
 {{-- ===================== Desktop table ===================== --}}
-<div class="table-responsive d-none d-md-block">
-  <table class="table table-vcenter table-striped">
+<div class="d-none d-md-block inventory-table-wrap">
+  <table class="table table-vcenter table-striped inventory-table inventory-table-desktop">
     <thead>
       <tr>
-        <th>Nama</th>
-        <th class="w-1">SKU</th>
-        <th class="w-1">Brand</th>
-        <th class="w-1">Size</th>
-        <th class="w-1">Color</th>
-        <th class="text-end w-1">Harga</th>
-        <th class="text-end w-1">Stok</th>
-        <th class="text-end w-1">Aksi</th>
+        <th class="col-name">Nama</th>
+        <th class="col-sku">SKU</th>
+        <th class="col-brand">Brand</th>
+        <th class="col-size">Size</th>
+        <th class="col-color">Color</th>
+        <th class="text-end col-price">Harga</th>
+        <th class="text-end col-stock">Stok</th>
+        <th class="text-end col-actions">Aksi</th>
       </tr>
     </thead>
     <tbody>
@@ -63,9 +63,9 @@
         @endphp
 
         <tr class="{{ $inactive ? 'text-muted' : '' }}">
-          <td>
+          <td class="col-name">
             <div class="d-flex align-items-center gap-2">
-              <div class="fw-semibold">
+              <div class="fw-semibold inventory-name">
                 {{ $row['display_name'] ?? '-' }}
                 @if($isVariant)
                   <span class="badge bg-primary-subtle text-primary ms-1">V</span>
@@ -89,13 +89,13 @@
               @endif
             </div>
           </td>
-          <td class="text-muted">{{ $row['sku'] ?? '-' }}</td>
-          <td class="text-muted">{{ $row['brand'] ?? '-' }}</td>
-          <td class="text-muted">{{ $size }}</td>
-          <td class="text-muted">{{ $color }}</td>
-          <td class="text-end">{{ $row['price_label'] ?? '-' }}</td>
-          <td class="text-end">{{ $row['stock_label'] ?? '-' }}</td>
-          <td class="text-end">
+          <td class="text-muted col-sku">{{ $row['sku'] ?? '-' }}</td>
+          <td class="text-muted col-brand">{{ $row['brand'] ?? '-' }}</td>
+          <td class="text-muted col-size">{{ $size }}</td>
+          <td class="text-muted col-color">{{ $color }}</td>
+          <td class="text-end col-price">{{ $row['price_label'] ?? '-' }}</td>
+          <td class="text-end col-stock">{{ $row['stock_label'] ?? '-' }}</td>
+          <td class="text-end col-actions">
             <div class="btn-list justify-content-end">
               @if($isVariant)
                 @include('layouts.partials.crud_actions', [
