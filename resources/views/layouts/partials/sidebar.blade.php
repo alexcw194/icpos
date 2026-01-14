@@ -94,30 +94,6 @@
             </li>
           @endif
 
-          {{-- Master Data (SuperAdmin only) --}}
-          @hasrole('SuperAdmin')
-            <li class="nav-item nav-group">
-              <div class="nav-link {{ request()->is('contact-titles*') || request()->is('contact-positions*') ? 'active' : '' }}">
-                <span class="nav-link-icon ti ti-settings"></span>
-                <span class="nav-link-title">Master Data</span>
-              </div>
-              <ul class="nav nav-pills sub-nav flex-column ms-4">
-                <li>
-                  <a class="nav-link {{ request()->is('contact-titles*') ? 'active' : '' }}"
-                     href="{{ route('contact-titles.index') }}">
-                    Contact Titles
-                  </a>
-                </li>
-                <li>
-                  <a class="nav-link {{ request()->is('contact-positions*') ? 'active' : '' }}"
-                     href="{{ route('contact-positions.index') }}">
-                    Contact Positions
-                  </a>
-                </li>
-              </ul>
-            </li>
-          @endhasrole
-
           {{-- Projects --}}
           @if($hasProjects)
             <li class="nav-item">

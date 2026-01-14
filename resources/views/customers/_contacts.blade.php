@@ -6,7 +6,7 @@
 
 <div class="card" id="contacts">
   <div class="card-header">
-    <div class="card-title">Contacts</div>
+    <div class="card-title">Kontak</div>
   </div>
   <div class="card-body">
     <div id="contactsAlert" class="alert alert-success d-none"></div>
@@ -26,11 +26,11 @@
         </select>
       </div>
       <div class="col-md-3">
-        <label class="form-label">First name</label>
+        <label class="form-label">Nama Depan</label>
         <input name="first_name" class="form-control" required>
       </div>
       <div class="col-md-3">
-        <label class="form-label">Last name</label>
+        <label class="form-label">Nama Belakang</label>
         <input name="last_name" class="form-control">
       </div>
       <div class="col-md-3">
@@ -43,7 +43,7 @@
         </select>
       </div>
       <div class="col-md-3">
-        <label class="form-label">Phone</label>
+        <label class="form-label">Telepon</label>
         <input name="phone" class="form-control">
       </div>
       <div class="col-md-4">
@@ -51,11 +51,11 @@
         <input type="email" name="email" class="form-control">
       </div>
       <div class="col-md-6">
-        <label class="form-label">Notes</label>
+        <label class="form-label">Catatan</label>
         <input name="notes" class="form-control">
       </div>
       <div class="col-md-2 d-grid">
-        <button class="btn btn-primary" type="submit">+ Add Contact</button>
+        <button class="btn btn-primary" type="submit">+ Tambah Kontak</button>
       </div>
     </form>
 
@@ -63,13 +63,13 @@
       <table class="table table-sm table-vcenter">
         <thead class="table-light">
           <tr>
-            <th>Sapaan</th>
-            <th>Name</th>
-            <th>Jabatan</th>
-            <th>Phone</th>
-            <th>Email</th>
-            <th>Notes</th>
-            <th class="text-end">Actions</th>
+            <th>SAPAAN</th>
+            <th>NAMA</th>
+            <th>JABATAN</th>
+            <th>TELEPON</th>
+            <th>EMAIL</th>
+            <th>CATATAN</th>
+            <th class="text-end">AKSI</th>
           </tr>
         </thead>
         <tbody id="contactsRows">
@@ -99,12 +99,12 @@
                           data-email="{{ $c->email }}"
                           data-notes="{{ $c->notes }}"
                           data-update-url="{{ route('customers.contacts.update', [$customer, $c]) }}">
-                    Edit
+                    Ubah
                   </button>
                   <button type="button"
                           class="btn btn-outline-danger btn-delete-contact"
                           data-delete-url="{{ route('customers.contacts.destroy', [$customer, $c]) }}">
-                    Delete
+                    Hapus
                   </button>
                 </div>
               </td>
@@ -126,7 +126,7 @@
       <form id="contactEditForm" method="POST">
         @csrf
         <div class="modal-header">
-          <h5 class="modal-title">Edit Contact</h5>
+          <h5 class="modal-title">Ubah Kontak</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -141,11 +141,11 @@
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">First name</label>
+              <label class="form-label">Nama Depan</label>
               <input type="text" name="first_name" class="form-control" required>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Last name</label>
+              <label class="form-label">Nama Belakang</label>
               <input type="text" name="last_name" class="form-control">
             </div>
             <div class="col-md-6">
@@ -158,7 +158,7 @@
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Phone</label>
+              <label class="form-label">Telepon</label>
               <input type="text" name="phone" class="form-control">
             </div>
             <div class="col-md-6">
@@ -166,7 +166,7 @@
               <input type="email" name="email" class="form-control">
             </div>
             <div class="col-md-6">
-              <label class="form-label">Notes</label>
+              <label class="form-label">Catatan</label>
               <input type="text" name="notes" class="form-control">
             </div>
           </div>
@@ -230,10 +230,10 @@
                   data-phone="${escapeHTML(c.phone || '')}"
                   data-email="${escapeHTML(c.email || '')}"
                   data-notes="${escapeHTML(c.notes || '')}"
-                  data-update-url="${escapeHTML(urls.update_url)}">Edit</button>
+                  data-update-url="${escapeHTML(urls.update_url)}">Ubah</button>
           <button type="button"
                   class="btn btn-outline-danger btn-delete-contact"
-                  data-delete-url="${escapeHTML(urls.delete_url)}">Delete</button>
+                  data-delete-url="${escapeHTML(urls.delete_url)}">Hapus</button>
         </div>
       </td>
     </tr>`;
@@ -304,7 +304,7 @@
     if (deleteBtn) {
       const url = deleteBtn.dataset.deleteUrl;
       if (!url) return;
-      if (!confirm('Hapus contact ini?')) return;
+      if (!confirm('Hapus kontak ini?')) return;
       fetch(url, {
         method: 'POST',
         headers: {
