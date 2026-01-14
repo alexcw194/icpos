@@ -200,6 +200,8 @@
         <div class="col-md-7">
           <div class="card">
             <div class="card-body">
+
+              {{-- ✅ CHANGE: tambah 1 field "Nominal (IDR)" saat type=percent --}}
               <div class="row g-2 align-items-center mb-2" data-section="discount-total-controls">
                 <div class="col-auto"><label class="form-label mb-0">Diskon Total</label></div>
                 <div class="col-auto">
@@ -209,10 +211,19 @@
                     <option value="percent" {{ $tdt=='percent'?'selected':'' }}>Persen (%)</option>
                   </select>
                 </div>
+
                 <div class="col">
                   <div class="input-group">
                     <input type="text" name="total_discount_value" id="total_discount_value" class="form-control text-end" inputmode="decimal" value="{{ old('total_discount_value', (string)($quotation->total_discount_value ?? '0')) }}">
                     <span class="input-group-text" id="totalDiscUnit">IDR</span>
+                  </div>
+                </div>
+
+                {{-- field baru: nominal hasil hitung (readonly), hanya muncul jika percent --}}
+                <div class="col d-none" id="totalDiscAmountWrap">
+                  <div class="input-group">
+                    <input type="text" id="total_discount_amount_preview" class="form-control text-end" readonly value="0">
+                    <span class="input-group-text">IDR</span>
                   </div>
                 </div>
               </div>
@@ -542,6 +553,10 @@
   const totalDiscValInp  = document.getElementById('total_discount_value');
   const totalDiscUnit    = document.getElementById('totalDiscUnit');
 
+  // ✅ NEW: field nominal hasil hitung ketika percent
+  const totalDiscAmountWrap = document.getElementById('totalDiscAmountWrap');
+  const totalDiscAmountPreview = document.getElementById('total_discount_amount_preview');
+
   const vLinesSubtotal   = document.getElementById('v_lines_subtotal');
   const vTotalDiscAmt    = document.getElementById('v_total_discount_amount');
   const vTotalDiscHint   = document.getElementById('v_total_disc_hint');
@@ -739,18 +754,30 @@
 
   /* ===== Discount Mode ===== */
   function getMode(){ return (document.querySelector('input[name="discount_mode"]:checked')?.value) || 'total'; }
-  function resetTotalFields(){ totalDiscTypeSel.value='amount'; totalDiscValInp.value='0'; totalDiscUnit.textContent='IDR'; }
+
+  function resetTotalFields(){
+    totalDiscTypeSel.value='amount';
+    totalDiscValInp.value='0';
+    totalDiscUnit.textContent='IDR';
+
+    // ✅ NEW: reset preview field
+    if (totalDiscAmountWrap) totalDiscAmountWrap.classList.add('d-none');
+    if (totalDiscAmountPreview) totalDiscAmountPreview.value = '0';
+  }
+
   function resetPerItemFields(root){
     (root?root:document).querySelectorAll('.disc-type').forEach(el=>el.value='amount');
     (root?root:document).querySelectorAll('.disc-value').forEach(el=>el.value='0');
     (root?root:document).querySelectorAll('.disc-unit').forEach(el=>el.textContent='IDR');
   }
+
   function applyModeToRow(row){
     const discCell = row.querySelector('.disc-cell');
     if (!discCell) return;
     if (getMode()==='total'){ discCell.classList.add('d-none'); resetPerItemFields(row); }
     else { discCell.classList.remove('d-none'); }
   }
+
   function applyDiscountMode(mode){
     const sec = document.querySelector('[data-section="discount-total-controls"]');
     const th  = document.querySelector('th[data-col="disc-input"]');
@@ -761,8 +788,18 @@
   }
   document.querySelectorAll('input[name="discount_mode"]').forEach(r=>r.addEventListener('change',e=>applyDiscountMode(e.target.value)));
 
-  function syncTotalDiscUnit(){ totalDiscUnit.textContent = (totalDiscTypeSel.value==='percent') ? '%' : 'IDR'; recalc(); }
-  totalDiscTypeSel.addEventListener('change', syncTotalDiscUnit);
+  // ✅ CHANGE: toggle unit + show/hide extra nominal field when percent
+  function syncTotalDiscUI(){
+    const isPercent = (totalDiscTypeSel.value === 'percent');
+    totalDiscUnit.textContent = isPercent ? '%' : 'IDR';
+
+    if (totalDiscAmountWrap){
+      const show = isPercent && (getMode() !== 'per_item');
+      totalDiscAmountWrap.classList.toggle('d-none', !show);
+    }
+    recalc();
+  }
+  totalDiscTypeSel.addEventListener('change', syncTotalDiscUI);
   totalDiscValInp.addEventListener('input', recalc);
   taxInput.addEventListener('input', recalc);
 
@@ -801,6 +838,11 @@
     const totalDiscAmount = (tdt==='percent') ? clampPct(tdv)/100 * linesSubtotal
                                               : Math.min(Math.max(tdv,0), linesSubtotal);
 
+    // ✅ NEW: saat percent, tampilkan nominal hitungan di field tambahan
+    if (totalDiscAmountPreview){
+      totalDiscAmountPreview.value = (tdt==='percent') ? String(totalDiscAmount) : '0';
+    }
+
     vTotalDiscAmt.textContent  = rupiah(totalDiscAmount);
     vTotalDiscHint.textContent = (tdt==='percent' && getMode()!=='per_item') ? '('+(Math.round(clampPct(tdv)*100)/100).toFixed(2)+'%)' : '';
 
@@ -818,7 +860,7 @@
   /* ===== Seed, init ===== */
   syncCompanyInfo();
   applyDiscountMode(getMode());
-  syncTotalDiscUnit();
+  syncTotalDiscUI();
   recalc();
 
   /* ===== Unformat sebelum submit ===== */
