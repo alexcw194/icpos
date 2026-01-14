@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Company;
+use App\Models\Delivery;
+use App\Models\Invoice;
 use App\Models\Quotation;
 use App\Models\SalesOrder;
-use App\Models\Invoice;
+use App\Models\StockAdjustment;
+use App\Models\StockSummary;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -14,16 +18,142 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $isFinance = false;
-        if ($user) {
-            if (method_exists($user, 'hasAnyRole')) {
-                $isFinance = $user->hasAnyRole(['Finance']);
-            } elseif (method_exists($user, 'hasRole')) {
-                $isFinance = $user->hasRole('Finance');
+        $hasRole = function (string $role) use ($user): bool {
+            if (!$user) {
+                return false;
             }
+            if (method_exists($user, 'hasAnyRole')) {
+                return $user->hasAnyRole([$role]);
+            }
+            if (method_exists($user, 'hasRole')) {
+                return $user->hasRole($role);
+            }
+            return false;
+        };
+
+        if ($hasRole('Logistic')) {
+            $today = Carbon::now()->startOfDay();
+            $now = Carbon::now();
+            $companyId = (int) ($request->company_id ?? Company::where('is_default', true)->value('id'));
+
+            $companies = Company::query()
+                ->orderBy('name')
+                ->get(['id', 'alias', 'name']);
+
+            $soCompanyScoped = Schema::hasColumn('sales_orders', 'company_id') && $companyId;
+            $soHasDeadline = Schema::hasColumn('sales_orders', 'deadline');
+
+            $soOpenStatuses = ['open', 'partial_delivered'];
+            $soOpenBase = SalesOrder::query()
+                ->when($soCompanyScoped, fn($q) => $q->where('company_id', $companyId))
+                ->whereIn('status', $soOpenStatuses);
+
+            $soOpenCount = (clone $soOpenBase)->count();
+            $soPartialCount = (clone $soOpenBase)->where('status', 'partial_delivered')->count();
+
+            $soDue7Count = 0;
+            $soOverdueCount = 0;
+            if ($soHasDeadline) {
+                $soDue7Count = (clone $soOpenBase)
+                    ->whereNotNull('deadline')
+                    ->whereBetween('deadline', [$today, $today->copy()->addDays(7)])
+                    ->count();
+                $soOverdueCount = (clone $soOpenBase)
+                    ->whereNotNull('deadline')
+                    ->where('deadline', '<', $today)
+                    ->count();
+            }
+
+            $soDueSoon = (clone $soOpenBase)
+                ->with(['customer:id,name'])
+                ->when($soHasDeadline, fn($q) => $q->whereNotNull('deadline')->whereBetween('deadline', [$today, $today->copy()->addDays(7)]))
+                ->orderBy($soHasDeadline ? 'deadline' : 'order_date')
+                ->limit(20)
+                ->get();
+
+            $deliveryCompanyScoped = Schema::hasColumn('deliveries', 'company_id') && $companyId;
+            $deliveryDraftStatus = defined(Delivery::class.'::STATUS_DRAFT') ? Delivery::STATUS_DRAFT : 'draft';
+            $deliveryPostedStatus = defined(Delivery::class.'::STATUS_POSTED') ? Delivery::STATUS_POSTED : 'posted';
+            $deliveryCancelledStatus = defined(Delivery::class.'::STATUS_CANCELLED') ? Delivery::STATUS_CANCELLED : 'cancelled';
+            $deliveryHasPostedAt = Schema::hasColumn('deliveries', 'posted_at');
+            $deliveryHasCancelledAt = Schema::hasColumn('deliveries', 'cancelled_at');
+
+            $deliveryBase = Delivery::query()
+                ->when($deliveryCompanyScoped, fn($q) => $q->where('company_id', $companyId));
+
+            $deliveryDraftCount = (clone $deliveryBase)
+                ->where('status', $deliveryDraftStatus)
+                ->count();
+
+            $deliveryPostedTodayCount = (clone $deliveryBase)
+                ->where('status', $deliveryPostedStatus)
+                ->when($deliveryHasPostedAt, fn($q) => $q->where('posted_at', '>=', $today), fn($q) => $q->whereDate('date', $today))
+                ->count();
+
+            $deliveryCancelled30dCount = 0;
+            if ($deliveryHasCancelledAt) {
+                $deliveryCancelled30dCount = (clone $deliveryBase)
+                    ->where('status', $deliveryCancelledStatus)
+                    ->where('cancelled_at', '>=', $today->copy()->subDays(30))
+                    ->count();
+            }
+
+            $deliveryQueue = (clone $deliveryBase)
+                ->where('status', $deliveryDraftStatus)
+                ->with(['salesOrder:id,so_number', 'invoice:id,number', 'warehouse:id,name'])
+                ->orderByDesc('created_at')
+                ->limit(20)
+                ->get();
+
+            $summaryCompanyScoped = Schema::hasColumn('stock_summaries', 'company_id') && $companyId;
+            $summaryBase = StockSummary::query()
+                ->when($summaryCompanyScoped, fn($q) => $q->where('company_id', $companyId));
+
+            $negativeStockCount = (clone $summaryBase)->where('qty_balance', '<', 0)->count();
+            $lowStockCount = (clone $summaryBase)->where('qty_balance', '<=', 0)->count();
+
+            $inventoryExceptions = (clone $summaryBase)
+                ->where('qty_balance', '<', 0)
+                ->with([
+                    'item:id,name,sku',
+                    'variant:id,item_id,sku,attributes',
+                    'variant.item:id,name,variant_type,name_template',
+                    'warehouse:id,name'
+                ])
+                ->orderBy('qty_balance')
+                ->limit(20)
+                ->get();
+
+            $adjustmentCompanyScoped = Schema::hasColumn('stock_adjustments', 'company_id') && $companyId;
+            $recentAdjustments = StockAdjustment::query()
+                ->when($adjustmentCompanyScoped, fn($q) => $q->where('company_id', $companyId))
+                ->where('created_at', '>=', $today->copy()->subDays(7))
+                ->with(['item:id,name,sku', 'variant:id,item_id,sku,attributes', 'variant.item:id,name,variant_type,name_template', 'warehouse:id,name'])
+                ->orderByDesc('created_at')
+                ->limit(20)
+                ->get();
+
+            return view('dashboards.logistic', compact(
+                'companies',
+                'companyId',
+                'soOpenCount',
+                'soDue7Count',
+                'soOverdueCount',
+                'soPartialCount',
+                'deliveryDraftCount',
+                'deliveryPostedTodayCount',
+                'deliveryCancelled30dCount',
+                'negativeStockCount',
+                'lowStockCount',
+                'soDueSoon',
+                'soHasDeadline',
+                'deliveryQueue',
+                'inventoryExceptions',
+                'recentAdjustments'
+            ));
         }
 
-        if ($isFinance) {
+        if ($hasRole('Finance')) {
             $today = Carbon::now()->startOfDay();
             $mtdStart = Carbon::now()->startOfMonth()->startOfDay();
             $now = Carbon::now();
@@ -160,7 +290,7 @@ class DashboardController extends Controller
             ->visibleTo($user)
             ->count();
 
-        return view('dashboard', compact(
+        return view('dashboards.sales', compact(
             'draftCount',
             'sentCount',
             'wonCount',
