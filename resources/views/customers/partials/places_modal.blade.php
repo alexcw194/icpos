@@ -25,145 +25,157 @@
   if (window.__placesBound) return;
   window.__placesBound = true;
 
-  const btn = document.getElementById('btnPlaces');
-  const modalEl = document.getElementById('placesModal');
-  if (!btn || !modalEl || !window.bootstrap) return;
+  function bindPlaces() {
+    const btn = document.getElementById('btnPlaces');
+    const modalEl = document.getElementById('placesModal');
 
-  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-  const queryInput = document.getElementById('placesQuery');
-  const hint = document.getElementById('placesHint');
-  const results = document.getElementById('placesResults');
-  const PLACES_URL = @json(route('places.search'));
-
-  let debounceTimer = null;
-  let lastQuery = '';
-  let activeController = null;
-
-  const setHint = (text, className) => {
-    if (!hint) return;
-    hint.textContent = text;
-    hint.className = `form-hint mt-1 ${className || 'text-muted'}`;
-  };
-
-  const clearResults = () => {
-    if (!results) return;
-    results.innerHTML = '';
-  };
-
-  const resetModal = () => {
-    if (queryInput) queryInput.value = '';
-    clearResults();
-    setHint('Min 3 karakter.');
-  };
-
-  const fillField = (selector, value) => {
-    const el = document.querySelector(selector);
-    const next = (value || '').toString().trim();
-    if (!el || !next) return;
-    el.value = next;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-  };
-
-  const normalizeItem = (item) => {
-    const v = (item && item.value) ? item.value : (item || {});
-    return {
-      name: v.name || v.title || '',
-      website: v.website || '',
-      address: v.address || v.formatted_address || '',
-      city: v.city || '',
-      province: v.province || v.state || '',
-      country: v.country || '',
-      phone: v.phone || v.formatted_phone_number || '',
-    };
-  };
-
-  const renderItems = (items) => {
-    clearResults();
-    if (!Array.isArray(items) || !items.length) {
-      setHint('Tidak ada hasil.');
+    if (!btn || !modalEl || !window.bootstrap || !bootstrap.Modal) {
+      setTimeout(bindPlaces, 100);
       return;
     }
 
-    setHint('Klik hasil untuk memilih.');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    const queryInput = document.getElementById('placesQuery');
+    const hint = document.getElementById('placesHint');
+    const results = document.getElementById('placesResults');
+    const PLACES_URL = @json(route('places.search'));
 
-    items.forEach((item) => {
-      const data = normalizeItem(item);
-      const btnEl = document.createElement('button');
-      btnEl.type = 'button';
-      btnEl.className = 'list-group-item list-group-item-action';
+    let debounceTimer = null;
+    let lastQuery = '';
+    let activeController = null;
 
-      const title = document.createElement('div');
-      title.className = 'fw-semibold';
-      title.textContent = data.name || '(tanpa nama)';
+    const setHint = (text, className) => {
+      if (!hint) return;
+      hint.textContent = text;
+      hint.className = `form-hint mt-1 ${className || 'text-muted'}`;
+    };
 
-      const meta = document.createElement('div');
-      meta.className = 'text-muted small';
-      meta.textContent = data.address || '';
+    const clearResults = () => {
+      if (!results) return;
+      results.innerHTML = '';
+    };
 
-      btnEl.appendChild(title);
-      if (meta.textContent) btnEl.appendChild(meta);
-
-      btnEl.addEventListener('click', () => {
-        fillField('input[name="name"]', data.name);
-        fillField('input[name="website"]', data.website);
-        fillField('textarea[name="address"], input[name="address"]', data.address);
-        fillField('input[name="city"]', data.city);
-        fillField('input[name="province"]', data.province);
-        fillField('input[name="country"]', data.country);
-        fillField('input[name="phone"]', data.phone);
-        modal.hide();
-      });
-
-      results.appendChild(btnEl);
-    });
-  };
-
-  const runSearch = (query) => {
-    const q = (query || '').trim();
-    lastQuery = q;
-
-    if (q.length < 3) {
+    const resetModal = () => {
+      if (queryInput) queryInput.value = '';
       clearResults();
       setHint('Min 3 karakter.');
-      return;
-    }
+    };
 
-    setHint('Loading...');
-    if (activeController) activeController.abort();
-    activeController = new AbortController();
+    const fillField = (selector, value) => {
+      const el = document.querySelector(selector);
+      const next = (value || '').toString().trim();
+      if (!el || !next) return;
+      el.value = next;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
 
-    fetch(`${PLACES_URL}?q=${encodeURIComponent(q)}`, {
-      headers: { 'Accept': 'application/json' },
-      signal: activeController.signal
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        if (q !== lastQuery) return;
-        const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
-        renderItems(items);
-      })
-      .catch((err) => {
-        if (err.name === 'AbortError') return;
-        clearResults();
-        setHint('Gagal mengambil data.', 'text-danger');
+    const normalizeItem = (item) => {
+      const v = (item && item.value) ? item.value : (item || {});
+      return {
+        name: v.name || v.title || '',
+        website: v.website || '',
+        address: v.address || v.formatted_address || '',
+        city: v.city || '',
+        province: v.province || v.state || '',
+        country: v.country || '',
+        phone: v.phone || v.formatted_phone_number || '',
+      };
+    };
+
+    const renderItems = (items) => {
+      clearResults();
+      if (!Array.isArray(items) || !items.length) {
+        setHint('Tidak ada hasil.');
+        return;
+      }
+      setHint('Klik hasil untuk memilih.');
+
+      items.forEach((item) => {
+        const data = normalizeItem(item);
+
+        const btnEl = document.createElement('button');
+        btnEl.type = 'button';
+        btnEl.className = 'list-group-item list-group-item-action';
+
+        const title = document.createElement('div');
+        title.className = 'fw-semibold';
+        title.textContent = data.name || '(tanpa nama)';
+
+        const meta = document.createElement('div');
+        meta.className = 'text-muted small';
+        meta.textContent = data.address || '';
+
+        btnEl.appendChild(title);
+        if (meta.textContent) btnEl.appendChild(meta);
+
+        btnEl.addEventListener('click', () => {
+          fillField('input[name="name"]', data.name);
+          fillField('input[name="website"]', data.website);
+          fillField('textarea[name="address"], input[name="address"]', data.address);
+          fillField('input[name="city"]', data.city);
+          fillField('input[name="province"]', data.province);
+          fillField('input[name="country"]', data.country);
+          fillField('input[name="phone"]', data.phone);
+          modal.hide();
+        });
+
+        results.appendChild(btnEl);
       });
-  };
+    };
 
-  btn.addEventListener('click', () => {
-    resetModal();
-    modal.show();
-    setTimeout(() => queryInput && queryInput.focus(), 150);
-  });
+    const runSearch = (query) => {
+      const q = (query || '').trim();
+      lastQuery = q;
 
-  if (queryInput) {
-    queryInput.addEventListener('input', (e) => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => runSearch(e.target.value), 300);
+      if (q.length < 3) {
+        clearResults();
+        setHint('Min 3 karakter.');
+        return;
+      }
+
+      setHint('Loading...');
+      if (activeController) activeController.abort();
+      activeController = new AbortController();
+
+      fetch(`${PLACES_URL}?q=${encodeURIComponent(q)}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: activeController.signal
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((data) => {
+          if (q !== lastQuery) return;
+          const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+          renderItems(items);
+        })
+        .catch((err) => {
+          if (err.name === 'AbortError') return;
+          clearResults();
+          setHint('Gagal mengambil data.', 'text-danger');
+        });
+    };
+
+    btn.addEventListener('click', () => {
+      resetModal();
+      modal.show();
+      setTimeout(() => queryInput && queryInput.focus(), 150);
     });
+
+    if (queryInput) {
+      queryInput.addEventListener('input', (e) => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => runSearch(e.target.value), 300);
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindPlaces);
+  } else {
+    bindPlaces();
   }
 })();
 </script>
