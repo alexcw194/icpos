@@ -193,33 +193,58 @@
           <div class="card">
             <div class="card-body">
 
-              {{-- ✅ CHANGE: tambah 1 field "Nominal (IDR)" saat type=percent --}}
-              <div class="row g-2 align-items-center mb-2" data-section="discount-total-controls">
-                <div class="col-auto"><label class="form-label mb-0">Diskon Total</label></div>
-                <div class="col-auto">
+              {{-- ✅ Diskon Total Controls (amount vs percent) --}}
+              <div class="row g-2 align-items-center mb-2" data-section="discount-total-controls" id="totalDiscControls">
+                <div class="col-12 col-md-auto">
+                  <label class="form-label mb-0">Diskon Total</label>
+                </div>
+
+                {{-- Type --}}
+                <div class="col-12 col-md-auto">
                   @php $tdt = old('total_discount_type', 'amount'); @endphp
                   <select name="total_discount_type" id="total_discount_type" class="form-select" style="min-width:160px">
-                    <option value="amount" {{ $tdt=='amount'?'selected':'' }}>Nominal (IDR)</option>
+                    <option value="amount"  {{ $tdt=='amount'?'selected':'' }}>Nominal (IDR)</option>
                     <option value="percent" {{ $tdt=='percent'?'selected':'' }}>Persen (%)</option>
                   </select>
                 </div>
 
-                {{-- input persen / nominal --}}
-                <div class="col">
+                {{-- Percent input (only for percent) --}}
+                <div class="col-12 col-md-auto d-none" id="totalDiscPercentWrap" style="max-width:140px">
                   <div class="input-group">
-                    <input type="text" name="total_discount_value" id="total_discount_value" class="form-control text-end" inputmode="decimal" value="{{ old('total_discount_value', '0') }}">
-                    <span class="input-group-text" id="totalDiscUnit">IDR</span>
+                    <input type="text"
+                          name="total_discount_percent"
+                          id="total_discount_percent"
+                          class="form-control text-end"
+                          inputmode="decimal"
+                          value="{{ old('total_discount_percent', ($tdt=='percent' ? old('total_discount_value','0') : '0')) }}"
+                          placeholder="0">
+                    <span class="input-group-text">%</span>
                   </div>
                 </div>
 
-                {{-- field baru: nominal hasil hitung (readonly), hanya muncul jika percent --}}
-                <div class="col d-none" id="totalDiscAmountWrap">
+                {{-- Amount input (for amount OR as source of truth in backend field total_discount_value) --}}
+                <div class="col-12 col-md">
+                  <div class="input-group">
+                    <input type="text"
+                          name="total_discount_value"
+                          id="total_discount_value"
+                          class="form-control text-end"
+                          inputmode="decimal"
+                          value="{{ old('total_discount_value', '0') }}">
+                    <span class="input-group-text" id="totalDiscUnit">IDR</span>
+                  </div>
+                  <small class="text-muted d-block d-md-none mt-1" id="totalDiscMobileHint"></small>
+                </div>
+
+                {{-- Nominal hasil hitung (readonly, hanya percent) --}}
+                <div class="col-12 col-md d-none" id="totalDiscAmountWrap">
                   <div class="input-group">
                     <input type="text" id="total_discount_amount_preview" class="form-control text-end" readonly value="0">
                     <span class="input-group-text">IDR</span>
                   </div>
                 </div>
               </div>
+
 
               <table class="table mb-0">
                 <tr><td>Subtotal (setelah diskon per-baris)</td><td class="text-end" id="v_lines_subtotal">Rp 0</td></tr>
@@ -517,6 +542,41 @@
   // ✅ NEW: field nominal hasil hitung ketika percent
   const totalDiscAmountWrap = document.getElementById('totalDiscAmountWrap');
   const totalDiscAmountPreview = document.getElementById('total_discount_amount_preview');
+  // NEW: percent input (field baru)
+  const totalDiscPercentWrap = document.getElementById('totalDiscPercentWrap');
+  const totalDiscPercentInp  = document.getElementById('total_discount_percent');
+
+  // optional: hint kecil untuk mobile (boleh kalau kamu pakai)
+  const totalDiscMobileHint  = document.getElementById('totalDiscMobileHint');
+
+  function applyDiscountTypeUI(){
+    const t = (totalDiscTypeSel?.value || 'amount');
+
+    if (t === 'percent') {
+      totalDiscPercentWrap?.classList.remove('d-none');
+      totalDiscAmountWrap?.classList.remove('d-none');
+
+      // unit label untuk input utama (yang sekarang kita jadikan "nominal backend")
+      const unit = document.getElementById('totalDiscUnit');
+      if (unit) unit.textContent = 'IDR';
+
+      // hint mobile biar user ngerti flow
+      if (totalDiscMobileHint) totalDiscMobileHint.textContent = 'Isi % di kolom persen, nominal otomatis dihitung.';
+    } else {
+      totalDiscPercentWrap?.classList.add('d-none');
+      totalDiscAmountWrap?.classList.add('d-none');
+      if (totalDiscMobileHint) totalDiscMobileHint.textContent = '';
+    }
+  }
+
+  totalDiscTypeSel?.addEventListener('change', () => {
+    applyDiscountTypeUI();
+    recalc();
+  });
+  totalDiscPercentInp?.addEventListener('input', recalc);
+  totalDiscValInp?.addEventListener('input', recalc);
+
+
 
   const vLinesSubtotal   = document.getElementById('v_lines_subtotal');
   const vTotalDiscAmt    = document.getElementById('v_total_discount_amount');
@@ -778,28 +838,36 @@
     vLinesSubtotal.textContent = rupiah(linesSubtotal);
 
     let tdt = totalDiscTypeSel.value;
-    let tdv = toNum(totalDiscValInp.value);
+    let tdv = toNum(totalDiscValInp.value);                 // backend field (nominal)
+    let tdp = toNum(totalDiscPercentInp?.value || '0');     // input persen baru
+
     if (getMode()==='per_item'){
       tdt='amount'; tdv=0;
       totalDiscTypeSel.value='amount';
       totalDiscValInp.value='0';
+      if (totalDiscPercentInp) totalDiscPercentInp.value = '0';
     }
 
-    const totalDiscAmount = (tdt==='percent') ? clampPct(tdv)/100 * linesSubtotal
-                                              : Math.min(Math.max(tdv,0), linesSubtotal);
+    let totalDiscAmount = 0;
 
-    // ✅ NEW: saat percent, tampilkan nominal hitungan di field tambahan
-    if (totalDiscAmountPreview){
-      totalDiscAmountPreview.value = (tdt==='percent') ? String(totalDiscAmount) : '0';
-      // supaya user melihat angka “Rp” versi UI:
-      // kita isi raw number (konsisten dengan input lainnya),
-      // dan UI summary tetap sumber kebenaran visual.
+    if (tdt === 'percent') {
+      const pct = clampPct(tdp);
+      totalDiscAmount = (pct/100) * linesSubtotal;
+
+      // backend tetap pakai field existing -> isi nominal hasil hitung
+      totalDiscValInp.value = String(totalDiscAmount);
+
+      if (totalDiscAmountPreview) totalDiscAmountPreview.value = String(totalDiscAmount);
+      vTotalDiscHint.textContent = `(${pct.toFixed(2)}%)`;
+    } else {
+      totalDiscAmount = Math.min(Math.max(tdv,0), linesSubtotal);
+
+      if (totalDiscAmountPreview) totalDiscAmountPreview.value = '0';
+      vTotalDiscHint.textContent = '';
     }
 
-    vTotalDiscAmt.textContent  = rupiah(totalDiscAmount);
-    vTotalDiscHint.textContent = (tdt==='percent' && getMode()!=='per_item')
-      ? '('+(Math.round(clampPct(tdv)*100)/100).toFixed(2)+'%)'
-      : '';
+    vTotalDiscAmt.textContent = rupiah(totalDiscAmount);
+
 
     const base   = Math.max(linesSubtotal - totalDiscAmount, 0);
     const taxPct = clampPct(taxInput.value);
@@ -815,7 +883,7 @@
   /* ===== Seed, init ===== */
   syncCompanyInfo();
   applyDiscountMode(getMode());
-  syncTotalDiscUI();
+  applyDiscountTypeUI();
   recalc();
 
   /* ===== Unformat sebelum submit ===== */
