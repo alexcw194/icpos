@@ -200,7 +200,7 @@
                 </div>
 
                 {{-- Type --}}
-                <div class="col-12 col-md-auto">
+                <div class="col-12 col-md-auto" id="totalDiscTypeWrap">
                   @php $tdt = old('total_discount_type', 'amount'); @endphp
                   <select name="total_discount_type" id="total_discount_type" class="form-select" style="min-width:160px">
                     <option value="amount"  {{ $tdt=='amount'?'selected':'' }}>Nominal (IDR)</option>
@@ -440,6 +440,9 @@
   }
 
   @media (max-width: 767.98px){
+    #quotation-lines.table-responsive{ overflow-x: visible !important; }
+    #quotation-lines .quotation-items-table{ min-width:0 !important; width:100% !important; }
+
     .quotation-items-table{ table-layout:auto !important; }
     .quotation-items-table thead{ display:none; }
 
@@ -590,6 +593,7 @@
   const totalDiscTypeSel = document.getElementById('total_discount_type');
   const totalDiscValInp  = document.getElementById('total_discount_value');
   const totalDiscUnit    = document.getElementById('totalDiscUnit');
+  const totalDiscTypeWrap = document.getElementById('totalDiscTypeWrap');
   const totalDiscValueWrap = document.getElementById('totalDiscValueWrap');
 
 
@@ -603,6 +607,15 @@
   // optional: hint kecil untuk mobile (boleh kalau kamu pakai)
   const totalDiscMobileHint  = document.getElementById('totalDiscMobileHint');
 
+  function syncTotalDiscMobileLayout(type) {
+    if (!totalDiscTypeWrap || !totalDiscPercentWrap) return;
+    const isPercent = type === 'percent';
+    totalDiscTypeWrap.classList.toggle('col-12', !isPercent);
+    totalDiscTypeWrap.classList.toggle('col-7', isPercent);
+    totalDiscPercentWrap.classList.toggle('col-12', !isPercent);
+    totalDiscPercentWrap.classList.toggle('col-5', isPercent);
+  }
+
   function applyDiscountTypeUI() {
   const t = totalDiscTypeSel?.value || 'amount';
 
@@ -615,6 +628,7 @@
       totalDiscAmountWrap?.classList.add('d-none');
       totalDiscValueWrap?.classList.remove('d-none');  // show nominal utama
     }
+    syncTotalDiscMobileLayout(t);
   }
 
   totalDiscTypeSel?.addEventListener('change', () => {
