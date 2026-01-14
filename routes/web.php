@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\{
+    DashboardController,
     ProfileController,
     CustomerController,
     ItemController,
@@ -45,7 +46,7 @@ require __DIR__.'/auth.php';
 // =======================
 Route::middleware(['auth'])->group(function () {
     // Dashboard & Profile
-    Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/profile',  [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
