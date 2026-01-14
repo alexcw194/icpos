@@ -231,14 +231,11 @@
                 </div>
 
                 {{-- Amount input (backend field total_discount_value) --}}
-                <div class="col-12 col-md">
+                <div class="col-12 col-md" id="totalDiscValueWrap">
                   <div class="input-group">
-                    <input type="text"
-                          name="total_discount_value"
-                          id="total_discount_value"
-                          class="form-control text-end"
-                          inputmode="decimal"
-                          value="{{ old('total_discount_value', (string)($quotation->total_discount_value ?? '0')) }}">
+                    <input type="text" name="total_discount_value" id="total_discount_value"
+                          class="form-control text-end" inputmode="decimal"
+                          value="{{ old('total_discount_value','0') }}">
                     <span class="input-group-text" id="totalDiscUnit">IDR</span>
                   </div>
                   <small class="text-muted d-block d-md-none mt-1" id="totalDiscMobileHint"></small>
@@ -578,6 +575,7 @@
   const totalDiscTypeSel = document.getElementById('total_discount_type');
   const totalDiscValInp  = document.getElementById('total_discount_value');
   const totalDiscUnit    = document.getElementById('totalDiscUnit');
+  const totalDiscValueWrap = document.getElementById('totalDiscValueWrap');
 
   // ✅ NEW: field nominal hasil hitung ketika percent
   const totalDiscAmountWrap = document.getElementById('totalDiscAmountWrap');
@@ -590,23 +588,17 @@
   // optional: hint kecil untuk mobile (boleh kalau kamu pakai)
   const totalDiscMobileHint  = document.getElementById('totalDiscMobileHint');
 
-  function applyDiscountTypeUI(){
-    const t = (totalDiscTypeSel?.value || 'amount');
+  function applyDiscountTypeUI() {
+  const t = totalDiscTypeSel?.value || 'amount';
 
-    if (t === 'percent') {
+  if (t === 'percent') {
       totalDiscPercentWrap?.classList.remove('d-none');
       totalDiscAmountWrap?.classList.remove('d-none');
-
-      // unit label untuk input utama (yang sekarang kita jadikan "nominal backend")
-      const unit = document.getElementById('totalDiscUnit');
-      if (unit) unit.textContent = 'IDR';
-
-      // hint mobile biar user ngerti flow
-      if (totalDiscMobileHint) totalDiscMobileHint.textContent = 'Isi % di kolom persen, nominal otomatis dihitung.';
+      totalDiscValueWrap?.classList.add('d-none');     // hide nominal utama
     } else {
       totalDiscPercentWrap?.classList.add('d-none');
       totalDiscAmountWrap?.classList.add('d-none');
-      if (totalDiscMobileHint) totalDiscMobileHint.textContent = '';
+      totalDiscValueWrap?.classList.remove('d-none');  // show nominal utama
     }
   }
 
