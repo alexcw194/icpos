@@ -18,20 +18,348 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $hasRole = function (string $role) use ($user): bool {
+        $hasAnyRole = function (array $roles) use ($user): bool {
             if (!$user) {
                 return false;
             }
             if (method_exists($user, 'hasAnyRole')) {
-                return $user->hasAnyRole([$role]);
+                return $user->hasAnyRole($roles);
             }
             if (method_exists($user, 'hasRole')) {
-                return $user->hasRole($role);
+                foreach ($roles as $role) {
+                    if ($user->hasRole($role)) {
+                        return true;
+                    }
+                }
             }
             return false;
         };
 
-        if ($hasRole('Logistic')) {
+        if ($hasAnyRole(['Admin', 'SuperAdmin'])) {
+            $today = Carbon::now()->startOfDay();
+            $mtdStart = Carbon::now()->startOfMonth()->startOfDay();
+            $mtdEnd = Carbon::now();
+            $companyId = $request->filled('company_id') ? (int) $request->company_id : null;
+
+            $companies = Company::query()
+                ->orderBy('name')
+                ->get(['id', 'alias', 'name']);
+
+            $hasCompanyQuotation = Schema::hasColumn('quotations', 'company_id');
+            $hasCompanySo = Schema::hasColumn('sales_orders', 'company_id');
+            $hasCompanyInvoice = Schema::hasColumn('invoices', 'company_id');
+            $hasCompanySummary = Schema::hasColumn('stock_summaries', 'company_id');
+
+            $qBase = Quotation::query()
+                ->with(['customer:id,name', 'company:id,alias,name'])
+                ->when($companyId && $hasCompanyQuotation, fn($q) => $q->where('company_id', $companyId));
+
+            $mtdBase = (clone $qBase)->whereBetween('date', [$mtdStart, $mtdEnd]);
+            $qDraftMtdCount = (clone $mtdBase)->where('status', Quotation::STATUS_DRAFT)->count();
+            $qSentMtdCount = (clone $mtdBase)->where('status', Quotation::STATUS_SENT)->count();
+            $qWonMtdCount = (clone $mtdBase)->where('status', Quotation::STATUS_WON)->count();
+            $qWonMtdAmount = (clone $mtdBase)->where('status', Quotation::STATUS_WON)->sum('total');
+            $qSentPipelineMtdAmount = (clone $mtdBase)->where('status', Quotation::STATUS_SENT)->sum('total');
+
+            $hasSentAt = Schema::hasColumn('quotations', 'sent_at');
+            $sentAgingCutoff = Carbon::now()->subDays(7)->startOfDay();
+            $qSentAging7dCount = $hasSentAt
+                ? (clone $qBase)->where('status', Quotation::STATUS_SENT)->whereNotNull('sent_at')->where('sent_at', '<=', $sentAgingCutoff)->count()
+                : 0;
+
+            $sentAgingQuotes = collect();
+            if ($hasSentAt) {
+                $sentAgingQuotes = (clone $qBase)
+                    ->where('status', Quotation::STATUS_SENT)
+                    ->whereNotNull('sent_at')
+                    ->where('sent_at', '<=', $sentAgingCutoff)
+                    ->orderBy('sent_at')
+                    ->limit(25)
+                    ->get();
+                $sentAgingQuotes->each(function ($q) {
+                    $q->age_days = $q->sent_at ? $q->sent_at->diffInDays(Carbon::now()) : null;
+                });
+            }
+
+            $soOpenStatuses = ['open', 'partial_delivered'];
+            $soHasDeadline = Schema::hasColumn('sales_orders', 'deadline');
+            $soBase = SalesOrder::query()
+                ->with(['customer:id,name', 'company:id,alias,name'])
+                ->when($companyId && $hasCompanySo, fn($q) => $q->where('company_id', $companyId));
+
+            $soOpenCount = (clone $soBase)->whereIn('status', $soOpenStatuses)->count();
+            $soDue7Count = $soHasDeadline
+                ? (clone $soBase)->whereIn('status', $soOpenStatuses)->whereNotNull('deadline')->whereBetween('deadline', [$today, $today->copy()->addDays(7)])->count()
+                : 0;
+
+            $soOverdue = collect();
+            $soDueSoon = collect();
+            $soRecentOpen = collect();
+            if ($soHasDeadline) {
+                $soOverdue = (clone $soBase)
+                    ->whereIn('status', $soOpenStatuses)
+                    ->whereNotNull('deadline')
+                    ->where('deadline', '<', $today)
+                    ->orderBy('deadline')
+                    ->limit(20)
+                    ->get();
+                $soDueSoon = (clone $soBase)
+                    ->whereIn('status', $soOpenStatuses)
+                    ->whereNotNull('deadline')
+                    ->whereBetween('deadline', [$today, $today->copy()->addDays(7)])
+                    ->orderBy('deadline')
+                    ->limit(20)
+                    ->get();
+            } else {
+                $soRecentOpen = (clone $soBase)
+                    ->whereIn('status', $soOpenStatuses)
+                    ->orderByDesc('order_date')
+                    ->limit(20)
+                    ->get();
+            }
+
+            $invBase = Invoice::query()
+                ->with(['customer:id,name', 'company:id,alias,name'])
+                ->when($companyId && $hasCompanyInvoice, fn($q) => $q->where('company_id', $companyId));
+
+            $arOutstandingAmount = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('paid_at')
+                ->sum('total');
+
+            $overdueInvoiceCount = 0;
+            $hasDueDate = Schema::hasColumn('invoices', 'due_date');
+            if ($hasDueDate) {
+                $overdueInvoiceCount = (clone $invBase)
+                    ->where('status', 'posted')
+                    ->whereNull('paid_at')
+                    ->whereNotNull('due_date')
+                    ->where('due_date', '<', $today)
+                    ->count();
+            }
+
+            $ttPendingCount = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('receipt_path')
+                ->count();
+
+            $overdueInvoices = collect();
+            if ($hasDueDate) {
+                $overdueInvoices = (clone $invBase)
+                    ->where('status', 'posted')
+                    ->whereNull('paid_at')
+                    ->whereNotNull('due_date')
+                    ->where('due_date', '<', $today)
+                    ->orderBy('due_date')
+                    ->limit(20)
+                    ->get();
+            }
+
+            $ttPendingInvoices = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('receipt_path')
+                ->orderByDesc('date')
+                ->limit(20)
+                ->get();
+
+            $summaryBase = StockSummary::query()
+                ->when($companyId && $hasCompanySummary, fn($q) => $q->where('company_id', $companyId));
+
+            $negativeStockCount = (clone $summaryBase)->where('qty_balance', '<', 0)->count();
+            $negativeStockRows = (clone $summaryBase)
+                ->where('qty_balance', '<', 0)
+                ->with([
+                    'item:id,name,sku',
+                    'variant:id,item_id,sku,attributes',
+                    'variant.item:id,name,variant_type,name_template',
+                    'warehouse:id,name'
+                ])
+                ->orderBy('qty_balance')
+                ->limit(20)
+                ->get();
+
+            $companyStats = collect();
+            if ($companies->count() > 1 && !$companyId) {
+                $companyStats = $companies->map(function ($co) use ($mtdStart, $mtdEnd, $today, $soOpenStatuses, $hasCompanyQuotation, $hasCompanySo, $hasCompanyInvoice, $hasCompanySummary, $hasDueDate) {
+                    $qid = $co->id;
+
+                    $wonMtdAmount = Quotation::query()
+                        ->when($hasCompanyQuotation, fn($q) => $q->where('company_id', $qid))
+                        ->where('status', Quotation::STATUS_WON)
+                        ->whereBetween('date', [$mtdStart, $mtdEnd])
+                        ->sum('total');
+
+                    $sentPipelineAmount = Quotation::query()
+                        ->when($hasCompanyQuotation, fn($q) => $q->where('company_id', $qid))
+                        ->where('status', Quotation::STATUS_SENT)
+                        ->whereBetween('date', [$mtdStart, $mtdEnd])
+                        ->sum('total');
+
+                    $arOutstanding = Invoice::query()
+                        ->when($hasCompanyInvoice, fn($q) => $q->where('company_id', $qid))
+                        ->where('status', 'posted')
+                        ->whereNull('paid_at')
+                        ->sum('total');
+
+                    $overdueCount = 0;
+                    if ($hasDueDate) {
+                        $overdueCount = Invoice::query()
+                            ->when($hasCompanyInvoice, fn($q) => $q->where('company_id', $qid))
+                            ->where('status', 'posted')
+                            ->whereNull('paid_at')
+                            ->whereNotNull('due_date')
+                            ->where('due_date', '<', $today)
+                            ->count();
+                    }
+
+                    $soOpenCount = SalesOrder::query()
+                        ->when($hasCompanySo, fn($q) => $q->where('company_id', $qid))
+                        ->whereIn('status', $soOpenStatuses)
+                        ->count();
+
+                    $negativeStock = StockSummary::query()
+                        ->when($hasCompanySummary, fn($q) => $q->where('company_id', $qid))
+                        ->where('qty_balance', '<', 0)
+                        ->count();
+
+                    return (object) [
+                        'company' => $co,
+                        'won_mtd_amount' => $wonMtdAmount,
+                        'sent_pipeline_amount' => $sentPipelineAmount,
+                        'ar_outstanding_amount' => $arOutstanding,
+                        'overdue_count' => $overdueCount,
+                        'so_open_count' => $soOpenCount,
+                        'negative_stock_count' => $negativeStock,
+                    ];
+                });
+            }
+
+            return view('dashboards.admin', compact(
+                'companies',
+                'companyId',
+                'qDraftMtdCount',
+                'qSentMtdCount',
+                'qWonMtdCount',
+                'qWonMtdAmount',
+                'qSentPipelineMtdAmount',
+                'qSentAging7dCount',
+                'soOpenCount',
+                'soDue7Count',
+                'arOutstandingAmount',
+                'overdueInvoiceCount',
+                'ttPendingCount',
+                'negativeStockCount',
+                'sentAgingQuotes',
+                'soHasDeadline',
+                'soOverdue',
+                'soDueSoon',
+                'soRecentOpen',
+                'overdueInvoices',
+                'negativeStockRows',
+                'ttPendingInvoices',
+                'companyStats'
+            ));
+        }
+
+        if ($hasAnyRole(['Finance'])) {
+            $today = Carbon::now()->startOfDay();
+            $mtdStart = Carbon::now()->startOfMonth()->startOfDay();
+            $now = Carbon::now();
+
+            $invBase = Invoice::query()
+                ->with(['customer:id,name', 'company:id,alias,name'])
+                ->latest();
+
+            $arOutstandingAmount = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('paid_at')
+                ->sum('total');
+
+            $arOutstandingCount = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('paid_at')
+                ->count();
+
+            $overdueCount = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('paid_at')
+                ->whereNotNull('due_date')
+                ->where('due_date', '<', $today)
+                ->count();
+
+            $dueSoonCount = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('paid_at')
+                ->whereNotNull('due_date')
+                ->whereBetween('due_date', [$today, $today->copy()->addDays(7)])
+                ->count();
+
+            $ttPendingCount = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('receipt_path')
+                ->count();
+
+            $mtdCollectedAmount = (clone $invBase)
+                ->where('status', 'paid')
+                ->whereBetween('paid_at', [$mtdStart, $now])
+                ->sum('paid_amount');
+
+            $overdueInvoices = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('paid_at')
+                ->whereNotNull('due_date')
+                ->where('due_date', '<', $today)
+                ->orderBy('due_date')
+                ->limit(25)
+                ->get();
+
+            $dueSoonInvoices = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('paid_at')
+                ->whereNotNull('due_date')
+                ->whereBetween('due_date', [$today, $today->copy()->addDays(7)])
+                ->orderBy('due_date')
+                ->limit(25)
+                ->get();
+
+            $ttPendingInvoices = (clone $invBase)
+                ->where('status', 'posted')
+                ->whereNull('receipt_path')
+                ->orderByDesc('date')
+                ->limit(25)
+                ->get();
+
+            $mtdPaidInvoices = (clone $invBase)
+                ->where('status', 'paid')
+                ->whereBetween('paid_at', [$mtdStart, $now])
+                ->orderByDesc('paid_at')
+                ->limit(25)
+                ->get();
+
+            $npwpLockedSoCount = null;
+            if (Schema::hasColumn('sales_orders', 'npwp_required') && Schema::hasColumn('sales_orders', 'npwp_status')) {
+                $npwpLockedSoCount = SalesOrder::query()
+                    ->where('npwp_required', true)
+                    ->where('npwp_status', 'missing')
+                    ->count();
+            }
+
+            return view('dashboards.finance', compact(
+                'arOutstandingAmount',
+                'arOutstandingCount',
+                'overdueCount',
+                'dueSoonCount',
+                'ttPendingCount',
+                'mtdCollectedAmount',
+                'overdueInvoices',
+                'dueSoonInvoices',
+                'ttPendingInvoices',
+                'mtdPaidInvoices',
+                'npwpLockedSoCount'
+            ));
+        }
+
+        if ($hasAnyRole(['Logistic'])) {
             $today = Carbon::now()->startOfDay();
             $now = Carbon::now();
             $companyId = (int) ($request->company_id ?? Company::where('is_default', true)->value('id'));
@@ -150,104 +478,6 @@ class DashboardController extends Controller
                 'deliveryQueue',
                 'inventoryExceptions',
                 'recentAdjustments'
-            ));
-        }
-
-        if ($hasRole('Finance')) {
-            $today = Carbon::now()->startOfDay();
-            $mtdStart = Carbon::now()->startOfMonth()->startOfDay();
-            $now = Carbon::now();
-
-            $invBase = Invoice::query()
-                ->with(['customer:id,name', 'company:id,alias,name'])
-                ->latest();
-
-            $arOutstandingAmount = (clone $invBase)
-                ->where('status', 'posted')
-                ->whereNull('paid_at')
-                ->sum('total');
-
-            $arOutstandingCount = (clone $invBase)
-                ->where('status', 'posted')
-                ->whereNull('paid_at')
-                ->count();
-
-            $overdueCount = (clone $invBase)
-                ->where('status', 'posted')
-                ->whereNull('paid_at')
-                ->whereNotNull('due_date')
-                ->where('due_date', '<', $today)
-                ->count();
-
-            $dueSoonCount = (clone $invBase)
-                ->where('status', 'posted')
-                ->whereNull('paid_at')
-                ->whereNotNull('due_date')
-                ->whereBetween('due_date', [$today, $today->copy()->addDays(7)])
-                ->count();
-
-            $ttPendingCount = (clone $invBase)
-                ->where('status', 'posted')
-                ->whereNull('receipt_path')
-                ->count();
-
-            $mtdCollectedAmount = (clone $invBase)
-                ->where('status', 'paid')
-                ->whereBetween('paid_at', [$mtdStart, $now])
-                ->sum('paid_amount');
-
-            $overdueInvoices = (clone $invBase)
-                ->where('status', 'posted')
-                ->whereNull('paid_at')
-                ->whereNotNull('due_date')
-                ->where('due_date', '<', $today)
-                ->orderBy('due_date')
-                ->limit(25)
-                ->get();
-
-            $dueSoonInvoices = (clone $invBase)
-                ->where('status', 'posted')
-                ->whereNull('paid_at')
-                ->whereNotNull('due_date')
-                ->whereBetween('due_date', [$today, $today->copy()->addDays(7)])
-                ->orderBy('due_date')
-                ->limit(25)
-                ->get();
-
-            $ttPendingInvoices = (clone $invBase)
-                ->where('status', 'posted')
-                ->whereNull('receipt_path')
-                ->orderByDesc('date')
-                ->limit(25)
-                ->get();
-
-            $mtdPaidInvoices = (clone $invBase)
-                ->where('status', 'paid')
-                ->whereBetween('paid_at', [$mtdStart, $now])
-                ->orderByDesc('paid_at')
-                ->limit(25)
-                ->get();
-
-            $npwpLockedSoCount = null;
-            if (Schema::hasColumn('sales_orders', 'npwp_required') && Schema::hasColumn('sales_orders', 'npwp_status')) {
-                $npwpLockedSoCount = SalesOrder::query()
-                    ->where('npwp_required', true)
-                    ->where('npwp_status', 'missing')
-                    ->count();
-            }
-
-            return view('dashboards.finance', compact(
-                'arOutstandingAmount',
-                'arOutstandingCount',
-                'overdueCount',
-                'dueSoonCount',
-                'ttPendingCount',
-                'mtdCollectedAmount',
-                'overdueInvoices',
-                'dueSoonInvoices',
-                'ttPendingInvoices',
-                'mtdPaidInvoices',
-                'npwpLockedSoCount'
             ));
         }
 
