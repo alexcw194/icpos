@@ -1,5 +1,7 @@
 @php
   $contacts = $customer->contacts()->orderBy('first_name')->get();
+  $contactTitles = $contactTitles ?? \App\Models\ContactTitle::active()->ordered()->get(['id','name']);
+  $contactPositions = $contactPositions ?? \App\Models\ContactPosition::active()->ordered()->get(['id','name']);
 @endphp
 
 <div class="card" id="contacts">
@@ -16,7 +18,12 @@
       @csrf
       <div class="col-md-2">
         <label class="form-label">Sapaan</label>
-        <input name="title" class="form-control" maxlength="30" placeholder="Bpk/Ibu/Dr">
+        <select name="contact_title_id" class="form-select">
+          <option value="">-</option>
+          @foreach($contactTitles as $title)
+            <option value="{{ $title->id }}">{{ $title->name }}</option>
+          @endforeach
+        </select>
       </div>
       <div class="col-md-3">
         <label class="form-label">First name</label>
@@ -28,7 +35,12 @@
       </div>
       <div class="col-md-3">
         <label class="form-label">Jabatan</label>
-        <input name="position" class="form-control">
+        <select name="contact_position_id" class="form-select">
+          <option value="">-</option>
+          @foreach($contactPositions as $pos)
+            <option value="{{ $pos->id }}">{{ $pos->name }}</option>
+          @endforeach
+        </select>
       </div>
       <div class="col-md-3">
         <label class="form-label">Phone</label>
@@ -66,9 +78,9 @@
               $fullName = trim(($c->first_name ?? '') . ' ' . ($c->last_name ?? ''));
             @endphp
             <tr data-contact-id="{{ $c->id }}">
-              <td class="contact-title">{{ $c->title }}</td>
+              <td class="contact-title">{{ $c->title_label ?: '-' }}</td>
               <td class="contact-name">{{ $fullName }}</td>
-              <td class="contact-position">{{ $c->position }}</td>
+              <td class="contact-position">{{ $c->position_label ?: '-' }}</td>
               <td class="contact-phone">{{ $c->phone }}</td>
               <td class="contact-email">{{ $c->email }}</td>
               <td class="contact-notes">{{ $c->notes }}</td>
@@ -77,10 +89,12 @@
                   <button type="button"
                           class="btn btn-outline-primary btn-edit-contact"
                           data-id="{{ $c->id }}"
-                          data-title="{{ $c->title }}"
+                          data-title-id="{{ $c->contact_title_id }}"
+                          data-position-id="{{ $c->contact_position_id }}"
                           data-first-name="{{ $c->first_name }}"
                           data-last-name="{{ $c->last_name }}"
-                          data-position="{{ $c->position }}"
+                          data-title-label="{{ $c->title_label }}"
+                          data-position-label="{{ $c->position_label }}"
                           data-phone="{{ $c->phone }}"
                           data-email="{{ $c->email }}"
                           data-notes="{{ $c->notes }}"
@@ -119,7 +133,12 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Sapaan</label>
-              <input type="text" name="title" class="form-control" maxlength="30" placeholder="Bpk/Ibu/Dr">
+              <select name="contact_title_id" class="form-select">
+                <option value="">-</option>
+                @foreach($contactTitles as $title)
+                  <option value="{{ $title->id }}">{{ $title->name }}</option>
+                @endforeach
+              </select>
             </div>
             <div class="col-md-6">
               <label class="form-label">First name</label>
@@ -131,7 +150,12 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Jabatan</label>
-              <input type="text" name="position" class="form-control">
+              <select name="contact_position_id" class="form-select">
+                <option value="">-</option>
+                @foreach($contactPositions as $pos)
+                  <option value="{{ $pos->id }}">{{ $pos->name }}</option>
+                @endforeach
+              </select>
             </div>
             <div class="col-md-6">
               <label class="form-label">Phone</label>
@@ -183,10 +207,12 @@
 
   function rowHtml(c, urls) {
     const full = [c.first_name, c.last_name || ''].join(' ').trim();
+    const titleLabel = c.title_label || '';
+    const positionLabel = c.position_label || '';
     return `<tr data-contact-id="${escapeHTML(c.id)}">
-      <td class="contact-title">${escapeHTML(c.title || '')}</td>
+      <td class="contact-title">${escapeHTML(titleLabel || '-') }</td>
       <td class="contact-name">${escapeHTML(full)}</td>
-      <td class="contact-position">${escapeHTML(c.position || '')}</td>
+      <td class="contact-position">${escapeHTML(positionLabel || '-')}</td>
       <td class="contact-phone">${escapeHTML(c.phone || '')}</td>
       <td class="contact-email">${escapeHTML(c.email || '')}</td>
       <td class="contact-notes">${escapeHTML(c.notes || '')}</td>
@@ -195,10 +221,12 @@
           <button type="button"
                   class="btn btn-outline-primary btn-edit-contact"
                   data-id="${escapeHTML(c.id)}"
-                  data-title="${escapeHTML(c.title || '')}"
+                  data-title-id="${escapeHTML(c.contact_title_id || '')}"
+                  data-position-id="${escapeHTML(c.contact_position_id || '')}"
+                  data-title-label="${escapeHTML(titleLabel)}"
+                  data-position-label="${escapeHTML(positionLabel)}"
                   data-first-name="${escapeHTML(c.first_name || '')}"
                   data-last-name="${escapeHTML(c.last_name || '')}"
-                  data-position="${escapeHTML(c.position || '')}"
                   data-phone="${escapeHTML(c.phone || '')}"
                   data-email="${escapeHTML(c.email || '')}"
                   data-notes="${escapeHTML(c.notes || '')}"
@@ -215,18 +243,20 @@
     const row = rows.querySelector(`[data-contact-id="${contact.id}"]`);
     if (!row) return;
     const full = [contact.first_name, contact.last_name || ''].join(' ').trim();
-    row.querySelector('.contact-title').textContent = contact.title || '';
+    row.querySelector('.contact-title').textContent = contact.title_label || '-';
     row.querySelector('.contact-name').textContent = full;
-    row.querySelector('.contact-position').textContent = contact.position || '';
+    row.querySelector('.contact-position').textContent = contact.position_label || '-';
     row.querySelector('.contact-phone').textContent = contact.phone || '';
     row.querySelector('.contact-email').textContent = contact.email || '';
     row.querySelector('.contact-notes').textContent = contact.notes || '';
     const editBtn = row.querySelector('.btn-edit-contact');
     if (editBtn) {
-      editBtn.dataset.title = contact.title || '';
+      editBtn.dataset.titleId = contact.contact_title_id || '';
+      editBtn.dataset.positionId = contact.contact_position_id || '';
+      editBtn.dataset.titleLabel = contact.title_label || '';
+      editBtn.dataset.positionLabel = contact.position_label || '';
       editBtn.dataset.firstName = contact.first_name || '';
       editBtn.dataset.lastName = contact.last_name || '';
-      editBtn.dataset.position = contact.position || '';
       editBtn.dataset.phone = contact.phone || '';
       editBtn.dataset.email = contact.email || '';
       editBtn.dataset.notes = contact.notes || '';
@@ -259,10 +289,10 @@
     const editBtn = e.target.closest('.btn-edit-contact');
     if (editBtn) {
       editForm.action = editBtn.dataset.updateUrl || '';
-      editForm.querySelector('[name="title"]').value = editBtn.dataset.title || '';
+      editForm.querySelector('[name="contact_title_id"]').value = editBtn.dataset.titleId || '';
       editForm.querySelector('[name="first_name"]').value = editBtn.dataset.firstName || '';
       editForm.querySelector('[name="last_name"]').value = editBtn.dataset.lastName || '';
-      editForm.querySelector('[name="position"]').value = editBtn.dataset.position || '';
+      editForm.querySelector('[name="contact_position_id"]').value = editBtn.dataset.positionId || '';
       editForm.querySelector('[name="phone"]').value = editBtn.dataset.phone || '';
       editForm.querySelector('[name="email"]').value = editBtn.dataset.email || '';
       editForm.querySelector('[name="notes"]').value = editBtn.dataset.notes || '';

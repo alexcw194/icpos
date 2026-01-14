@@ -30,6 +30,8 @@ use App\Http\Controllers\{
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\RolePermissionController;
+use App\Http\Controllers\Admin\ContactTitleController;
+use App\Http\Controllers\Admin\ContactPositionController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Controllers\Auth\PasswordController;
@@ -305,4 +307,7 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
 Route::middleware(['auth', EnsureSuperAdmin::class])->group(function () {
     Route::get('/settings',  [SettingController::class, 'edit'])->name('settings.edit');
     Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
+
+    Route::resource('contact-titles', ContactTitleController::class)->except(['show', 'destroy']);
+    Route::resource('contact-positions', ContactPositionController::class)->except(['show', 'destroy']);
 });

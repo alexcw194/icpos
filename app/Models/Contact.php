@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\ContactTitle;
+use App\Models\ContactPosition;
 
 class Contact extends Model
 {
@@ -12,9 +14,13 @@ class Contact extends Model
 
     protected $fillable = [
         'customer_id',
-        'title',
         'first_name',
         'last_name',
+        'contact_title_id',
+        'contact_position_id',
+        'title_snapshot',
+        'position_snapshot',
+        'title',
         'position',
         'email',
         'phone',
@@ -32,7 +38,17 @@ class Contact extends Model
     /** ---------------------------
      *  ACCESSORS
      *  ------------------------- */
-    protected $appends = ['name'];
+    protected $appends = ['name', 'full_name', 'title_label', 'position_label'];
+
+    public function titleMaster(): BelongsTo
+    {
+        return $this->belongsTo(ContactTitle::class, 'contact_title_id');
+    }
+
+    public function positionMaster(): BelongsTo
+    {
+        return $this->belongsTo(ContactPosition::class, 'contact_position_id');
+    }
 
     public function getNameAttribute(): string
     {
@@ -41,8 +57,18 @@ class Contact extends Model
 
     public function getFullNameAttribute(): string
     {
-        $title = trim((string) ($this->title ?? ''));
+        $title = $this->getTitleLabelAttribute();
         $name = $this->getNameAttribute();
         return trim($title.' '.$name);
+    }
+
+    public function getTitleLabelAttribute(): string
+    {
+        return trim((string) ($this->title_snapshot ?? ($this->titleMaster->name ?? ($this->title ?? ''))));
+    }
+
+    public function getPositionLabelAttribute(): string
+    {
+        return trim((string) ($this->position_snapshot ?? ($this->positionMaster->name ?? ($this->position ?? ''))));
     }
 }

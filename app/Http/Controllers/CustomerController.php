@@ -6,6 +6,8 @@ use App\Models\Customer;
 use App\Models\Jenis;
 use App\Models\User;
 use App\Models\Contact;
+use App\Models\ContactTitle;
+use App\Models\ContactPosition;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Quotation;
@@ -168,7 +170,17 @@ class CustomerController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return view('customers.show', compact('customer', 'quotations', 'salesOrders', 'projects'));
+        $contactTitles = ContactTitle::active()->ordered()->get(['id', 'name']);
+        $contactPositions = ContactPosition::active()->ordered()->get(['id', 'name']);
+
+        return view('customers.show', compact(
+            'customer',
+            'quotations',
+            'salesOrders',
+            'projects',
+            'contactTitles',
+            'contactPositions'
+        ));
     }
 
 
@@ -260,14 +272,24 @@ class CustomerController extends Controller
         $this->authorize('update', $customer);
 
         $data = $request->validate([
-            'title' => ['nullable', 'string', 'max:30'],
             'first_name' => ['required', 'string', 'max:120'],
             'last_name' => ['nullable', 'string', 'max:120'],
-            'position' => ['nullable', 'string', 'max:120'],
+            'contact_title_id' => ['nullable', 'exists:contact_titles,id'],
+            'contact_position_id' => ['nullable', 'exists:contact_positions,id'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:120'],
             'notes' => ['nullable', 'string'],
         ]);
+
+        $title = !empty($data['contact_title_id'])
+            ? ContactTitle::find($data['contact_title_id'])
+            : null;
+        $position = !empty($data['contact_position_id'])
+            ? ContactPosition::find($data['contact_position_id'])
+            : null;
+
+        $data['title_snapshot'] = $title?->name;
+        $data['position_snapshot'] = $position?->name;
 
         $contact = $customer->contacts()->create($data);
 
@@ -294,14 +316,24 @@ class CustomerController extends Controller
         }
 
         $data = $request->validate([
-            'title' => ['nullable', 'string', 'max:30'],
             'first_name' => ['required', 'string', 'max:120'],
             'last_name' => ['nullable', 'string', 'max:120'],
-            'position' => ['nullable', 'string', 'max:120'],
+            'contact_title_id' => ['nullable', 'exists:contact_titles,id'],
+            'contact_position_id' => ['nullable', 'exists:contact_positions,id'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:120'],
             'notes' => ['nullable', 'string'],
         ]);
+
+        $title = !empty($data['contact_title_id'])
+            ? ContactTitle::find($data['contact_title_id'])
+            : null;
+        $position = !empty($data['contact_position_id'])
+            ? ContactPosition::find($data['contact_position_id'])
+            : null;
+
+        $data['title_snapshot'] = $title?->name;
+        $data['position_snapshot'] = $position?->name;
 
         $contact->update($data);
 
