@@ -435,14 +435,12 @@ class ItemController extends Controller
         $fmt = fn($n) => number_format((float)$n, 2, ',', '.');
 
         $out = [];
-        $qIsEmpty = ($q === '');
 
         foreach ($items as $it) {
             $unitCode = optional($it->unit)->code ?? 'PCS';
             $variants = $it->variants ?? collect();
 
-            // Saat q kosong -> selalu treat seolah "tanpa varian" (ringan)
-            $displayVariants = $qIsEmpty ? false : $this->shouldDisplayVariants($it, $variants);
+            $displayVariants = $this->shouldDisplayVariants($it, $variants);
 
             // Tidak pakai varian → kirim 1 baris item
             if (!$displayVariants) {
