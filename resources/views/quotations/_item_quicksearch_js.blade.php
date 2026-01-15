@@ -1,6 +1,6 @@
 ﻿@php
-  // Hasil: "/api/items/search"
-  $SEARCH_URL = route('items.search', [], false);
+  // Hasil: "/api/inventory/rows/search"
+  $SEARCH_URL = route('inventory.rows.search', [], false);
 @endphp
 
 <script>
@@ -81,7 +81,7 @@
     dropdownParent: 'body',
 
     load(query, cb){
-      const url = `${CFG.searchUrl}?q=${encodeURIComponent(query || '')}`;
+      const url = `${CFG.searchUrl}?q=${encodeURIComponent(query || '')}&limit=200`;
 
       fetch(url, {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
         .then(r => r.text())

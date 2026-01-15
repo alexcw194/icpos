@@ -151,7 +151,8 @@
         create     : false,
         persist    : false,
         load: (query, cb) => {
-          const url = `${CFG.searchUrl}?q=${encodeURIComponent(query || '')}`;
+          const url = `${CFG.searchUrl}?q=${encodeURIComponent(query || '')}&entity=variant&limit=200`;
+          console.log('[quicksearch] url:', url);
           fetch(url, {
             credentials: 'same-origin',
             headers: {
