@@ -728,20 +728,47 @@
 
   /* ===== Item TomSelect (satu kotak di staging) ===== */
   (function initItemTS(){
-    const opts = @json($ITEM_OPTIONS ?? []);
+    const ITEM_SEARCH_URL = {!! json_encode(route('inventory.rows.search', [], false), JSON_UNESCAPED_SLASHES) !!};
     if (!stageName || !window.TomSelect) return;
 
     const ts = new TomSelect(stageName, {
-      options:(opts||[]).map(o=>({value:o.id,label:o.label,unit:o.unit||'pcs',price:Number(o.price||0)})),
-      valueField:'value', labelField:'label', searchField:['label'],
-      maxOptions:100, create:false, persist:false, dropdownParent:'body', openOnFocus:true, preload:true,
-      render:{ option(d,esc){ return `<div class="d-flex justify-content-between"><span>${esc(d.label||'')}</span><span class="text-muted small">${esc(d.unit||'')}</span></div>`; } },
+      valueField:'uid', labelField:'label', searchField:['label','name','sku'],
+      maxOptions:200, create:false, persist:false, dropdownParent:'body', openOnFocus:true, preload:'focus',
+      load(query, cb){
+        const url = `${ITEM_SEARCH_URL}?q=${encodeURIComponent(query || '')}&entity=all&limit=200`;
+        fetch(url, {
+          credentials:'same-origin',
+          headers:{
+            'X-Requested-With':'XMLHttpRequest',
+            'Accept':'application/json',
+          },
+          cache:'no-store',
+        })
+          .then(r => r.ok ? r.text() : '[]')
+          .then(t => {
+            const s = t.replace(/^\uFEFF/,'').trimStart();
+            let data = [];
+            try { data = JSON.parse(s); } catch(e){
+              console.error('[itemSearch] JSON parse fail. Raw:', s, e);
+              cb([]); return;
+            }
+            cb(Array.isArray(data) ? data : []);
+          })
+          .catch(err => {
+            console.error('[itemSearch] fetch error', err);
+            cb([]);
+          });
+      },
+      render:{ option(d,esc){ const sku = d.sku ? `<small class="text-muted ms-2">${esc(d.sku)}</small>` : ''; return `<div>${esc(d.label||d.name||'')} ${sku}</div>`; } },
       onChange(val){
         const o = this.options[val];
-        stageId.value    = o ? o.value : '';
-        stageVarId.value = '';
-        stageUnit.value  = o ? (o.unit||'pcs') : 'pcs';
-        stagePrice.value = o ? String(o.price||0) : '';
+        if (!o) return;
+        const unit = String(o.unit_code || o.unit || 'pcs');
+        stageId.value    = o.item_id || o.id || '';
+        stageVarId.value = o.variant_id || '';
+        stageUnit.value  = unit.toLowerCase();
+        stagePrice.value = o.price != null ? String(o.price) : '';
+        this.setTextboxValue(o.label || o.name || '');
 
         this.close();
         requestAnimationFrame(() => {
