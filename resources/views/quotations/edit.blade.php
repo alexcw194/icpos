@@ -782,7 +782,7 @@
     if (!stageName || !window.TomSelect) return;
 
     const ts = new TomSelect(stageName, {
-      valueField:'uid', labelField:'label', searchField:['label','name','sku'],
+      valueField:'uid', labelField:'name', searchField:['name','sku'],
       maxOptions:200, create:false, persist:false, dropdownParent:'body', openOnFocus:true, preload:'focus',
       load(query, cb){
         const url = `${ITEM_SEARCH_URL}?q=${encodeURIComponent(query || '')}`;
@@ -809,7 +809,7 @@
             cb([]);
           });
       },
-      render:{ option(d,esc){ const sku = d.sku ? `<small class="text-muted ms-2">${esc(d.sku)}</small>` : ''; return `<div>${esc(d.label||d.name||'')} ${sku}</div>`; } },
+      render:{ option(d,esc){ return `<div>${esc(d.name||'')}</div>`; } },
       onChange(val){
         const o = this.options[val];
         if (!o) return;
@@ -818,7 +818,7 @@
         stageVarId.value = o.variant_id || '';
         stageUnit.value  = unit.toLowerCase();
         stagePrice.value = o.price != null ? String(o.price) : '';
-        this.setTextboxValue(o.label || o.name || '');
+        this.setTextboxValue(o.name || '');
 
         // UX mobile: anggap "next field" setelah pilih item
         this.close();
