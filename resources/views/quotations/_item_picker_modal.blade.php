@@ -41,7 +41,7 @@
       idHidden     : '.q-item-id',
       variantHidden: '.q-item-variant-id'
     },
-    searchUrl: `{{ route('items.search') }}`
+    searchUrl: `{{ route('inventory.rows.search') }}`
   };
 
   // ===== Helpers =====
@@ -144,7 +144,7 @@
       new TomSelect(input, {
         valueField : 'uid',
         labelField : 'label',
-        searchField: ['name','sku'],
+        searchField: ['label','name','sku'],
         dropdownParent: modalEl, // penting agar dropdown muncul di atas modal
         maxOptions : 30,
         preload    : 'focus',

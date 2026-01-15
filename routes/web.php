@@ -8,6 +8,7 @@ use App\Http\Controllers\{
     CustomerController,
     ItemController,
     ItemVariantController,
+    InventoryRowController,
     ProjectController,
     ProjectQuotationController,
     QuotationController,
@@ -96,6 +97,8 @@ Route::get('items/{item}', [ItemController::class, 'show'])
 
     // Quick search items (tetap auth)
     Route::get('/api/items/search', [ItemController::class, 'quickSearch'])->name('items.search'); // <- tanpa ->middleware(['auth'])
+    Route::get('/api/inventory/rows/search', [InventoryRowController::class, 'search'])
+        ->name('inventory.rows.search');
 
     // Projects & Project Quotations (BQ)
     Route::resource('projects', ProjectController::class);

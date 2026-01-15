@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use App\Services\InventoryRowBuilder;
 
 class ItemController extends Controller
 {
@@ -77,8 +78,9 @@ class ItemController extends Controller
             return $item;
         });
 
-        $flatRows    = $this->buildFlatInventoryRows($items->getCollection(), $filters);
-        $groupedRows = $this->buildGroupedInventoryRows($items->getCollection(), $filters);
+        $rowBuilder = app(InventoryRowBuilder::class);
+        $flatRows    = $rowBuilder->buildFlatRows($items->getCollection(), $filters);
+        $groupedRows = $rowBuilder->buildGroupedRows($items->getCollection(), $filters);
 
         return view('items.index', [
             'items'       => $items,
@@ -944,7 +946,7 @@ class ItemController extends Controller
                 return 'Rp ' . number_format((float) $minVariantPrice, 2, ',', '.');
             }
             return 'Rp ' . number_format((float) $minVariantPrice, 2, ',', '.')
-                 . ' — ' . number_format((float) $maxVariantPrice, 2, ',', '.');
+                 . ' - ' . number_format((float) $maxVariantPrice, 2, ',', '.');
         }
         return 'Rp ' . number_format((float) ($itemPrice ?? 0), 2, ',', '.');
     }
