@@ -81,7 +81,7 @@
     dropdownParent: 'body',
 
     load(query, cb){
-      const url = `${CFG.searchUrl}?q=${encodeURIComponent(query || '')}&limit=200`;
+      const url = `${CFG.searchUrl}?q=${encodeURIComponent(query || '')}&entity=all&limit=200`;
 
       fetch(url, {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
         .then(r => r.text())
