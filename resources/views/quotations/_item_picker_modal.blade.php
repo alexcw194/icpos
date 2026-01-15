@@ -150,12 +150,33 @@
         preload    : 'focus',
         create     : false,
         persist    : false,
-        load: (query, cb)=>{
-          const url = `${CFG.searchUrl}?q=${encodeURIComponent(query||'')}`;
-          fetch(url, {headers:{'X-Requested-With':'XMLHttpRequest'}})
-            .then(r => r.json())
-            .then(json => cb(json))
-            .catch(()=>cb());
+        load: (query, cb) => {
+          const url = `${CFG.searchUrl}?q=${encodeURIComponent(query || '')}`;
+          fetch(url, {
+            credentials: 'same-origin',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json',
+            },
+            cache: 'no-store',
+          })
+            .then(r => r.ok ? r.text() : '[]')
+            .then(t => {
+              const clean = (t || '').replace(/^\uFEFF/, '').trimStart();
+              let data = [];
+              try {
+                data = JSON.parse(clean);
+              } catch (e) {
+                console.error('[itemPicker] JSON parse fail. Raw:', clean, e);
+                cb([]);
+                return;
+              }
+              cb(Array.isArray(data) ? data : []);
+            })
+            .catch(err => {
+              console.error('[itemPicker] fetch error', err);
+              cb([]);
+            });
         },
         render: {
           option: (data, esc)=>{
