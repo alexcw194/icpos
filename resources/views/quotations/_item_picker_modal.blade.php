@@ -49,7 +49,9 @@
       desc: '.q-item-desc',
       qty : '.q-item-qty',
       unit: '.q-item-unit',
-      rate: '.q-item-rate'
+      rate: '.q-item-rate',
+      idHidden     : '.q-item-id',
+      variantHidden: '.q-item-variant-id'
     },
     searchUrl: `{{ route('items.search') }}`
   };
@@ -112,6 +114,14 @@
     const rateEl = row.querySelector(CFG.fields.rate);
     if (rateEl) setValue(rateEl, item.price ?? 0);
 
+    // item_id & variant_id (quotation only)
+    if (CFG.fields.idHidden || CFG.fields.variantHidden) {
+      const hidItem = CFG.fields.idHidden ? row.querySelector(CFG.fields.idHidden) : null;
+      const hidVar = CFG.fields.variantHidden ? row.querySelector(CFG.fields.variantHidden) : null;
+      if (hidItem) hidItem.value = item.item_id || '';
+      if (hidVar) hidVar.value = item.variant_id || '';
+    }
+
     // tutup modal
     bootstrap.Modal.getOrCreateInstance(document.getElementById('itemPickerModal')).hide();
   }
@@ -143,7 +153,7 @@
       if (!input) return;
 
       new TomSelect(input, {
-        valueField : 'id',
+        valueField : 'uid',
         labelField : 'label',
         searchField: ['name','sku'],
         dropdownParent: modalEl, // penting agar dropdown muncul di atas modal
