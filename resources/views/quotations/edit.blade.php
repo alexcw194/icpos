@@ -778,14 +778,14 @@
 
   /* ===== Item TomSelect (satu kotak di staging) ===== */
   (function initItemTS(){
-    const ITEM_SEARCH_URL = {!! json_encode(route('inventory.rows.search', [], false), JSON_UNESCAPED_SLASHES) !!};
+    const ITEM_SEARCH_URL = {!! json_encode(route('items.search', [], false), JSON_UNESCAPED_SLASHES) !!};
     if (!stageName || !window.TomSelect) return;
 
     const ts = new TomSelect(stageName, {
       valueField:'uid', labelField:'label', searchField:['label','name','sku'],
       maxOptions:200, create:false, persist:false, dropdownParent:'body', openOnFocus:true, preload:'focus',
       load(query, cb){
-        const url = `${ITEM_SEARCH_URL}?q=${encodeURIComponent(query || '')}&entity=all&limit=200`;
+        const url = `${ITEM_SEARCH_URL}?q=${encodeURIComponent(query || '')}`;
         fetch(url, {
           credentials:'same-origin',
           headers:{
