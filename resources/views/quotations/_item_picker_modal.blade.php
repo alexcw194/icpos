@@ -23,26 +23,14 @@
 (() => {
   'use strict';
 
-  // ========= Context-aware mapping (SO vs Quotation) =========
-  const isSO = !!document.getElementById('linesBody'); // SO create page has #linesBody
+  // ========= Context-aware mapping (Quotation + SO) =========
+  const linesContainerSelector = document.querySelector('#quotation-lines')
+    ? '#quotation-lines'
+    : (document.querySelector('#linesBody') ? '#linesBody' : null);
 
-  const CFG = isSO ? {
-    // === selectors for Sales Order page ===
+  const CFG = {
     addLineButtonSelector : '#btnAddLine',
-    linesContainerSelector: '#linesBody',
-    fields: {
-      row : 'tr.line',
-      name: 'input[name$="[name]"]',
-      desc: 'textarea[name$="[description]"]',
-      qty : '.qty',
-      unit: 'input[name$="[unit]"]',
-      rate: '.price'
-    },
-    searchUrl: `{{ route('items.search') }}`
-  } : {
-    // === fallback: old Quotation selectors (biar tetap kerja di halaman quotation) ===
-    addLineButtonSelector : '#btnAddLine',
-    linesContainerSelector: '#quotation-lines',
+    linesContainerSelector,
     fields: {
       row : '.qline',
       name: '.q-item-name',
@@ -76,8 +64,11 @@
 
   function addNewRowAndGet(){
     document.querySelector(CFG.addLineButtonSelector)?.click();
-    const wrap = document.querySelector(CFG.linesContainerSelector);
+    const wrap = CFG.linesContainerSelector ? document.querySelector(CFG.linesContainerSelector) : null;
     const rows = wrap ? wrap.querySelectorAll(CFG.fields.row) : [];
+    if (!wrap || !rows.length) {
+      console.warn('[itemPicker] cannot add row: missing container/row selector', CFG);
+    }
     return rows.length ? rows[rows.length-1] : null;
   }
 
@@ -93,12 +84,10 @@
     if (!row) return;
 
     // item_id & variant_id (quotation only)
-    if (CFG.fields.idHidden || CFG.fields.variantHidden) {
-      const hidItem = row.querySelector(CFG.fields.idHidden || 'input[name$="[item_id]"]');
-      const hidVar = row.querySelector(CFG.fields.variantHidden || 'input[name$="[item_variant_id]"]');
-      setValue(hidItem, item.item_id || '');
-      setValue(hidVar, item.variant_id || '');
-    }
+    const hidItem = row.querySelector(CFG.fields.idHidden);
+    const hidVar = row.querySelector(CFG.fields.variantHidden);
+    setValue(hidItem, item.item_id || '');
+    setValue(hidVar, item.variant_id || '');
 
     // name / description
     setValue(row.querySelector(CFG.fields.name), item.name || '');
