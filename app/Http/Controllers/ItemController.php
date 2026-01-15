@@ -440,7 +440,13 @@ class ItemController extends Controller
         foreach ($items as $it) {
             $unitCode = optional($it->unit)->code ?? 'PCS';
             $variants = $it->variants ?? collect();
-            $activeVariants = $variants->where('is_active', true);
+            $activeVariants = $variants->filter(function ($v) {
+                return ($v->is_active === null) || ((int) $v->is_active === 1) || ($v->is_active === true);
+            });
+
+            if ($variants->isNotEmpty() && $activeVariants->isEmpty()) {
+                $activeVariants = $variants;
+            }
 
             // strict variant-first: if any active variants exist, treat as variants
             $displayVariants = $activeVariants->isNotEmpty();
