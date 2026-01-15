@@ -435,6 +435,7 @@ class ItemController extends Controller
         $fmt = fn($n) => number_format((float)$n, 2, ',', '.');
 
         $out = [];
+        $qIsEmpty = ($q === '');
 
         foreach ($items as $it) {
             $unitCode = optional($it->unit)->code ?? 'PCS';
