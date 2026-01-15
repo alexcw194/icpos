@@ -439,8 +439,12 @@ class ItemController extends Controller
         foreach ($items as $it) {
             $unitCode = optional($it->unit)->code ?? 'PCS';
             $variants = $it->variants ?? collect();
+            $activeVariants = $variants->filter(fn($v) => (bool) $v->is_active);
 
-            $displayVariants = $this->shouldDisplayVariants($it, $variants);
+            // RULE:
+            // - q kosong: tetap ringan, jangan tampilkan varian
+            // - q terisi: jika ada varian aktif (meski 1) => tampilkan varian saja (parent disembunyikan)
+            $displayVariants = (!$qIsEmpty) && $activeVariants->isNotEmpty();
 
             // Tidak pakai varian → kirim 1 baris item
             if (!$displayVariants) {
@@ -464,8 +468,7 @@ class ItemController extends Controller
             }
 
             // Pakai varian → petakan varian aktif
-            foreach ($variants as $v) {
-                if (!$v->is_active) continue;
+            foreach ($activeVariants as $v) {
 
                 $attrs = is_array($v->attributes) ? $v->attributes : [];
                 $label = $it->renderVariantLabel($attrs);
