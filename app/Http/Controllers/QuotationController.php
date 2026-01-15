@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Quotation, QuotationLine, Customer, Item, Company, User};
+use App\Models\{Quotation, QuotationLine, Customer, Item, ItemVariant, Company, User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
@@ -114,6 +114,34 @@ class QuotationController extends Controller
                 $ln['discount_value'] = 0;
             }
             unset($ln);
+        }
+
+        if (!empty($v['lines'])) {
+            $variantIds = collect($v['lines'])
+                ->pluck('item_variant_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($variantIds->isNotEmpty()) {
+                $variants = ItemVariant::query()
+                    ->whereIn('id', $variantIds)
+                    ->get(['id','item_id','price'])
+                    ->keyBy('id');
+
+                foreach ($v['lines'] as $i => $ln) {
+                    $variantId = $ln['item_variant_id'] ?? null;
+                    if (!$variantId) {
+                        continue;
+                    }
+                    $variant = $variants->get((int) $variantId);
+                    if (!$variant) {
+                        continue;
+                    }
+                    $v['lines'][$i]['item_id'] = $variant->item_id;
+                    $v['lines'][$i]['unit_price'] = (float) ($variant->price ?? 0);
+                }
+            }
         }
 
         $company = Company::findOrFail($v['company_id']);
@@ -410,6 +438,34 @@ class QuotationController extends Controller
                 $ln['discount_value'] = 0;
             }
             unset($ln);
+        }
+
+        if (!empty($v['lines'])) {
+            $variantIds = collect($v['lines'])
+                ->pluck('item_variant_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($variantIds->isNotEmpty()) {
+                $variants = ItemVariant::query()
+                    ->whereIn('id', $variantIds)
+                    ->get(['id','item_id','price'])
+                    ->keyBy('id');
+
+                foreach ($v['lines'] as $i => $ln) {
+                    $variantId = $ln['item_variant_id'] ?? null;
+                    if (!$variantId) {
+                        continue;
+                    }
+                    $variant = $variants->get((int) $variantId);
+                    if (!$variant) {
+                        continue;
+                    }
+                    $v['lines'][$i]['item_id'] = $variant->item_id;
+                    $v['lines'][$i]['unit_price'] = (float) ($variant->price ?? 0);
+                }
+            }
         }
 
         $companyNew = Company::findOrFail($v['company_id']);
