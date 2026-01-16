@@ -547,15 +547,14 @@
   const initItemPicker = (input, sourceType) => {
     if (!input || !window.TomSelect) return;
     const nextType = sourceType || 'item';
-    const currentType = input.dataset.sourceType || '';
-    if (input._ts && currentType === nextType) return;
+    input.dataset.sourceType = nextType;
 
     if (input._ts) {
-      input._ts.destroy();
-      input._ts = null;
+      input._ts.clearOptions();
+      input._ts.clear(true);
+      return;
     }
 
-    input.dataset.sourceType = nextType;
     const ts = new TomSelect(input, {
       valueField: 'uid',
       labelField: 'name',
