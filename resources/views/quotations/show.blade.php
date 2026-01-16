@@ -25,6 +25,7 @@
       <div>
         <div class="card-title">Quotation {{ $quotation->number }}</div>
         <div class="text-muted">Tanggal: {{ $quotation->date?->format('d M Y') }}</div>
+        <div class="text-muted">Quotation by {{ $quotation->salesUser?->name ?? '-' }}</div>
       </div>
 
       <div class="ms-auto btn-list">

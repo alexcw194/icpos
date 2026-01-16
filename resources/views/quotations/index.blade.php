@@ -89,6 +89,7 @@
                 <th>Quotation #</th>
                 <th>Date</th>
                 <th>Customer</th>
+                <th class="d-none d-md-table-cell">Sales Owner</th>
                 <th class="text-end">Total</th>
                 <th>Status</th>
               </tr>
@@ -128,6 +129,7 @@
                       {{-- Row 2: Entity --}}
                       <div class="qtn-m-row2">
                         {{ $row->customer->name ?? '-' }}
+                        <div class="text-muted small">Sales by {{ $row->salesUser?->name ?? '-' }}</div>
                       </div>
 
                       {{-- Row 3: Date + Total (dense, no wasted space) --}}
@@ -161,11 +163,12 @@
                   {{-- Desktop-only columns --}}
                   <td class="d-none d-md-table-cell">{{ optional($row->date)->format('d-m-Y') }}</td>
                   <td class="d-none d-md-table-cell text-wrap">{{ $row->customer->name ?? '-' }}</td>
+                  <td class="d-none d-md-table-cell">{{ $row->salesUser?->name ?? '-' }}</td>
                   <td class="d-none d-md-table-cell text-end">{{ $row->total_idr ?? '-' }}</td>
                   <td class="d-none d-md-table-cell"><span class="badge {{ $row->status_badge_class }}">{{ $row->status_label }}</span></td>
                 </tr>
               @empty
-                <tr><td colspan="5" class="text-center text-muted">No data.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted">No data.</td></tr>
               @endforelse
             </tbody>
           </table>

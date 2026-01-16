@@ -31,7 +31,7 @@ class QuotationController extends Controller
 
         $query = Quotation::query()
             ->visibleTo(auth()->user())
-            ->with(['customer','company'])
+            ->with(['customer','company','salesUser'])
             ->latest('date')->latest('id');
 
         if ($cid) {

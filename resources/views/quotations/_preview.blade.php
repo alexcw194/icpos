@@ -12,6 +12,7 @@
             {{ $quotation->status_label ?? strtoupper($quotation->status) }}
           </span>
         </div>
+        <div class="text-muted small">Quotation by {{ $quotation->salesUser?->name ?? '-' }}</div>
       </div>
 
       @php
