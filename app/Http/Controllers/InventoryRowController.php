@@ -11,7 +11,8 @@ class InventoryRowController extends Controller
     public function search(Request $request, InventoryRowBuilder $builder)
     {
         $q = trim((string) $request->input('q', ''));
-        if ($q === '') {
+        $allowEmpty = $request->boolean('allow_empty', false);
+        if ($q === '' && !$allowEmpty) {
             return response()->json([]);
         }
 
@@ -36,15 +37,17 @@ class InventoryRowController extends Controller
                 'variants:id,item_id,sku,price,attributes,is_active,stock,min_stock,created_at',
             ])
             ->when($itemType !== '', fn($q) => $q->where('item_type', $itemType))
-            ->where(function ($w) use ($like) {
-                $w->where('name', 'like', $like)
-                  ->orWhere('sku',  'like', $like)
-                  ->orWhereHas('variants', function ($v) use ($like) {
-                      $v->where('sku', 'like', $like)
-                        ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color')) LIKE ?", [$like])
-                        ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size')) LIKE ?",  [$like])
-                        ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length')) LIKE ?",[$like]);
-                  });
+            ->when($q !== '', function ($query) use ($like) {
+                $query->where(function ($w) use ($like) {
+                    $w->where('name', 'like', $like)
+                      ->orWhere('sku',  'like', $like)
+                      ->orWhereHas('variants', function ($v) use ($like) {
+                          $v->where('sku', 'like', $like)
+                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color')) LIKE ?", [$like])
+                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size')) LIKE ?",  [$like])
+                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length')) LIKE ?",[$like]);
+                      });
+                });
             })
             ->orderBy('name')
             ->limit($limit)

@@ -538,6 +538,7 @@
     params.set('q', query || '');
     params.set('entity', 'all');
     params.set('limit', '200');
+    params.set('allow_empty', '1');
     if (sourceType === 'project') {
       params.set('item_type', 'project');
     }
