@@ -311,7 +311,7 @@
   const sectionsEl = document.getElementById('bq-sections');
   if (!sectionsEl) return;
 
-  const ITEM_SEARCH_URL = @json(route('items.search', [], false));
+  const ITEM_SEARCH_URL = @json(route('inventory.rows.search', [], false));
 
   const termTable = document.getElementById('terms-table');
   const btnAddTerm = document.getElementById('btn-add-term');
@@ -533,8 +533,29 @@
     taxEnabled.addEventListener('change', recalcTotals);
   }
 
-  const initItemPicker = (input) => {
-    if (!input || input._ts || !window.TomSelect) return;
+  const buildSearchUrl = (sourceType, query) => {
+    const params = new URLSearchParams();
+    params.set('q', query || '');
+    params.set('entity', 'all');
+    params.set('limit', '200');
+    if (sourceType === 'project') {
+      params.set('item_type', 'project');
+    }
+    return `${ITEM_SEARCH_URL}?${params.toString()}`;
+  };
+
+  const initItemPicker = (input, sourceType) => {
+    if (!input || !window.TomSelect) return;
+    const nextType = sourceType || 'item';
+    const currentType = input.dataset.sourceType || '';
+    if (input._ts && currentType === nextType) return;
+
+    if (input._ts) {
+      input._ts.destroy();
+      input._ts = null;
+    }
+
+    input.dataset.sourceType = nextType;
     const ts = new TomSelect(input, {
       valueField: 'uid',
       labelField: 'name',
@@ -545,7 +566,7 @@
       dropdownParent: 'body',
       preload: 'focus',
       load(query, cb){
-        const url = `${ITEM_SEARCH_URL}?q=${encodeURIComponent(query || '')}`;
+        const url = buildSearchUrl(input.dataset.sourceType || 'item', query);
         fetch(url, {
           credentials: 'same-origin',
           headers: {
@@ -598,12 +619,13 @@
     const searchInput = row.querySelector('.bq-item-search');
     if (!sourceSel || !searchInput) return;
 
-    const isItem = sourceSel.value === 'item';
-    searchInput.disabled = !isItem;
-    searchInput.placeholder = isItem ? 'Cari item...' : 'Akan diisi dari Project Items';
-    if (isItem) {
-      initItemPicker(searchInput);
+    const sourceType = sourceSel.value === 'project' ? 'project' : 'item';
+    if (searchInput.dataset.sourceType && searchInput.dataset.sourceType !== sourceType) {
+      searchInput.value = '';
     }
+    searchInput.disabled = false;
+    searchInput.placeholder = sourceType === 'item' ? 'Cari item...' : 'Cari project item...';
+    initItemPicker(searchInput, sourceType);
   };
 
   const initItemPickers = (scope) => {

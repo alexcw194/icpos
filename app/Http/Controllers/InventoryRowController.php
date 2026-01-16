@@ -21,6 +21,9 @@ class InventoryRowController extends Controller
 
         $entity = (string) $request->input('entity', 'variant');
         $entity = in_array($entity, ['variant','item','all'], true) ? $entity : 'variant';
+        $itemType = (string) $request->input('item_type', '');
+        $allowedTypes = ['standard','kit','cut_raw','cut_piece','project'];
+        $itemType = in_array($itemType, $allowedTypes, true) ? $itemType : '';
 
         $like = '%' . $q . '%';
 
@@ -32,6 +35,7 @@ class InventoryRowController extends Controller
                 'color:id,name',
                 'variants:id,item_id,sku,price,attributes,is_active,stock,min_stock,created_at',
             ])
+            ->when($itemType !== '', fn($q) => $q->where('item_type', $itemType))
             ->where(function ($w) use ($like) {
                 $w->where('name', 'like', $like)
                   ->orWhere('sku',  'like', $like)
