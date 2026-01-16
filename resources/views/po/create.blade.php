@@ -4,8 +4,13 @@
 <div class="container-xl">
   <form method="POST" action="{{ route('po.store') }}">
     @csrf
+    <input type="hidden" name="purchase_type" value="{{ $type ?? 'item' }}">
     <div class="card">
-      <div class="card-header"><h3 class="card-title">Create Purchase Order</h3></div>
+      <div class="card-header">
+        <h3 class="card-title">
+          Create Purchase {{ ($type ?? 'item') === 'project' ? 'Projects' : 'Items' }}
+        </h3>
+      </div>
       <div class="card-body">
         <div class="row g-3">
           <div class="col-md-3">

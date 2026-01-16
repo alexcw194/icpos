@@ -1,15 +1,21 @@
 {{-- resources/views/items/_modal_create.blade.php --}}
+@php
+  $isProjectItems = request()->routeIs('project-items.*');
+  $modalTitle = $isProjectItems ? 'Tambah Project Item' : 'Tambah Item';
+  $formAction = $isProjectItems ? route('project-items.store') : route('items.store');
+@endphp
+
 <div class="modal-dialog modal-lg modal-dialog-scrollable">
   <div class="modal-content">
     <div class="modal-header">
-      <h5 class="modal-title">Add Item</h5>
+      <h5 class="modal-title">{{ $modalTitle }}</h5>
       <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
     </div>
 
     <form
       id="itemModalForm"
       method="POST"
-      action="{{ route('items.store') }}"
+      action="{{ $formAction }}"
     >
       @csrf
 
@@ -19,7 +25,7 @@
       <input type="hidden" name="r" value="{{ request('r') }}">
 
       <div class="modal-body">
-        @include('items._form', ['item' => $item])
+        @include('items._form', ['item' => $item, 'forceItemType' => $forceItemType ?? null])
       </div>
 
       <div class="modal-footer">

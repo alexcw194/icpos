@@ -4,9 +4,20 @@
 <div class="container-xl">
   @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
 
+  @php
+    $isProjectItems = request()->routeIs('project-items.*');
+    $pageTitle = $isProjectItems ? 'Project Items' : 'Inventory';
+    $createUrl = $isProjectItems
+      ? route('project-items.create', ['modal' => 1, 'r' => request()->fullUrl()])
+      : route('items.create', ['modal' => 1, 'r' => request()->fullUrl()]);
+    $indexUrl = $isProjectItems
+      ? route('project-items.index', ['view' => $viewMode])
+      : route('items.index', ['view' => $viewMode]);
+  @endphp
+
   <div class="card">
     <div class="card-header d-flex align-items-center flex-nowrap inventory-header">
-      <h3 class="card-title mb-0 me-3 flex-shrink-0">Inventory</h3>
+      <h3 class="card-title mb-0 me-3 flex-shrink-0">{{ $pageTitle }}</h3>
       <div class="ms-auto d-flex align-items-center gap-2 flex-nowrap">
         <div class="btn-group flex-nowrap" role="group" id="inventory-view-toggle">
           <button type="button" class="btn btn-outline-primary {{ $viewMode === 'flat' ? 'active' : '' }}" data-view="flat">List</button>
@@ -16,11 +27,11 @@
         {{-- items/index.blade.php --}}
         @hasanyrole('SuperAdmin|Admin')
           <a
-            href="{{ route('items.create', ['modal' => 1, 'r' => request()->fullUrl()]) }}"
+            href="{{ $createUrl }}"
             class="btn btn-primary"
             data-modal="#adminModal"
           >
-            + Tambah Item
+            {{ $isProjectItems ? '+ Tambah Project Item' : '+ Tambah Item' }}
           </a>
         @endhasanyrole
       </div>
@@ -105,7 +116,7 @@
             Filter
           </button>
 
-          <a href="{{ route('items.index', ['view' => $viewMode]) }}" class="btn btn-link px-0">Reset</a>
+          <a href="{{ $indexUrl }}" class="btn btn-link px-0">Reset</a>
         </div>
 
         {{-- Tier 2 (desktop inline) --}}
@@ -170,7 +181,7 @@
         {{-- Desktop buttons --}}
         <div class="col-12 col-md-auto d-none d-md-flex align-items-end gap-2">
           <button class="btn btn-primary">Terapkan</button>
-          <a href="{{ route('items.index', ['view' => $viewMode]) }}" class="btn btn-light">Reset</a>
+          <a href="{{ $indexUrl }}" class="btn btn-light">Reset</a>
         </div>
 
         {{-- Offcanvas: Advanced Filters (mobile) --}}
@@ -243,7 +254,7 @@
 
           <div class="border-top p-3 d-flex gap-2">
             <button class="btn btn-primary w-100">Terapkan</button>
-            <a class="btn btn-light w-100" href="{{ route('items.index', ['view' => $viewMode]) }}">Reset</a>
+            <a class="btn btn-light w-100" href="{{ $indexUrl }}">Reset</a>
           </div>
         </div>
       </form>

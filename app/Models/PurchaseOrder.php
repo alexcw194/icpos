@@ -8,6 +8,7 @@ class PurchaseOrder extends Model
 {
     protected $fillable = [
         'company_id','supplier_id','warehouse_id','number','order_date','status',
+        'purchase_type',
         'subtotal','discount_amount','tax_percent','tax_amount','total','notes',
         'approved_at','approved_by'
     ];

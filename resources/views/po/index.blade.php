@@ -4,8 +4,10 @@
 <div class="container-xl">
   <div class="card">
     <div class="card-header d-flex">
-      <h3 class="card-title">Purchase Orders</h3>
-      <a href="{{ route('po.create') }}" class="btn btn-primary ms-auto">+ New PO</a>
+      <h3 class="card-title">
+        Purchase {{ ($type ?? 'item') === 'project' ? 'Projects' : 'Items' }}
+      </h3>
+      <a href="{{ route('po.create', ['type' => $type ?? 'item']) }}" class="btn btn-primary ms-auto">+ New PO</a>
     </div>
 
     <div class="table-responsive">

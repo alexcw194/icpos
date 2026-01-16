@@ -95,6 +95,12 @@ Route::get('items/{item}', [ItemController::class, 'show'])
     ->whereNumber('item')
     ->name('items.show');
 
+// Project Items (READ-ONLY untuk semua user login)
+Route::get('project-items', [ItemController::class, 'index'])->name('project-items.index');
+Route::get('project-items/{item}', [ItemController::class, 'show'])
+    ->whereNumber('item')
+    ->name('project-items.show');
+
     // Quick search items (tetap auth)
     Route::get('/api/items/search', [ItemController::class, 'quickSearch'])->name('items.search'); // <- tanpa ->middleware(['auth'])
     Route::get('/api/inventory/rows/search', [InventoryRowController::class, 'search'])
@@ -247,6 +253,7 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     // Items (WRITE untuk Admin/SuperAdmin)
     // =======================
     Route::resource('items', ItemController::class)->except(['index','show']);
+    Route::resource('project-items', ItemController::class)->except(['index','show']);
 
     Route::resource('items.variants', ItemVariantController::class)
         ->parameters(['variants' => 'variant'])

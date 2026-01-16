@@ -39,8 +39,9 @@ class ProjectQuotationController extends Controller
         $this->authorize('create', ProjectQuotation::class);
 
         $project->load(['customer', 'company', 'salesOwner']);
-        $companies = Company::orderBy('name')->get(['id', 'alias', 'name']);
+        $companies = Company::orderBy('name')->get(['id', 'alias', 'name', 'is_taxable', 'default_tax_percent']);
         $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
+        $contacts = $project->customer?->contacts()->orderBy('first_name')->get() ?? collect();
 
         $quotation = new ProjectQuotation([
             'quotation_date' => now()->toDateString(),
@@ -84,7 +85,8 @@ class ProjectQuotationController extends Controller
             'companies',
             'salesUsers',
             'paymentTerms',
-            'sections'
+            'sections',
+            'contacts'
         ));
     }
 
@@ -204,8 +206,9 @@ class ProjectQuotationController extends Controller
         }
 
         $quotation->load(['sections.lines', 'paymentTerms']);
-        $companies = Company::orderBy('name')->get(['id', 'alias', 'name']);
+        $companies = Company::orderBy('name')->get(['id', 'alias', 'name', 'is_taxable', 'default_tax_percent']);
         $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
+        $contacts = $project->customer?->contacts()->orderBy('first_name')->get() ?? collect();
 
         $paymentTerms = $quotation->paymentTerms;
         $sections = $quotation->sections;
@@ -244,7 +247,8 @@ class ProjectQuotationController extends Controller
             'companies',
             'salesUsers',
             'paymentTerms',
-            'sections'
+            'sections',
+            'contacts'
         ));
     }
 

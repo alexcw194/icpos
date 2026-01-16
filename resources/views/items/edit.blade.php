@@ -3,22 +3,30 @@
 
 @section('content')
 <div class="container-xl">
-  <form action="{{ route('items.update', $item) }}" method="POST" class="card" id="itemEditForm">
+  @php
+    $isProjectItems = request()->routeIs('project-items.*');
+    $formAction = $isProjectItems ? route('project-items.update', $item) : route('items.update', $item);
+    $cancelUrl = request('r', $isProjectItems ? route('project-items.index') : route('items.index'));
+    $pageTitle = $isProjectItems ? 'Edit Project Item' : 'Edit Item';
+    $forceItemType = $forceItemType ?? ($isProjectItems ? 'project' : null);
+  @endphp
+
+  <form action="{{ $formAction }}" method="POST" class="card" id="itemEditForm">
     @csrf
     @method('PUT')
 
     <div class="card-header">
-      <div class="card-title">Edit Item: {{ $item->name }}</div>
+      <div class="card-title">{{ $pageTitle }}: {{ $item->name }}</div>
       <div class="ms-auto btn-list">
         <a href="{{ route('items.variants.index', $item) }}" class="btn btn-primary">Kelola Varian</a>
       </div>
     </div>
 
-    @include('items._form', ['item' => $item])
+    @include('items._form', ['item' => $item, 'forceItemType' => $forceItemType])
 
     {{-- Footer global --}}
     @include('layouts.partials.form_footer', [
-      'cancelUrl'    => request('r', route('items.index')),
+      'cancelUrl'    => $cancelUrl,
       'cancelLabel'  => 'Batal',
       'cancelInline' => true,
       'buttons' => [
@@ -39,7 +47,7 @@
           Aksi ini bersifat permanen dan berdampak ke data terkait. Pastikan item sudah benar untuk dihapus.
         </div>
 
-        <form action="{{ route('items.destroy', $item) }}" method="POST"
+        <form action="{{ $isProjectItems ? route('project-items.destroy', $item) : route('items.destroy', $item) }}" method="POST"
               onsubmit="return confirm('Hapus item ini? Tindakan ini tidak bisa dibatalkan.');">
           @csrf
           @method('DELETE')

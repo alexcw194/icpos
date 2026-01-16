@@ -5,15 +5,34 @@ namespace App\Http\Controllers;
 use App\Models\{PurchaseOrder, PurchaseOrderLine, GoodsReceipt, GoodsReceiptLine, Item, ItemVariant};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Company;
+use App\Models\Warehouse;
 
 class PurchaseOrderController extends Controller
 {
-    public function index() {
-        $pos = PurchaseOrder::withCount('lines')->latest()->paginate(20);
-        return view('po.index', compact('pos'));
+    public function index(Request $request) {
+        $type = $request->input('type', 'item');
+        $type = in_array($type, ['item','project'], true) ? $type : 'item';
+
+        $pos = PurchaseOrder::withCount('lines')
+            ->where('purchase_type', $type)
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('po.index', compact('pos', 'type'));
     }
 
-    public function create() { return view('po.create'); }
+    public function create(Request $request) {
+        $type = $request->input('type', 'item');
+        $type = in_array($type, ['item','project'], true) ? $type : 'item';
+
+        $companies = Company::orderBy('name')->get(['id','name','alias']);
+        $warehouses = Warehouse::orderBy('name')->get(['id','name']);
+        $items = Item::orderBy('name')->get(['id','sku','name']);
+
+        return view('po.create', compact('companies', 'warehouses', 'items', 'type'));
+    }
 
     public function store(Request $r) {
         // Minimal: validasi ringkas (sesuaikan)
@@ -25,6 +44,7 @@ class PurchaseOrderController extends Controller
                 'number'      => $r->number,
                 'order_date'  => $r->order_date,
                 'status'      => 'draft',
+                'purchase_type' => $r->purchase_type ?? 'item',
                 'notes'       => $r->notes,
             ]);
             foreach ($r->lines ?? [] as $ln) {

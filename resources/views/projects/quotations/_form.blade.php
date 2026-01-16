@@ -11,6 +11,8 @@
           'unit_price' => data_get($line, 'unit_price', 0),
           'material_total' => data_get($line, 'material_total', 0),
           'labor_total' => data_get($line, 'labor_total', 0),
+          'source_type' => data_get($line, 'source_type', 'item'),
+          'item_label' => data_get($line, 'item_label', ''),
         ];
       })->toArray();
       return [
@@ -37,6 +39,7 @@
   $companyId = old('company_id', $quotation->company_id ?? $project->company_id ?? ($companies->first()->id ?? null));
   $customerId = old('customer_id', $quotation->customer_id ?? $project->customer_id ?? null);
   $salesOwnerId = old('sales_owner_user_id', $quotation->sales_owner_user_id ?? $project->sales_owner_user_id ?? auth()->id());
+  $contacts = $contacts ?? collect();
 @endphp
 
 <div class="card mb-3">
@@ -49,7 +52,10 @@
         <label class="form-label">Company</label>
         <select name="company_id" class="form-select" required>
           @foreach($companies as $co)
-            <option value="{{ $co->id }}" @selected((string)$companyId === (string)$co->id)>
+            <option value="{{ $co->id }}"
+                    data-taxable="{{ (int) $co->is_taxable }}"
+                    data-tax="{{ (float) ($co->default_tax_percent ?? 0) }}"
+                    @selected((string)$companyId === (string)$co->id)>
               {{ $co->alias ?: $co->name }}
             </option>
           @endforeach
@@ -86,7 +92,17 @@
       </div>
       <div class="col-md-4">
         <label class="form-label">Attn</label>
-        <input type="text" name="attn_name" class="form-control" value="{{ old('attn_name', $quotation->attn_name ?? '') }}">
+        <input type="text"
+               name="attn_name"
+               class="form-control"
+               list="bqAttnContacts"
+               value="{{ old('attn_name', $quotation->attn_name ?? '') }}">
+        <datalist id="bqAttnContacts">
+          @foreach($contacts as $contact)
+            @php $label = $contact->full_name ?: $contact->name; @endphp
+            <option value="{{ $label }}"></option>
+          @endforeach
+        </datalist>
       </div>
       <div class="col-md-12">
         <label class="form-label">Project Title</label>
@@ -201,7 +217,24 @@
               @foreach($section['lines'] ?? [] as $lIndex => $line)
                 <tr class="bq-line" data-line-index="{{ $lIndex }}">
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][line_no]" class="form-control" value="{{ $line['line_no'] ?? '' }}"></td>
-                  <td><textarea name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][description]" class="form-control" rows="2" required>{{ $line['description'] ?? '' }}</textarea></td>
+                  <td>
+                    <div class="row g-2 align-items-center mb-1">
+                      <div class="col-4">
+                        <select name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][source_type]" class="form-select form-select-sm bq-line-source">
+                          <option value="item" @selected(($line['source_type'] ?? 'item') === 'item')>Item</option>
+                          <option value="project" @selected(($line['source_type'] ?? 'item') === 'project')>Project</option>
+                        </select>
+                      </div>
+                      <div class="col-8">
+                        <input type="text"
+                               name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_label]"
+                               class="form-control form-control-sm bq-item-search"
+                               placeholder="Cari item..."
+                               value="{{ $line['item_label'] ?? '' }}">
+                      </div>
+                    </div>
+                    <textarea name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][description]" class="form-control bq-line-desc" rows="2" required>{{ $line['description'] ?? '' }}</textarea>
+                  </td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][qty]" class="form-control text-end" value="{{ $line['qty'] ?? 0 }}" required></td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit]" class="form-control" value="{{ $line['unit'] ?? 'LS' }}" required></td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit_price]" class="form-control text-end" value="{{ $line['unit_price'] ?? 0 }}"></td>
@@ -278,6 +311,8 @@
   const sectionsEl = document.getElementById('bq-sections');
   if (!sectionsEl) return;
 
+  const ITEM_SEARCH_URL = @json(route('items.search', [], false));
+
   const termTable = document.getElementById('terms-table');
   const btnAddTerm = document.getElementById('btn-add-term');
   const btnAddSection = document.getElementById('btn-add-section');
@@ -326,6 +361,23 @@
     setText('bq-grand-total', grand);
   };
 
+  const syncCompanyTax = () => {
+    const companySel = document.querySelector('select[name="company_id"]');
+    const taxEnabled = document.getElementById('tax_enabled');
+    const taxPercent = document.getElementById('tax_percent');
+    if (!companySel || !taxEnabled || !taxPercent) return;
+
+    const opt = companySel.selectedOptions[0];
+    if (!opt) return;
+
+    const taxable = opt.getAttribute('data-taxable') === '1';
+    const defTax = opt.getAttribute('data-tax') || '0';
+
+    taxEnabled.checked = taxable;
+    taxPercent.value = taxable ? defTax : '0';
+    taxPercent.readOnly = !taxable;
+  };
+
   const nextSectionIndex = () => {
     const indices = [...sectionsEl.querySelectorAll('.bq-section')].map((el) => parseInt(el.dataset.sectionIndex || '0', 10));
     return indices.length ? Math.max(...indices) + 1 : 0;
@@ -340,7 +392,23 @@
     return `
       <tr class="bq-line" data-line-index="${lIndex}">
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][line_no]" class="form-control"></td>
-        <td><textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control" rows="2" required></textarea></td>
+        <td>
+          <div class="row g-2 align-items-center mb-1">
+            <div class="col-4">
+              <select name="sections[${sIndex}][lines][${lIndex}][source_type]" class="form-select form-select-sm bq-line-source">
+                <option value="item">Item</option>
+                <option value="project">Project</option>
+              </select>
+            </div>
+            <div class="col-8">
+              <input type="text"
+                     name="sections[${sIndex}][lines][${lIndex}][item_label]"
+                     class="form-control form-control-sm bq-item-search"
+                     placeholder="Cari item...">
+            </div>
+          </div>
+          <textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control bq-line-desc" rows="2" required></textarea>
+        </td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][qty]" class="form-control text-end" value="1" required></td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit]" class="form-control" value="LS" required></td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit_price]" class="form-control text-end" value="0"></td>
@@ -406,6 +474,7 @@
     btnAddSection.addEventListener('click', () => {
       const idx = nextSectionIndex();
       sectionsEl.insertAdjacentHTML('beforeend', makeSection(idx));
+      initItemPickers(sectionsEl.lastElementChild);
       recalcTotals();
     });
   }
@@ -425,6 +494,7 @@
       const body = section.querySelector('tbody');
       const lIndex = nextLineIndex(section);
       body.insertAdjacentHTML('beforeend', makeLine(sIndex, lIndex));
+      initItemPickers(body.lastElementChild);
       recalcTotals();
     }
 
@@ -463,6 +533,98 @@
     taxEnabled.addEventListener('change', recalcTotals);
   }
 
+  const initItemPicker = (input) => {
+    if (!input || input._ts || !window.TomSelect) return;
+    const ts = new TomSelect(input, {
+      valueField: 'uid',
+      labelField: 'name',
+      searchField: ['name','sku','label'],
+      maxOptions: 200,
+      create: false,
+      persist: false,
+      dropdownParent: 'body',
+      preload: 'focus',
+      load(query, cb){
+        const url = `${ITEM_SEARCH_URL}?q=${encodeURIComponent(query || '')}`;
+        fetch(url, {
+          credentials: 'same-origin',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+          },
+          cache: 'no-store',
+        })
+          .then(r => r.ok ? r.text() : '[]')
+          .then(t => {
+            const s = t.replace(/^\uFEFF/, '').trimStart();
+            let data = [];
+            try { data = JSON.parse(s); } catch (e) { cb([]); return; }
+            cb(Array.isArray(data) ? data : []);
+          })
+          .catch(() => cb([]));
+      },
+      render: {
+        option(d, esc) { return `<div>${esc(d.name || '')}</div>`; }
+      },
+      onChange(val){
+        const data = this.options[val];
+        if (!data) return;
+        const row = input.closest('.bq-line');
+        if (!row) return;
+
+        const descEl = row.querySelector('.bq-line-desc');
+        const qtyEl = row.querySelector('input[name$="[qty]"]');
+        const unitEl = row.querySelector('input[name$="[unit]"]');
+        const unitPriceEl = row.querySelector('input[name$="[unit_price]"]');
+        const materialEl = row.querySelector('.js-line-material');
+        const laborEl = row.querySelector('.js-line-labor');
+
+        if (descEl && !descEl.value) descEl.value = data.name || '';
+        if (unitEl) unitEl.value = (data.unit_code || 'LS').toString().toLowerCase();
+        if (unitPriceEl) unitPriceEl.value = data.price != null ? data.price : 0;
+        if (laborEl && !laborEl.value) laborEl.value = 0;
+
+        const qty = parseNumber(qtyEl?.value);
+        const price = parseNumber(data.price);
+        if (materialEl) materialEl.value = formatNumber(qty * price);
+        recalcTotals();
+      }
+    });
+    input._ts = ts;
+  };
+
+  const syncSourceRow = (row) => {
+    const sourceSel = row.querySelector('.bq-line-source');
+    const searchInput = row.querySelector('.bq-item-search');
+    if (!sourceSel || !searchInput) return;
+
+    const isItem = sourceSel.value === 'item';
+    searchInput.disabled = !isItem;
+    searchInput.placeholder = isItem ? 'Cari item...' : 'Akan diisi dari Project Items';
+    if (isItem) {
+      initItemPicker(searchInput);
+    }
+  };
+
+  const initItemPickers = (scope) => {
+    const root = scope || sectionsEl;
+    root.querySelectorAll('.bq-line').forEach((row) => syncSourceRow(row));
+  };
+
+  sectionsEl.addEventListener('change', (e) => {
+    if (e.target.classList.contains('bq-line-source')) {
+      const row = e.target.closest('.bq-line');
+      if (row) syncSourceRow(row);
+    }
+  });
+
+  syncCompanyTax();
+  document.querySelector('select[name="company_id"]')?.addEventListener('change', () => {
+    syncCompanyTax();
+    recalcTotals();
+  });
+
+  initItemPickers();
   recalcTotals();
 })();
 </script>

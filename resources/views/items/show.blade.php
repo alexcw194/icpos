@@ -3,14 +3,20 @@
 
 @section('content')
 <div class="container-xl">
+  @php
+    $isProjectItems = request()->routeIs('project-items.*');
+    $editUrl = $isProjectItems ? route('project-items.edit', $item) : route('items.edit', $item);
+    $backUrl = $isProjectItems ? route('project-items.index') : route('items.index');
+  @endphp
+
   <div class="card">
     {{-- ===================== Header (enterprise action hierarchy) ===================== --}}
     <div class="card-header d-flex align-items-center">
-      <div class="card-title mb-0">Detail Item</div>
+      <div class="card-title mb-0">{{ $isProjectItems ? 'Detail Project Item' : 'Detail Item' }}</div>
 
       <div class="ms-auto d-flex align-items-center gap-2">
         {{-- Primary CTA --}}
-        <a href="{{ route('items.edit', $item) }}" class="btn btn-warning btn-sm">Ubah</a>
+        <a href="{{ $editUrl }}" class="btn btn-warning btn-sm">Ubah</a>
 
         {{-- Overflow actions --}}
         <div class="dropdown">
@@ -36,7 +42,7 @@
 
             <div class="dropdown-divider"></div>
 
-            <a href="{{ route('items.index') }}" class="dropdown-item">
+            <a href="{{ $backUrl }}" class="dropdown-item">
               Kembali
             </a>
           </div>
@@ -51,6 +57,7 @@
           'kit'        => 'Kit/Bundel',
           'cut_raw'    => 'Raw Roll (dipotong)',
           'cut_piece'  => 'Finished Piece (hasil potong)',
+          'project'    => 'Project',
         ];
         $typeLabel = $typeLabels[$item->item_type] ?? ucfirst($item->item_type ?? 'standard');
       @endphp

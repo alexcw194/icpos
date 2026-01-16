@@ -96,12 +96,64 @@
 
           {{-- Projects --}}
           @if($hasProjects)
-            <li class="nav-item">
-              <a class="nav-link {{ request()->is('projects*') ? 'active' : '' }}"
-                 href="{{ route('projects.index') }}">
+            <li class="nav-item nav-group">
+              <div class="nav-link {{ request()->is('projects*') || request()->is('project-items*') || request()->is('project-stocks*') || request()->is('project-deliveries*') || request()->is('project-invoices*') ? 'active' : '' }}">
                 <span class="nav-link-icon ti ti-briefcase"></span>
                 <span class="nav-link-title">Projects</span>
-              </a>
+              </div>
+
+              <ul class="nav nav-pills sub-nav flex-column ms-4">
+                <li>
+                  <a class="nav-link {{ request()->is('projects*') ? 'active' : '' }}"
+                     href="{{ route('projects.index') }}">
+                    Projects List
+                  </a>
+                </li>
+
+                <li>
+                  @if(Route::has('project-items.index'))
+                    <a class="nav-link {{ request()->is('project-items*') ? 'active' : '' }}"
+                       href="{{ route('project-items.index') }}">
+                      Project Items
+                    </a>
+                  @else
+                    <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Project Items</a>
+                  @endif
+                </li>
+
+                <li>
+                  @if(Route::has('project-stocks.index'))
+                    <a class="nav-link {{ request()->is('project-stocks*') ? 'active' : '' }}"
+                       href="{{ route('project-stocks.index') }}">
+                      Project Stocks
+                    </a>
+                  @else
+                    <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Project Stocks</a>
+                  @endif
+                </li>
+
+                <li>
+                  @if(Route::has('project-deliveries.index'))
+                    <a class="nav-link {{ request()->is('project-deliveries*') ? 'active' : '' }}"
+                       href="{{ route('project-deliveries.index') }}">
+                      Projects Delivery
+                    </a>
+                  @else
+                    <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Projects Delivery</a>
+                  @endif
+                </li>
+
+                <li>
+                  @if(Route::has('project-invoices.index'))
+                    <a class="nav-link {{ request()->is('project-invoices*') ? 'active' : '' }}"
+                       href="{{ route('project-invoices.index') }}">
+                      Projects Invoices
+                    </a>
+                  @else
+                    <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Projects Invoices</a>
+                  @endif
+                </li>
+              </ul>
             </li>
           @endif
 
@@ -154,12 +206,26 @@
           {{-- Purchase (Admin/SuperAdmin only) --}}
           @hasanyrole('Admin|SuperAdmin')
             @if(Route::has('po.index'))
-              <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}"
-                   href="{{ route('po.index') }}">
+              <li class="nav-item nav-group">
+                <div class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}">
                   <span class="nav-link-icon ti ti-shopping-cart"></span>
-                  <span class="nav-link-title">Purchase Orders</span>
-                </a>
+                  <span class="nav-link-title">Purchase</span>
+                </div>
+
+                <ul class="nav nav-pills sub-nav flex-column ms-4">
+                  <li>
+                    <a class="nav-link {{ request('type') !== 'project' ? 'active' : '' }}"
+                       href="{{ route('po.index', ['type' => 'item']) }}">
+                      Purchase Items
+                    </a>
+                  </li>
+                  <li>
+                    <a class="nav-link {{ request('type') === 'project' ? 'active' : '' }}"
+                       href="{{ route('po.index', ['type' => 'project']) }}">
+                      Purchase Projects
+                    </a>
+                  </li>
+                </ul>
               </li>
             @endif
           @endhasanyrole

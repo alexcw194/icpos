@@ -3,22 +3,30 @@
 
 @section('content')
 <div class="container-xl">
-  <form action="{{ route('items.store') }}" method="POST" class="card" id="itemCreateForm">
+  @php
+    $isProjectItems = request()->routeIs('project-items.*');
+    $formAction = $isProjectItems ? route('project-items.store') : route('items.store');
+    $cancelUrl = request('r', $isProjectItems ? route('project-items.index') : route('items.index'));
+    $pageTitle = $isProjectItems ? 'Tambah Project Item' : 'Tambah Item';
+    $forceItemType = $forceItemType ?? ($isProjectItems ? 'project' : null);
+  @endphp
+
+  <form action="{{ $formAction }}" method="POST" class="card" id="itemCreateForm">
     @csrf
 
     <div class="card-header">
-      <div class="card-title">Tambah Item</div>
+      <div class="card-title">{{ $pageTitle }}</div>
       <div class="ms-auto text-muted small">
         Kelola varian tersedia setelah item disimpan.
       </div>
     </div>
 
     {{-- Teruskan $defaultUnitId ke _form supaya select Unit default ke PCS --}}
-    @include('items._form', ['defaultUnitId' => $defaultUnitId ?? null])
+    @include('items._form', ['defaultUnitId' => $defaultUnitId ?? null, 'forceItemType' => $forceItemType])
 
     {{-- Footer global (Batal di kiri, aksi di kanan, inline group) --}}
     @include('layouts.partials.form_footer', [
-      'cancelUrl'    => request('r', route('items.index')),
+      'cancelUrl'    => $cancelUrl,
       'cancelLabel'  => 'Batal',
       'cancelInline' => true,
       'buttons' => [
