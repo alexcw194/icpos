@@ -74,6 +74,7 @@
           <thead>
             <tr>
               <th>Customer</th>
+              <th class="d-none d-md-table-cell">Sales Owner</th>
               <th class="d-none d-md-table-cell">City</th>
               <th class="d-none d-md-table-cell">Phone</th>
               <th class="d-none d-md-table-cell">Email</th>
@@ -101,6 +102,9 @@
                   @endif
                 </td>
 
+                <td class="d-none d-md-table-cell">
+                  {{ $c->salesOwner?->name ?? '-' }}
+                </td>
                 <td class="d-none d-md-table-cell">{{ $c->city ?? '-' }}</td>
                 <td class="d-none d-md-table-cell">{{ $c->phone ?? '-' }}</td>
                 <td class="d-none d-md-table-cell">
@@ -123,7 +127,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="5" class="text-center text-muted">Belum ada data.</td>
+                <td colspan="6" class="text-center text-muted">Belum ada data.</td>
               </tr>
             @endforelse
           </tbody>

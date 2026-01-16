@@ -11,7 +11,12 @@
 <div class="container-xl">
   {{-- Header judul + tombol --}}
   <div class="d-flex align-items-center mb-3">
-    <h2 class="page-title m-0">{{ $customer->name }}</h2>
+    <h2 class="page-title m-0">
+      {{ $customer->name }}
+      <span class="text-muted fw-normal">
+        (Sales by {{ $customer->salesOwner?->name ?? '-' }})
+      </span>
+    </h2>
     <a href="{{ route('customers.edit', $customer) }}" class="btn btn-warning ms-auto">Edit</a>
   </div>
 
