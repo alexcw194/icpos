@@ -457,12 +457,16 @@ class ItemController extends Controller
     public function quickSearch(Request $req)
     {
         $q = trim($req->get('q', ''));
+        $itemType = (string) $req->get('item_type', '');
+        $allowedTypes = ['standard','kit','cut_raw','cut_piece','project'];
+        $itemType = in_array($itemType, $allowedTypes, true) ? $itemType : '';
 
         $items = Item::query()
             ->with([
                 'unit:id,code',
                 'variants:id,item_id,sku,price,attributes,is_active',
             ])
+            ->when($itemType !== '', fn($qq) => $qq->where('item_type', $itemType))
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
                     $w->where('name', 'like', "%{$q}%")

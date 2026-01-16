@@ -311,7 +311,7 @@
   const sectionsEl = document.getElementById('bq-sections');
   if (!sectionsEl) return;
 
-  const ITEM_SEARCH_URL = @json(route('inventory.rows.search', [], false));
+  const ITEM_SEARCH_URL = @json(route('items.search', [], false));
 
   const termTable = document.getElementById('terms-table');
   const btnAddTerm = document.getElementById('btn-add-term');
@@ -536,9 +536,6 @@
   const buildSearchUrl = (sourceType, query) => {
     const params = new URLSearchParams();
     params.set('q', query || '');
-    params.set('entity', 'all');
-    params.set('limit', '200');
-    params.set('allow_empty', '1');
     if (sourceType === 'project') {
       params.set('item_type', 'project');
     }
@@ -548,13 +545,15 @@
   const initItemPicker = (input, sourceType) => {
     if (!input || !window.TomSelect) return;
     const nextType = sourceType || 'item';
-    input.dataset.sourceType = nextType;
+    const currentType = input.dataset.sourceType || '';
+    if (input._ts && currentType === nextType) return;
 
     if (input._ts) {
-      input._ts.clearOptions();
-      input._ts.clear(true);
-      return;
+      input._ts.destroy();
+      input._ts = null;
     }
+
+    input.dataset.sourceType = nextType;
 
     const ts = new TomSelect(input, {
       valueField: 'uid',
