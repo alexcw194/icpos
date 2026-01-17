@@ -202,8 +202,8 @@
               <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">Dashboard</a>
             </li>
 
-            {{-- ============ ADMIN MENU — hanya Super Admin ============ --}}
-            @hasanyrole('SuperAdmin|Super Admin')
+            {{-- ============ ADMIN MENU — Admin + Super Admin ============ --}}
+            @hasanyrole('SuperAdmin|Super Admin|Admin')
               @php
                 $isAdminArea = request()->routeIs('users.*')
                               || request()->routeIs('permissions.*')
@@ -213,6 +213,7 @@
                               || request()->routeIs('brands.*')
                               || request()->routeIs('contact-titles.*')
                               || request()->routeIs('contact-positions.*')
+                              || request()->routeIs('document-counters.*')
                               || request()->routeIs('po.*')
                               || request()->routeIs('gr.*')
                               || request()->routeIs('settings.*');
@@ -227,7 +228,7 @@
                 </a>
 
                 <ul class="dropdown-menu dropdown-menu-end" id="admin-menu">
-                  {{-- Hanya Super Admin --}}
+                  {{-- Admin/SuperAdmin --}}
                   <li><a class="dropdown-item {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">Manage Users</a></li>
                   <li><a class="dropdown-item {{ request()->routeIs('companies.*') ? 'active' : '' }}" href="{{ route('companies.index') }}">Companies</a></li>
                   <li><a class="dropdown-item {{ request()->routeIs('permissions.*') ? 'active' : '' }}" href="{{ route('permissions.index') }}">Roles &amp; Permissions</a></li>
@@ -265,13 +266,24 @@
 
                   <li><hr class="dropdown-divider"></li>
 
-                  {{-- Global Settings --}}
                   <li>
-                    <a class="dropdown-item {{ request()->routeIs('settings.*') ? 'active' : '' }}"
-                      href="{{ route('settings.edit') }}">
-                      Global Settings
+                    <a class="dropdown-item {{ request()->routeIs('document-counters.*') ? 'active' : '' }}"
+                      href="{{ route('document-counters.index') }}">
+                      Document Counters
                     </a>
                   </li>
+
+                  <li><hr class="dropdown-divider"></li>
+
+                  {{-- Global Settings (SuperAdmin only) --}}
+                  @role('SuperAdmin')
+                    <li>
+                      <a class="dropdown-item {{ request()->routeIs('settings.*') ? 'active' : '' }}"
+                        href="{{ route('settings.edit') }}">
+                        Global Settings
+                      </a>
+                    </li>
+                  @endrole
                 </ul>
               </li>
             @endhasanyrole

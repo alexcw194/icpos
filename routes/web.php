@@ -35,6 +35,7 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\Admin\ContactTitleController;
 use App\Http\Controllers\Admin\ContactPositionController;
+use App\Http\Controllers\Admin\DocumentCounterController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Controllers\Auth\PasswordController;
@@ -300,6 +301,12 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
 
     Route::resource('warehouses', WarehouseController::class)->except(['show']);
     Route::resource('banks', \App\Http\Controllers\BankController::class)->except(['show']);
+
+    // Document Counters (manual numbering)
+    Route::get('document-counters', [DocumentCounterController::class, 'index'])
+        ->name('document-counters.index');
+    Route::patch('document-counters/{documentCounter}', [DocumentCounterController::class, 'update'])
+        ->name('document-counters.update');
 
     // PO
     Route::get('/po',               [PurchaseOrderController::class, 'index'])->name('po.index');
