@@ -14,6 +14,8 @@ use App\Http\Controllers\{
     QuotationController,
     InvoiceController,
     DeliveryController,
+    LaborRateController,
+    ProjectLaborController,
     CompanyController,
     AiSuggestController,
     UnitController,
@@ -83,6 +85,8 @@ Route::middleware(['auth'])->group(function () {
     
     // Google Places proxy
     Route::get('/api/places/search', [AiSuggestController::class, 'company'])->name('places.search');
+    Route::get('/api/labor-rates', [LaborRateController::class, 'show'])->name('labor-rates.show');
+    Route::post('/api/labor-rates', [LaborRateController::class, 'update'])->name('labor-rates.update');
 
     // =======================
 // Items (READ-ONLY untuk semua user login)
@@ -108,6 +112,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
 
     // Projects & Project Quotations (BQ)
     Route::resource('projects', ProjectController::class);
+    Route::get('projects/labor', [ProjectLaborController::class, 'index'])->name('projects.labor.index');
+    Route::post('projects/labor/{item}', [ProjectLaborController::class, 'update'])->name('projects.labor.update');
     Route::resource('projects.quotations', ProjectQuotationController::class);
     Route::post('projects/{project}/quotations/{quotation}/issue', [ProjectQuotationController::class, 'issue'])
         ->name('projects.quotations.issue');

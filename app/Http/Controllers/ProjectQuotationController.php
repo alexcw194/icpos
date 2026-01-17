@@ -69,11 +69,17 @@ class ProjectQuotationController extends Controller
                     (object) [
                         'line_no' => '1',
                         'description' => '',
+                        'source_type' => 'item',
+                        'item_id' => null,
+                        'item_label' => null,
                         'qty' => 1,
                         'unit' => 'LS',
                         'unit_price' => 0,
                         'material_total' => 0,
                         'labor_total' => 0,
+                        'labor_source' => 'manual',
+                        'labor_unit_cost_snapshot' => 0,
+                        'labor_override_reason' => null,
                     ],
                 ]),
             ],
@@ -230,11 +236,17 @@ class ProjectQuotationController extends Controller
                         (object) [
                             'line_no' => '1',
                             'description' => '',
+                            'source_type' => 'item',
+                            'item_id' => null,
+                            'item_label' => null,
                             'qty' => 1,
                             'unit' => 'LS',
                             'unit_price' => 0,
                             'material_total' => 0,
                             'labor_total' => 0,
+                            'labor_source' => 'manual',
+                            'labor_unit_cost_snapshot' => 0,
+                            'labor_override_reason' => null,
                         ],
                     ]),
                 ],
@@ -413,7 +425,7 @@ class ProjectQuotationController extends Controller
 
     private function validateQuotation(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'company_id' => ['required', 'exists:companies,id'],
             'customer_id' => ['required', 'exists:customers,id'],
             'quotation_date' => ['required', 'date'],
@@ -443,12 +455,33 @@ class ProjectQuotationController extends Controller
             'sections.*.lines' => ['required', 'array', 'min:1'],
             'sections.*.lines.*.line_no' => ['nullable', 'string', 'max:32'],
             'sections.*.lines.*.description' => ['required', 'string'],
+            'sections.*.lines.*.source_type' => ['nullable', 'in:item,project'],
+            'sections.*.lines.*.item_id' => ['nullable', 'exists:items,id'],
+            'sections.*.lines.*.item_label' => ['nullable', 'string', 'max:255'],
             'sections.*.lines.*.qty' => ['required', 'numeric', 'min:0'],
             'sections.*.lines.*.unit' => ['required', 'string', 'max:16'],
             'sections.*.lines.*.unit_price' => ['nullable', 'numeric', 'min:0'],
             'sections.*.lines.*.material_total' => ['required', 'numeric', 'min:0'],
             'sections.*.lines.*.labor_total' => ['required', 'numeric', 'min:0'],
+            'sections.*.lines.*.labor_source' => ['nullable', 'in:master_item,master_project,manual'],
+            'sections.*.lines.*.labor_unit_cost_snapshot' => ['nullable', 'numeric', 'min:0'],
+            'sections.*.lines.*.labor_override_reason' => ['nullable', 'string', 'max:255'],
         ]);
+
+        foreach (($data['sections'] ?? []) as $sIndex => $section) {
+            foreach (($section['lines'] ?? []) as $lIndex => $line) {
+                $laborSource = $line['labor_source'] ?? 'manual';
+                $itemId = $line['item_id'] ?? null;
+                $reason = $line['labor_override_reason'] ?? null;
+                if ($laborSource === 'manual' && !empty($itemId) && empty($reason)) {
+                    throw ValidationException::withMessages([
+                        "sections.$sIndex.lines.$lIndex.labor_override_reason" => 'Alasan override labor wajib diisi.',
+                    ]);
+                }
+            }
+        }
+
+        return $data;
     }
 
     private function validatePaymentTermsSum(array $terms): void

@@ -12,7 +12,11 @@
           'material_total' => data_get($line, 'material_total', 0),
           'labor_total' => data_get($line, 'labor_total', 0),
           'source_type' => data_get($line, 'source_type', 'item'),
+          'item_id' => data_get($line, 'item_id'),
           'item_label' => data_get($line, 'item_label', ''),
+          'labor_source' => data_get($line, 'labor_source', 'manual'),
+          'labor_unit_cost_snapshot' => data_get($line, 'labor_unit_cost_snapshot', 0),
+          'labor_override_reason' => data_get($line, 'labor_override_reason', ''),
         ];
       })->toArray();
       return [
@@ -241,15 +245,29 @@
                                class="form-control form-control-sm bq-item-search"
                                placeholder="Cari item..."
                                value="{{ $line['item_label'] ?? '' }}">
+                        <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_id]" class="bq-line-item-id" value="{{ $line['item_id'] ?? '' }}">
+                        <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_source]" class="bq-line-labor-source" value="{{ $line['labor_source'] ?? 'manual' }}">
+                        <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="{{ $line['labor_unit_cost_snapshot'] ?? 0 }}">
+                        <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_override_reason]" class="bq-line-labor-reason" value="{{ $line['labor_override_reason'] ?? '' }}">
                       </div>
                     </div>
                     <textarea name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][description]" class="form-control bq-line-desc" rows="2" required>{{ $line['description'] ?? '' }}</textarea>
                   </td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][qty]" class="form-control text-end" value="{{ $line['qty'] ?? 0 }}" required></td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit]" class="form-control" value="{{ $line['unit'] ?? 'LS' }}" required></td>
-                  <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit_price]" class="form-control text-end" value="{{ $line['unit_price'] ?? 0 }}"></td>
+                  <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit_price]" class="form-control text-end js-line-unit-price" value="{{ $line['unit_price'] ?? 0 }}"></td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][material_total]" class="form-control text-end js-line-material" value="{{ $line['material_total'] ?? 0 }}" required></td>
-                  <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required></td>
+                  @php
+                    $laborSource = $line['labor_source'] ?? 'manual';
+                    $laborBadge = $laborSource === 'master_item' ? ['I','bg-azure-lt'] : ($laborSource === 'master_project' ? ['P','bg-indigo-lt'] : ['M','bg-secondary-lt']);
+                  @endphp
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required>
+                      <span class="badge {{ $laborBadge[1] }} text-dark js-labor-badge" title="Labor Source">{{ $laborBadge[0] }}</span>
+                      <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
+                    </div>
+                  </td>
                   <td class="text-end"><span class="js-line-total">0</span></td>
                   <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line">Remove</button></td>
                 </tr>
@@ -322,6 +340,10 @@
   if (!sectionsEl) return;
 
   const ITEM_SEARCH_URL = @json(route('items.search', [], false));
+  const LABOR_RATE_URL = @json(route('labor-rates.show', [], false));
+  const LABOR_UPDATE_URL = @json(route('labor-rates.update', [], false));
+  const CAN_UPDATE_ITEM_LABOR = @json(auth()->user()?->hasAnyRole(['Admin','SuperAdmin','Finance']) ?? false);
+  const CAN_UPDATE_PROJECT_LABOR = @json(auth()->user()?->hasAnyRole(['Admin','SuperAdmin','PM']) ?? false);
 
   const termTable = document.getElementById('terms-table');
   const btnAddTerm = document.getElementById('btn-add-term');
@@ -336,6 +358,108 @@
 
   const formatNumber = (val) => {
     return Number(val || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const getSourceType = (row) => {
+    const sourceSel = row.querySelector('.bq-line-source');
+    return sourceSel?.value === 'project' ? 'project' : 'item';
+  };
+
+  const getLaborSource = (row) => {
+    return row.querySelector('.bq-line-labor-source')?.value || 'manual';
+  };
+
+  const setLaborBadge = (row, source, opts = {}) => {
+    const badge = row.querySelector('.js-labor-badge');
+    if (!badge) return;
+
+    if (opts.missing) {
+      badge.textContent = 'Labor Missing';
+      badge.className = 'badge bg-yellow-lt text-dark js-labor-badge';
+      return;
+    }
+
+    const map = {
+      master_item: { text: 'I', cls: 'bg-azure-lt' },
+      master_project: { text: 'P', cls: 'bg-indigo-lt' },
+      manual: { text: 'M', cls: 'bg-secondary-lt' },
+    };
+    const cfg = map[source] || map.manual;
+    badge.textContent = cfg.text;
+    badge.className = `badge ${cfg.cls} text-dark js-labor-badge`;
+  };
+
+  const setLaborSource = (row, source, opts = {}) => {
+    const sourceEl = row.querySelector('.bq-line-labor-source');
+    if (sourceEl) sourceEl.value = source;
+    setLaborBadge(row, source, opts);
+  };
+
+  const updateMasterButtonVisibility = (row) => {
+    const btn = row.querySelector('.js-update-labor-master');
+    if (!btn) return;
+    const sourceType = getSourceType(row);
+    const allowed = sourceType === 'project' ? CAN_UPDATE_PROJECT_LABOR : CAN_UPDATE_ITEM_LABOR;
+    btn.classList.toggle('d-none', !allowed);
+  };
+
+  const syncLaborBadgeFromRow = (row) => {
+    const reason = row.querySelector('.bq-line-labor-reason')?.value || '';
+    const source = getLaborSource(row);
+    if (reason === 'Labor Missing') {
+      setLaborBadge(row, source, { missing: true });
+    } else {
+      setLaborBadge(row, source);
+    }
+    updateMasterButtonVisibility(row);
+  };
+
+  const updateLaborSnapshot = (row, laborTotal) => {
+    const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
+    const unitCost = qty > 0 ? (laborTotal / qty) : laborTotal;
+    const unitEl = row.querySelector('.bq-line-labor-unit');
+    if (unitEl) unitEl.value = unitCost.toFixed(2);
+  };
+
+  const fetchLaborRate = (sourceType, itemId) => {
+    const params = new URLSearchParams();
+    params.set('source', sourceType);
+    params.set('item_id', itemId);
+    return fetch(`${LABOR_RATE_URL}?${params.toString()}`, {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+      cache: 'no-store',
+    })
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null);
+  };
+
+  const applyLaborRate = (row, sourceType, rateData) => {
+    const laborInput = row.querySelector('.js-line-labor');
+    const reasonEl = row.querySelector('.bq-line-labor-reason');
+    const unitCost = parseNumber(rateData?.unit_cost);
+    const hasMaster = rateData?.unit_cost != null;
+    const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
+
+    if (!laborInput) return;
+
+    if (!hasMaster) {
+      laborInput.value = formatNumber(0);
+      updateLaborSnapshot(row, 0);
+      setLaborSource(row, 'manual', { missing: true });
+      if (reasonEl && !reasonEl.value) reasonEl.value = 'Labor Missing';
+      row.dataset.laborMasterRate = '';
+      recalcTotals();
+      return;
+    }
+
+    const laborTotal = qty * unitCost;
+    laborInput.value = formatNumber(laborTotal);
+    updateLaborSnapshot(row, laborTotal);
+    setLaborSource(row, sourceType === 'project' ? 'master_project' : 'master_item');
+    if (reasonEl && reasonEl.value === 'Labor Missing') reasonEl.value = '';
+    row.dataset.laborMasterRate = String(unitCost);
+    recalcTotals();
   };
 
   const renumberLines = (section) => {
@@ -441,15 +565,25 @@
                      name="sections[${sIndex}][lines][${lIndex}][item_label]"
                      class="form-control form-control-sm bq-item-search"
                      placeholder="Cari item...">
+              <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][item_id]" class="bq-line-item-id" value="">
+              <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_source]" class="bq-line-labor-source" value="manual">
+              <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="0">
+              <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_override_reason]" class="bq-line-labor-reason" value="">
             </div>
           </div>
           <textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control bq-line-desc" rows="2" required></textarea>
         </td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][qty]" class="form-control text-end" value="1" required></td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit]" class="form-control" value="LS" required></td>
-        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit_price]" class="form-control text-end" value="0"></td>
+        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit_price]" class="form-control text-end js-line-unit-price" value="0"></td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][material_total]" class="form-control text-end js-line-material" value="0" required></td>
-        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="0" required></td>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="0" required>
+            <span class="badge bg-secondary-lt text-dark js-labor-badge" title="Labor Source">M</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
+          </div>
+        </td>
         <td class="text-end"><span class="js-line-total">0</span></td>
         <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line">Remove</button></td>
       </tr>
@@ -564,11 +698,92 @@
     });
   }
 
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.classList.contains('js-update-labor-master')) return;
+
+    const row = target.closest('.bq-line');
+    if (!row) return;
+
+    const sourceType = getSourceType(row);
+    const itemId = row.querySelector('.bq-line-item-id')?.value;
+    if (!itemId) {
+      alert('Item belum dipilih.');
+      return;
+    }
+
+    const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
+    const laborTotal = parseNumber(row.querySelector('.js-line-labor')?.value);
+    const unitCost = qty > 0 ? (laborTotal / qty) : laborTotal;
+    const prevMaster = parseNumber(row.dataset.laborMasterRate || 0);
+    let reason = '';
+
+    if (unitCost < prevMaster) {
+      reason = window.prompt('Nilai turun. Alasan wajib:') || '';
+      if (!reason) return;
+    }
+
+    const token = document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content');
+    fetch(LABOR_UPDATE_URL, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json',
+        ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+      },
+      body: JSON.stringify({
+        source: sourceType,
+        item_id: itemId,
+        labor_unit_cost: unitCost,
+        reason: reason || null,
+      }),
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then((data) => {
+        if (!data || !data.ok) throw new Error(data?.message || 'Update gagal.');
+        row.dataset.laborMasterRate = String(unitCost);
+        updateLaborSnapshot(row, laborTotal);
+        setLaborSource(row, sourceType === 'project' ? 'master_project' : 'master_item');
+        const reasonEl = row.querySelector('.bq-line-labor-reason');
+        if (reasonEl && reason) reasonEl.value = reason;
+        recalcTotals();
+      })
+      .catch(async (err) => {
+        if (err?.json) {
+          const res = await err.json().catch(() => null);
+          alert(res?.message || 'Update master gagal.');
+          return;
+        }
+        alert('Update master gagal.');
+      });
+  });
+
   document.addEventListener('input', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    if (target.matches('input[name$="[qty]"]')) {
+      const row = target.closest('.bq-line');
+      if (row) {
+        const source = getLaborSource(row);
+        const unitSnapshot = parseNumber(row.querySelector('.bq-line-labor-unit')?.value);
+        if (source !== 'manual' && unitSnapshot > 0) {
+          const laborTotal = parseNumber(target.value) * unitSnapshot;
+          const laborEl = row.querySelector('.js-line-labor');
+          if (laborEl) laborEl.value = formatNumber(laborTotal);
+        }
+      }
+      recalcTotals();
+      return;
+    }
+
     if (
-      e.target.classList.contains('js-line-material') ||
-      e.target.classList.contains('js-line-labor') ||
-      e.target.id === 'tax_percent'
+      target.classList.contains('js-line-material') ||
+      target.classList.contains('js-line-labor') ||
+      target.id === 'tax_percent'
     ) {
       recalcTotals();
     }
@@ -578,6 +793,49 @@
   if (taxEnabled) {
     taxEnabled.addEventListener('change', recalcTotals);
   }
+
+  document.addEventListener('focusin', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.classList.contains('js-line-unit-price') || target.classList.contains('js-line-labor')) {
+      target.dataset.prevValue = target.value;
+    }
+  });
+
+  document.addEventListener('focusout', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (!target.classList.contains('js-line-unit-price') && !target.classList.contains('js-line-labor')) return;
+
+    const val = parseNumber(target.value);
+    target.value = formatNumber(val);
+
+    const row = target.closest('.bq-line');
+    if (row && target.classList.contains('js-line-unit-price')) {
+      const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
+      const materialEl = row.querySelector('.js-line-material');
+      if (materialEl) materialEl.value = formatNumber(qty * val);
+    }
+
+    if (row && target.classList.contains('js-line-labor')) {
+      const prevVal = parseNumber(target.dataset.prevValue || 0);
+      if (prevVal !== val) {
+        const source = getLaborSource(row);
+        const reasonEl = row.querySelector('.bq-line-labor-reason');
+        if (source !== 'manual') {
+          const reason = window.prompt('Alasan override labor (wajib):');
+          if (!reason) {
+            target.value = formatNumber(prevVal);
+            return;
+          }
+          if (reasonEl) reasonEl.value = reason;
+          setLaborSource(row, 'manual');
+        }
+        updateLaborSnapshot(row, val);
+      }
+    }
+    recalcTotals();
+  });
 
   const buildSearchUrl = (sourceType, query) => {
     const params = new URLSearchParams();
@@ -645,15 +903,22 @@
         const unitPriceEl = row.querySelector('input[name$="[unit_price]"]');
         const materialEl = row.querySelector('.js-line-material');
         const laborEl = row.querySelector('.js-line-labor');
+        const itemIdEl = row.querySelector('.bq-line-item-id');
 
         if (descEl && !descEl.value) descEl.value = data.name || '';
         if (unitEl) unitEl.value = (data.unit_code || 'LS').toString().toLowerCase();
-        if (unitPriceEl) unitPriceEl.value = data.price != null ? data.price : 0;
+        const price = parseNumber(data.price);
+        if (unitPriceEl) unitPriceEl.value = formatNumber(price);
         if (laborEl && !laborEl.value) laborEl.value = 0;
+        if (itemIdEl) itemIdEl.value = data.item_id || '';
 
         const qty = parseNumber(qtyEl?.value);
-        const price = parseNumber(data.price);
         if (materialEl) materialEl.value = formatNumber(qty * price);
+        updateMasterButtonVisibility(row);
+        const sourceType = getSourceType(row);
+        if (data.item_id) {
+          fetchLaborRate(sourceType, data.item_id).then((rateData) => applyLaborRate(row, sourceType, rateData));
+        }
         recalcTotals();
 
         if (input._ts) input._ts.close();
@@ -675,10 +940,14 @@
     const sourceType = sourceSel.value === 'project' ? 'project' : 'item';
     if (searchInput.dataset.sourceType && searchInput.dataset.sourceType !== sourceType) {
       searchInput.value = '';
+      const itemIdEl = row.querySelector('.bq-line-item-id');
+      if (itemIdEl) itemIdEl.value = '';
+      setLaborSource(row, 'manual');
     }
     searchInput.disabled = false;
     searchInput.placeholder = sourceType === 'item' ? 'Cari item...' : 'Cari project item...';
     initItemPicker(searchInput, sourceType);
+    syncLaborBadgeFromRow(row);
   };
 
   const initItemPickers = (scope) => {

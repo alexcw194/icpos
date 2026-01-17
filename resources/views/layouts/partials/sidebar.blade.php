@@ -121,6 +121,19 @@
                   @endif
                 </li>
 
+                @hasanyrole('SuperAdmin|Admin|Sales|Finance|PM')
+                  <li>
+                    @if(Route::has('projects.labor.index'))
+                      <a class="nav-link {{ request()->is('projects/labor*') ? 'active' : '' }}"
+                         href="{{ route('projects.labor.index') }}">
+                        Master Labor
+                      </a>
+                    @else
+                      <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Master Labor</a>
+                    @endif
+                  </li>
+                @endhasanyrole
+
                 <li>
                   @if(Route::has('project-stocks.index'))
                     <a class="nav-link {{ request()->is('project-stocks*') ? 'active' : '' }}"

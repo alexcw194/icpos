@@ -27,6 +27,10 @@ class ProjectQuotationTotalsService
                 $unitPrice = Number::idToFloat($line['unit_price'] ?? 0);
                 $materialTotal = Number::idToFloat($line['material_total'] ?? 0);
                 $laborTotal = Number::idToFloat($line['labor_total'] ?? 0);
+                $laborUnitSnapshot = Number::idToFloat($line['labor_unit_cost_snapshot'] ?? 0);
+                if ($laborUnitSnapshot <= 0 && $qty > 0 && $laborTotal > 0) {
+                    $laborUnitSnapshot = $laborTotal / $qty;
+                }
                 $lineTotal = $materialTotal + $laborTotal;
 
                 $subtotalMaterial += $materialTotal;
@@ -36,11 +40,17 @@ class ProjectQuotationTotalsService
                 $normalizedLines[] = [
                     'line_no' => $line['line_no'] ?? null,
                     'description' => $line['description'] ?? '',
+                    'source_type' => $line['source_type'] ?? 'item',
+                    'item_id' => $line['item_id'] ?? null,
+                    'item_label' => $line['item_label'] ?? null,
                     'qty' => $qty,
                     'unit' => $line['unit'] ?? 'PCS',
                     'unit_price' => $unitPrice,
                     'material_total' => $materialTotal,
                     'labor_total' => $laborTotal,
+                    'labor_source' => $line['labor_source'] ?? 'manual',
+                    'labor_unit_cost_snapshot' => $laborUnitSnapshot,
+                    'labor_override_reason' => $line['labor_override_reason'] ?? null,
                     'line_total' => $lineTotal,
                 ];
             }
