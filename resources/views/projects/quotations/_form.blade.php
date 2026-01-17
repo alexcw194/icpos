@@ -193,7 +193,7 @@
     @foreach($sectionsData as $sIndex => $section)
       <div class="bq-section border rounded p-3 mb-3" data-section-index="{{ $sIndex }}">
         <div class="d-flex align-items-center mb-2 gap-2 flex-wrap">
-          <input type="text" name="sections[{{ $sIndex }}][name]" class="form-control me-2 flex-grow-1" value="{{ $section['name'] ?? '' }}" placeholder="Section name" required>
+          <input type="text" name="sections[{{ $sIndex }}][name]" class="form-control me-2 section-name" value="{{ $section['name'] ?? '' }}" placeholder="Section name" required>
           <input type="hidden" name="sections[{{ $sIndex }}][sort_order]" value="{{ $section['sort_order'] ?? $sIndex }}">
           <div class="d-flex align-items-center gap-2 ms-auto">
             <div>
@@ -460,7 +460,7 @@
     return `
       <div class="bq-section border rounded p-3 mb-3" data-section-index="${sIndex}">
         <div class="d-flex align-items-center mb-2 gap-2 flex-wrap">
-          <input type="text" name="sections[${sIndex}][name]" class="form-control me-2 flex-grow-1" placeholder="Section name" required>
+          <input type="text" name="sections[${sIndex}][name]" class="form-control me-2 section-name" placeholder="Section name" required>
           <input type="hidden" name="sections[${sIndex}][sort_order]" value="${sIndex}">
           <div class="d-flex align-items-center gap-2 ms-auto">
             <div>
@@ -703,4 +703,13 @@
   recalcTotals();
 })();
 </script>
+@endpush
+
+@push('styles')
+<style>
+  .bq-section .section-name{
+    flex: 1 1 380px;
+    max-width: 520px;
+  }
+</style>
 @endpush
