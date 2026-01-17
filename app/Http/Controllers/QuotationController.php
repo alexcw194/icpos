@@ -545,6 +545,14 @@ class QuotationController extends Controller
 
     public function destroy(Quotation $quotation)
     {
+        $user = auth()->user();
+        $isAdmin = $user && method_exists($user, 'hasAnyRole') && $user->hasAnyRole(['Admin', 'SuperAdmin']);
+        $isOwner = $user && (int) $quotation->sales_user_id === (int) $user->id;
+
+        if (!($isAdmin || $isOwner)) {
+            return back()->with('warning', 'Anda tidak berhak menghapus quotation ini.');
+        }
+
         if ($quotation->status !== 'draft') {
             return back()->with('warning', 'Hanya quotation draft yang boleh dihapus.');
         }

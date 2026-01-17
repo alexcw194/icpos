@@ -5,6 +5,8 @@
 @php
   // Jika server-side sudah diberi pilihan aktif, tampilkan split pada initial render
   $shown = $active ?? $preview ?? null;
+  $authUser = auth()->user();
+  $isAdmin = $authUser && method_exists($authUser, 'hasAnyRole') && $authUser->hasAnyRole(['Admin','SuperAdmin']);
 @endphp
 <div class="container-xl">
   <div class="d-flex align-items-center mb-3">
@@ -99,6 +101,10 @@
               @forelse($quotations as $row)
                 <tr class="{{ (int)request('preview') === (int)$row->id ? 'table-primary' : '' }}" data-id="{{ $row->id }}">
                   <td class="fw-bold">
+                    @php
+                      $isOwner = $authUser && (int)$row->sales_user_id === (int)$authUser->id;
+                      $canDeleteRow = $row->status === 'draft' && ($isAdmin || $isOwner);
+                    @endphp
                     {{-- MOBILE: Rulebook stacked rows --}}
                     <div class="qtn-mobile d-md-none">
                       {{-- Row 1: ID + Status (+ kebab inline) --}}
@@ -119,7 +125,8 @@
                               'viewTarget' => '_blank',
                               'viewRel' => 'noopener',
                               'edit' => route('quotations.edit', $row),
-                              'delete' => null,
+                              'delete' => $canDeleteRow ? route('quotations.destroy', $row) : null,
+                              'confirm' => 'Hapus quotation ini?',
                               'size' => 'sm',
                             ])
                           </div>
@@ -153,7 +160,8 @@
                           'viewTarget' => '_blank',
                           'viewRel' => 'noopener',
                           'edit' => route('quotations.edit', $row),
-                          'delete' => null,
+                          'delete' => $canDeleteRow ? route('quotations.destroy', $row) : null,
+                          'confirm' => 'Hapus quotation ini?',
                           'size' => 'sm',
                         ])
                       </div>

@@ -28,6 +28,13 @@
         <div class="text-muted">Quotation by {{ $quotation->salesUser?->name ?? '-' }}</div>
       </div>
 
+      @php
+        $authUser = auth()->user();
+        $isAdmin = $authUser && method_exists($authUser, 'hasAnyRole') && $authUser->hasAnyRole(['Admin','SuperAdmin']);
+        $isOwner = $authUser && (int)$quotation->sales_user_id === (int)$authUser->id;
+        $canDelete = $quotation->status === 'draft' && ($isAdmin || $isOwner);
+      @endphp
+
       <div class="ms-auto btn-list">
         @includeIf('quotations._actions', ['quotation' => $quotation])
 
@@ -43,6 +50,15 @@
           </a>
         @else
           <span class="badge bg-red-lt">route sales-orders.create-from-quotation missing</span>
+        @endif
+
+        @if($canDelete)
+          <form action="{{ route('quotations.destroy', $quotation) }}" method="POST"
+                onsubmit="return confirm('Hapus quotation ini?');">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="btn btn-outline-danger">Hapus</button>
+          </form>
         @endif
 
         <a href="{{ route('quotations.index') }}" class="btn btn-secondary">Kembali</a>
