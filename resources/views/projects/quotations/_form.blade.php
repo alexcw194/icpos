@@ -192,9 +192,19 @@
   <div class="card-body" id="bq-sections">
     @foreach($sectionsData as $sIndex => $section)
       <div class="bq-section border rounded p-3 mb-3" data-section-index="{{ $sIndex }}">
-        <div class="d-flex align-items-center mb-2">
-          <input type="text" name="sections[{{ $sIndex }}][name]" class="form-control me-2" value="{{ $section['name'] ?? '' }}" placeholder="Section name" required>
+        <div class="d-flex align-items-center mb-2 gap-2 flex-wrap">
+          <input type="text" name="sections[{{ $sIndex }}][name]" class="form-control me-2 flex-grow-1" value="{{ $section['name'] ?? '' }}" placeholder="Section name" required>
           <input type="hidden" name="sections[{{ $sIndex }}][sort_order]" value="{{ $section['sort_order'] ?? $sIndex }}">
+          <div class="d-flex align-items-center gap-2 ms-auto">
+            <div>
+              <div class="text-muted small">Material</div>
+              <input type="text" class="form-control form-control-sm text-end js-section-material" value="0" readonly>
+            </div>
+            <div>
+              <div class="text-muted small">Labor</div>
+              <input type="text" class="form-control form-control-sm text-end js-section-labor" value="0" readonly>
+            </div>
+          </div>
           <button type="button" class="btn btn-sm btn-outline-danger btn-remove-section">Remove</button>
         </div>
 
@@ -328,9 +338,18 @@
     return Number(val || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const renumberLines = (section) => {
+    const rows = section.querySelectorAll('.bq-line');
+    rows.forEach((row, idx) => {
+      const input = row.querySelector('input[name$="[line_no]"]');
+      if (input) input.value = String(idx + 1);
+    });
+  };
+
   const recalcTotals = () => {
     let subMat = 0;
     let subLab = 0;
+    const sectionTotals = new Map();
 
     document.querySelectorAll('.bq-line').forEach((row) => {
       const mat = parseNumber(row.querySelector('.js-line-material')?.value);
@@ -340,6 +359,23 @@
       subLab += lab;
       const totalEl = row.querySelector('.js-line-total');
       if (totalEl) totalEl.textContent = formatNumber(total);
+
+      const section = row.closest('.bq-section');
+      if (section) {
+        const current = sectionTotals.get(section) || { mat: 0, lab: 0 };
+        current.mat += mat;
+        current.lab += lab;
+        sectionTotals.set(section, current);
+      }
+    });
+
+    document.querySelectorAll('.bq-section').forEach((section) => {
+      const sums = sectionTotals.get(section) || { mat: 0, lab: 0 };
+      const matEl = section.querySelector('.js-section-material');
+      const labEl = section.querySelector('.js-section-labor');
+      if (matEl) matEl.value = formatNumber(sums.mat);
+      if (labEl) labEl.value = formatNumber(sums.lab);
+      renumberLines(section);
     });
 
     const subtotal = subMat + subLab;
@@ -423,9 +459,19 @@
   const makeSection = (sIndex) => {
     return `
       <div class="bq-section border rounded p-3 mb-3" data-section-index="${sIndex}">
-        <div class="d-flex align-items-center mb-2">
-          <input type="text" name="sections[${sIndex}][name]" class="form-control me-2" placeholder="Section name" required>
+        <div class="d-flex align-items-center mb-2 gap-2 flex-wrap">
+          <input type="text" name="sections[${sIndex}][name]" class="form-control me-2 flex-grow-1" placeholder="Section name" required>
           <input type="hidden" name="sections[${sIndex}][sort_order]" value="${sIndex}">
+          <div class="d-flex align-items-center gap-2 ms-auto">
+            <div>
+              <div class="text-muted small">Material</div>
+              <input type="text" class="form-control form-control-sm text-end js-section-material" value="0" readonly>
+            </div>
+            <div>
+              <div class="text-muted small">Labor</div>
+              <input type="text" class="form-control form-control-sm text-end js-section-labor" value="0" readonly>
+            </div>
+          </div>
           <button type="button" class="btn btn-sm btn-outline-danger btn-remove-section">Remove</button>
         </div>
         <div class="table-responsive">
@@ -564,6 +610,7 @@
       persist: false,
       dropdownParent: 'body',
       preload: 'focus',
+      closeAfterSelect: true,
       load(query, cb){
         const url = buildSearchUrl(input.dataset.sourceType || 'item', query);
         fetch(url, {
@@ -608,9 +655,16 @@
         const price = parseNumber(data.price);
         if (materialEl) materialEl.value = formatNumber(qty * price);
         recalcTotals();
+
+        if (input._ts) input._ts.close();
+        qtyEl?.focus();
       }
     });
     input._ts = ts;
+    ts.on('focus', () => {
+      ts.load('');
+      ts.open();
+    });
   };
 
   const syncSourceRow = (row) => {
