@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Item;
 use App\Services\InventoryRowBuilder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class InventoryRowController extends Controller
 {
@@ -28,13 +29,29 @@ class InventoryRowController extends Controller
 
         $like = '%' . $q . '%';
 
+        $hasItemMinStock = Schema::hasColumn('items', 'min_stock');
+        $hasVariantMinStock = Schema::hasColumn('item_variants', 'min_stock');
+
+        $variantSelect = ['id','item_id','sku','price','attributes','is_active','stock','created_at'];
+        if ($hasVariantMinStock) {
+            $variantSelect[] = 'min_stock';
+        }
+
+        $itemSelect = [
+            'id','name','sku','price','unit_id','brand_id','size_id','color_id',
+            'variant_type','stock','description','created_at'
+        ];
+        if ($hasItemMinStock) {
+            $itemSelect[] = 'min_stock';
+        }
+
         $items = Item::query()
             ->with([
                 'unit:id,code,name',
                 'brand:id,name',
                 'size:id,name',
                 'color:id,name',
-                'variants:id,item_id,sku,price,attributes,is_active,stock,min_stock,created_at',
+                'variants:' . implode(',', $variantSelect),
             ])
             ->when($itemType !== '', fn($q) => $q->where('item_type', $itemType))
             ->when($q !== '', function ($query) use ($like) {
@@ -51,10 +68,7 @@ class InventoryRowController extends Controller
             })
             ->orderBy('name')
             ->limit($limit)
-            ->get([
-                'id','name','sku','price','unit_id','brand_id','size_id','color_id',
-                'variant_type','stock','min_stock','description','created_at'
-            ]);
+            ->get($itemSelect);
 
         $filters = [
             'q'                  => $q,
