@@ -983,7 +983,7 @@
     vLinesSubtotal.textContent = rupiah(linesSubtotal);
 
     let tdt = totalDiscTypeSel.value;
-    let tdv = toNum(totalDiscValInp.value);                 // backend field (nominal)
+    let tdv = toNum(totalDiscValInp.value);                 // backend field
     let tdp = toNum(totalDiscPercentInp?.value || '0');     // input persen baru
 
     if (getMode()==='per_item'){
@@ -999,8 +999,9 @@
       const pct = clampPct(tdp);
       totalDiscAmount = (pct/100) * linesSubtotal;
 
-      // backend tetap pakai field existing -> isi nominal hasil hitung
-      totalDiscValInp.value = String(totalDiscAmount);
+      // backend pakai persen (bukan nominal)
+      totalDiscValInp.value = String(pct);
+      if (totalDiscPercentInp) totalDiscPercentInp.value = String(pct);
 
       if (totalDiscAmountPreview) totalDiscAmountPreview.value = String(totalDiscAmount);
       vTotalDiscHint.textContent = `(${pct.toFixed(2)}%)`;
@@ -1041,6 +1042,9 @@
       if (price) price.value = String(toNum(price.value));
       if (dval)  dval.value  = String(toNum(dval.value));
     });
+    if (totalDiscTypeSel.value === 'percent' && totalDiscPercentInp) {
+      totalDiscValInp.value = String(clampPct(totalDiscPercentInp.value));
+    }
     totalDiscValInp.value = String(toNum(totalDiscValInp.value));
     taxInput.value        = String(clampPct(taxInput.value));
   });
