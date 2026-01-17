@@ -139,7 +139,6 @@ class QuotationController extends Controller
                         continue;
                     }
                     $v['lines'][$i]['item_id'] = $variant->item_id;
-                    $v['lines'][$i]['unit_price'] = (float) ($variant->price ?? 0);
                 }
             }
         }
@@ -463,7 +462,6 @@ class QuotationController extends Controller
                         continue;
                     }
                     $v['lines'][$i]['item_id'] = $variant->item_id;
-                    $v['lines'][$i]['unit_price'] = (float) ($variant->price ?? 0);
                 }
             }
         }
