@@ -278,6 +278,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('documents.submit');
     Route::post('documents/{document}/approve', [DocumentController::class, 'approve'])
         ->name('documents.approve');
+    Route::post('documents/{document}/revise', [DocumentController::class, 'revise'])
+        ->name('documents.revise');
     Route::post('documents/{document}/reject', [DocumentController::class, 'reject'])
         ->name('documents.reject');
     Route::delete('documents/{document}', [DocumentController::class, 'destroy'])

@@ -40,18 +40,32 @@
         </form>
       @endcan
 
-      @can('approve', $document)
-        <form method="post" action="{{ route('documents.approve', $document) }}">
-          @csrf
-          <button type="submit" class="btn btn-success">Approve</button>
-        </form>
+      @can('update', $document)
+        @if($document->status === \App\Models\Document::STATUS_APPROVED)
+          <form method="post" action="{{ route('documents.revise', $document) }}"
+                onsubmit="return confirm('Revisi akan menghapus stempel/ttd dan tetap memakai nomor yang sama. Dokumen harus disubmit dan disetujui ulang. Lanjutkan?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">Revisi</button>
+          </form>
+        @endif
       @endcan
 
-      @can('reject', $document)
-        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
-          Reject
-        </button>
-      @endcan
+      @hasanyrole('Admin|SuperAdmin')
+        @if($document->status === \App\Models\Document::STATUS_SUBMITTED)
+          @can('approve', $document)
+            <form method="post" action="{{ route('documents.approve', $document) }}">
+              @csrf
+              <button type="submit" class="btn btn-success">Approve</button>
+            </form>
+          @endcan
+
+          @can('reject', $document)
+            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+              Reject
+            </button>
+          @endcan
+        @endif
+      @endhasanyrole
 
       @can('delete', $document)
         <form method="post" action="{{ route('documents.destroy', $document) }}"

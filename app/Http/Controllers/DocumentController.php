@@ -245,9 +245,6 @@ class DocumentController extends Controller
         DB::transaction(function () use ($document) {
             $document->status = Document::STATUS_SUBMITTED;
             $document->submitted_at = now();
-            $document->number = null;
-            $document->year = null;
-            $document->sequence = null;
             $document->rejected_at = null;
             $document->rejected_by_user_id = null;
             $document->rejection_note = null;
@@ -308,6 +305,29 @@ class DocumentController extends Controller
             ->with('success', 'Dokumen disetujui.');
     }
 
+    public function revise(Document $document)
+    {
+        $this->authorize('update', $document);
+        abort_unless($document->status === Document::STATUS_APPROVED, 403);
+
+        $document->update([
+            'status' => Document::STATUS_DRAFT,
+            'submitted_at' => null,
+            'admin_approved_by_user_id' => null,
+            'admin_approved_at' => null,
+            'approved_by_user_id' => null,
+            'approved_at' => null,
+            'rejected_by_user_id' => null,
+            'rejected_at' => null,
+            'rejection_note' => null,
+            'signatures' => null,
+        ]);
+
+        return redirect()
+            ->route('documents.edit', $document)
+            ->with('success', 'Dokumen masuk mode revisi. Nomor tetap sama dan perlu approval ulang.');
+    }
+
     public function reject(Request $request, Document $document)
     {
         $this->authorize('reject', $document);
@@ -326,9 +346,6 @@ class DocumentController extends Controller
             'rejected_by_user_id' => auth()->id(),
             'rejected_at' => now(),
             'rejection_note' => $data['rejection_note'],
-            'number' => null,
-            'year' => null,
-            'sequence' => null,
             'signatures' => null,
         ]);
 
