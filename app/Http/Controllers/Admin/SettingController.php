@@ -25,6 +25,7 @@ class SettingController extends Controller
             'company_address'  => ['nullable','string'],
             'company_logo'     => ['nullable','image','mimes:jpg,jpeg,png,webp','max:1024'],
             'documents_letterhead' => ['nullable','image','mimes:png','max:4096'],
+            'documents_stamp' => ['nullable','image','mimes:png','max:2048'],
 
             // ===== Global SMTP =====
             'mail_host'        => ['nullable','string','max:150'],
@@ -51,6 +52,13 @@ class SettingController extends Controller
             $letterheadPath = $request->file('documents_letterhead')->store('documents','public');
         }
 
+        // Upload stamp (PNG)
+        $stampPath = Setting::get('documents.stamp_path');
+        if ($request->hasFile('documents_stamp')) {
+            if ($stampPath) Storage::disk('public')->delete($stampPath);
+            $stampPath = $request->file('documents_stamp')->store('documents','public');
+        }
+
         // Enkripsi: '' = tanpa enkripsi
         $enc = $validated['mail_encryption'] ?? 'tls';
         if ($enc === 'null') $enc = '';
@@ -68,6 +76,7 @@ class SettingController extends Controller
             'company.address'     => $validated['company_address'] ?? '',
             'company.logo_path'   => $logoPath,
             'documents.letterhead_path' => $letterheadPath,
+            'documents.stamp_path' => $stampPath,
 
             // Mail (global)
             'mail.host'           => $validated['mail_host'] ?? '',
