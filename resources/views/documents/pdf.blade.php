@@ -53,7 +53,7 @@
     .letterhead {
       position: fixed;
       top: 0;
-      left: 0;
+      left: 10%;
       height: 100%;
       width: auto;
       z-index: 0;
@@ -122,7 +122,7 @@
     }
     .signature-stamp {
       position: absolute;
-      left: 0;
+      left: 10%;
       top: 50%;
       transform: translate(0, -50%);
       z-index: 1;
