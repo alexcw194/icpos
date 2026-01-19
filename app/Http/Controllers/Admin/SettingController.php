@@ -24,6 +24,7 @@ class SettingController extends Controller
             'company_phone'    => ['nullable','string','max:50'],
             'company_address'  => ['nullable','string'],
             'company_logo'     => ['nullable','image','mimes:jpg,jpeg,png,webp','max:1024'],
+            'documents_letterhead' => ['nullable','image','mimes:png','max:4096'],
 
             // ===== Global SMTP =====
             'mail_host'        => ['nullable','string','max:150'],
@@ -43,6 +44,13 @@ class SettingController extends Controller
             $logoPath = $request->file('company_logo')->store('company','public');
         }
 
+        // Upload letterhead (PNG)
+        $letterheadPath = Setting::get('documents.letterhead_path');
+        if ($request->hasFile('documents_letterhead')) {
+            if ($letterheadPath) Storage::disk('public')->delete($letterheadPath);
+            $letterheadPath = $request->file('documents_letterhead')->store('documents','public');
+        }
+
         // Enkripsi: '' = tanpa enkripsi
         $enc = $validated['mail_encryption'] ?? 'tls';
         if ($enc === 'null') $enc = '';
@@ -59,6 +67,7 @@ class SettingController extends Controller
             'company.phone'       => $validated['company_phone'] ?? '',
             'company.address'     => $validated['company_address'] ?? '',
             'company.logo_path'   => $logoPath,
+            'documents.letterhead_path' => $letterheadPath,
 
             // Mail (global)
             'mail.host'           => $validated['mail_host'] ?? '',

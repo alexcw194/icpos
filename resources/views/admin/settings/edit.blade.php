@@ -5,6 +5,8 @@
 @php
   $logoPath = $s['company.logo_path'] ?? null;
   $logoUrl  = $logoPath ? asset('storage/'.$logoPath) : null;
+  $letterheadPath = $s['documents.letterhead_path'] ?? null;
+  $letterheadUrl  = $letterheadPath ? asset('storage/'.$letterheadPath) : null;
 
   $encSaved = $s['mail.encryption'] ?? '';
   $encView  = $encSaved === '' ? 'null' : $encSaved;
@@ -56,6 +58,19 @@
             <div class="mt-2 d-flex align-items-center gap-3">
               <img src="{{ $logoUrl }}" alt="Logo" style="height:56px;object-fit:contain;border:1px solid rgba(0,0,0,.06);padding:4px;border-radius:8px;">
               <span class="text-muted small">Logo saat ini</span>
+            </div>
+          @endif
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Document Letterhead (PNG)</label>
+          <input type="file" name="documents_letterhead" class="form-control" accept=".png">
+          @error('documents_letterhead')<div class="text-danger small">{{ $message }}</div>@enderror
+          <div class="form-hint">Background PDF dokumen. Format PNG, maks. 4MB.</div>
+          @if($letterheadUrl)
+            <div class="mt-2 d-flex align-items-center gap-3">
+              <img src="{{ $letterheadUrl }}" alt="Letterhead" style="height:56px;object-fit:contain;border:1px solid rgba(0,0,0,.06);padding:4px;border-radius:8px;">
+              <span class="text-muted small">Letterhead saat ini</span>
             </div>
           @endif
         </div>
