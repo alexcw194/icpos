@@ -445,7 +445,7 @@
 
     .quotation-items-table tbody tr{
       display:grid;
-      grid-template-columns: 1.1fr 1.1fr 1.6fr 2.8fr 1.2fr 1.2fr 1.4fr 0.6fr;
+      grid-template-columns: 1.4fr 1.4fr 1.8fr 3.6fr 1.1fr 1.1fr 1.2fr 0.6fr;
       gap: 8px 10px;
       padding: 8px 0;
       align-items:center;
@@ -476,6 +476,12 @@
     .quotation-items-table textarea,
     .quotation-items-table .input-group{
       width:100%;
+    }
+
+    .quotation-items-table td.col-item,
+    .quotation-items-table td.col-desc{
+      width: auto !important;
+      max-width: none !important;
     }
   }
 
