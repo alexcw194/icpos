@@ -129,10 +129,12 @@ class DocumentController extends Controller
         }
 
         $salesSignerId = $this->resolveSalesSignerId($user, $data);
-        $salesSignature = Signature::query()
-            ->where('user_id', $salesSignerId)
-            ->first();
-        $salesPosition = $data['sales_signature_position'] ?? ($salesSignature?->default_position);
+        $salesSignature = $salesSignerId
+            ? Signature::query()->where('user_id', $salesSignerId)->first()
+            : null;
+        $salesPosition = $salesSignerId
+            ? ($data['sales_signature_position'] ?? ($salesSignature?->default_position))
+            : null;
 
         $document = Document::create([
             'title' => $data['title'],
@@ -207,10 +209,12 @@ class DocumentController extends Controller
         }
 
         $salesSignerId = $this->resolveSalesSignerId($user, $data, $document);
-        $salesSignature = Signature::query()
-            ->where('user_id', $salesSignerId)
-            ->first();
-        $salesPosition = $data['sales_signature_position'] ?? ($salesSignature?->default_position);
+        $salesSignature = $salesSignerId
+            ? Signature::query()->where('user_id', $salesSignerId)->first()
+            : null;
+        $salesPosition = $salesSignerId
+            ? ($data['sales_signature_position'] ?? ($salesSignature?->default_position))
+            : null;
 
         $document->update([
             'title' => $data['title'],
@@ -262,19 +266,21 @@ class DocumentController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
-        $salesSignerId = $document->sales_signer_user_id ?: $document->created_by_user_id;
-        $salesSignature = Signature::query()
-            ->where('user_id', $salesSignerId)
-            ->first();
+        $salesSignerId = $document->sales_signer_user_id;
+        $salesSignature = $salesSignerId
+            ? Signature::query()->where('user_id', $salesSignerId)->first()
+            : null;
 
         $signatures = $document->signatures ?? [];
-        $salesUser = User::query()->find($salesSignerId);
-        $signatures['sales'] = [
-            'user_id' => $salesSignerId,
-            'name' => $salesUser?->name,
-            'image_path' => $salesSignature?->image_path,
-            'position' => $document->sales_signature_position ?? $salesSignature?->default_position,
-        ];
+        if ($salesSignerId) {
+            $salesUser = User::query()->find($salesSignerId);
+            $signatures['sales'] = [
+                'user_id' => $salesSignerId,
+                'name' => $salesUser?->name,
+                'image_path' => $salesSignature?->image_path,
+                'position' => $document->sales_signature_position ?? $salesSignature?->default_position,
+            ];
+        }
         $signatures['approver'] = [
             'user_id' => $user->id,
             'name' => $user->name,
@@ -362,7 +368,17 @@ class DocumentController extends Controller
             'body_html' => ['required', 'string'],
             'customer_id' => ['required', 'exists:customers,id'],
             'contact_id' => ['nullable', 'exists:contacts,id'],
-            'sales_signer_user_id' => ['required', 'exists:users,id'],
+            'sales_signer_user_id' => ['required', function ($attribute, $value, $fail) use ($request) {
+                if ($value === 'director') {
+                    return;
+                }
+                if (!User::query()->whereKey($value)->exists()) {
+                    $fail('Signature harus dipilih dari daftar yang tersedia.');
+                }
+                if ($request->user()->hasRole('Sales') && (int) $value !== (int) $request->user()->id) {
+                    $fail('Sales hanya bisa memilih dirinya sendiri atau Direktur Utama.');
+                }
+            }],
             'sales_signature_position' => ['nullable', 'string', 'max:120'],
         ]);
     }
@@ -489,7 +505,13 @@ class DocumentController extends Controller
 
     private function salesSignerOptions()
     {
-        return User::query()
+        $user = auth()->user();
+        $query = User::query();
+        if ($user && $user->hasRole('Sales')) {
+            $query->whereKey($user->id);
+        }
+
+        return $query
             ->leftJoin('signatures', 'signatures.user_id', '=', 'users.id')
             ->orderBy('users.name')
             ->get([
@@ -499,14 +521,18 @@ class DocumentController extends Controller
             ]);
     }
 
-    private function resolveSalesSignerId($user, array $data, ?Document $document = null): int
+    private function resolveSalesSignerId($user, array $data, ?Document $document = null): ?int
     {
+        $selected = $data['sales_signer_user_id'] ?? null;
+        if ($selected === 'director') {
+            return null;
+        }
         if ($user->hasRole('Sales')) {
             return $user->id;
         }
 
-        if (!empty($data['sales_signer_user_id'])) {
-            return (int) $data['sales_signer_user_id'];
+        if (!empty($selected)) {
+            return (int) $selected;
         }
 
         if ($document && $document->sales_signer_user_id) {

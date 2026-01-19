@@ -87,31 +87,29 @@
         </div>
       </div>
 
+      @php
+        $selectedSigner = old(
+          'sales_signer_user_id',
+          $document->sales_signer_user_id ?? ($isEdit ? 'director' : '')
+        );
+      @endphp
+
       <div class="row g-3 mt-3">
-        <div class="col-md-6">
-          <label class="form-label">Sales Signer</label>
-          @hasanyrole('Admin|SuperAdmin')
-            <select name="sales_signer_user_id" id="sales_signer_user_id" class="form-select" required>
-              <option value="">Pilih Sales signer</option>
-              @foreach($salesUsers as $salesUser)
-                <option value="{{ $salesUser->id }}"
-                  data-position="{{ $salesUser->default_position ?? '' }}"
-                  @selected(old('sales_signer_user_id', $document->sales_signer_user_id) == $salesUser->id)>
-                  {{ $salesUser->name }}
-                </option>
-              @endforeach
-            </select>
-          @else
-            <input type="hidden" name="sales_signer_user_id" id="sales_signer_user_id" value="{{ auth()->id() }}">
-            <input type="text" class="form-control" value="{{ auth()->user()->name }}" disabled>
-          @endhasanyrole
-          <div class="text-muted small">Tanda tangan Sales diambil dari user terpilih.</div>
+        <div class="col-12 col-md-8 col-lg-6">
+          <label class="form-label">Signature</label>
+          <select name="sales_signer_user_id" id="sales_signer_user_id" class="form-select" required>
+            <option value="">Pilih Signature</option>
+            <option value="director" @selected($selectedSigner === 'director')>Direktur Utama</option>
+            @foreach($salesUsers as $salesUser)
+              <option value="{{ $salesUser->id }}"
+                data-position="{{ $salesUser->default_position ?? '' }}"
+                @selected((string) $selectedSigner === (string) $salesUser->id)>
+                {{ $salesUser->name }}
+              </option>
+            @endforeach
+          </select>
+          <div class="text-muted small">Pilih Direktur Utama atau user signer.</div>
           @error('sales_signer_user_id')<div class="text-danger small">{{ $message }}</div>@enderror
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Director (Final Sign)</label>
-          <input type="text" class="form-control" value="Christian Widargo" disabled>
-          <div class="text-muted small">Direktur Utama (fixed).</div>
         </div>
       </div>
 
@@ -151,15 +149,9 @@
         @error('body_html')<div class="text-danger small">{{ $message }}</div>@enderror
       </div>
 
-      @php
-        $salesSignerValue = old('sales_signer_user_id', $document->sales_signer_user_id);
-        if (auth()->user()->hasRole('Sales')) {
-            $salesSignerValue = auth()->id();
-        }
-      @endphp
-      <div class="row g-3 mt-3" id="sales-position-wrap" style="{{ $salesSignerValue ? '' : 'display:none' }}">
+      <div class="row g-3 mt-3" id="sales-position-wrap" style="{{ ($selectedSigner && $selectedSigner !== 'director') ? '' : 'display:none' }}">
         <div class="col-md-6">
-          <label class="form-label">Sales Signature Position</label>
+          <label class="form-label">Signature Position</label>
           @php
             $salesPosValue = old('sales_signature_position', $document->sales_signature_position);
             if ($salesPosValue === null && auth()->user()->hasRole('Sales')) {
@@ -278,7 +270,8 @@
 
     const toggleSalesPosition = () => {
       if (!salesPositionWrap) return;
-      const hasSalesSigner = salesSignerSelect ? String(salesSignerSelect.value || '') !== '' : true;
+      const rawValue = salesSignerSelect ? String(salesSignerSelect.value || '') : '';
+      const hasSalesSigner = rawValue !== '' && rawValue !== 'director';
       salesPositionWrap.style.display = hasSalesSigner ? 'flex' : 'none';
       if (hasSalesSigner && salesSignerSelect && salesSignerSelect.tagName === 'SELECT' && salesPositionInput) {
         const opt = salesSignerSelect.options[salesSignerSelect.selectedIndex];
@@ -286,6 +279,9 @@
         if (pos && salesPositionInput.value.trim() === '') {
           salesPositionInput.value = pos;
         }
+      }
+      if (!hasSalesSigner && salesPositionInput) {
+        salesPositionInput.value = '';
       }
     };
 
