@@ -37,7 +37,7 @@
   <meta charset="utf-8">
   <title>{{ $pdfNumber }}</title>
   <style>
-    @page { margin: 0; }
+    @page { margin: 120px 60px 80px 50px; }
     body {
       margin: 0;
       font-family: DejaVu Sans, Arial, sans-serif;
@@ -47,7 +47,6 @@
     }
     .page {
       position: relative;
-      padding: 120px 60px 80px;
       min-height: 100vh;
     }
     .letterhead {
@@ -107,12 +106,13 @@
       align-items: flex-end;
       gap: 16px;
       margin-top: 14px;
+      page-break-inside: avoid;
     }
     .signature-block {
       width: 65%;
     }
     .signature-space {
-      height: 130px;
+      height: 110px;
     }
     .signature-space img {
       max-height: 90px;
