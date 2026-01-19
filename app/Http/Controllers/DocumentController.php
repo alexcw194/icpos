@@ -349,7 +349,6 @@ class DocumentController extends Controller
     public function pdf(Document $document)
     {
         $this->authorize('view', $document);
-        abort_unless($document->status === Document::STATUS_APPROVED, 403, 'Dokumen belum disetujui.');
         return $this->renderPdf($document, 'inline');
     }
 

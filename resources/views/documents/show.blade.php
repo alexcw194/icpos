@@ -14,9 +14,17 @@
       </div>
     </div>
     <div class="col-auto ms-auto d-print-none d-flex flex-wrap gap-2">
+      <a href="{{ route('documents.pdf', $document) }}" class="btn btn-outline-secondary">Preview PDF</a>
       @if($document->status === \App\Models\Document::STATUS_APPROVED)
-        <a href="{{ route('documents.pdf', $document) }}" class="btn btn-outline-secondary">Preview PDF</a>
         <a href="{{ route('documents.pdf-download', $document) }}" class="btn btn-outline-secondary">Download</a>
+        <button type="button"
+                class="btn btn-outline-secondary"
+                id="share-pdf-btn"
+                data-url="{{ route('documents.pdf-download', $document) }}"
+                data-title="{{ $document->number ?? 'Document' }}"
+                data-name="{{ ($document->number ?? 'document') . '.pdf' }}">
+          Share PDF
+        </button>
       @endif
 
       @can('update', $document)
@@ -156,3 +164,49 @@
   </div>
 @endcan
 @endsection
+
+@push('scripts')
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const shareBtn = document.getElementById('share-pdf-btn');
+    if (!shareBtn) return;
+
+    shareBtn.addEventListener('click', async () => {
+      const url = shareBtn.dataset.url;
+      const title = shareBtn.dataset.title || 'Document';
+      const fileName = shareBtn.dataset.name || 'document.pdf';
+
+      if (navigator.share) {
+        try {
+          const res = await fetch(url, { credentials: 'same-origin' });
+          const blob = await res.blob();
+          const file = new File([blob], fileName, { type: 'application/pdf' });
+
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ title, files: [file] });
+          } else {
+            await navigator.share({ title, url });
+          }
+          return;
+        } catch (err) {
+          // Fallback below if share fails.
+        }
+      }
+
+      if (navigator.clipboard && url) {
+        try {
+          await navigator.clipboard.writeText(url);
+          alert('Link PDF disalin. Silakan bagikan lewat aplikasi Anda.');
+          return;
+        } catch (err) {
+          // Continue to final fallback.
+        }
+      }
+
+      if (url) {
+        window.open(url, '_blank');
+      }
+    });
+  });
+</script>
+@endpush
