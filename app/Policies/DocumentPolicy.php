@@ -44,17 +44,6 @@ class DocumentPolicy
         }
 
         return $document->status === Document::STATUS_SUBMITTED
-            && !$document->admin_approved_at;
-    }
-
-    public function finalApprove(User $user, Document $document): bool
-    {
-        if (!$user->hasRole('SuperAdmin')) {
-            return false;
-        }
-
-        return $document->status === Document::STATUS_SUBMITTED
-            && $document->admin_approved_at
             && !$document->approved_at;
     }
 
@@ -62,5 +51,15 @@ class DocumentPolicy
     {
         return $user->hasAnyRole(['Admin', 'SuperAdmin'])
             && $document->status === Document::STATUS_SUBMITTED;
+    }
+
+    public function delete(User $user, Document $document): bool
+    {
+        if ($user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+            return true;
+        }
+
+        return (int) $document->created_by_user_id === (int) $user->id
+            && $document->status === Document::STATUS_DRAFT;
     }
 }

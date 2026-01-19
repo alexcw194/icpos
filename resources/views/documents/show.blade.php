@@ -31,14 +31,7 @@
       @can('approve', $document)
         <form method="post" action="{{ route('documents.approve', $document) }}">
           @csrf
-          <button type="submit" class="btn btn-success">Approve (Admin)</button>
-        </form>
-      @endcan
-
-      @can('finalApprove', $document)
-        <form method="post" action="{{ route('documents.final-approve', $document) }}">
-          @csrf
-          <button type="submit" class="btn btn-success">Final Approve</button>
+          <button type="submit" class="btn btn-success">Approve</button>
         </form>
       @endcan
 
@@ -46,6 +39,15 @@
         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
           Reject
         </button>
+      @endcan
+
+      @can('delete', $document)
+        <form method="post" action="{{ route('documents.destroy', $document) }}"
+              onsubmit="return confirm('Hapus dokumen ini? Tindakan ini tidak bisa dibatalkan.');">
+          @csrf
+          @method('DELETE')
+          <button type="submit" class="btn btn-outline-danger">Delete</button>
+        </form>
       @endcan
     </div>
   </div>
@@ -91,7 +93,7 @@
       </div>
     </div>
 
-    @if($document->status === \App\Models\Document::STATUS_REJECTED && $document->rejection_note)
+    @if($document->rejection_note)
       <div class="alert alert-danger mt-3">
         <strong>Rejection note:</strong> {{ $document->rejection_note }}
       </div>
@@ -114,15 +116,7 @@
           <dt class="col-5">Submitted</dt>
           <dd class="col-7">{{ $document->submitted_at?->format('d M Y H:i') ?? '-' }}</dd>
 
-          <dt class="col-5">Admin Approval</dt>
-          <dd class="col-7">
-            {{ $document->adminApprover?->name ?? '-' }}
-            @if($document->admin_approved_at)
-              <div class="text-muted small">{{ $document->admin_approved_at->format('d M Y H:i') }}</div>
-            @endif
-          </dd>
-
-          <dt class="col-5">Final Approval</dt>
+          <dt class="col-5">Approval</dt>
           <dd class="col-7">
             {{ $document->approver?->name ?? '-' }}
             @if($document->approved_at)

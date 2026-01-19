@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 class DocumentCounterController extends Controller
 {
-    private const ALLOWED_TYPES = ['quotation', 'invoice', 'delivery'];
+    private const ALLOWED_TYPES = ['quotation', 'invoice', 'delivery', 'document'];
 
     public function index(Request $request)
     {

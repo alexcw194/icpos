@@ -6,6 +6,7 @@
     'quotation' => 'Quotation',
     'invoice'   => 'Invoice',
     'delivery'  => 'Delivery',
+    'document'  => 'Document',
   ];
 @endphp
 

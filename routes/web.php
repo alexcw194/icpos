@@ -278,10 +278,10 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('documents.submit');
     Route::post('documents/{document}/approve', [DocumentController::class, 'approve'])
         ->name('documents.approve');
-    Route::post('documents/{document}/final-approve', [DocumentController::class, 'finalApprove'])
-        ->name('documents.final-approve');
     Route::post('documents/{document}/reject', [DocumentController::class, 'reject'])
         ->name('documents.reject');
+    Route::delete('documents/{document}', [DocumentController::class, 'destroy'])
+        ->name('documents.destroy');
     Route::get('documents/{document}/pdf', [DocumentController::class, 'pdf'])
         ->name('documents.pdf');
     Route::get('documents/{document}/pdf/download', [DocumentController::class, 'pdfDownload'])

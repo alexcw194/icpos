@@ -59,18 +59,12 @@ class DocumentController extends Controller
         $user = auth()->user();
         abort_unless($user && $user->hasAnyRole(['Admin', 'SuperAdmin']), 403);
 
-        $query = Document::query()
+        $documents = Document::query()
             ->where('status', Document::STATUS_SUBMITTED)
-            ->with(['customer', 'creator']);
-
-        if ($user->hasRole('SuperAdmin')) {
-            $query->whereNotNull('admin_approved_at')
-                ->whereNull('approved_at');
-        } else {
-            $query->whereNull('admin_approved_at');
-        }
-
-        $documents = $query->latest('submitted_at')->paginate(20)->withQueryString();
+            ->with(['customer', 'creator'])
+            ->latest('submitted_at')
+            ->paginate(20)
+            ->withQueryString();
 
         return view('documents.index', [
             'documents' => $documents,
@@ -242,15 +236,11 @@ class DocumentController extends Controller
         $this->authorize('submit', $document);
 
         DB::transaction(function () use ($document) {
-            if (!$document->number) {
-                $next = DocumentNumberService::next();
-                $document->number = $next['number'];
-                $document->year = $next['year'];
-                $document->sequence = $next['sequence'];
-            }
-
             $document->status = Document::STATUS_SUBMITTED;
             $document->submitted_at = now();
+            $document->number = null;
+            $document->year = null;
+            $document->sequence = null;
             $document->rejected_at = null;
             $document->rejected_by_user_id = null;
             $document->rejection_note = null;
@@ -267,10 +257,6 @@ class DocumentController extends Controller
         $this->authorize('approve', $document);
 
         $user = auth()->user();
-        $signature = Signature::query()
-            ->where('user_id', $user->id)
-            ->first();
-
         $salesSignerId = $document->sales_signer_user_id;
         if ($salesSignerId && (int) $salesSignerId === (int) $user->id) {
             return back()->with('error', 'Signer tidak boleh sama dengan approver.');
@@ -279,7 +265,7 @@ class DocumentController extends Controller
             ? Signature::query()->where('user_id', $salesSignerId)->first()
             : null;
 
-        $signatures = $document->signatures ?? [];
+        $signatures = [];
         if ($salesSignerId) {
             $salesUser = User::query()->find($salesSignerId);
             $signatures['sales'] = [
@@ -289,46 +275,30 @@ class DocumentController extends Controller
                 'position' => $document->sales_signature_position ?? $salesSignature?->default_position,
             ];
         }
-        $signatures['approver'] = [
-            'user_id' => $user->id,
-            'name' => $user->name,
-            'image_path' => $signature?->image_path,
-            'position' => $document->approver_signature_position ?? $signature?->default_position,
-        ];
-
-        $document->update([
-            'admin_approved_by_user_id' => $user->id,
-            'admin_approved_at' => now(),
-            'approver_signature_position' => $document->approver_signature_position ?? $signature?->default_position,
-            'signatures' => $signatures,
-        ]);
-
-        return redirect()
-            ->route('documents.pending')
-            ->with('success', 'Dokumen disetujui (level Admin).');
-    }
-
-    public function finalApprove(Document $document)
-    {
-        $this->authorize('finalApprove', $document);
-
-        $signatures = $document->signatures ?? [];
         $signatures['director'] = [
             'name' => 'Christian Widargo',
             'position' => 'Direktur Utama',
             'image_path' => $this->directorSignaturePath(),
         ];
 
-        $document->update([
-            'status' => Document::STATUS_APPROVED,
-            'approved_by_user_id' => auth()->id(),
-            'approved_at' => now(),
-            'signatures' => $signatures,
-        ]);
+        DB::transaction(function () use ($document, $signatures, $user) {
+            if (!$document->number) {
+                $next = DocumentNumberService::next();
+                $document->number = $next['number'];
+                $document->year = $next['year'];
+                $document->sequence = $next['sequence'];
+            }
+
+            $document->status = Document::STATUS_APPROVED;
+            $document->approved_by_user_id = $user->id;
+            $document->approved_at = now();
+            $document->signatures = $signatures;
+            $document->save();
+        });
 
         return redirect()
-            ->route('documents.show', $document)
-            ->with('success', 'Dokumen disetujui final.');
+            ->route('documents.pending')
+            ->with('success', 'Dokumen disetujui.');
     }
 
     public function reject(Request $request, Document $document)
@@ -340,7 +310,7 @@ class DocumentController extends Controller
         ]);
 
         $document->update([
-            'status' => Document::STATUS_REJECTED,
+            'status' => Document::STATUS_DRAFT,
             'submitted_at' => null,
             'admin_approved_by_user_id' => null,
             'admin_approved_at' => null,
@@ -349,12 +319,31 @@ class DocumentController extends Controller
             'rejected_by_user_id' => auth()->id(),
             'rejected_at' => now(),
             'rejection_note' => $data['rejection_note'],
+            'number' => null,
+            'year' => null,
+            'sequence' => null,
             'signatures' => null,
         ]);
 
         return redirect()
             ->route('documents.show', $document)
             ->with('success', 'Dokumen ditolak dan dikembalikan ke draft.');
+    }
+
+    public function destroy(Document $document)
+    {
+        $this->authorize('delete', $document);
+
+        $document->delete();
+
+        $user = auth()->user();
+        $route = $user && $user->hasAnyRole(['Admin', 'SuperAdmin'])
+            ? 'documents.index'
+            : 'documents.my';
+
+        return redirect()
+            ->route($route)
+            ->with('success', 'Dokumen dihapus.');
     }
 
     public function pdf(Document $document)

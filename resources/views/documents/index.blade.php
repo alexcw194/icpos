@@ -41,9 +41,6 @@
               @if(!empty($showOwner))
                 <th>Owner</th>
               @endif
-              @if(($mode ?? '') === 'pending')
-                <th>Stage</th>
-              @endif
               <th>Status</th>
               <th class="text-end">Updated</th>
             </tr>
@@ -60,15 +57,6 @@
                 <td>{{ $document->customer?->name ?? '-' }}</td>
                 @if(!empty($showOwner))
                   <td>{{ $document->creator?->name ?? '-' }}</td>
-                @endif
-                @if(($mode ?? '') === 'pending')
-                  <td>
-                    @if($document->admin_approved_at)
-                      Final Approval
-                    @else
-                      Admin Approval
-                    @endif
-                  </td>
                 @endif
                 <td>
                   <span class="badge {{ $document->status_badge_class }}">

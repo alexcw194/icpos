@@ -26,7 +26,7 @@
           ? $makeSrc($directorSig['image_path'] ?? null)
           : null;
   } else {
-      $signerImage = $document->admin_approved_at
+      $signerImage = $document->approved_at
           ? $makeSrc($salesSig['image_path'] ?? null)
           : null;
   }
