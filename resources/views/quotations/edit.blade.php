@@ -478,12 +478,12 @@
   }
 
   /* Desktop kecil: 2 baris per item (nama+deskripsi / angka) */
-  @media (min-width: 768px) and (max-width: 1199.98px){
+  @media (min-width: 768px) and (max-width: 1399.98px){
     .quotation-items-table thead{ display:none; }
 
     .quotation-items-table tbody tr{
       display:grid;
-      grid-template-columns: 0.9fr 0.9fr 1.4fr 2.4fr 1.2fr 1.2fr 1.4fr 0.6fr;
+      grid-template-columns: 1.1fr 1.1fr 1.6fr 2.8fr 1.2fr 1.2fr 1.4fr 0.6fr;
       gap: 8px 10px;
       padding: 8px 0;
       align-items:center;
