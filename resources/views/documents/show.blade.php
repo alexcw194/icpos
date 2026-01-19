@@ -34,10 +34,12 @@
       @endcan
 
       @can('submit', $document)
-        <form method="post" action="{{ route('documents.submit', $document) }}">
-          @csrf
-          <button type="submit" class="btn btn-success">Submit for Approval</button>
-        </form>
+        @if(!in_array($document->status, [\App\Models\Document::STATUS_SUBMITTED, \App\Models\Document::STATUS_APPROVED], true))
+          <form method="post" action="{{ route('documents.submit', $document) }}">
+            @csrf
+            <button type="submit" class="btn btn-success">Submit for Approval</button>
+          </form>
+        @endif
       @endcan
 
       @can('update', $document)
