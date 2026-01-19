@@ -459,8 +459,8 @@
       min-width:0;
     }
 
-    .quotation-items-table td.col-item{ grid-column: 1 / span 3; grid-row:1; }
-    .quotation-items-table td.col-desc{ grid-column: 4 / -1; grid-row:1; }
+    .quotation-items-table td.col-item{ grid-column: 1 / span 4; grid-row:1; }
+    .quotation-items-table td.col-desc{ grid-column: 5 / -1; grid-row:1; }
 
     .quotation-items-table td.col-qty{ grid-column:1; grid-row:2; }
     .quotation-items-table td.col-unit{ grid-column:2; grid-row:2; }
