@@ -102,6 +102,63 @@
     .body {
       margin-bottom: 40px;
     }
+    .doc-block {
+      margin: 0 0 12px;
+      page-break-inside: avoid;
+    }
+    .block-heading {
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .block-image {
+      text-align: left;
+    }
+    .block-image.align-center { text-align: center; }
+    .block-image.align-right { text-align: right; }
+    .block-image img {
+      display: inline-block;
+      max-width: 100%;
+      height: auto;
+    }
+    .block-image.size-25 img { width: 25%; }
+    .block-image.size-50 img { width: 50%; }
+    .block-image.size-100 img { width: 100%; }
+    .block-image figcaption {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #6b7280;
+    }
+    .image-grid {
+      font-size: 0;
+      margin: 0 0 12px;
+      page-break-inside: avoid;
+    }
+    .image-grid .grid-item {
+      display: inline-block;
+      width: 50%;
+      padding: 4px;
+      box-sizing: border-box;
+      vertical-align: top;
+    }
+    .image-grid.cols-3 .grid-item {
+      width: 33.3333%;
+    }
+    .image-grid img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .simple-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 12px;
+      page-break-inside: avoid;
+    }
+    .simple-table td,
+    .simple-table th {
+      border: 1px solid #d1d5db;
+      padding: 4px 6px;
+    }
     .closing-row {
       display: flex;
       justify-content: space-between;

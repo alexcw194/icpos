@@ -12,6 +12,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class DocumentController extends Controller
@@ -84,6 +85,12 @@ class DocumentController extends Controller
             'status' => Document::STATUS_DRAFT,
         ]);
 
+        $draftToken = session('doc_draft_token');
+        if (!$draftToken) {
+            $draftToken = (string) Str::uuid();
+            session(['doc_draft_token' => $draftToken]);
+        }
+
         $customers = Customer::query()
             ->visibleTo($user)
             ->ordered()
@@ -101,6 +108,7 @@ class DocumentController extends Controller
             'customers' => $customers,
             'signature' => $signature,
             'salesUsers' => $salesUsers,
+            'draftToken' => $draftToken,
             'owners' => $owners,
             'mode' => 'create',
         ]);
@@ -138,7 +146,7 @@ class DocumentController extends Controller
 
         $document = Document::create([
             'title' => $titleUpper ?? $data['title'],
-            'body_html' => $this->sanitizeHtml($data['body_html']),
+            'body_html' => '',
             'customer_id' => $customer->id,
             'contact_id' => $contact?->id,
             'customer_snapshot' => $this->customerSnapshot($customer),
@@ -148,6 +156,15 @@ class DocumentController extends Controller
             'status' => Document::STATUS_DRAFT,
             'sales_signature_position' => $salesPosition,
         ]);
+
+        $draftToken = $request->input('draft_token');
+        $bodyHtml = $this->sanitizeDocumentHtml($data['body_html'], $document->id, $draftToken);
+        $bodyHtml = $this->migrateDraftImages($bodyHtml, $draftToken, $document->id);
+        $document->update(['body_html' => $bodyHtml]);
+
+        if ($draftToken) {
+            $request->session()->forget('doc_draft_token');
+        }
 
         return redirect()
             ->route('documents.show', $document)
@@ -166,6 +183,7 @@ class DocumentController extends Controller
     public function edit(Document $document)
     {
         $this->authorize('update', $document);
+        abort_unless($document->isEditable(), 403, 'Dokumen terkunci.');
 
         $user = auth()->user();
         $document->load('contact');
@@ -186,6 +204,7 @@ class DocumentController extends Controller
             'customers' => $customers,
             'signature' => $signature,
             'salesUsers' => $salesUsers,
+            'draftToken' => null,
             'owners' => $owners,
             'mode' => 'edit',
         ]);
@@ -194,6 +213,7 @@ class DocumentController extends Controller
     public function update(Request $request, Document $document)
     {
         $this->authorize('update', $document);
+        abort_unless($document->isEditable(), 403, 'Dokumen terkunci.');
 
         $data = $this->validateDocument($request);
         $user = $request->user();
@@ -223,7 +243,7 @@ class DocumentController extends Controller
 
         $document->update([
             'title' => $titleUpper ?? $data['title'],
-            'body_html' => $this->sanitizeHtml($data['body_html']),
+            'body_html' => $this->sanitizeDocumentHtml($data['body_html'], $document->id),
             'customer_id' => $customer->id,
             'contact_id' => $contact?->id,
             'customer_snapshot' => $this->customerSnapshot($customer),
@@ -358,6 +378,7 @@ class DocumentController extends Controller
     {
         $this->authorize('delete', $document);
 
+        Storage::disk('public')->deleteDirectory('documents/'.$document->id);
         $document->delete();
 
         $user = auth()->user();
@@ -435,49 +456,130 @@ class DocumentController extends Controller
         ];
     }
 
-    private function sanitizeHtml(string $html): string
+    private function sanitizeDocumentHtml(string $html, int $documentId, ?string $draftToken = null): string
     {
-        $allowed = '<p><br><strong><b><em><i><u><ul><ol><li><div><span><h1><h2><h3><h4><h5><h6><table><thead><tbody><tr><td><th><hr>';
-        $clean = strip_tags($html, $allowed);
-        $clean = preg_replace('/on\\w+=("|\')[^"\']*\\1/i', '', $clean);
-        $clean = preg_replace('/javascript:/i', '', $clean);
-
-        $clean = preg_replace_callback('/\\sstyle=("|\')(.*?)\\1/i', function ($m) {
-            $style = $this->sanitizeStyle($m[2]);
-            return $style !== '' ? ' style="'.$style.'"' : '';
-        }, $clean);
-
-        return trim($clean);
-    }
-
-    private function sanitizeStyle(string $style): string
-    {
-        $allowed = [
-            'text-align' => '/^(left|right|center|justify)$/',
-            'font-size' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
-            'line-height' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)?$/',
-            'margin-top' => '/^\\d+(\\.\\d+)?(px|pt|em|rem)?$/',
-            'margin-bottom' => '/^\\d+(\\.\\d+)?(px|pt|em|rem)?$/',
+        $allowedTags = [
+            'p', 'br', 'strong', 'b', 'em', 'i', 'u',
+            'ul', 'ol', 'li', 'div', 'span',
+            'h2', 'h3', 'h4',
+            'table', 'thead', 'tbody', 'tr', 'td', 'th',
+            'figure', 'figcaption', 'img',
+        ];
+        $allowedClasses = [
+            'doc-block',
+            'block-paragraph',
+            'block-heading',
+            'block-image',
+            'block-table',
+            'image-grid',
+            'grid-item',
+            'cols-2',
+            'cols-3',
+            'align-left',
+            'align-center',
+            'align-right',
+            'size-25',
+            'size-50',
+            'size-100',
+            'image-caption',
+            'simple-table',
         ];
 
-        $out = [];
-        foreach (preg_split('/;\\s*/', (string) $style) as $chunk) {
-            if ($chunk === '' || !str_contains($chunk, ':')) {
+        $doc = new \DOMDocument('1.0', 'utf-8');
+        libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="utf-8" ?>'.$html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+
+        $xpath = new \DOMXPath($doc);
+        $nodes = iterator_to_array($xpath->query('//*'));
+        foreach ($nodes as $node) {
+            if (!in_array($node->nodeName, $allowedTags, true)) {
+                $this->unwrapNode($node);
                 continue;
             }
-            [$prop, $value] = array_map('trim', explode(':', $chunk, 2));
-            $prop = strtolower($prop);
-            $value = strtolower($value);
-            if (!isset($allowed[$prop])) {
-                continue;
+
+            if ($node->hasAttributes()) {
+                $attrs = [];
+                foreach ($node->attributes as $attr) {
+                    $attrs[] = $attr->nodeName;
+                }
+                foreach ($attrs as $attrName) {
+                    if (str_starts_with($attrName, 'on')) {
+                        $node->removeAttribute($attrName);
+                        continue;
+                    }
+                    if ($attrName === 'class') {
+                        $filtered = $this->filterClasses($node->getAttribute('class'), $allowedClasses);
+                        if ($filtered === '') {
+                            $node->removeAttribute('class');
+                        } else {
+                            $node->setAttribute('class', $filtered);
+                        }
+                        continue;
+                    }
+                    if ($node->nodeName === 'img' && in_array($attrName, ['src', 'alt'], true)) {
+                        continue;
+                    }
+                    if (in_array($node->nodeName, ['td', 'th'], true) && in_array($attrName, ['colspan', 'rowspan'], true)) {
+                        continue;
+                    }
+                    $node->removeAttribute($attrName);
+                }
             }
-            if (!preg_match($allowed[$prop], $value)) {
-                continue;
+
+            if ($node->nodeName === 'img') {
+                $src = (string) $node->getAttribute('src');
+                if ($src === '' || str_starts_with($src, 'data:')) {
+                    $node->parentNode?->removeChild($node);
+                    continue;
+                }
+
+                $allowedPrefixes = [
+                    '/storage/documents/'.$documentId.'/images/',
+                ];
+                if ($draftToken) {
+                    $allowedPrefixes[] = '/storage/documents/tmp/'.$draftToken.'/images/';
+                }
+
+                $ok = false;
+                foreach ($allowedPrefixes as $prefix) {
+                    if (str_starts_with($src, $prefix)) {
+                        $ok = true;
+                        break;
+                    }
+                }
+                if (!$ok) {
+                    $node->parentNode?->removeChild($node);
+                }
             }
-            $out[] = $prop.':'.$value;
         }
 
-        return implode(';', $out);
+        $clean = trim($doc->saveHTML());
+        libxml_clear_errors();
+
+        return $clean;
+    }
+
+    private function unwrapNode(\DOMNode $node): void
+    {
+        $parent = $node->parentNode;
+        if (!$parent) {
+            return;
+        }
+        while ($node->firstChild) {
+            $parent->insertBefore($node->firstChild, $node);
+        }
+        $parent->removeChild($node);
+    }
+
+    private function filterClasses(string $classList, array $allowed): string
+    {
+        $keep = [];
+        foreach (preg_split('/\\s+/', trim($classList)) as $class) {
+            if ($class !== '' && in_array($class, $allowed, true)) {
+                $keep[] = $class;
+            }
+        }
+        return implode(' ', array_unique($keep));
     }
 
     private function toUpper(?string $value): ?string
@@ -605,6 +707,30 @@ class DocumentController extends Controller
         }
 
         return (int) $user->id;
+    }
+
+    private function migrateDraftImages(string $html, ?string $draftToken, int $documentId): string
+    {
+        if (!$draftToken) {
+            return $html;
+        }
+
+        $tempDir = 'documents/tmp/'.$draftToken.'/images';
+        $targetDir = 'documents/'.$documentId.'/images';
+        if (Storage::disk('public')->exists($tempDir)) {
+            foreach (Storage::disk('public')->allFiles($tempDir) as $file) {
+                $newPath = str_replace('documents/tmp/'.$draftToken, 'documents/'.$documentId, $file);
+                Storage::disk('public')->makeDirectory(dirname($newPath));
+                Storage::disk('public')->move($file, $newPath);
+            }
+            Storage::disk('public')->deleteDirectory('documents/tmp/'.$draftToken);
+        }
+
+        return str_replace(
+            '/storage/documents/tmp/'.$draftToken.'/',
+            '/storage/documents/'.$documentId.'/',
+            $html
+        );
     }
 
 }
