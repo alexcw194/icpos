@@ -115,17 +115,30 @@
     }
     .signature-space {
       height: 110px;
+      position: relative;
     }
     .signature-space img {
+      max-height: 90px;
+    }
+    .signature-stamp {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      max-height: 80px;
+    }
+    .signature-image {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
       max-height: 90px;
     }
     .signature-name {
       font-weight: 700;
       margin-top: 4px;
-    }
-    .stamp-block {
-      width: 30%;
-      text-align: right;
     }
     .stamp {
       display: inline-block;
@@ -167,22 +180,20 @@
         <div class="signature-block">
           <div>Hormat Kami,</div>
           <div class="signature-space">
+            @if($document->approved_at)
+              @if($stampPath)
+                <img src="{{ $stampPath }}" alt="ICP Stamp" class="signature-stamp">
+              @else
+                <span class="stamp signature-stamp">ICP OFFICIAL</span>
+              @endif
+            @endif
             @if($signerImage)
-              <img src="{{ $signerImage }}" alt="Signature">
+              <img src="{{ $signerImage }}" alt="Signature" class="signature-image">
             @endif
           </div>
           <div class="signature-name">{{ $signerName }}</div>
           <div>{{ $signerPosition }}</div>
         </div>
-        @if($document->approved_at)
-          <div class="stamp-block">
-            @if($stampPath)
-              <img src="{{ $stampPath }}" alt="ICP Stamp" style="max-height: 80px;">
-            @else
-              <span class="stamp">ICP OFFICIAL</span>
-            @endif
-          </div>
-        @endif
       </div>
     </div>
   </div>
