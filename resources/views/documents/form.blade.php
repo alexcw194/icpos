@@ -1,18 +1,6 @@
 {{-- resources/views/documents/form.blade.php --}}
 @extends('layouts.tabler')
 
-@push('styles')
-<style>
-  .doc-editor {
-    min-height: 360px;
-    border: 1px solid #e6e7e9;
-    border-radius: 6px;
-    background: #fff;
-    overflow: auto;
-  }
-</style>
-@endpush
-
 @section('content')
 @php
   $isEdit = ($mode ?? '') === 'edit';
@@ -128,12 +116,12 @@
       </div>
 
       <div class="mt-3">
-        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-          <label class="form-label mb-0">Body Content</label>
+        <div class="mb-3">
+          <label class="form-label">Body Content</label>
+          <textarea id="doc-editor" name="body" class="form-control" rows="18">{{ old('body', $document->body_html ?? $document->body ?? '') }}</textarea>
+          <div class="form-hint">Gambar hanya via upload (PNG/JPG), tanpa URL eksternal.</div>
         </div>
-        <textarea id="body-editor" name="body" class="doc-editor">{{ old('body', $document->body_html) }}</textarea>
         <input type="hidden" name="draft_token" id="draft_token" value="{{ $draftToken ?? '' }}">
-        <div class="text-muted small mt-1">Gambar hanya via upload (PNG/JPG), tanpa URL eksternal.</div>
         @error('body')<div class="text-danger small">{{ $message }}</div>@enderror
       </div>
 
@@ -162,17 +150,23 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('vendor/ckeditor4/ckeditor.js') }}"></script>
+@php
+  $uploadUrl = $document->id ? route('documents.editor.upload', $document) : '';
+@endphp
+<script src="{{ asset('vendor/ckeditor/ckeditor.js') }}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('docForm');
     const draftToken = document.getElementById('draft_token')?.value || '';
     const documentId = @json($document->id ?? null);
-    const uploadBaseUrl = @json(route('documents.images.upload'));
+    const uploadBaseUrl = @json($uploadUrl);
     const csrfToken = @json(csrf_token());
     let dialogHooked = false;
 
     const buildUploadUrl = () => {
+      if (!uploadBaseUrl) {
+        return '';
+      }
       const params = new URLSearchParams();
       params.append('_token', csrfToken);
       if (documentId) {
@@ -198,35 +192,50 @@
     };
 
     const initEditor = () => {
-      const existing = CKEDITOR.instances['body-editor'];
+      const existing = CKEDITOR.instances['doc-editor'];
       if (existing) {
         existing.updateElement();
         existing.destroy(true);
       }
       hookImageDialog();
 
+      const uploadUrl = buildUploadUrl();
+      const toolbar = [
+        { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', '-', 'RemoveFormat'] },
+        { name: 'paragraph', items: ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight'] },
+        { name: 'styles', items: ['Format', 'FontSize'] },
+        { name: 'insert', items: uploadUrl ? ['Table', 'Image'] : ['Table'] },
+        { name: 'clipboard', items: ['Undo', 'Redo'] },
+        { name: 'document', items: ['Maximize'] },
+      ];
+
       const config = {
-        height: 420,
-        removePlugins: 'easyimage,cloudservices,exportpdf',
-        extraPlugins: 'uploadimage,image2',
-        uploadUrl: buildUploadUrl(),
-        filebrowserUploadUrl: buildUploadUrl(),
-        filebrowserUploadMethod: 'xhr',
-        removeDialogTabs: 'image:advanced;image:Link',
+        height: 520,
+        extraPlugins: 'image2,uploadimage',
+        toolbar,
+        removeButtons: 'Source,Save,NewPage,Preview,Print,Templates,Find,Replace,SelectAll,Scayt,Flash,Smiley,SpecialChar,PageBreak,Iframe,About',
+        image_dialogTab: 'info',
+        imageRemoveLinkByEmptyURL: true,
         allowedContent: true,
         fontSize_sizes: '12/12px;14/14px;16/16px;18/18px;20/20px;22/22px',
         image2_alignClasses: ['doc-img-left', 'doc-img-center', 'doc-img-right'],
         image2_disableResizer: false,
-        toolbar: [
-          { name: 'clipboard', items: ['Undo', 'Redo'] },
-          { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline'] },
-          { name: 'paragraph', items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'NumberedList', 'BulletedList'] },
-          { name: 'styles', items: ['FontSize'] },
-          { name: 'insert', items: ['Image', 'Table'] },
-        ],
+        extraAllowedContent: 'img[!src,alt,width,height,style];table(*){*}(*);tr(*){*}(*);td(*){*}(*);p(*){*}(*);div(*){*}(*);span(*){*}(*);',
       };
+      if (uploadUrl) {
+        config.filebrowserUploadUrl = uploadUrl;
+        config.filebrowserUploadMethod = 'form';
+      }
 
-      const editor = CKEDITOR.replace('body-editor', config);
+      if (!document.getElementById('doc-editor')) {
+        return;
+      }
+
+      if (window.CKEDITOR && CKEDITOR.instances['doc-editor']) {
+        return;
+      }
+
+      const editor = CKEDITOR.replace('doc-editor', config);
       editor.on('paste', (evt) => {
         const data = evt.data.dataValue || '';
         if (/src=[\"']data:image/i.test(data)) {
@@ -249,8 +258,8 @@
     initEditor();
 
     form.addEventListener('submit', () => {
-      if (CKEDITOR.instances['body-editor']) {
-        CKEDITOR.instances['body-editor'].updateElement();
+      if (CKEDITOR.instances['doc-editor']) {
+        CKEDITOR.instances['doc-editor'].updateElement();
       }
     });
 
