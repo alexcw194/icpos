@@ -12,6 +12,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class DocumentController extends Controller
@@ -84,6 +85,12 @@ class DocumentController extends Controller
             'status' => Document::STATUS_DRAFT,
         ]);
 
+        $draftToken = session('doc_draft_token');
+        if (!$draftToken) {
+            $draftToken = (string) Str::uuid();
+            session(['doc_draft_token' => $draftToken]);
+        }
+
         $customers = Customer::query()
             ->visibleTo($user)
             ->ordered()
@@ -101,6 +108,7 @@ class DocumentController extends Controller
             'customers' => $customers,
             'signature' => $signature,
             'salesUsers' => $salesUsers,
+            'draftToken' => $draftToken,
             'owners' => $owners,
             'mode' => 'create',
         ]);
@@ -138,7 +146,7 @@ class DocumentController extends Controller
 
         $document = Document::create([
             'title' => $titleUpper ?? $data['title'],
-            'body_html' => $this->sanitizeHtml($data['body_html']),
+            'body_html' => '',
             'customer_id' => $customer->id,
             'contact_id' => $contact?->id,
             'customer_snapshot' => $this->customerSnapshot($customer),
@@ -148,6 +156,15 @@ class DocumentController extends Controller
             'status' => Document::STATUS_DRAFT,
             'sales_signature_position' => $salesPosition,
         ]);
+
+        $draftToken = $request->input('draft_token');
+        $bodyHtml = $this->sanitizeHtml($data['body_html'], $document->id, $draftToken);
+        $bodyHtml = $this->migrateDraftImages($bodyHtml, $draftToken, $document->id);
+        $document->update(['body_html' => $bodyHtml]);
+
+        if ($draftToken) {
+            $request->session()->forget('doc_draft_token');
+        }
 
         return redirect()
             ->route('documents.show', $document)
@@ -166,6 +183,7 @@ class DocumentController extends Controller
     public function edit(Document $document)
     {
         $this->authorize('update', $document);
+        abort_unless($document->isEditable(), 403, 'Dokumen terkunci.');
 
         $user = auth()->user();
         $document->load('contact');
@@ -186,6 +204,7 @@ class DocumentController extends Controller
             'customers' => $customers,
             'signature' => $signature,
             'salesUsers' => $salesUsers,
+            'draftToken' => null,
             'owners' => $owners,
             'mode' => 'edit',
         ]);
@@ -194,6 +213,7 @@ class DocumentController extends Controller
     public function update(Request $request, Document $document)
     {
         $this->authorize('update', $document);
+        abort_unless($document->isEditable(), 403, 'Dokumen terkunci.');
 
         $data = $this->validateDocument($request);
         $user = $request->user();
@@ -223,7 +243,7 @@ class DocumentController extends Controller
 
         $document->update([
             'title' => $titleUpper ?? $data['title'],
-            'body_html' => $this->sanitizeHtml($data['body_html']),
+            'body_html' => $this->sanitizeHtml($data['body_html'], $document->id),
             'customer_id' => $customer->id,
             'contact_id' => $contact?->id,
             'customer_snapshot' => $this->customerSnapshot($customer),
@@ -358,6 +378,7 @@ class DocumentController extends Controller
     {
         $this->authorize('delete', $document);
 
+        Storage::disk('public')->deleteDirectory('documents/'.$document->id);
         $document->delete();
 
         $user = auth()->user();
@@ -435,19 +456,97 @@ class DocumentController extends Controller
         ];
     }
 
-    private function sanitizeHtml(string $html): string
+    private function sanitizeHtml(string $html, int $documentId, ?string $draftToken = null): string
     {
-        $allowed = '<p><br><strong><b><em><i><u><ul><ol><li><div><span><h1><h2><h3><h4><h5><h6><table><thead><tbody><tr><td><th><hr>';
-        $clean = strip_tags($html, $allowed);
-        $clean = preg_replace('/on\\w+=("|\')[^"\']*\\1/i', '', $clean);
-        $clean = preg_replace('/javascript:/i', '', $clean);
+        $allowedTags = [
+            'p', 'br', 'strong', 'b', 'em', 'i', 'u',
+            'ul', 'ol', 'li', 'div', 'span',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'table', 'thead', 'tbody', 'tr', 'td', 'th',
+            'figure', 'figcaption', 'img',
+        ];
 
-        $clean = preg_replace_callback('/\\sstyle=("|\')(.*?)\\1/i', function ($m) {
-            $style = $this->sanitizeStyle($m[2]);
-            return $style !== '' ? ' style="'.$style.'"' : '';
-        }, $clean);
+        $doc = new \DOMDocument('1.0', 'utf-8');
+        libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="utf-8" ?>'.$html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $xpath = new \DOMXPath($doc);
 
-        return trim($clean);
+        foreach (iterator_to_array($xpath->query('//*')) as $node) {
+            if (!in_array($node->nodeName, $allowedTags, true)) {
+                $this->unwrapNode($node);
+                continue;
+            }
+
+            if ($node->hasAttributes()) {
+                $attrs = [];
+                foreach ($node->attributes as $attr) {
+                    $attrs[] = $attr->nodeName;
+                }
+                foreach ($attrs as $attrName) {
+                    if (str_starts_with($attrName, 'on')) {
+                        $node->removeAttribute($attrName);
+                        continue;
+                    }
+                    if ($attrName === 'style') {
+                        $style = $this->sanitizeStyle($node->getAttribute('style'));
+                        if ($style === '') {
+                            $node->removeAttribute('style');
+                        } else {
+                            $node->setAttribute('style', $style);
+                        }
+                        continue;
+                    }
+                    if ($node->nodeName === 'img' && in_array($attrName, ['src', 'alt', 'width', 'height'], true)) {
+                        continue;
+                    }
+                    if (in_array($node->nodeName, ['td', 'th'], true) && in_array($attrName, ['colspan', 'rowspan'], true)) {
+                        continue;
+                    }
+                    $node->removeAttribute($attrName);
+                }
+            }
+
+            if ($node->nodeName === 'img') {
+                $src = (string) $node->getAttribute('src');
+                if ($src === '' || str_starts_with($src, 'data:')) {
+                    $node->parentNode?->removeChild($node);
+                    continue;
+                }
+
+                $path = $this->normalizeImagePath($src);
+                $allowedPrefixes = [
+                    '/storage/documents/'.$documentId.'/images/',
+                ];
+                if ($draftToken) {
+                    $allowedPrefixes[] = '/storage/documents/tmp/'.$draftToken.'/images/';
+                }
+
+                $ok = false;
+                foreach ($allowedPrefixes as $prefix) {
+                    if (str_starts_with($path, $prefix)) {
+                        $ok = true;
+                        break;
+                    }
+                }
+                if (!$ok) {
+                    $node->parentNode?->removeChild($node);
+                    continue;
+                }
+                $node->setAttribute('src', $path);
+
+                foreach (['width', 'height'] as $attr) {
+                    $val = $node->getAttribute($attr);
+                    if ($val !== '' && !preg_match('/^\\d+$/', $val)) {
+                        $node->removeAttribute($attr);
+                    }
+                }
+            }
+        }
+
+        $clean = trim($doc->saveHTML());
+        libxml_clear_errors();
+
+        return $clean;
     }
 
     private function sanitizeStyle(string $style): string
@@ -456,8 +555,24 @@ class DocumentController extends Controller
             'text-align' => '/^(left|right|center|justify)$/',
             'font-size' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
             'line-height' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)?$/',
-            'margin-top' => '/^\\d+(\\.\\d+)?(px|pt|em|rem)?$/',
-            'margin-bottom' => '/^\\d+(\\.\\d+)?(px|pt|em|rem)?$/',
+            'margin-top' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
+            'margin-bottom' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
+            'margin-left' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
+            'margin-right' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
+            'padding' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
+            'padding-top' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
+            'padding-bottom' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
+            'padding-left' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
+            'padding-right' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
+            'float' => '/^(left|right|none)$/',
+            'width' => '/^\\d+(\\.\\d+)?(px|%)$/',
+            'height' => '/^\\d+(\\.\\d+)?(px|%)$/',
+            'max-width' => '/^\\d+(\\.\\d+)?(px|%)$/',
+            'min-width' => '/^\\d+(\\.\\d+)?(px|%)$/',
+            'border' => '/^\\d+(\\.\\d+)?px\\s+(solid|dashed|dotted)\\s+#[0-9a-f]{3,6}$/',
+            'border-collapse' => '/^(collapse|separate)$/',
+            'border-spacing' => '/^\\d+(\\.\\d+)?(px|pt|em|rem)$/',
+            'display' => '/^(block|inline|inline-block|table|table-row|table-cell)$/',
         ];
 
         $out = [];
@@ -478,6 +593,27 @@ class DocumentController extends Controller
         }
 
         return implode(';', $out);
+    }
+
+    private function unwrapNode(\DOMNode $node): void
+    {
+        $parent = $node->parentNode;
+        if (!$parent) {
+            return;
+        }
+        while ($node->firstChild) {
+            $parent->insertBefore($node->firstChild, $node);
+        }
+        $parent->removeChild($node);
+    }
+
+    private function normalizeImagePath(string $src): string
+    {
+        $path = parse_url($src, PHP_URL_PATH);
+        if (is_string($path) && $path !== '') {
+            return $path;
+        }
+        return $src;
     }
 
     private function toUpper(?string $value): ?string
@@ -607,4 +743,27 @@ class DocumentController extends Controller
         return (int) $user->id;
     }
 
+    private function migrateDraftImages(string $html, ?string $draftToken, int $documentId): string
+    {
+        if (!$draftToken) {
+            return $html;
+        }
+
+        $tempDir = 'documents/tmp/'.$draftToken.'/images';
+        $targetDir = 'documents/'.$documentId.'/images';
+        if (Storage::disk('public')->exists($tempDir)) {
+            foreach (Storage::disk('public')->allFiles($tempDir) as $file) {
+                $newPath = str_replace('documents/tmp/'.$draftToken, 'documents/'.$documentId, $file);
+                Storage::disk('public')->makeDirectory(dirname($newPath));
+                Storage::disk('public')->move($file, $newPath);
+            }
+            Storage::disk('public')->deleteDirectory('documents/tmp/'.$draftToken);
+        }
+
+        return str_replace(
+            '/storage/documents/tmp/'.$draftToken.'/',
+            '/storage/documents/'.$documentId.'/',
+            $html
+        );
+    }
 }

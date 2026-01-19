@@ -1,6 +1,17 @@
 {{-- resources/views/documents/show.blade.php --}}
 @extends('layouts.tabler')
 
+@push('styles')
+<style>
+  .document-body img { max-width: 100%; height: auto; }
+  .document-body table { width: 100%; border-collapse: collapse; }
+  .document-body td,
+  .document-body th { border: 1px solid #d1d5db; padding: 4px 6px; }
+  .document-body figure { margin: 0 0 12px; }
+  .document-body figcaption { margin-top: 6px; font-size: 11px; color: #6b7280; }
+</style>
+@endpush
+
 @section('content')
 <div class="page-header d-print-none">
   <div class="row align-items-center">
@@ -115,7 +126,7 @@
         @endif
 
         <h3 class="card-title">Body</h3>
-        <div class="border rounded p-3">
+        <div class="border rounded p-3 document-body">
           {!! $document->body_html !!}
         </div>
       </div>

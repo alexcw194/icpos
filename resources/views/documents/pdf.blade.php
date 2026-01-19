@@ -102,6 +102,31 @@
     .body {
       margin-bottom: 40px;
     }
+    .body img {
+      max-width: 100%;
+      height: auto;
+      page-break-inside: avoid;
+    }
+    .body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 12px;
+      page-break-inside: avoid;
+    }
+    .body td,
+    .body th {
+      border: 1px solid #d1d5db;
+      padding: 4px 6px;
+    }
+    .body figure {
+      margin: 0 0 12px;
+      page-break-inside: avoid;
+    }
+    .body figcaption {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #6b7280;
+    }
     .closing-row {
       display: flex;
       justify-content: space-between;
@@ -130,7 +155,7 @@
     }
     .signature-image {
       position: absolute;
-      left: 0;
+      left: 10%;
       top: 50%;
       transform: translate(0, -50%);
       z-index: 2;

@@ -7,16 +7,8 @@
     min-height: 360px;
     border: 1px solid #e6e7e9;
     border-radius: 6px;
-    padding: 14px;
     background: #fff;
     overflow: auto;
-  }
-  .doc-toolbar .btn { padding: .25rem .5rem; }
-  .doc-toolbar select {
-    height: 34px;
-    line-height: 1.2;
-    padding-top: 4px;
-    padding-bottom: 4px;
   }
 </style>
 @endpush
@@ -136,38 +128,19 @@
       </div>
 
       <div class="mt-3">
-        <label class="form-label">Body Content</label>
-        <div class="doc-toolbar d-flex flex-wrap gap-1 mb-2">
-          <div class="btn-group" role="group">
-            <button type="button" class="btn btn-outline-secondary" data-cmd="bold"><strong>B</strong></button>
-            <button type="button" class="btn btn-outline-secondary" data-cmd="italic"><em>I</em></button>
-            <button type="button" class="btn btn-outline-secondary" data-cmd="underline"><u>U</u></button>
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+          <label class="form-label mb-0">Body Content</label>
+          <div class="ms-auto d-flex align-items-center gap-2">
+            <span class="text-muted small">Mode</span>
+            <select id="editor-mode" class="form-select form-select-sm w-auto">
+              <option value="surat">Mode Surat</option>
+              <option value="laporan">Mode Laporan</option>
+            </select>
           </div>
-          <div class="btn-group" role="group">
-            <button type="button" class="btn btn-outline-secondary" data-cmd="justifyLeft">Left</button>
-            <button type="button" class="btn btn-outline-secondary" data-cmd="justifyCenter">Center</button>
-            <button type="button" class="btn btn-outline-secondary" data-cmd="justifyRight">Right</button>
-            <button type="button" class="btn btn-outline-secondary" data-cmd="justifyFull">Justify</button>
-          </div>
-          <select id="doc-font-size" class="form-select w-auto">
-            <option value="">Font size</option>
-            <option value="12">12</option>
-            <option value="14">14</option>
-            <option value="16">16</option>
-            <option value="18">18</option>
-            <option value="20">20</option>
-          </select>
-          <select id="doc-line-height" class="form-select w-auto">
-            <option value="">Spacing</option>
-            <option value="1">1.0</option>
-            <option value="1.25">1.25</option>
-            <option value="1.5">1.5</option>
-            <option value="1.75">1.75</option>
-            <option value="2">2.0</option>
-          </select>
         </div>
-        <div id="doc-editor" class="doc-editor" contenteditable="true">{!! old('body_html', $document->body_html) !!}</div>
-        <input type="hidden" name="body_html" id="doc_body_html">
+        <textarea id="doc-editor" name="body_html" class="doc-editor">{{ old('body_html', $document->body_html) }}</textarea>
+        <input type="hidden" name="draft_token" id="draft_token" value="{{ $draftToken ?? '' }}">
+        <div class="text-muted small mt-1">Gambar hanya via upload (PNG/JPG), tanpa URL eksternal.</div>
         @error('body_html')<div class="text-danger small">{{ $message }}</div>@enderror
       </div>
 
@@ -196,62 +169,111 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const editor = document.getElementById('doc-editor');
-    const hidden = document.getElementById('doc_body_html');
     const form = document.getElementById('docForm');
+    const modeSelect = document.getElementById('editor-mode');
+    const draftToken = document.getElementById('draft_token')?.value || '';
+    const documentId = @json($document->id ?? null);
+    const uploadUrl = @json(route('documents.images.upload'));
+    const csrfToken = @json(csrf_token());
 
-    const sync = () => {
-      hidden.value = editor.innerHTML.trim();
-    };
-    sync();
-
-    document.querySelectorAll('[data-cmd]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.execCommand(btn.dataset.cmd, false, null);
-        editor.focus();
-        sync();
-      });
-    });
-
-    const fontSelect = document.getElementById('doc-font-size');
-    fontSelect?.addEventListener('change', (e) => {
-      const size = e.target.value;
-      if (!size) return;
-      document.execCommand('fontSize', false, '7');
-      editor.querySelectorAll('font[size="7"]').forEach(el => {
-        const span = document.createElement('span');
-        span.style.fontSize = size + 'px';
-        span.innerHTML = el.innerHTML;
-        el.parentNode.replaceChild(span, el);
-      });
-      editor.focus();
-      sync();
-      fontSelect.value = '';
-    });
-
-    const lineSelect = document.getElementById('doc-line-height');
-    lineSelect?.addEventListener('change', (e) => {
-      const val = e.target.value;
-      if (!val) return;
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) return;
-      let node = sel.anchorNode;
-      if (node && node.nodeType === Node.TEXT_NODE) node = node.parentNode;
-      while (node && node !== editor) {
-        if (node.nodeType === Node.ELEMENT_NODE && /^(P|DIV|LI|H1|H2|H3|H4|H5|H6)$/.test(node.tagName)) {
-          node.style.lineHeight = val;
-          break;
-        }
-        node = node.parentNode;
+    const uploadImage = async (file) => {
+      const formData = new FormData();
+      formData.append('image', file);
+      if (documentId) {
+        formData.append('document_id', documentId);
+      } else if (draftToken) {
+        formData.append('draft_token', draftToken);
       }
-      editor.focus();
-      sync();
-      lineSelect.value = '';
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrfToken,
+          'Accept': 'application/json',
+        },
+        body: formData,
+      });
+      if (!res.ok) {
+        throw new Error('Upload gagal.');
+      }
+      const data = await res.json();
+      return data.url;
+    };
+
+    const initEditor = (mode) => {
+      const current = tinymce.get('doc-editor');
+      const content = current ? current.getContent() : document.getElementById('doc-editor').value;
+      if (current) {
+        current.destroy();
+      }
+      document.getElementById('doc-editor').value = content;
+
+      const isReport = mode === 'laporan';
+      tinymce.init({
+        selector: '#doc-editor',
+        height: 420,
+        menubar: false,
+        branding: false,
+        plugins: isReport ? 'lists table image paste' : 'lists paste',
+        toolbar: isReport
+          ? 'undo redo | bold italic underline | fontsizeselect | alignleft aligncenter alignright | bullist numlist | table | image'
+          : 'undo redo | bold italic underline | fontsizeselect | alignleft aligncenter alignright | bullist numlist',
+        fontsize_formats: '12px 14px 16px 18px 20px 22px',
+        object_resizing: true,
+        automatic_uploads: true,
+        paste_data_images: false,
+        image_urltab: false,
+        image_uploadtab: true,
+        images_file_types: 'jpg,jpeg,png',
+        images_upload_handler: (blobInfo) => new Promise((resolve, reject) => {
+          uploadImage(blobInfo.blob())
+            .then(resolve)
+            .catch(() => reject('Upload gagal.'));
+        }),
+        file_picker_types: 'image',
+        file_picker_callback: (callback) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/png,image/jpeg';
+          input.onchange = async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            try {
+              const url = await uploadImage(file);
+              callback(url, { alt: file.name });
+            } catch (err) {
+              alert('Upload gagal.');
+            }
+          };
+          input.click();
+        },
+        content_style: 'img{max-width:100%;height:auto;} table{width:100%;border-collapse:collapse;} table td,table th{border:1px solid #d1d5db;padding:4px 6px;}',
+        setup: (ed) => {
+          ed.on('Paste', (e) => {
+            const hasImage = Array.from(e.clipboardData?.items || []).some(item => item.type.startsWith('image/'));
+            if (hasImage) {
+              e.preventDefault();
+              alert('Gunakan tombol upload untuk gambar.');
+            }
+          });
+        },
+      });
+    };
+
+    const initialValue = document.getElementById('doc-editor')?.value || '';
+    if (modeSelect && /<img|<table/i.test(initialValue)) {
+      modeSelect.value = 'laporan';
+    }
+    initEditor(modeSelect?.value || 'surat');
+    modeSelect?.addEventListener('change', () => {
+      initEditor(modeSelect.value);
     });
 
-    form.addEventListener('submit', sync);
+    form.addEventListener('submit', () => {
+      tinymce.triggerSave();
+    });
 
     const customerSelect = document.getElementById('customer_id');
     const contactSelect = document.getElementById('contact_id');
