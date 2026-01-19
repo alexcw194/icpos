@@ -28,7 +28,9 @@
       @endif
 
       @can('update', $document)
-        <a href="{{ route('documents.edit', $document) }}" class="btn btn-primary">Edit</a>
+        @if(in_array($document->status, [\App\Models\Document::STATUS_DRAFT, \App\Models\Document::STATUS_REJECTED], true))
+          <a href="{{ route('documents.edit', $document) }}" class="btn btn-primary">Edit</a>
+        @endif
       @endcan
 
       @can('submit', $document)
