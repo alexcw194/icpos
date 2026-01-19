@@ -12,7 +12,12 @@
     overflow: auto;
   }
   .doc-toolbar .btn { padding: .25rem .5rem; }
-  .doc-toolbar select { height: 30px; }
+  .doc-toolbar select {
+    height: 34px;
+    line-height: 1.2;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
 </style>
 @endpush
 
