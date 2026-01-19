@@ -216,6 +216,41 @@
             </ul>
           </li>
 
+          {{-- Dokumen --}}
+          @hasanyrole('Sales|Admin|SuperAdmin')
+            <li class="nav-item nav-group">
+              <div class="nav-link {{ request()->is('documents*') ? 'active' : '' }}">
+                <span class="nav-link-icon ti ti-file-text"></span>
+                <span class="nav-link-title">Dokumen</span>
+              </div>
+              <ul class="nav nav-pills sub-nav flex-column ms-4">
+                @hasanyrole('Sales')
+                  <li>
+                    <a class="nav-link {{ request()->routeIs('documents.my') ? 'active' : '' }}"
+                       href="{{ route('documents.my') }}">
+                      My Documents
+                    </a>
+                  </li>
+                @endhasanyrole
+
+                @hasanyrole('Admin|SuperAdmin')
+                  <li>
+                    <a class="nav-link {{ request()->routeIs('documents.index') ? 'active' : '' }}"
+                       href="{{ route('documents.index') }}">
+                      All Documents
+                    </a>
+                  </li>
+                  <li>
+                    <a class="nav-link {{ request()->routeIs('documents.pending') ? 'active' : '' }}"
+                       href="{{ route('documents.pending') }}">
+                      Pending Approval
+                    </a>
+                  </li>
+                @endhasanyrole
+              </ul>
+            </li>
+          @endhasanyrole
+
           {{-- Purchase (Admin/SuperAdmin only) --}}
           @hasanyrole('Admin|SuperAdmin')
             @if(Route::has('po.index'))

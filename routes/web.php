@@ -6,6 +6,7 @@ use App\Http\Controllers\{
     DashboardController,
     ProfileController,
     CustomerController,
+    DocumentController,
     ItemController,
     ItemVariantController,
     InventoryRowController,
@@ -82,6 +83,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get ('/api/customers/dup-check', [CustomerController::class, 'dupCheck'])->name('customers.dup-check'); // alias lama
     Route::get('/api/customers/search', [CustomerController::class, 'quickSearch'])
     ->name('customers.search');
+    Route::get('/api/customers/{customer}/contacts', [CustomerController::class, 'contacts'])
+    ->name('customers.contacts');
 
     
     // Google Places proxy
@@ -249,6 +252,40 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         session()->forget('so_draft_token');
         return response()->noContent();  // 204
     })->name('sales-orders.create.cancel');
+
+    // =======================
+    // Documents
+    // =======================
+    Route::get('documents/my', [DocumentController::class, 'my'])
+        ->name('documents.my');
+    Route::get('documents', [DocumentController::class, 'index'])
+        ->name('documents.index');
+    Route::get('documents/pending', [DocumentController::class, 'pending'])
+        ->name('documents.pending');
+    Route::get('documents/create', [DocumentController::class, 'create'])
+        ->name('documents.create')
+        ->middleware(['can:create,App\Models\Document']);
+    Route::post('documents', [DocumentController::class, 'store'])
+        ->name('documents.store')
+        ->middleware(['can:create,App\Models\Document']);
+    Route::get('documents/{document}', [DocumentController::class, 'show'])
+        ->name('documents.show');
+    Route::get('documents/{document}/edit', [DocumentController::class, 'edit'])
+        ->name('documents.edit');
+    Route::match(['put','patch'], 'documents/{document}', [DocumentController::class, 'update'])
+        ->name('documents.update');
+    Route::post('documents/{document}/submit', [DocumentController::class, 'submit'])
+        ->name('documents.submit');
+    Route::post('documents/{document}/approve', [DocumentController::class, 'approve'])
+        ->name('documents.approve');
+    Route::post('documents/{document}/final-approve', [DocumentController::class, 'finalApprove'])
+        ->name('documents.final-approve');
+    Route::post('documents/{document}/reject', [DocumentController::class, 'reject'])
+        ->name('documents.reject');
+    Route::get('documents/{document}/pdf', [DocumentController::class, 'pdf'])
+        ->name('documents.pdf');
+    Route::get('documents/{document}/pdf/download', [DocumentController::class, 'pdfDownload'])
+        ->name('documents.pdf-download');
 
 });
 

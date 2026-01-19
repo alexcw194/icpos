@@ -364,6 +364,28 @@ class CustomerController extends Controller
         return back()->with('success', 'Kontak berhasil dihapus.');
     }
 
+    public function contacts(Customer $customer)
+    {
+        $this->authorize('view', $customer);
+
+        $contacts = $customer->contacts()
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->map(function (Contact $contact) {
+                return [
+                    'id' => $contact->id,
+                    'name' => $contact->full_name,
+                    'title' => $contact->title_label,
+                    'position' => $contact->position_label,
+                    'email' => $contact->email,
+                    'phone' => $contact->phone,
+                ];
+            });
+
+        return response()->json($contacts);
+    }
+
     public function quickSearch(Request $req)
     {
         $q = trim((string) $req->input('q', ''));
