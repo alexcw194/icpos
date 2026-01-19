@@ -150,7 +150,7 @@ class DocumentController extends Controller
         ]);
 
         return redirect()
-            ->route('documents.edit', $document)
+            ->route('documents.show', $document)
             ->with('success', 'Draft dokumen dibuat.');
     }
 
@@ -234,7 +234,7 @@ class DocumentController extends Controller
         ]);
 
         return redirect()
-            ->route('documents.edit', $document)
+            ->route('documents.show', $document)
             ->with('success', 'Dokumen disimpan.');
     }
 
