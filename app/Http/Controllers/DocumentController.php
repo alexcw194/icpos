@@ -267,6 +267,9 @@ class DocumentController extends Controller
             ->first();
 
         $salesSignerId = $document->sales_signer_user_id;
+        if ($salesSignerId && (int) $salesSignerId === (int) $user->id) {
+            return back()->with('error', 'Signer tidak boleh sama dengan approver.');
+        }
         $salesSignature = $salesSignerId
             ? Signature::query()->where('user_id', $salesSignerId)->first()
             : null;
@@ -368,7 +371,10 @@ class DocumentController extends Controller
             'body_html' => ['required', 'string'],
             'customer_id' => ['required', 'exists:customers,id'],
             'contact_id' => ['nullable', 'exists:contacts,id'],
-            'sales_signer_user_id' => ['required', function ($attribute, $value, $fail) use ($request) {
+            'sales_signer_user_id' => ['nullable', function ($attribute, $value, $fail) use ($request) {
+                if ($value === null || $value === '') {
+                    return;
+                }
                 if ($value === 'director') {
                     return;
                 }
