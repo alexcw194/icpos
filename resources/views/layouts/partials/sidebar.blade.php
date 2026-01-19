@@ -217,7 +217,7 @@
           </li>
 
           {{-- Dokumen --}}
-          @hasanyrole('Sales|Admin|SuperAdmin')
+          @hasanyrole('Sales|Admin|SuperAdmin|Super Admin')
             <li class="nav-item nav-group">
               <div class="nav-link {{ request()->is('documents*') ? 'active' : '' }}">
                 <span class="nav-link-icon ti ti-file-text"></span>
@@ -233,7 +233,7 @@
                   </li>
                 @endhasanyrole
 
-                @hasanyrole('Admin|SuperAdmin')
+                @hasanyrole('Admin|SuperAdmin|Super Admin')
                   <li>
                     <a class="nav-link {{ request()->routeIs('documents.index') ? 'active' : '' }}"
                        href="{{ route('documents.index') }}">
