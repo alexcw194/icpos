@@ -122,7 +122,7 @@
     }
     .signature-stamp {
       position: absolute;
-      left: 50%;
+      left: 46%;
       top: 50%;
       transform: translate(-50%, -50%);
       z-index: 1;
@@ -130,7 +130,7 @@
     }
     .signature-image {
       position: absolute;
-      left: 50%;
+      left: 46%;
       top: 50%;
       transform: translate(-50%, -50%);
       z-index: 2;
