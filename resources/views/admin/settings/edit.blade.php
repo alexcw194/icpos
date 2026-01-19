@@ -9,6 +9,8 @@
   $letterheadUrl  = $letterheadPath ? asset('storage/'.$letterheadPath) : null;
   $stampPath = $s['documents.stamp_path'] ?? null;
   $stampUrl  = $stampPath ? asset('storage/'.$stampPath) : null;
+  $directorSignaturePath = $s['documents.director_signature_path'] ?? null;
+  $directorSignatureUrl  = $directorSignaturePath ? asset('storage/'.$directorSignaturePath) : null;
 
   $encSaved = $s['mail.encryption'] ?? '';
   $encView  = $encSaved === '' ? 'null' : $encSaved;
@@ -86,6 +88,19 @@
             <div class="mt-2 d-flex align-items-center gap-3">
               <img src="{{ $stampUrl }}" alt="Stamp" style="height:56px;object-fit:contain;border:1px solid rgba(0,0,0,.06);padding:4px;border-radius:8px;">
               <span class="text-muted small">Stamp saat ini</span>
+            </div>
+          @endif
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Director Signature (PNG)</label>
+          <input type="file" name="documents_director_signature" class="form-control" accept=".png">
+          @error('documents_director_signature')<div class="text-danger small">{{ $message }}</div>@enderror
+          <div class="form-hint">Tanda tangan Direktur Utama. Format PNG, maks. 2MB.</div>
+          @if($directorSignatureUrl)
+            <div class="mt-2 d-flex align-items-center gap-3">
+              <img src="{{ $directorSignatureUrl }}" alt="Director Signature" style="height:56px;object-fit:contain;border:1px solid rgba(0,0,0,.06);padding:4px;border-radius:8px;">
+              <span class="text-muted small">Signature saat ini</span>
             </div>
           @endif
         </div>

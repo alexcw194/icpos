@@ -26,6 +26,7 @@ class SettingController extends Controller
             'company_logo'     => ['nullable','image','mimes:jpg,jpeg,png,webp','max:1024'],
             'documents_letterhead' => ['nullable','image','mimes:png','max:4096'],
             'documents_stamp' => ['nullable','image','mimes:png','max:2048'],
+            'documents_director_signature' => ['nullable','image','mimes:png','max:2048'],
 
             // ===== Global SMTP =====
             'mail_host'        => ['nullable','string','max:150'],
@@ -59,6 +60,13 @@ class SettingController extends Controller
             $stampPath = $request->file('documents_stamp')->store('documents','public');
         }
 
+        // Upload director signature (PNG)
+        $directorSignaturePath = Setting::get('documents.director_signature_path');
+        if ($request->hasFile('documents_director_signature')) {
+            if ($directorSignaturePath) Storage::disk('public')->delete($directorSignaturePath);
+            $directorSignaturePath = $request->file('documents_director_signature')->store('documents','public');
+        }
+
         // Enkripsi: '' = tanpa enkripsi
         $enc = $validated['mail_encryption'] ?? 'tls';
         if ($enc === 'null') $enc = '';
@@ -77,6 +85,7 @@ class SettingController extends Controller
             'company.logo_path'   => $logoPath,
             'documents.letterhead_path' => $letterheadPath,
             'documents.stamp_path' => $stampPath,
+            'documents.director_signature_path' => $directorSignaturePath,
 
             // Mail (global)
             'mail.host'           => $validated['mail_host'] ?? '',
