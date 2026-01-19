@@ -4,9 +4,6 @@
   $salesSig = $signatures['sales'] ?? null;
   $approverSig = $signatures['approver'] ?? null;
   $directorSig = $signatures['director'] ?? null;
-  $hasSalesSig = !empty($salesSig['image_path']);
-  $hasApproverSig = !empty($approverSig['image_path']);
-  $hasDirectorSig = !empty($directorSig['image_path']);
 
   $pdfNumber = $document->number ?: ('DRAFT-' . $document->id);
   $dateText = ($document->approved_at ?? $document->submitted_at ?? $document->created_at)?->format('d M Y') ?? '';
@@ -15,6 +12,24 @@
       if (!$path) return null;
       return str_starts_with($path, 'http') ? $path : asset('storage/'.$path);
   };
+
+  $signerIsDirector = empty($document->sales_signer_user_id);
+  $signerName = $signerIsDirector
+      ? 'Christian Widargo'
+      : ($salesSig['name'] ?? $document->salesSigner?->name ?? $document->creator?->name);
+  $signerPosition = $signerIsDirector
+      ? 'DIREKTUR UTAMA'
+      : ($salesSig['position'] ?? $document->sales_signature_position ?? '');
+  $signerImage = null;
+  if ($signerIsDirector) {
+      $signerImage = $document->approved_at
+          ? $makeSrc($directorSig['image_path'] ?? null)
+          : null;
+  } else {
+      $signerImage = $document->admin_approved_at
+          ? $makeSrc($salesSig['image_path'] ?? null)
+          : null;
+  }
 @endphp
 <!doctype html>
 <html lang="en">
@@ -51,46 +66,66 @@
       justify-content: space-between;
       margin-bottom: 24px;
     }
-    .meta .number {
-      font-weight: 700;
-      font-size: 13px;
-    }
     .text-muted {
       color: #6b7280;
     }
-    .recipient {
+    .doc-header {
+      text-align: center;
       margin-bottom: 18px;
+    }
+    .doc-title {
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 1.4;
+      max-width: 70%;
+      margin: 0 auto 6px;
+    }
+    .doc-number {
+      font-weight: 700;
+      font-size: 12px;
+      margin-bottom: 2px;
+    }
+    .doc-date {
+      font-size: 12px;
+    }
+    .recipient {
+      margin: 18px 0 18px;
+    }
+    .recipient .line {
+      margin: 0 0 2px;
     }
     .recipient .name {
       font-weight: 700;
-      font-size: 13px;
+      font-size: 12.5px;
     }
     .body {
       margin-bottom: 40px;
     }
-    .sign-row {
+    .closing-row {
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      gap: 24px;
+      gap: 16px;
+      margin-top: 14px;
     }
-    .sign-col {
-      width: 45%;
-      text-align: left;
+    .signature-block {
+      width: 65%;
     }
-    .sign-col.right {
+    .signature-space {
+      height: 130px;
+    }
+    .signature-space img {
+      max-height: 90px;
+    }
+    .signature-name {
+      font-weight: 700;
+      margin-top: 4px;
+    }
+    .stamp-block {
+      width: 30%;
       text-align: right;
     }
-    .sign-col img {
-      max-height: 70px;
-      margin-bottom: 6px;
-    }
-    .sign-name {
-      font-weight: 700;
-      margin-top: 6px;
-    }
     .stamp {
-      margin-top: 8px;
       display: inline-block;
       padding: 6px 10px;
       border: 2px solid #d32f2f;
@@ -108,25 +143,17 @@
 
   <div class="page">
     <div class="content">
-      <div class="meta">
-        <div>
-          <div class="number">{{ $pdfNumber }}</div>
-          <div class="text-muted">{{ $document->title }}</div>
-        </div>
-        <div>{{ $dateText }}</div>
+      <div class="doc-header">
+        <div class="doc-title">{{ $document->title }}</div>
+        <div class="doc-number">{{ $pdfNumber }}</div>
+        <div class="doc-date">{{ $dateText }}</div>
       </div>
 
       <div class="recipient">
-        <div class="name">{{ data_get($document->customer_snapshot, 'name') }}</div>
-        <div>{{ data_get($document->customer_snapshot, 'address') }}</div>
-        <div>
-          {{ data_get($document->customer_snapshot, 'city') }}
-          @if(data_get($document->customer_snapshot, 'province'))
-            , {{ data_get($document->customer_snapshot, 'province') }}
-          @endif
-        </div>
+        <div class="line">Kepada Yth.</div>
+        <div class="line name">{{ data_get($document->customer_snapshot, 'name') }}</div>
         @if($document->contact_snapshot)
-          <div>Up. {{ data_get($document->contact_snapshot, 'name') }}</div>
+          <div class="line">{{ data_get($document->contact_snapshot, 'name') }}</div>
         @endif
       </div>
 
@@ -134,43 +161,27 @@
         {!! $document->body_html !!}
       </div>
 
-      @if($document->admin_approved_at && ($hasSalesSig || $hasApproverSig))
-        <div class="sign-row">
-          @if($hasSalesSig)
-            <div class="sign-col">
-              <img src="{{ $makeSrc($salesSig['image_path']) }}" alt="Sales Signature">
-              <div class="sign-name">{{ $salesSig['name'] ?? $document->salesSigner?->name ?? $document->creator?->name }}</div>
-              <div>{{ $salesSig['position'] ?? '' }}</div>
-            </div>
-          @endif
-          @if($hasApproverSig)
-            <div class="sign-col right">
-              <img src="{{ $makeSrc($approverSig['image_path']) }}" alt="Approver Signature">
-              <div class="sign-name">{{ $document->adminApprover?->name }}</div>
-              <div>{{ $approverSig['position'] ?? '' }}</div>
-            </div>
-          @endif
+      <div class="closing-row">
+        <div class="signature-block">
+          <div>Hormat Kami,</div>
+          <div class="signature-space">
+            @if($signerImage)
+              <img src="{{ $signerImage }}" alt="Signature">
+            @endif
+          </div>
+          <div class="signature-name">{{ $signerName }}</div>
+          <div>{{ $signerPosition }}</div>
         </div>
-      @endif
-
-      @if($document->approved_at)
-        <div class="sign-row" style="margin-top: 30px;">
-          @if($hasDirectorSig)
-            <div class="sign-col">
-              <img src="{{ $makeSrc($directorSig['image_path']) }}" alt="Director Signature">
-              <div class="sign-name">{{ $directorSig['name'] ?? 'Christian Widargo' }}</div>
-              <div>{{ $directorSig['position'] ?? 'Direktur Utama' }}</div>
-            </div>
-          @endif
-          <div class="sign-col right">
+        @if($document->approved_at)
+          <div class="stamp-block">
             @if($stampPath)
               <img src="{{ $stampPath }}" alt="ICP Stamp" style="max-height: 80px;">
             @else
               <span class="stamp">ICP OFFICIAL</span>
             @endif
           </div>
-        </div>
-      @endif
+        @endif
+      </div>
     </div>
   </div>
 </body>

@@ -83,5 +83,5 @@ class SettingController extends Controller
         return redirect()
             ->route('dashboard')
             ->with('ok', 'Settings updated.');
-        }
+    }
 }

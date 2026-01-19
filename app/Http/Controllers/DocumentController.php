@@ -12,6 +12,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class DocumentController extends Controller
 {
@@ -132,12 +133,14 @@ class DocumentController extends Controller
         $salesSignature = $salesSignerId
             ? Signature::query()->where('user_id', $salesSignerId)->first()
             : null;
+        $titleUpper = $this->toUpper($data['title']);
+        $positionInput = $this->toUpper($data['sales_signature_position'] ?? null);
         $salesPosition = $salesSignerId
-            ? ($data['sales_signature_position'] ?? ($salesSignature?->default_position))
+            ? ($positionInput ?? $this->toUpper($salesSignature?->default_position))
             : null;
 
         $document = Document::create([
-            'title' => $data['title'],
+            'title' => $titleUpper ?? $data['title'],
             'body_html' => $this->sanitizeHtml($data['body_html']),
             'customer_id' => $customer->id,
             'contact_id' => $contact?->id,
@@ -212,12 +215,14 @@ class DocumentController extends Controller
         $salesSignature = $salesSignerId
             ? Signature::query()->where('user_id', $salesSignerId)->first()
             : null;
+        $titleUpper = $this->toUpper($data['title']);
+        $positionInput = $this->toUpper($data['sales_signature_position'] ?? null);
         $salesPosition = $salesSignerId
-            ? ($data['sales_signature_position'] ?? ($salesSignature?->default_position))
+            ? ($positionInput ?? $this->toUpper($salesSignature?->default_position))
             : null;
 
         $document->update([
-            'title' => $data['title'],
+            'title' => $titleUpper ?? $data['title'],
             'body_html' => $this->sanitizeHtml($data['body_html']),
             'customer_id' => $customer->id,
             'contact_id' => $contact?->id,
@@ -371,10 +376,7 @@ class DocumentController extends Controller
             'body_html' => ['required', 'string'],
             'customer_id' => ['required', 'exists:customers,id'],
             'contact_id' => ['nullable', 'exists:contacts,id'],
-            'sales_signer_user_id' => ['nullable', function ($attribute, $value, $fail) use ($request) {
-                if ($value === null || $value === '') {
-                    return;
-                }
+            'sales_signer_user_id' => ['required', function ($attribute, $value, $fail) use ($request) {
                 if ($value === 'director') {
                     return;
                 }
@@ -457,6 +459,18 @@ class DocumentController extends Controller
         }
 
         return implode(';', $out);
+    }
+
+    private function toUpper(?string $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return null;
+        }
+        return Str::upper($trimmed);
     }
 
     private function renderPdf(Document $document, string $disposition)
