@@ -37,7 +37,7 @@
   <meta charset="utf-8">
   <title>{{ $pdfNumber }}</title>
   <style>
-    @page { margin: 120px 60px 80px 50px; }
+    @page { margin: 0; }
     body {
       margin: 0;
       font-family: DejaVu Sans, Arial, sans-serif;
@@ -47,6 +47,7 @@
     }
     .page {
       position: relative;
+      padding: 120px 60px 80px 72px;
       min-height: 100vh;
     }
     .letterhead {
