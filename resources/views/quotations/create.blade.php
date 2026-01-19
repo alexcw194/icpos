@@ -439,6 +439,46 @@
     #stageWrap .stage-r3 .btn{ white-space: nowrap; }
   }
 
+  /* Desktop kecil: 2 baris per item (nama+deskripsi / angka) */
+  @media (min-width: 768px) and (max-width: 1199.98px){
+    .quotation-items-table thead{ display:none; }
+
+    .quotation-items-table tbody tr{
+      display:grid;
+      grid-template-columns: 0.9fr 0.9fr 1.4fr 2.4fr 1.2fr 1.2fr 1.4fr 0.6fr;
+      gap: 8px 10px;
+      padding: 8px 0;
+      align-items:center;
+      border-bottom: 1px solid var(--tblr-border-color);
+    }
+
+    .quotation-items-table tbody tr > td{
+      display:block;
+      border:0 !important;
+      padding:0 !important;
+      min-width:0;
+    }
+
+    .quotation-items-table td.col-item{ grid-column: 1 / span 3; grid-row:1; }
+    .quotation-items-table td.col-desc{ grid-column: 4 / -1; grid-row:1; }
+
+    .quotation-items-table td.col-qty{ grid-column:1; grid-row:2; }
+    .quotation-items-table td.col-unit{ grid-column:2; grid-row:2; }
+    .quotation-items-table td.col-price{ grid-column:3; grid-row:2; }
+    .quotation-items-table td.col-disc{ grid-column:4; grid-row:2; }
+    .quotation-items-table td.col-subtotal{ grid-column:5; grid-row:2; text-align:right; }
+    .quotation-items-table td.col-disc-amount{ grid-column:6; grid-row:2; text-align:right; }
+    .quotation-items-table td.col-total{ grid-column:7; grid-row:2; text-align:right; white-space:nowrap; }
+    .quotation-items-table td.col-actions{ grid-column:8; grid-row:2; justify-self:end; align-self:center; }
+
+    .quotation-items-table input,
+    .quotation-items-table select,
+    .quotation-items-table textarea,
+    .quotation-items-table .input-group{
+      width:100%;
+    }
+  }
+
   @media (max-width: 767.98px){
     /* --- FIX: prevent table from exceeding viewport on mobile --- */
     #quotation-lines.table-responsive{
