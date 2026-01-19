@@ -130,18 +130,11 @@
       <div class="mt-3">
         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
           <label class="form-label mb-0">Body Content</label>
-          <div class="ms-auto d-flex align-items-center gap-2">
-            <span class="text-muted small">Mode</span>
-            <select id="editor-mode" class="form-select form-select-sm w-auto">
-              <option value="surat">Mode Surat</option>
-              <option value="laporan">Mode Laporan</option>
-            </select>
-          </div>
         </div>
-        <textarea id="doc-editor" name="body_html" class="doc-editor">{{ old('body_html', $document->body_html) }}</textarea>
+        <textarea id="body-editor" name="body" class="doc-editor">{{ old('body', $document->body_html) }}</textarea>
         <input type="hidden" name="draft_token" id="draft_token" value="{{ $draftToken ?? '' }}">
         <div class="text-muted small mt-1">Gambar hanya via upload (PNG/JPG), tanpa URL eksternal.</div>
-        @error('body_html')<div class="text-danger small">{{ $message }}</div>@enderror
+        @error('body')<div class="text-danger small">{{ $message }}</div>@enderror
       </div>
 
       <div class="row g-3 mt-3" id="sales-position-wrap" style="{{ ($selectedSigner && $selectedSigner !== 'director') ? '' : 'display:none' }}">
@@ -169,11 +162,10 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
+<script src="{{ asset('vendor/ckeditor4/ckeditor.js') }}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('docForm');
-    const modeSelect = document.getElementById('editor-mode');
     const draftToken = document.getElementById('draft_token')?.value || '';
     const documentId = @json($document->id ?? null);
     const uploadBaseUrl = @json(route('documents.images.upload'));
@@ -205,8 +197,8 @@
       dialogHooked = true;
     };
 
-    const initEditor = (mode) => {
-      const existing = CKEDITOR.instances['doc-editor'];
+    const initEditor = () => {
+      const existing = CKEDITOR.instances['body-editor'];
       if (existing) {
         existing.updateElement();
         existing.destroy(true);
@@ -225,24 +217,16 @@
         fontSize_sizes: '12/12px;14/14px;16/16px;18/18px;20/20px;22/22px',
         image2_alignClasses: ['doc-img-left', 'doc-img-center', 'doc-img-right'],
         image2_disableResizer: false,
-        toolbar: mode === 'laporan'
-          ? [
-              { name: 'clipboard', items: ['Undo', 'Redo'] },
-              { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline'] },
-              { name: 'paragraph', items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'NumberedList', 'BulletedList'] },
-              { name: 'styles', items: ['FontSize'] },
-              { name: 'insert', items: ['Image', 'Table'] },
-            ]
-          : [
-              { name: 'clipboard', items: ['Undo', 'Redo'] },
-              { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline'] },
-              { name: 'paragraph', items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'NumberedList', 'BulletedList'] },
-              { name: 'styles', items: ['FontSize'] },
-              { name: 'insert', items: ['Image'] },
-            ],
+        toolbar: [
+          { name: 'clipboard', items: ['Undo', 'Redo'] },
+          { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline'] },
+          { name: 'paragraph', items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'NumberedList', 'BulletedList'] },
+          { name: 'styles', items: ['FontSize'] },
+          { name: 'insert', items: ['Image', 'Table'] },
+        ],
       };
 
-      const editor = CKEDITOR.replace('doc-editor', config);
+      const editor = CKEDITOR.replace('body-editor', config);
       editor.on('paste', (evt) => {
         const data = evt.data.dataValue || '';
         if (/src=[\"']data:image/i.test(data)) {
@@ -262,18 +246,11 @@
       });
     };
 
-    const initialValue = document.getElementById('doc-editor')?.value || '';
-    if (modeSelect && /<img|<table/i.test(initialValue)) {
-      modeSelect.value = 'laporan';
-    }
-    initEditor(modeSelect?.value || 'surat');
-    modeSelect?.addEventListener('change', () => {
-      initEditor(modeSelect.value);
-    });
+    initEditor();
 
     form.addEventListener('submit', () => {
-      if (CKEDITOR.instances['doc-editor']) {
-        CKEDITOR.instances['doc-editor'].updateElement();
+      if (CKEDITOR.instances['body-editor']) {
+        CKEDITOR.instances['body-editor'].updateElement();
       }
     });
 

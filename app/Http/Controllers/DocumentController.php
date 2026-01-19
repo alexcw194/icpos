@@ -158,7 +158,7 @@ class DocumentController extends Controller
         ]);
 
         $draftToken = $request->input('draft_token');
-        $bodyHtml = $this->sanitizeHtml($data['body_html'], $document->id, $draftToken);
+        $bodyHtml = $this->sanitizeHtml($this->resolveBodyHtml($data), $document->id, $draftToken);
         $bodyHtml = $this->migrateDraftImages($bodyHtml, $draftToken, $document->id);
         $document->update(['body_html' => $bodyHtml]);
 
@@ -243,7 +243,7 @@ class DocumentController extends Controller
 
         $document->update([
             'title' => $titleUpper ?? $data['title'],
-            'body_html' => $this->sanitizeHtml($data['body_html'], $document->id),
+            'body_html' => $this->sanitizeHtml($this->resolveBodyHtml($data), $document->id),
             'customer_id' => $customer->id,
             'contact_id' => $contact?->id,
             'customer_snapshot' => $this->customerSnapshot($customer),
@@ -408,7 +408,8 @@ class DocumentController extends Controller
     {
         return $request->validate([
             'title' => ['required', 'string', 'max:190'],
-            'body_html' => ['required', 'string'],
+            'body' => ['required', 'string'],
+            'body_html' => ['nullable', 'string'],
             'created_by_user_id' => ['nullable', 'exists:users,id', function ($attribute, $value, $fail) use ($request) {
                 if ($request->user()->hasRole('Sales') && $value && (int) $value !== (int) $request->user()->id) {
                     $fail('Owner dokumen harus sesuai dengan user Sales.');
@@ -454,6 +455,12 @@ class DocumentController extends Controller
             'title' => $contact->title_label,
             'position' => $contact->position_label,
         ];
+    }
+
+    private function resolveBodyHtml(array $data): string
+    {
+        $body = $data['body'] ?? $data['body_html'] ?? '';
+        return is_string($body) ? $body : '';
     }
 
     private function sanitizeHtml(string $html, int $documentId, ?string $draftToken = null): string
