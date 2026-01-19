@@ -94,12 +94,14 @@ class DocumentController extends Controller
             ->first();
 
         $salesUsers = $this->salesSignerOptions();
+        $owners = $this->ownerOptions();
 
         return view('documents.form', [
             'document' => $document,
             'customers' => $customers,
             'signature' => $signature,
             'salesUsers' => $salesUsers,
+            'owners' => $owners,
             'mode' => 'create',
         ]);
     }
@@ -124,6 +126,7 @@ class DocumentController extends Controller
         }
 
         $salesSignerId = $this->resolveSalesSignerId($user, $data);
+        $ownerId = $this->resolveOwnerId($user, $data);
         $salesSignature = $salesSignerId
             ? Signature::query()->where('user_id', $salesSignerId)->first()
             : null;
@@ -140,7 +143,7 @@ class DocumentController extends Controller
             'contact_id' => $contact?->id,
             'customer_snapshot' => $this->customerSnapshot($customer),
             'contact_snapshot' => $contact ? $this->contactSnapshot($contact) : null,
-            'created_by_user_id' => $user->id,
+            'created_by_user_id' => $ownerId,
             'sales_signer_user_id' => $salesSignerId,
             'status' => Document::STATUS_DRAFT,
             'sales_signature_position' => $salesPosition,
@@ -176,12 +179,14 @@ class DocumentController extends Controller
             ->first();
 
         $salesUsers = $this->salesSignerOptions();
+        $owners = $this->ownerOptions();
 
         return view('documents.form', [
             'document' => $document,
             'customers' => $customers,
             'signature' => $signature,
             'salesUsers' => $salesUsers,
+            'owners' => $owners,
             'mode' => 'edit',
         ]);
     }
@@ -206,6 +211,7 @@ class DocumentController extends Controller
         }
 
         $salesSignerId = $this->resolveSalesSignerId($user, $data, $document);
+        $ownerId = $this->resolveOwnerId($user, $data, $document);
         $salesSignature = $salesSignerId
             ? Signature::query()->where('user_id', $salesSignerId)->first()
             : null;
@@ -222,6 +228,7 @@ class DocumentController extends Controller
             'contact_id' => $contact?->id,
             'customer_snapshot' => $this->customerSnapshot($customer),
             'contact_snapshot' => $contact ? $this->contactSnapshot($contact) : null,
+            'created_by_user_id' => $ownerId,
             'sales_signer_user_id' => $salesSignerId,
             'sales_signature_position' => $salesPosition,
         ]);
@@ -364,6 +371,11 @@ class DocumentController extends Controller
         return $request->validate([
             'title' => ['required', 'string', 'max:190'],
             'body_html' => ['required', 'string'],
+            'created_by_user_id' => ['nullable', 'exists:users,id', function ($attribute, $value, $fail) use ($request) {
+                if ($request->user()->hasRole('Sales') && $value && (int) $value !== (int) $request->user()->id) {
+                    $fail('Owner dokumen harus sesuai dengan user Sales.');
+                }
+            }],
             'customer_id' => ['required', 'exists:customers,id'],
             'contact_id' => ['nullable', 'exists:contacts,id'],
             'sales_signer_user_id' => ['required', function ($attribute, $value, $fail) use ($request) {
@@ -547,6 +559,32 @@ class DocumentController extends Controller
 
         if ($document && $document->sales_signer_user_id) {
             return (int) $document->sales_signer_user_id;
+        }
+
+        return (int) $user->id;
+    }
+
+    private function ownerOptions()
+    {
+        $user = auth()->user();
+        if (!$user || !$user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+            return collect();
+        }
+
+        return User::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    private function resolveOwnerId($user, array $data, ?Document $document = null): int
+    {
+        if ($user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+            if (!empty($data['created_by_user_id'])) {
+                return (int) $data['created_by_user_id'];
+            }
+            if ($document && $document->created_by_user_id) {
+                return (int) $document->created_by_user_id;
+            }
         }
 
         return (int) $user->id;

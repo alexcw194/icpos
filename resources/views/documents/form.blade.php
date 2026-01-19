@@ -64,6 +64,23 @@
         @error('title')<div class="text-danger small">{{ $message }}</div>@enderror
       </div>
 
+      @hasanyrole('Admin|SuperAdmin')
+        @php
+          $ownerSelected = old('created_by_user_id', $document->created_by_user_id ?? auth()->id());
+        @endphp
+        <div class="mb-3">
+          <label class="form-label">Owner</label>
+          <select name="created_by_user_id" class="form-select" required>
+            @foreach(($owners ?? []) as $owner)
+              <option value="{{ $owner->id }}" @selected((string) $ownerSelected === (string) $owner->id)>
+                {{ $owner->name }}
+              </option>
+            @endforeach
+          </select>
+          @error('created_by_user_id')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+      @endhasanyrole
+
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Customer</label>

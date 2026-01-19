@@ -28,6 +28,10 @@ class DocumentPolicy
 
     public function update(User $user, Document $document): bool
     {
+        if ($user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+            return $document->isEditable();
+        }
+
         return (int) $document->created_by_user_id === (int) $user->id
             && $document->isEditable();
     }
