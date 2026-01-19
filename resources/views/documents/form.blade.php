@@ -18,71 +18,6 @@
     padding-top: 4px;
     padding-bottom: 4px;
   }
-  .doc-block {
-    margin: 0 0 12px;
-    padding: 4px;
-    border: 1px dashed transparent;
-  }
-  .doc-block.is-active {
-    border-color: #cbd5f5;
-    background: #f8fafc;
-  }
-  .block-heading {
-    font-weight: 700;
-    font-size: 14px;
-  }
-  .block-image {
-    text-align: left;
-  }
-  .block-image.align-center { text-align: center; }
-  .block-image.align-right { text-align: right; }
-  .block-image img {
-    display: inline-block;
-    max-width: 100%;
-    height: auto;
-  }
-  .block-image.size-25 img { width: 25%; }
-  .block-image.size-50 img { width: 50%; }
-  .block-image.size-100 img { width: 100%; }
-  .image-grid {
-    font-size: 0;
-    margin: 0 0 12px;
-  }
-  .image-grid .grid-item {
-    display: inline-block;
-    width: 50%;
-    padding: 4px;
-    box-sizing: border-box;
-    vertical-align: top;
-  }
-  .image-grid.cols-3 .grid-item {
-    width: 33.3333%;
-  }
-  .image-grid img {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-  .simple-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  .simple-table td,
-  .simple-table th {
-    border: 1px solid #d1d5db;
-    padding: 4px 6px;
-  }
-  .block-image figcaption {
-    margin-top: 6px;
-    font-size: 11px;
-    color: #6b7280;
-  }
-  .toolbar-section {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-  }
 </style>
 @endpush
 
@@ -202,49 +137,37 @@
 
       <div class="mt-3">
         <label class="form-label">Body Content</label>
-        <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
-          <div class="toolbar-section doc-toolbar">
-            <div class="btn-group" role="group">
-              <button type="button" class="btn btn-outline-secondary" data-block="paragraph">Paragraph</button>
-              <button type="button" class="btn btn-outline-secondary" data-block="heading">Heading</button>
-              <button type="button" class="btn btn-outline-secondary" data-block="table">Table</button>
-            </div>
-            <div class="btn-group doc-toolbar-report" role="group">
-              <button type="button" class="btn btn-outline-secondary" data-block="image">Image</button>
-              <button type="button" class="btn btn-outline-secondary" data-block="image-caption">Image + Caption</button>
-              <button type="button" class="btn btn-outline-secondary" data-block="grid-2">Image Grid 2</button>
-              <button type="button" class="btn btn-outline-secondary" data-block="grid-3">Image Grid 3</button>
-            </div>
-            <button type="button" class="btn btn-outline-danger" id="remove-block">Remove Block</button>
+        <div class="doc-toolbar d-flex flex-wrap gap-1 mb-2">
+          <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary" data-cmd="bold"><strong>B</strong></button>
+            <button type="button" class="btn btn-outline-secondary" data-cmd="italic"><em>I</em></button>
+            <button type="button" class="btn btn-outline-secondary" data-cmd="underline"><u>U</u></button>
           </div>
-          <div class="toolbar-section ms-auto">
-            <div class="input-group">
-              <span class="input-group-text">Mode</span>
-              <select id="editor-mode" class="form-select w-auto">
-                <option value="surat">Mode Surat</option>
-                <option value="laporan">Mode Laporan</option>
-              </select>
-            </div>
-            <div id="image-controls" class="d-flex gap-2 align-items-center" style="display:none;">
-              <select id="image-size" class="form-select w-auto">
-                <option value="">Size</option>
-                <option value="size-25">25%</option>
-                <option value="size-50">50%</option>
-                <option value="size-100">100%</option>
-              </select>
-              <select id="image-align" class="form-select w-auto">
-                <option value="">Align</option>
-                <option value="align-left">Left</option>
-                <option value="align-center">Center</option>
-                <option value="align-right">Right</option>
-              </select>
-            </div>
+          <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary" data-cmd="justifyLeft">Left</button>
+            <button type="button" class="btn btn-outline-secondary" data-cmd="justifyCenter">Center</button>
+            <button type="button" class="btn btn-outline-secondary" data-cmd="justifyRight">Right</button>
+            <button type="button" class="btn btn-outline-secondary" data-cmd="justifyFull">Justify</button>
           </div>
+          <select id="doc-font-size" class="form-select w-auto">
+            <option value="">Font size</option>
+            <option value="12">12</option>
+            <option value="14">14</option>
+            <option value="16">16</option>
+            <option value="18">18</option>
+            <option value="20">20</option>
+          </select>
+          <select id="doc-line-height" class="form-select w-auto">
+            <option value="">Spacing</option>
+            <option value="1">1.0</option>
+            <option value="1.25">1.25</option>
+            <option value="1.5">1.5</option>
+            <option value="1.75">1.75</option>
+            <option value="2">2.0</option>
+          </select>
         </div>
-        <div class="text-muted small mb-2">Gunakan blok untuk menulis dan menyusun foto (tanpa free-float).</div>
-        <div id="doc-editor" class="doc-editor">{!! old('body_html', $document->body_html) !!}</div>
+        <div id="doc-editor" class="doc-editor" contenteditable="true">{!! old('body_html', $document->body_html) !!}</div>
         <input type="hidden" name="body_html" id="doc_body_html">
-        <input type="hidden" name="draft_token" id="draft_token" value="{{ $draftToken ?? '' }}">
         @error('body_html')<div class="text-danger small">{{ $message }}</div>@enderror
       </div>
 
@@ -279,205 +202,56 @@
     const hidden = document.getElementById('doc_body_html');
     const form = document.getElementById('docForm');
 
-    const uploadUrl = @json(route('documents.images.upload'));
-    const csrfToken = @json(csrf_token());
-    const draftToken = document.getElementById('draft_token')?.value || '';
-    const documentId = @json($document->id ?? null);
-
     const sync = () => {
       hidden.value = editor.innerHTML.trim();
     };
     sync();
 
-    const setActiveBlock = (block) => {
-      editor.querySelectorAll('.doc-block').forEach(el => el.classList.remove('is-active'));
-      if (block) {
-        block.classList.add('is-active');
-      }
-      toggleImageControls(block);
-    };
-
-    const toggleImageControls = (block) => {
-      const controls = document.getElementById('image-controls');
-      if (!controls) return;
-      if (block && block.classList.contains('block-image')) {
-        controls.style.display = 'flex';
-        const sizeSelect = document.getElementById('image-size');
-        const alignSelect = document.getElementById('image-align');
-        const current = Array.from(block.classList);
-        sizeSelect.value = current.find(c => c.startsWith('size-')) || '';
-        alignSelect.value = current.find(c => c.startsWith('align-')) || '';
-      } else {
-        controls.style.display = 'none';
-      }
-    };
-
-    editor.addEventListener('click', (e) => {
-      const block = e.target.closest('.doc-block');
-      if (block) {
-        setActiveBlock(block);
-      }
+    document.querySelectorAll('[data-cmd]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.execCommand(btn.dataset.cmd, false, null);
+        editor.focus();
+        sync();
+      });
     });
 
-    const ensureEditable = (el) => {
-      if (el && el.getAttribute('contenteditable') === null) {
-        el.setAttribute('contenteditable', 'true');
-      }
-    };
-
-    editor.querySelectorAll('p, h2, h3, h4, figcaption, td, th').forEach(ensureEditable);
-
-    const addBlock = (html) => {
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = html.trim();
-      const block = wrapper.firstElementChild;
-      if (!block) return;
-      editor.appendChild(block);
-      if (block.matches('p, h3, h4, figcaption, td, th')) {
-        ensureEditable(block);
-      }
-      setActiveBlock(block);
+    const fontSelect = document.getElementById('doc-font-size');
+    fontSelect?.addEventListener('change', (e) => {
+      const size = e.target.value;
+      if (!size) return;
+      document.execCommand('fontSize', false, '7');
+      editor.querySelectorAll('font[size="7"]').forEach(el => {
+        const span = document.createElement('span');
+        span.style.fontSize = size + 'px';
+        span.innerHTML = el.innerHTML;
+        el.parentNode.replaceChild(span, el);
+      });
+      editor.focus();
       sync();
-    };
-
-    const createParagraph = () => addBlock('<p class="doc-block block-paragraph" contenteditable="true"><br></p>');
-    const createHeading = () => addBlock('<h3 class="doc-block block-heading" contenteditable="true">Heading</h3>');
-    const createTable = () => {
-      addBlock('<table class="doc-block block-table simple-table"><tbody><tr><td contenteditable="true">&nbsp;</td><td contenteditable="true">&nbsp;</td></tr></tbody></table>');
-    };
-
-    const uploadImage = async (file) => {
-      const formData = new FormData();
-      formData.append('image', file);
-      if (documentId) {
-        formData.append('document_id', documentId);
-      } else if (draftToken) {
-        formData.append('draft_token', draftToken);
-      }
-      const res = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'X-CSRF-TOKEN': csrfToken,
-          'Accept': 'application/json',
-        },
-        body: formData,
-      });
-      if (!res.ok) {
-        throw new Error('Upload gagal.');
-      }
-      const data = await res.json();
-      return data.url;
-    };
-
-    const promptUpload = (multiple = false) => new Promise((resolve) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/png,image/jpeg';
-      input.multiple = multiple;
-      input.addEventListener('change', () => {
-        resolve(Array.from(input.files || []));
-      });
-      input.click();
+      fontSelect.value = '';
     });
 
-    const createImage = async (withCaption = false) => {
-      const files = await promptUpload(false);
-      if (!files.length) return;
-      const url = await uploadImage(files[0]);
-      const caption = withCaption ? '<figcaption class="image-caption" contenteditable="true">Caption</figcaption>' : '';
-      addBlock(`<figure class="doc-block block-image align-left size-50"><img src="${url}" alt="Document image">${caption}</figure>`);
-    };
-
-    const createImageGrid = async (cols) => {
-      const files = await promptUpload(true);
-      const limited = files.slice(0, cols);
-      if (!limited.length) return;
-      const urls = [];
-      for (const f of limited) {
-        urls.push(await uploadImage(f));
-      }
-      const items = urls.map(url => `<figure class="grid-item"><img src="${url}" alt="Grid image"></figure>`).join('');
-      addBlock(`<div class="doc-block image-grid cols-${cols}">${items}</div>`);
-    };
-
-    document.querySelectorAll('[data-block]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const type = btn.dataset.block;
-        try {
-          if (type === 'paragraph') return createParagraph();
-          if (type === 'heading') return createHeading();
-          if (type === 'table') return createTable();
-          if (type === 'image') return createImage(false);
-          if (type === 'image-caption') return createImage(true);
-          if (type === 'grid-2') return createImageGrid(2);
-          if (type === 'grid-3') return createImageGrid(3);
-        } catch (err) {
-          alert(err.message || 'Upload gagal.');
+    const lineSelect = document.getElementById('doc-line-height');
+    lineSelect?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (!val) return;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      let node = sel.anchorNode;
+      if (node && node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+      while (node && node !== editor) {
+        if (node.nodeType === Node.ELEMENT_NODE && /^(P|DIV|LI|H1|H2|H3|H4|H5|H6)$/.test(node.tagName)) {
+          node.style.lineHeight = val;
+          break;
         }
-      });
-    });
-
-    document.getElementById('remove-block')?.addEventListener('click', () => {
-      const active = editor.querySelector('.doc-block.is-active');
-      if (!active) return;
-      active.remove();
+        node = node.parentNode;
+      }
+      editor.focus();
       sync();
+      lineSelect.value = '';
     });
 
-    document.getElementById('image-size')?.addEventListener('change', (e) => {
-      const active = editor.querySelector('.doc-block.is-active');
-      if (!active || !active.classList.contains('block-image')) return;
-      active.classList.remove('size-25', 'size-50', 'size-100');
-      if (e.target.value) active.classList.add(e.target.value);
-      sync();
-    });
-
-    document.getElementById('image-align')?.addEventListener('change', (e) => {
-      const active = editor.querySelector('.doc-block.is-active');
-      if (!active || !active.classList.contains('block-image')) return;
-      active.classList.remove('align-left', 'align-center', 'align-right');
-      if (e.target.value) active.classList.add(e.target.value);
-      sync();
-    });
-
-    const modeSelect = document.getElementById('editor-mode');
-    const reportToolbar = document.querySelectorAll('.doc-toolbar-report');
-    const toggleMode = () => {
-      const mode = modeSelect?.value || 'surat';
-      reportToolbar.forEach(el => {
-        el.style.display = mode === 'laporan' ? 'inline-flex' : 'none';
-      });
-    };
-    modeSelect?.addEventListener('change', toggleMode);
-    toggleMode();
-
-    editor.addEventListener('input', sync);
     form.addEventListener('submit', sync);
-
-    editor.addEventListener('paste', (e) => {
-      const hasImage = Array.from(e.clipboardData?.items || []).some(item => item.type.startsWith('image/'));
-      if (hasImage) {
-        e.preventDefault();
-        alert('Gunakan tombol upload untuk gambar.');
-        return;
-      }
-      if (e.target.closest('[contenteditable="true"]')) {
-        e.preventDefault();
-        const text = e.clipboardData?.getData('text/plain') || '';
-        document.execCommand('insertText', false, text);
-      }
-    });
-
-    editor.addEventListener('drop', (e) => {
-      if (e.dataTransfer?.files?.length) {
-        e.preventDefault();
-        alert('Gunakan tombol upload untuk gambar.');
-      }
-    });
-
-    if (editor.innerHTML.trim() === '') {
-      createParagraph();
-    }
 
     const customerSelect = document.getElementById('customer_id');
     const contactSelect = document.getElementById('contact_id');

@@ -284,8 +284,6 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('documents.reject');
     Route::delete('documents/{document}', [DocumentController::class, 'destroy'])
         ->name('documents.destroy');
-    Route::post('documents/images/upload', [\App\Http\Controllers\DocumentImageController::class, 'upload'])
-        ->name('documents.images.upload');
     Route::get('documents/{document}/pdf', [DocumentController::class, 'pdf'])
         ->name('documents.pdf');
     Route::get('documents/{document}/pdf/download', [DocumentController::class, 'pdfDownload'])
