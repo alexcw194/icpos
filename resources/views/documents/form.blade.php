@@ -169,96 +169,96 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('docForm');
     const modeSelect = document.getElementById('editor-mode');
     const draftToken = document.getElementById('draft_token')?.value || '';
     const documentId = @json($document->id ?? null);
-    const uploadUrl = @json(route('documents.images.upload'));
+    const uploadBaseUrl = @json(route('documents.images.upload'));
     const csrfToken = @json(csrf_token());
+    let dialogHooked = false;
 
-    const uploadImage = async (file) => {
-      const formData = new FormData();
-      formData.append('image', file);
+    const buildUploadUrl = () => {
+      const params = new URLSearchParams();
+      params.append('_token', csrfToken);
       if (documentId) {
-        formData.append('document_id', documentId);
+        params.append('document_id', documentId);
       } else if (draftToken) {
-        formData.append('draft_token', draftToken);
+        params.append('draft_token', draftToken);
       }
-      const res = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'X-CSRF-TOKEN': csrfToken,
-          'Accept': 'application/json',
-        },
-        body: formData,
+      return `${uploadBaseUrl}?${params.toString()}`;
+    };
+
+    const hookImageDialog = () => {
+      if (dialogHooked) return;
+      CKEDITOR.on('dialogDefinition', (evt) => {
+        if (evt.data.name !== 'image') return;
+        const dialog = evt.data.definition;
+        const infoTab = dialog.getContents('info');
+        if (infoTab) {
+          infoTab.remove('txtUrl');
+          infoTab.remove('browse');
+        }
       });
-      if (!res.ok) {
-        throw new Error('Upload gagal.');
-      }
-      const data = await res.json();
-      return data.url;
+      dialogHooked = true;
     };
 
     const initEditor = (mode) => {
-      const current = tinymce.get('doc-editor');
-      const content = current ? current.getContent() : document.getElementById('doc-editor').value;
-      if (current) {
-        current.destroy();
+      const existing = CKEDITOR.instances['doc-editor'];
+      if (existing) {
+        existing.updateElement();
+        existing.destroy(true);
       }
-      document.getElementById('doc-editor').value = content;
+      hookImageDialog();
 
-      const isReport = mode === 'laporan';
-      tinymce.init({
-        selector: '#doc-editor',
+      const config = {
         height: 420,
-        menubar: false,
-        branding: false,
-        plugins: isReport ? 'lists table image paste' : 'lists paste',
-        toolbar: isReport
-          ? 'undo redo | bold italic underline | fontsizeselect | alignleft aligncenter alignright | bullist numlist | table | image'
-          : 'undo redo | bold italic underline | fontsizeselect | alignleft aligncenter alignright | bullist numlist',
-        fontsize_formats: '12px 14px 16px 18px 20px 22px',
-        object_resizing: true,
-        automatic_uploads: true,
-        paste_data_images: false,
-        image_urltab: false,
-        image_uploadtab: true,
-        images_file_types: 'jpg,jpeg,png',
-        images_upload_handler: (blobInfo) => new Promise((resolve, reject) => {
-          uploadImage(blobInfo.blob())
-            .then(resolve)
-            .catch(() => reject('Upload gagal.'));
-        }),
-        file_picker_types: 'image',
-        file_picker_callback: (callback) => {
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = 'image/png,image/jpeg';
-          input.onchange = async () => {
-            const file = input.files?.[0];
-            if (!file) return;
-            try {
-              const url = await uploadImage(file);
-              callback(url, { alt: file.name });
-            } catch (err) {
-              alert('Upload gagal.');
-            }
-          };
-          input.click();
-        },
-        content_style: 'img{max-width:100%;height:auto;} table{width:100%;border-collapse:collapse;} table td,table th{border:1px solid #d1d5db;padding:4px 6px;}',
-        setup: (ed) => {
-          ed.on('Paste', (e) => {
-            const hasImage = Array.from(e.clipboardData?.items || []).some(item => item.type.startsWith('image/'));
-            if (hasImage) {
-              e.preventDefault();
-              alert('Gunakan tombol upload untuk gambar.');
-            }
-          });
-        },
+        removePlugins: 'easyimage,cloudservices,exportpdf',
+        extraPlugins: 'uploadimage,image2',
+        uploadUrl: buildUploadUrl(),
+        filebrowserUploadUrl: buildUploadUrl(),
+        filebrowserUploadMethod: 'xhr',
+        removeDialogTabs: 'image:advanced;image:Link',
+        allowedContent: true,
+        fontSize_sizes: '12/12px;14/14px;16/16px;18/18px;20/20px;22/22px',
+        image2_alignClasses: ['doc-img-left', 'doc-img-center', 'doc-img-right'],
+        image2_disableResizer: false,
+        toolbar: mode === 'laporan'
+          ? [
+              { name: 'clipboard', items: ['Undo', 'Redo'] },
+              { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline'] },
+              { name: 'paragraph', items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'NumberedList', 'BulletedList'] },
+              { name: 'styles', items: ['FontSize'] },
+              { name: 'insert', items: ['Image', 'Table'] },
+            ]
+          : [
+              { name: 'clipboard', items: ['Undo', 'Redo'] },
+              { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline'] },
+              { name: 'paragraph', items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'NumberedList', 'BulletedList'] },
+              { name: 'styles', items: ['FontSize'] },
+              { name: 'insert', items: ['Image'] },
+            ],
+      };
+
+      const editor = CKEDITOR.replace('doc-editor', config);
+      editor.on('paste', (evt) => {
+        const data = evt.data.dataValue || '';
+        if (/src=[\"']data:image/i.test(data)) {
+          evt.cancel();
+          alert('Gunakan tombol upload untuk gambar.');
+        }
+        if (/src=[\"']https?:/i.test(data)) {
+          evt.cancel();
+          alert('Gambar harus diupload, bukan URL.');
+        }
+      });
+      editor.on('fileUploadRequest', (evt) => {
+        const xhr = evt.data.fileLoader.xhr;
+        if (xhr) {
+          xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+        }
       });
     };
 
@@ -272,7 +272,9 @@
     });
 
     form.addEventListener('submit', () => {
-      tinymce.triggerSave();
+      if (CKEDITOR.instances['doc-editor']) {
+        CKEDITOR.instances['doc-editor'].updateElement();
+      }
     });
 
     const customerSelect = document.getElementById('customer_id');

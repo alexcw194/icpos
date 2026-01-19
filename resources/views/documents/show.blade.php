@@ -9,6 +9,13 @@
   .document-body th { border: 1px solid #d1d5db; padding: 4px 6px; }
   .document-body figure { margin: 0 0 12px; }
   .document-body figcaption { margin-top: 6px; font-size: 11px; color: #6b7280; }
+  .document-body figure.doc-img-left,
+  .document-body img.doc-img-left { float: left; margin: 0 12px 12px 0; }
+  .document-body figure.doc-img-right,
+  .document-body img.doc-img-right { float: right; margin: 0 0 12px 12px; }
+  .document-body figure.doc-img-center,
+  .document-body img.doc-img-center { display: block; margin: 0 auto 12px; float: none; }
+  .document-body::after { content: ""; display: block; clear: both; }
 </style>
 @endpush
 

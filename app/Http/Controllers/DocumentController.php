@@ -465,6 +465,12 @@ class DocumentController extends Controller
             'table', 'thead', 'tbody', 'tr', 'td', 'th',
             'figure', 'figcaption', 'img',
         ];
+        $allowedImageClasses = [
+            'image',
+            'doc-img-left',
+            'doc-img-center',
+            'doc-img-right',
+        ];
 
         $doc = new \DOMDocument('1.0', 'utf-8');
         libxml_use_internal_errors(true);
@@ -493,6 +499,19 @@ class DocumentController extends Controller
                             $node->removeAttribute('style');
                         } else {
                             $node->setAttribute('style', $style);
+                        }
+                        continue;
+                    }
+                    if ($attrName === 'class') {
+                        if (in_array($node->nodeName, ['img', 'figure'], true)) {
+                            $classes = $this->filterAllowedClasses($node->getAttribute('class'), $allowedImageClasses);
+                            if ($classes === '') {
+                                $node->removeAttribute('class');
+                            } else {
+                                $node->setAttribute('class', $classes);
+                            }
+                        } else {
+                            $node->removeAttribute('class');
                         }
                         continue;
                     }
@@ -547,6 +566,13 @@ class DocumentController extends Controller
         libxml_clear_errors();
 
         return $clean;
+    }
+
+    private function filterAllowedClasses(string $classValue, array $allowed): string
+    {
+        $classes = preg_split('/\\s+/', trim($classValue)) ?: [];
+        $filtered = array_values(array_intersect($classes, $allowed));
+        return implode(' ', $filtered);
     }
 
     private function sanitizeStyle(string $style): string

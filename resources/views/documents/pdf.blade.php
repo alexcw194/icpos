@@ -127,6 +127,13 @@
       font-size: 11px;
       color: #6b7280;
     }
+    .body figure.doc-img-left,
+    .body img.doc-img-left { float: left; margin: 0 12px 12px 0; }
+    .body figure.doc-img-right,
+    .body img.doc-img-right { float: right; margin: 0 0 12px 12px; }
+    .body figure.doc-img-center,
+    .body img.doc-img-center { display: block; margin: 0 auto 12px; float: none; }
+    .body::after { content: ""; display: block; clear: both; }
     .closing-row {
       display: flex;
       justify-content: space-between;

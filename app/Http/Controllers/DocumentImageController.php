@@ -33,9 +33,20 @@ class DocumentImageController extends Controller
         }
 
         $path = $this->storeResizedImage($request->file('image'), $baseDir);
+        $url = Storage::url($path);
+
+        if ($request->has('CKEditorFuncNum')) {
+            $funcNum = $request->input('CKEditorFuncNum');
+            $escapedUrl = addslashes($url);
+            $script = "<script>window.parent.CKEDITOR.tools.callFunction({$funcNum}, '{$escapedUrl}', '');</script>";
+
+            return response($script)->header('Content-Type', 'text/html; charset=utf-8');
+        }
 
         return response()->json([
-            'url' => Storage::url($path),
+            'uploaded' => 1,
+            'fileName' => basename($path),
+            'url' => $url,
             'path' => $path,
         ]);
     }
