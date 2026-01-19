@@ -14,8 +14,10 @@
       </div>
     </div>
     <div class="col-auto ms-auto d-print-none d-flex flex-wrap gap-2">
-      <a href="{{ route('documents.pdf', $document) }}" class="btn btn-outline-secondary">Preview PDF</a>
-      <a href="{{ route('documents.pdf-download', $document) }}" class="btn btn-outline-secondary">Download</a>
+      @if($document->status === \App\Models\Document::STATUS_APPROVED)
+        <a href="{{ route('documents.pdf', $document) }}" class="btn btn-outline-secondary">Preview PDF</a>
+        <a href="{{ route('documents.pdf-download', $document) }}" class="btn btn-outline-secondary">Download</a>
+      @endif
 
       @can('update', $document)
         <a href="{{ route('documents.edit', $document) }}" class="btn btn-primary">Edit</a>
