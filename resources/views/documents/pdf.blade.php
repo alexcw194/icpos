@@ -53,7 +53,7 @@
     .letterhead {
       position: fixed;
       top: 0;
-      left: 10%;
+      left: 0;
       height: 100%;
       width: auto;
       z-index: 0;
