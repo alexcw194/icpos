@@ -106,6 +106,16 @@
           <dt class="col-5">Created By</dt>
           <dd class="col-7">{{ $document->creator?->name ?? '-' }}</dd>
 
+          <dt class="col-5">Sales Signer</dt>
+          <dd class="col-7">
+            {{ $document->salesSigner?->name ?? $document->creator?->name ?? '-' }}
+          </dd>
+
+          <dt class="col-5">Director</dt>
+          <dd class="col-7">
+            {{ $document->directorSigner?->name ?? 'Christian Widargo' }}
+          </dd>
+
           <dt class="col-5">Submitted</dt>
           <dd class="col-7">{{ $document->submitted_at?->format('d M Y H:i') ?? '-' }}</dd>
 

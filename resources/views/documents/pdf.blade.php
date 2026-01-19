@@ -137,7 +137,7 @@
             @if($salesSig && !empty($salesSig['image_path']))
               <img src="{{ $makeSrc($salesSig['image_path']) }}" alt="Sales Signature">
             @endif
-            <div class="sign-name">{{ $document->creator?->name }}</div>
+            <div class="sign-name">{{ $salesSig['name'] ?? $document->salesSigner?->name ?? $document->creator?->name }}</div>
             <div>{{ $salesSig['position'] ?? '' }}</div>
           </div>
           <div class="sign-col right">

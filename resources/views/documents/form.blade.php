@@ -29,7 +29,11 @@
       <div class="text-muted">Draft bisa diedit hingga dikirim untuk approval.</div>
     </div>
     <div class="col-auto ms-auto d-print-none">
-      <a href="{{ route('documents.my') }}" class="btn btn-outline-secondary">Back</a>
+      @hasanyrole('Admin|SuperAdmin')
+        <a href="{{ route('documents.index') }}" class="btn btn-outline-secondary">Back</a>
+      @else
+        <a href="{{ route('documents.my') }}" class="btn btn-outline-secondary">Back</a>
+      @endhasanyrole
     </div>
   </div>
 </div>
@@ -83,6 +87,51 @@
         </div>
       </div>
 
+      @hasanyrole('Admin|SuperAdmin')
+        <div class="row g-3 mt-3">
+          <div class="col-md-6">
+            <label class="form-label">Sales Signer</label>
+            <select name="sales_signer_user_id" class="form-select">
+              <option value="">Default (akun Anda)</option>
+              @foreach($salesUsers as $salesUser)
+                <option value="{{ $salesUser->id }}"
+                  @selected(old('sales_signer_user_id', $document->sales_signer_user_id) == $salesUser->id)>
+                  {{ $salesUser->name }}
+                </option>
+              @endforeach
+            </select>
+            <div class="text-muted small">Tanda tangan Sales diambil dari user terpilih.</div>
+            @error('sales_signer_user_id')<div class="text-danger small">{{ $message }}</div>@enderror
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Director (Final Sign)</label>
+            <select name="director_user_id" class="form-select">
+              <option value="">Default (Direktur Utama)</option>
+              @foreach($directorUsers as $directorUser)
+                <option value="{{ $directorUser->id }}"
+                  @selected(old('director_user_id', $document->director_user_id) == $directorUser->id)>
+                  {{ $directorUser->name }}
+                </option>
+              @endforeach
+            </select>
+            <div class="text-muted small">Direktur dipilih sesuai kebutuhan dokumen.</div>
+            @error('director_user_id')<div class="text-danger small">{{ $message }}</div>@enderror
+          </div>
+        </div>
+      @else
+        <div class="row g-3 mt-3">
+          <div class="col-md-6">
+            <label class="form-label">Sales Signer</label>
+            <input type="text" class="form-control" value="{{ auth()->user()->name }}" disabled>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Director</label>
+            <input type="text" class="form-control"
+                   value="{{ $directorUsers->first()->name ?? 'Christian Widargo' }}" disabled>
+          </div>
+        </div>
+      @endhasanyrole
+
       <div class="mt-3">
         <label class="form-label">Body Content</label>
         <div class="doc-toolbar d-flex flex-wrap gap-1 mb-2">
@@ -128,12 +177,12 @@
           @error('sales_signature_position')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
         <div class="col-md-6">
-          <label class="form-label">Upload Signature (Sales)</label>
+          <label class="form-label">Upload Signature (Akun Anda)</label>
           <input type="file" name="signature_file" class="form-control" accept="image/png,image/jpeg">
           @if($signature)
             <div class="text-muted small mt-1">Signature tersimpan.</div>
           @else
-            <div class="text-muted small mt-1">Wajib upload sebelum submit.</div>
+            <div class="text-muted small mt-1">Wajib upload sebelum submit/approve.</div>
           @endif
           @error('signature_file')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>

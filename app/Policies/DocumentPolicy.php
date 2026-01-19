@@ -23,7 +23,7 @@ class DocumentPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole('Sales');
+        return $user->hasAnyRole(['Sales', 'Admin', 'SuperAdmin']);
     }
 
     public function update(User $user, Document $document): bool
