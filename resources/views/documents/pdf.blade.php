@@ -155,7 +155,7 @@
     }
     .signature-image {
       position: absolute;
-      left: 10%;
+      left: 0;
       top: 50%;
       transform: translate(0, -50%);
       z-index: 2;
