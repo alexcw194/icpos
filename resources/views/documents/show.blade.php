@@ -112,9 +112,7 @@
           </dd>
 
           <dt class="col-5">Director</dt>
-          <dd class="col-7">
-            {{ $document->directorSigner?->name ?? 'Christian Widargo' }}
-          </dd>
+          <dd class="col-7">Christian Widargo</dd>
 
           <dt class="col-5">Submitted</dt>
           <dd class="col-7">{{ $document->submitted_at?->format('d M Y H:i') ?? '-' }}</dd>

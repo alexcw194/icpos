@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Signature;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,9 @@ class ProfileController extends Controller
     public function edit(Request $request): View
     {
         $user = $request->user();
+        $signature = Signature::query()
+            ->where('user_id', $user->id)
+            ->first();
 
         // Kirim juga policy agar view bisa men-disable input username bila perlu
         try {
@@ -26,6 +30,7 @@ class ProfileController extends Controller
 
         return view('profile.edit', [
             'user'              => $user,
+            'signature'         => $signature,
             'mailPolicy'        => $policy,
             'username_readonly' => $policy === 'force_email',
         ]);
@@ -50,6 +55,8 @@ class ProfileController extends Controller
             'name'            => ['required', 'string', 'max:255'],
             'email'           => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
             'email_signature' => ['nullable', 'string'],
+            'signature_position' => ['nullable', 'string', 'max:120'],
+            'document_signature' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
             'smtp_password'   => ['nullable', 'string'],   // kosong = tidak mengubah
             'email_cc_self'   => ['sometimes', 'boolean'], // toggle CC ke diri sendiri
         ];
@@ -95,6 +102,23 @@ class ProfileController extends Controller
         }
 
         $user->save();
+
+        $signaturePosition = $request->input('signature_position');
+        $signature = Signature::query()->where('user_id', $user->id)->first();
+        if ($request->hasFile('document_signature')) {
+            $path = $request->file('document_signature')->store('signatures', 'public');
+            $defaultPosition = $signaturePosition ?? $signature?->default_position;
+            Signature::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'image_path' => $path,
+                    'default_position' => $defaultPosition,
+                ]
+            );
+        } elseif ($signaturePosition !== null && $signature) {
+            $signature->default_position = $signaturePosition ?: $signature->default_position;
+            $signature->save();
+        }
 
         return back()->with('success', 'Profil diperbarui.');
     }

@@ -25,7 +25,6 @@ class Document extends Model
         'contact_snapshot',
         'created_by_user_id',
         'sales_signer_user_id',
-        'director_user_id',
         'status',
         'submitted_at',
         'admin_approved_by_user_id',
@@ -70,11 +69,6 @@ class Document extends Model
     public function salesSigner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sales_signer_user_id');
-    }
-
-    public function directorSigner(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'director_user_id');
     }
 
     public function adminApprover(): BelongsTo

@@ -99,14 +99,12 @@ class DocumentController extends Controller
             ->first();
 
         $salesUsers = $this->salesSignerOptions();
-        $directorUsers = $this->directorSignerOptions();
 
         return view('documents.form', [
             'document' => $document,
             'customers' => $customers,
             'signature' => $signature,
             'salesUsers' => $salesUsers,
-            'directorUsers' => $directorUsers,
             'mode' => 'create',
         ]);
     }
@@ -130,9 +128,11 @@ class DocumentController extends Controller
                 ->firstOrFail();
         }
 
-        $signature = $this->storeSignature($request, $user);
         $salesSignerId = $this->resolveSalesSignerId($user, $data);
-        $directorId = $this->resolveDirectorId($user, $data);
+        $salesSignature = Signature::query()
+            ->where('user_id', $salesSignerId)
+            ->first();
+        $salesPosition = $data['sales_signature_position'] ?? ($salesSignature?->default_position);
 
         $document = Document::create([
             'title' => $data['title'],
@@ -143,9 +143,8 @@ class DocumentController extends Controller
             'contact_snapshot' => $contact ? $this->contactSnapshot($contact) : null,
             'created_by_user_id' => $user->id,
             'sales_signer_user_id' => $salesSignerId,
-            'director_user_id' => $directorId,
             'status' => Document::STATUS_DRAFT,
-            'sales_signature_position' => $data['sales_signature_position'] ?? ($signature?->default_position),
+            'sales_signature_position' => $salesPosition,
         ]);
 
         return redirect()
@@ -157,7 +156,7 @@ class DocumentController extends Controller
     {
         $this->authorize('view', $document);
 
-        $document->load(['customer', 'contact', 'creator', 'adminApprover', 'approver', 'salesSigner', 'directorSigner']);
+        $document->load(['customer', 'contact', 'creator', 'adminApprover', 'approver', 'salesSigner']);
 
         return view('documents.show', compact('document'));
     }
@@ -178,14 +177,12 @@ class DocumentController extends Controller
             ->first();
 
         $salesUsers = $this->salesSignerOptions();
-        $directorUsers = $this->directorSignerOptions();
 
         return view('documents.form', [
             'document' => $document,
             'customers' => $customers,
             'signature' => $signature,
             'salesUsers' => $salesUsers,
-            'directorUsers' => $directorUsers,
             'mode' => 'edit',
         ]);
     }
@@ -209,9 +206,11 @@ class DocumentController extends Controller
                 ->firstOrFail();
         }
 
-        $signature = $this->storeSignature($request, $user);
         $salesSignerId = $this->resolveSalesSignerId($user, $data, $document);
-        $directorId = $this->resolveDirectorId($user, $data, $document);
+        $salesSignature = Signature::query()
+            ->where('user_id', $salesSignerId)
+            ->first();
+        $salesPosition = $data['sales_signature_position'] ?? ($salesSignature?->default_position);
 
         $document->update([
             'title' => $data['title'],
@@ -221,8 +220,7 @@ class DocumentController extends Controller
             'customer_snapshot' => $this->customerSnapshot($customer),
             'contact_snapshot' => $contact ? $this->contactSnapshot($contact) : null,
             'sales_signer_user_id' => $salesSignerId,
-            'director_user_id' => $directorId,
-            'sales_signature_position' => $data['sales_signature_position'] ?? ($signature?->default_position),
+            'sales_signature_position' => $salesPosition,
         ]);
 
         return redirect()
@@ -233,15 +231,6 @@ class DocumentController extends Controller
     public function submit(Document $document)
     {
         $this->authorize('submit', $document);
-
-        $salesSignerId = $document->sales_signer_user_id ?: $document->created_by_user_id;
-        $salesSignature = Signature::query()
-            ->where('user_id', $salesSignerId)
-            ->first();
-
-        if (!$salesSignature) {
-            return back()->with('error', 'Tanda tangan Sales belum diunggah.');
-        }
 
         DB::transaction(function () use ($document) {
             if (!$document->number) {
@@ -273,37 +262,30 @@ class DocumentController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
-        if (!$signature) {
-            return back()->with('error', 'Tanda tangan approver belum diunggah.');
-        }
-
         $salesSignerId = $document->sales_signer_user_id ?: $document->created_by_user_id;
         $salesSignature = Signature::query()
             ->where('user_id', $salesSignerId)
             ->first();
-
-        if (!$salesSignature) {
-            return back()->with('error', 'Tanda tangan Sales belum tersedia.');
-        }
 
         $signatures = $document->signatures ?? [];
         $salesUser = User::query()->find($salesSignerId);
         $signatures['sales'] = [
             'user_id' => $salesSignerId,
             'name' => $salesUser?->name,
-            'image_path' => $salesSignature->image_path,
-            'position' => $document->sales_signature_position ?? $salesSignature->default_position,
+            'image_path' => $salesSignature?->image_path,
+            'position' => $document->sales_signature_position ?? $salesSignature?->default_position,
         ];
         $signatures['approver'] = [
             'user_id' => $user->id,
-            'image_path' => $signature->image_path,
-            'position' => $document->approver_signature_position ?? $signature->default_position,
+            'name' => $user->name,
+            'image_path' => $signature?->image_path,
+            'position' => $document->approver_signature_position ?? $signature?->default_position,
         ];
 
         $document->update([
             'admin_approved_by_user_id' => $user->id,
             'admin_approved_at' => now(),
-            'approver_signature_position' => $document->approver_signature_position ?? $signature->default_position,
+            'approver_signature_position' => $document->approver_signature_position ?? $signature?->default_position,
             'signatures' => $signatures,
         ]);
 
@@ -316,24 +298,11 @@ class DocumentController extends Controller
     {
         $this->authorize('finalApprove', $document);
 
-        $directorUser = null;
-        $directorSignature = null;
-        if ($document->director_user_id) {
-            $directorUser = User::query()->find($document->director_user_id);
-            $directorSignature = Signature::query()
-                ->where('user_id', $document->director_user_id)
-                ->first();
-
-            if (!$directorSignature) {
-                return back()->with('error', 'Tanda tangan Direktur belum diunggah.');
-            }
-        }
-
         $signatures = $document->signatures ?? [];
         $signatures['director'] = [
-            'name' => $directorUser?->name ?? 'Christian Widargo',
-            'position' => $directorSignature?->default_position ?? 'Direktur Utama',
-            'image_path' => $directorSignature?->image_path ?: $this->directorSignaturePath(),
+            'name' => 'Christian Widargo',
+            'position' => 'Direktur Utama',
+            'image_path' => $this->directorSignaturePath(),
         ];
 
         $document->update([
@@ -393,10 +362,8 @@ class DocumentController extends Controller
             'body_html' => ['required', 'string'],
             'customer_id' => ['required', 'exists:customers,id'],
             'contact_id' => ['nullable', 'exists:contacts,id'],
-            'sales_signer_user_id' => ['nullable', 'exists:users,id'],
-            'director_user_id' => ['nullable', 'exists:users,id'],
+            'sales_signer_user_id' => ['required', 'exists:users,id'],
             'sales_signature_position' => ['nullable', 'string', 'max:120'],
-            'signature_file' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
         ]);
     }
 
@@ -470,26 +437,9 @@ class DocumentController extends Controller
         return implode(';', $out);
     }
 
-    private function storeSignature(Request $request, $user): ?Signature
-    {
-        if (!$request->hasFile('signature_file')) {
-            return Signature::query()->where('user_id', $user->id)->first();
-        }
-
-        $path = $request->file('signature_file')->store('signatures', 'public');
-
-        return Signature::updateOrCreate(
-            ['user_id' => $user->id],
-            [
-                'image_path' => $path,
-                'default_position' => $request->input('sales_signature_position'),
-            ]
-        );
-    }
-
     private function renderPdf(Document $document, string $disposition)
     {
-        $document->load(['customer', 'contact', 'creator', 'adminApprover', 'approver', 'salesSigner', 'directorSigner']);
+        $document->load(['customer', 'contact', 'creator', 'adminApprover', 'approver', 'salesSigner']);
 
         $html = view('documents.pdf', [
             'document' => $document,
@@ -540,18 +490,13 @@ class DocumentController extends Controller
     private function salesSignerOptions()
     {
         return User::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
-    }
-
-    private function directorSignerOptions()
-    {
-        return User::query()
-            ->whereHas('roles', function ($q) {
-                $q->whereIn('name', ['Director', 'SuperAdmin']);
-            })
-            ->orderBy('name')
-            ->get(['id', 'name']);
+            ->leftJoin('signatures', 'signatures.user_id', '=', 'users.id')
+            ->orderBy('users.name')
+            ->get([
+                'users.id',
+                'users.name',
+                'signatures.default_position as default_position',
+            ]);
     }
 
     private function resolveSalesSignerId($user, array $data, ?Document $document = null): int
@@ -571,20 +516,4 @@ class DocumentController extends Controller
         return (int) $user->id;
     }
 
-    private function resolveDirectorId($user, array $data, ?Document $document = null): ?int
-    {
-        if ($user->hasRole('Sales')) {
-            return null;
-        }
-
-        if (!empty($data['director_user_id'])) {
-            return (int) $data['director_user_id'];
-        }
-
-        if ($document && $document->director_user_id) {
-            return (int) $document->director_user_id;
-        }
-
-        return null;
-    }
 }

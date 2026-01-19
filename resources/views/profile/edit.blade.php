@@ -49,7 +49,7 @@
                     </p>
                 </header>
 
-                <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6">
+                <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6" enctype="multipart/form-data">
                     @csrf
                     @method('patch')
 
@@ -159,6 +159,33 @@
                         <textarea id="email_signature" name="email_signature" rows="3"
                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">{{ old('email_signature', $me->email_signature) }}</textarea>
                         <x-input-error :messages="$errors->get('email_signature')" class="mt-2" />
+                    </div>
+
+                    <div class="pt-4 border-t">
+                        <h3 class="text-sm font-semibold text-gray-700">Dokumen Signature</h3>
+                        <p class="text-sm text-gray-500 mt-1">Upload tanda tangan untuk dokumen PDF.</p>
+
+                        <div class="mt-3">
+                            <x-input-label for="signature_position" value="Default Signature Position" />
+                            <x-text-input id="signature_position" type="text" name="signature_position"
+                                          class="mt-1 block w-full"
+                                          value="{{ old('signature_position', $signature->default_position ?? '') }}"
+                                          placeholder="Contoh: Sales Executive" />
+                            <x-input-error :messages="$errors->get('signature_position')" class="mt-2" />
+                        </div>
+
+                        <div class="mt-3">
+                            <x-input-label for="document_signature" value="Upload Signature (PNG/JPG)" />
+                            <input id="document_signature" type="file" name="document_signature"
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                   accept="image/png,image/jpeg">
+                            <x-input-error :messages="$errors->get('document_signature')" class="mt-2" />
+                            @if(!empty($signature?->image_path))
+                                <div class="mt-2 text-sm text-gray-600">Signature tersimpan.</div>
+                                <img src="{{ asset('storage/'.$signature->image_path) }}" alt="Signature preview"
+                                     class="mt-2 max-w-xs border rounded">
+                            @endif
+                        </div>
                     </div>
 
                     {{-- NEW: CC ke diri sendiri --}}

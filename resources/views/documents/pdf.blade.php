@@ -4,6 +4,9 @@
   $salesSig = $signatures['sales'] ?? null;
   $approverSig = $signatures['approver'] ?? null;
   $directorSig = $signatures['director'] ?? null;
+  $hasSalesSig = !empty($salesSig['image_path']);
+  $hasApproverSig = !empty($approverSig['image_path']);
+  $hasDirectorSig = !empty($directorSig['image_path']);
 
   $pdfNumber = $document->number ?: ('DRAFT-' . $document->id);
   $dateText = ($document->approved_at ?? $document->submitted_at ?? $document->created_at)?->format('d M Y') ?? '';
@@ -131,34 +134,34 @@
         {!! $document->body_html !!}
       </div>
 
-      @if($document->admin_approved_at)
+      @if($document->admin_approved_at && ($hasSalesSig || $hasApproverSig))
         <div class="sign-row">
-          <div class="sign-col">
-            @if($salesSig && !empty($salesSig['image_path']))
+          @if($hasSalesSig)
+            <div class="sign-col">
               <img src="{{ $makeSrc($salesSig['image_path']) }}" alt="Sales Signature">
-            @endif
-            <div class="sign-name">{{ $salesSig['name'] ?? $document->salesSigner?->name ?? $document->creator?->name }}</div>
-            <div>{{ $salesSig['position'] ?? '' }}</div>
-          </div>
-          <div class="sign-col right">
-            @if($approverSig && !empty($approverSig['image_path']))
+              <div class="sign-name">{{ $salesSig['name'] ?? $document->salesSigner?->name ?? $document->creator?->name }}</div>
+              <div>{{ $salesSig['position'] ?? '' }}</div>
+            </div>
+          @endif
+          @if($hasApproverSig)
+            <div class="sign-col right">
               <img src="{{ $makeSrc($approverSig['image_path']) }}" alt="Approver Signature">
-            @endif
-            <div class="sign-name">{{ $document->adminApprover?->name }}</div>
-            <div>{{ $approverSig['position'] ?? '' }}</div>
-          </div>
+              <div class="sign-name">{{ $document->adminApprover?->name }}</div>
+              <div>{{ $approverSig['position'] ?? '' }}</div>
+            </div>
+          @endif
         </div>
       @endif
 
       @if($document->approved_at)
         <div class="sign-row" style="margin-top: 30px;">
-          <div class="sign-col">
-            @if($directorSig && !empty($directorSig['image_path']))
+          @if($hasDirectorSig)
+            <div class="sign-col">
               <img src="{{ $makeSrc($directorSig['image_path']) }}" alt="Director Signature">
-            @endif
-            <div class="sign-name">{{ $directorSig['name'] ?? 'Christian Widargo' }}</div>
-            <div>{{ $directorSig['position'] ?? 'Direktur Utama' }}</div>
-          </div>
+              <div class="sign-name">{{ $directorSig['name'] ?? 'Christian Widargo' }}</div>
+              <div>{{ $directorSig['position'] ?? 'Direktur Utama' }}</div>
+            </div>
+          @endif
           <div class="sign-col right">
             @if($stampPath)
               <img src="{{ $stampPath }}" alt="ICP Stamp" style="max-height: 80px;">

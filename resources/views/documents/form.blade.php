@@ -87,50 +87,33 @@
         </div>
       </div>
 
-      @hasanyrole('Admin|SuperAdmin')
-        <div class="row g-3 mt-3">
-          <div class="col-md-6">
-            <label class="form-label">Sales Signer</label>
-            <select name="sales_signer_user_id" class="form-select">
-              <option value="">Default (akun Anda)</option>
+      <div class="row g-3 mt-3">
+        <div class="col-md-6">
+          <label class="form-label">Sales Signer</label>
+          @hasanyrole('Admin|SuperAdmin')
+            <select name="sales_signer_user_id" id="sales_signer_user_id" class="form-select" required>
+              <option value="">Pilih Sales signer</option>
               @foreach($salesUsers as $salesUser)
                 <option value="{{ $salesUser->id }}"
+                  data-position="{{ $salesUser->default_position ?? '' }}"
                   @selected(old('sales_signer_user_id', $document->sales_signer_user_id) == $salesUser->id)>
                   {{ $salesUser->name }}
                 </option>
               @endforeach
             </select>
-            <div class="text-muted small">Tanda tangan Sales diambil dari user terpilih.</div>
-            @error('sales_signer_user_id')<div class="text-danger small">{{ $message }}</div>@enderror
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Director (Final Sign)</label>
-            <select name="director_user_id" class="form-select">
-              <option value="">Default (Direktur Utama)</option>
-              @foreach($directorUsers as $directorUser)
-                <option value="{{ $directorUser->id }}"
-                  @selected(old('director_user_id', $document->director_user_id) == $directorUser->id)>
-                  {{ $directorUser->name }}
-                </option>
-              @endforeach
-            </select>
-            <div class="text-muted small">Direktur dipilih sesuai kebutuhan dokumen.</div>
-            @error('director_user_id')<div class="text-danger small">{{ $message }}</div>@enderror
-          </div>
-        </div>
-      @else
-        <div class="row g-3 mt-3">
-          <div class="col-md-6">
-            <label class="form-label">Sales Signer</label>
+          @else
+            <input type="hidden" name="sales_signer_user_id" id="sales_signer_user_id" value="{{ auth()->id() }}">
             <input type="text" class="form-control" value="{{ auth()->user()->name }}" disabled>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Director</label>
-            <input type="text" class="form-control"
-                   value="{{ $directorUsers->first()->name ?? 'Christian Widargo' }}" disabled>
-          </div>
+          @endhasanyrole
+          <div class="text-muted small">Tanda tangan Sales diambil dari user terpilih.</div>
+          @error('sales_signer_user_id')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
-      @endhasanyrole
+        <div class="col-md-6">
+          <label class="form-label">Director (Final Sign)</label>
+          <input type="text" class="form-control" value="Christian Widargo" disabled>
+          <div class="text-muted small">Direktur Utama (fixed).</div>
+        </div>
+      </div>
 
       <div class="mt-3">
         <label class="form-label">Body Content</label>
@@ -168,23 +151,25 @@
         @error('body_html')<div class="text-danger small">{{ $message }}</div>@enderror
       </div>
 
-      <div class="row g-3 mt-3">
+      @php
+        $salesSignerValue = old('sales_signer_user_id', $document->sales_signer_user_id);
+        if (auth()->user()->hasRole('Sales')) {
+            $salesSignerValue = auth()->id();
+        }
+      @endphp
+      <div class="row g-3 mt-3" id="sales-position-wrap" style="{{ $salesSignerValue ? '' : 'display:none' }}">
         <div class="col-md-6">
           <label class="form-label">Sales Signature Position</label>
-          <input type="text" name="sales_signature_position" class="form-control"
-                 value="{{ old('sales_signature_position', $document->sales_signature_position ?? $signature?->default_position) }}">
+          @php
+            $salesPosValue = old('sales_signature_position', $document->sales_signature_position);
+            if ($salesPosValue === null && auth()->user()->hasRole('Sales')) {
+                $salesPosValue = $signature?->default_position;
+            }
+          @endphp
+          <input type="text" name="sales_signature_position" id="sales_signature_position" class="form-control"
+                 value="{{ $salesPosValue ?? '' }}">
           <div class="text-muted small">Contoh: Sales Executive</div>
           @error('sales_signature_position')<div class="text-danger small">{{ $message }}</div>@enderror
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Upload Signature (Akun Anda)</label>
-          <input type="file" name="signature_file" class="form-control" accept="image/png,image/jpeg">
-          @if($signature)
-            <div class="text-muted small mt-1">Signature tersimpan.</div>
-          @else
-            <div class="text-muted small mt-1">Wajib upload sebelum submit/approve.</div>
-          @endif
-          @error('signature_file')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
       </div>
     </div>
@@ -256,6 +241,9 @@
 
     const customerSelect = document.getElementById('customer_id');
     const contactSelect = document.getElementById('contact_id');
+    const salesSignerSelect = document.getElementById('sales_signer_user_id');
+    const salesPositionWrap = document.getElementById('sales-position-wrap');
+    const salesPositionInput = document.getElementById('sales_signature_position');
 
     const loadContacts = async (customerId, selectedId = null) => {
       if (!customerId) {
@@ -287,6 +275,22 @@
     if (customerSelect?.value) {
       loadContacts(customerSelect.value, contactSelect.value || null);
     }
+
+    const toggleSalesPosition = () => {
+      if (!salesPositionWrap) return;
+      const hasSalesSigner = salesSignerSelect ? String(salesSignerSelect.value || '') !== '' : true;
+      salesPositionWrap.style.display = hasSalesSigner ? 'flex' : 'none';
+      if (hasSalesSigner && salesSignerSelect && salesSignerSelect.tagName === 'SELECT' && salesPositionInput) {
+        const opt = salesSignerSelect.options[salesSignerSelect.selectedIndex];
+        const pos = opt?.dataset?.position || '';
+        if (pos && salesPositionInput.value.trim() === '') {
+          salesPositionInput.value = pos;
+        }
+      }
+    };
+
+    salesSignerSelect?.addEventListener('change', toggleSalesPosition);
+    toggleSalesPosition();
   });
 </script>
 @endpush

@@ -20,7 +20,6 @@ return new class extends Migration {
             $table->json('contact_snapshot')->nullable();
             $table->foreignId('created_by_user_id')->constrained('users')->restrictOnDelete();
             $table->foreignId('sales_signer_user_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('director_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('status', 20)->default('draft');
             $table->timestamp('submitted_at')->nullable();
             $table->foreignId('admin_approved_by_user_id')->nullable()->constrained('users')->nullOnDelete();
