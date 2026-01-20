@@ -151,164 +151,104 @@
 
 @push('scripts')
 @php
-  $uploadUrl = $document->id ? route('documents.editor.upload', $document) : '';
-  $ckeditorVersion = @filemtime(public_path('vendor/ckeditor/ckeditor.js')) ?: time();
-  $ckeditorSrc = asset('vendor/ckeditor/ckeditor.js').'?v='.$ckeditorVersion;
+  $tinymceVersion = @filemtime(public_path('vendor/tinymce/tinymce.min.js')) ?: time();
+  $tinymceSrc = asset('vendor/tinymce/tinymce.min.js').'?v='.$tinymceVersion;
 @endphp
+<script src="{{ $tinymceSrc }}"></script>
 <script>
-  (function () {
+  document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('docForm');
     const draftToken = document.getElementById('draft_token')?.value || '';
     const documentId = @json($document->id ?? null);
-    const uploadBaseUrl = @json($uploadUrl);
+    const uploadUrl = @json(route('documents.images.upload'));
     const csrfToken = @json(csrf_token());
-    const ckeditorSrc = @json($ckeditorSrc);
-    let dialogHooked = false;
-    let booted = false;
 
-    const ensureCkeditor = () => new Promise((resolve, reject) => {
-      if (window.CKEDITOR) {
-        resolve();
-        return;
+    const uploadImage = async (file) => {
+      const formData = new FormData();
+      formData.append('image', file);
+      if (documentId) {
+        formData.append('document_id', documentId);
+      } else if (draftToken) {
+        formData.append('draft_token', draftToken);
       }
-      const existing = document.querySelector(`script[src="${ckeditorSrc}"]`);
-      if (existing) {
-        existing.addEventListener('load', () => resolve(), { once: true });
-        existing.addEventListener('error', () => reject(new Error('CKEditor load failed.')), { once: true });
-        return;
+
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrfToken,
+          'Accept': 'application/json',
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error('Upload gagal.');
       }
-      const script = document.createElement('script');
-      script.src = ckeditorSrc;
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('CKEditor load failed.'));
-      document.head.appendChild(script);
+
+      const data = await res.json();
+      return data.url;
+    };
+
+    tinymce.init({
+      selector: '#doc-editor',
+      height: 520,
+      menubar: false,
+      branding: false,
+      plugins: 'lists advlist link table image paste hr fullscreen',
+      toolbar: [
+        'undo redo | paste pastetext',
+        'bold italic underline removeformat',
+        'numlist bullist outdent indent',
+        'alignleft aligncenter alignright alignjustify',
+        'formatselect fontsizeselect',
+        'image table hr',
+        'link unlink',
+        'fullscreen',
+      ].join(' | '),
+      paste_data_images: false,
+      paste_as_text: false,
+      paste_webkit_styles: 'none',
+      paste_remove_styles_if_webkit: true,
+      paste_enable_default_filters: true,
+      file_picker_types: 'image',
+      images_upload_handler: (blobInfo) => new Promise((resolve, reject) => {
+        uploadImage(blobInfo.blob())
+          .then(resolve)
+          .catch(() => reject('Upload gagal.'));
+      }),
+      file_picker_callback: (callback, value, meta) => {
+        if (meta.filetype !== 'image') return;
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/png,image/jpeg';
+        input.onchange = async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          try {
+            const url = await uploadImage(file);
+            callback(url, { alt: file.name });
+          } catch (err) {
+            alert('Upload gagal.');
+          }
+        };
+        input.click();
+      },
+      images_reuse_filename: true,
+      image_caption: false,
+      content_style: 'img{max-width:100%;height:auto;} table{width:100%;border-collapse:collapse;} table td,table th{border:1px solid #d1d5db;padding:4px 6px;}',
+      setup: (editor) => {
+        editor.on('Paste', (e) => {
+          const data = e.clipboardData?.getData('text/html') || '';
+          if (/src=["']data:image/i.test(data) || /<img[^>]+src=["']https?:/i.test(data)) {
+            e.preventDefault();
+            alert('Gunakan tombol upload untuk gambar.');
+          }
+        });
+      },
     });
 
-    const buildUploadUrl = () => {
-      if (!uploadBaseUrl) {
-        return '';
-      }
-      const params = new URLSearchParams();
-      params.append('_token', csrfToken);
-      if (documentId) {
-        params.append('document_id', documentId);
-      } else if (draftToken) {
-        params.append('draft_token', draftToken);
-      }
-      return `${uploadBaseUrl}?${params.toString()}`;
-    };
-
-    const hookImageDialog = () => {
-      if (!window.CKEDITOR) {
-        return;
-      }
-      if (dialogHooked) return;
-      CKEDITOR.on('dialogDefinition', (evt) => {
-        if (evt.data.name !== 'image') return;
-        const dialog = evt.data.definition;
-        const infoTab = dialog.getContents('info');
-        if (infoTab) {
-          infoTab.remove('txtUrl');
-          infoTab.remove('browse');
-        }
-      });
-      dialogHooked = true;
-    };
-
-    const initEditor = () => {
-      if (!window.CKEDITOR) {
-        return;
-      }
-      const existing = CKEDITOR.instances['doc-editor'];
-      if (existing) {
-        existing.updateElement();
-        existing.destroy(true);
-      }
-      hookImageDialog();
-
-      const uploadUrl = buildUploadUrl();
-      const toolbar = [
-        { name: 'clipboard', items: ['Undo', 'Redo', '-', 'PasteText', 'PasteFromWord'] },
-        { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', '-', 'RemoveFormat'] },
-        { name: 'paragraph', items: ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'] },
-        { name: 'styles', items: ['Format', 'FontSize'] },
-        { name: 'insert', items: uploadUrl ? ['Image', 'Table', 'HorizontalRule'] : ['Table', 'HorizontalRule'] },
-        { name: 'links', items: ['Link', 'Unlink'] },
-        { name: 'document', items: ['Maximize'] },
-      ];
-
-      const config = {
-        height: 520,
-        extraPlugins: 'image2,uploadimage,pastefromword,pastetext',
-        toolbar,
-        removeButtons: 'Source,Save,NewPage,Preview,Print,Templates,Find,Replace,SelectAll,Scayt,Flash,Smiley,SpecialChar,PageBreak,Iframe,About',
-        removePlugins: 'iframe,flash,smiley,specialchar,pagebreak,templates,scayt,about',
-        image_dialogTab: 'info',
-        imageRemoveLinkByEmptyURL: true,
-        allowedContent: true,
-        fontSize_sizes: '12/12px;14/14px;16/16px;18/18px;20/20px;22/22px',
-        image2_alignClasses: ['doc-img-left', 'doc-img-center', 'doc-img-right'],
-        image2_disableResizer: false,
-        extraAllowedContent: 'img[!src,alt,width,height,style];table(*){*}(*);tr(*){*}(*);td(*){*}(*);p(*){*}(*);div(*){*}(*);span(*){*}(*);a[!href,target,rel];hr;',
-      };
-      if (uploadUrl) {
-        config.filebrowserUploadUrl = uploadUrl;
-        config.filebrowserUploadMethod = 'form';
-      }
-
-      if (!document.getElementById('doc-editor')) {
-        return;
-      }
-
-      if (window.CKEDITOR && CKEDITOR.instances['doc-editor']) {
-        return;
-      }
-
-      const editor = CKEDITOR.replace('doc-editor', config);
-      editor.on('paste', (evt) => {
-        const data = evt.data.dataValue || '';
-        if (/src=[\"']data:image/i.test(data)) {
-          evt.cancel();
-          alert('Gunakan tombol upload untuk gambar.');
-        }
-        if (/src=[\"']https?:/i.test(data)) {
-          evt.cancel();
-          alert('Gambar harus diupload, bukan URL.');
-        }
-      });
-      editor.on('fileUploadRequest', (evt) => {
-        const xhr = evt.data.fileLoader.xhr;
-        if (xhr) {
-          xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
-        }
-      });
-    };
-
-    const bootEditor = () => {
-      if (booted) {
-        return;
-      }
-      booted = true;
-      ensureCkeditor()
-        .then(() => initEditor())
-        .catch(() => {
-          booted = false;
-        });
-    };
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', bootEditor, { once: true });
-    } else {
-      bootEditor();
-    }
-
-    document.addEventListener('turbo:load', bootEditor);
-
     form?.addEventListener('submit', () => {
-      if (window.CKEDITOR && CKEDITOR.instances['doc-editor']) {
-        CKEDITOR.instances['doc-editor'].updateElement();
-      }
+      tinymce.triggerSave();
     });
 
     const customerSelect = document.getElementById('customer_id');
@@ -367,6 +307,6 @@
 
     salesSignerSelect?.addEventListener('change', toggleSalesPosition);
     toggleSalesPosition();
-  })();
+  });
 </script>
 @endpush

@@ -133,6 +133,9 @@
     .body img.doc-img-right { float: right; margin: 0 0 12px 12px; }
     .body figure.doc-img-center,
     .body img.doc-img-center { display: block; margin: 0 auto 12px; float: none; }
+    .body .alignleft { float: left; margin: 0 12px 12px 0; }
+    .body .alignright { float: right; margin: 0 0 12px 12px; }
+    .body .aligncenter { display: block; margin: 0 auto 12px; float: none; }
     .body::after { content: ""; display: block; clear: both; }
     .closing-row {
       display: flex;

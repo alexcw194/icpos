@@ -15,6 +15,9 @@
   .document-body img.doc-img-right { float: right; margin: 0 0 12px 12px; }
   .document-body figure.doc-img-center,
   .document-body img.doc-img-center { display: block; margin: 0 auto 12px; float: none; }
+  .document-body .alignleft { float: left; margin: 0 12px 12px 0; }
+  .document-body .alignright { float: right; margin: 0 0 12px 12px; }
+  .document-body .aligncenter { display: block; margin: 0 auto 12px; float: none; }
   .document-body::after { content: ""; display: block; clear: both; }
 </style>
 @endpush

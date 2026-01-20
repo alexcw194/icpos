@@ -478,6 +478,9 @@ class DocumentController extends Controller
             'doc-img-left',
             'doc-img-center',
             'doc-img-right',
+            'alignleft',
+            'aligncenter',
+            'alignright',
         ];
 
         $doc = new \DOMDocument('1.0', 'utf-8');

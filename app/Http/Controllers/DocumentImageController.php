@@ -12,16 +12,12 @@ class DocumentImageController extends Controller
     public function upload(Request $request)
     {
         $data = $request->validate([
-            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
-            'upload' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'image' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
             'document_id' => ['nullable', 'integer', 'exists:documents,id'],
             'draft_token' => ['nullable', 'string', 'max:80'],
         ]);
 
-        $file = $request->file('image') ?? $request->file('upload');
-        if (!$file) {
-            abort(422, 'File gambar wajib diupload.');
-        }
+        $file = $request->file('image');
 
         $document = null;
         $baseDir = null;
@@ -40,14 +36,6 @@ class DocumentImageController extends Controller
 
         $path = $this->storeResizedImage($file, $baseDir);
         $url = Storage::url($path);
-
-        if ($request->has('CKEditorFuncNum')) {
-            $funcNum = $request->input('CKEditorFuncNum');
-            $escapedUrl = addslashes($url);
-            $script = "<script>window.parent.CKEDITOR.tools.callFunction({$funcNum}, '{$escapedUrl}', '');</script>";
-
-            return response($script)->header('Content-Type', 'text/html; charset=utf-8');
-        }
 
         return response()->json([
             'uploaded' => 1,
