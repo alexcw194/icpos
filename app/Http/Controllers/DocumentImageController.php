@@ -12,12 +12,16 @@ class DocumentImageController extends Controller
     public function upload(Request $request)
     {
         $data = $request->validate([
-            'image' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'file' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
             'document_id' => ['nullable', 'integer', 'exists:documents,id'],
             'draft_token' => ['nullable', 'string', 'max:80'],
         ]);
 
-        $file = $request->file('image');
+        $file = $request->file('image') ?? $request->file('file');
+        if (!$file) {
+            abort(422, 'File gambar wajib diupload.');
+        }
 
         $document = null;
         $baseDir = null;
@@ -38,8 +42,7 @@ class DocumentImageController extends Controller
         $url = Storage::url($path);
 
         return response()->json([
-            'uploaded' => 1,
-            'fileName' => basename($path),
+            'location' => $url,
             'url' => $url,
             'path' => $path,
         ]);

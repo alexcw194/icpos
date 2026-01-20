@@ -163,30 +163,15 @@
     const uploadUrl = @json(route('documents.images.upload'));
     const csrfToken = @json(csrf_token());
 
-    const uploadImage = async (file) => {
-      const formData = new FormData();
-      formData.append('image', file);
+    const buildUploadUrl = () => {
+      const params = new URLSearchParams();
+      params.append('_token', csrfToken);
       if (documentId) {
-        formData.append('document_id', documentId);
+        params.append('document_id', documentId);
       } else if (draftToken) {
-        formData.append('draft_token', draftToken);
+        params.append('draft_token', draftToken);
       }
-
-      const res = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'X-CSRF-TOKEN': csrfToken,
-          'Accept': 'application/json',
-        },
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error('Upload gagal.');
-      }
-
-      const data = await res.json();
-      return data.url;
+      return `${uploadUrl}?${params.toString()}`;
     };
 
     tinymce.init({
@@ -195,45 +180,11 @@
       height: 520,
       menubar: false,
       branding: false,
-      plugins: 'lists advlist link table image paste hr fullscreen',
-      toolbar: [
-        'undo redo | paste pastetext',
-        'bold italic underline removeformat',
-        'numlist bullist outdent indent',
-        'alignleft aligncenter alignright alignjustify',
-        'formatselect fontsizeselect',
-        'image table hr',
-        'link unlink',
-        'fullscreen',
-      ].join(' | '),
-      paste_data_images: false,
-      paste_as_text: false,
-      paste_webkit_styles: 'none',
-      paste_remove_styles_if_webkit: true,
-      paste_enable_default_filters: true,
-      file_picker_types: 'image',
-      images_upload_handler: (blobInfo) => new Promise((resolve, reject) => {
-        uploadImage(blobInfo.blob())
-          .then(resolve)
-          .catch(() => reject('Upload gagal.'));
-      }),
-      file_picker_callback: (callback, value, meta) => {
-        if (meta.filetype !== 'image') return;
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/png,image/jpeg';
-        input.onchange = async () => {
-          const file = input.files?.[0];
-          if (!file) return;
-          try {
-            const url = await uploadImage(file);
-            callback(url, { alt: file.name });
-          } catch (err) {
-            alert('Upload gagal.');
-          }
-        };
-        input.click();
-      },
+      plugins: 'lists table link image fullscreen',
+      toolbar: 'undo redo | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | table image link | fullscreen',
+      automatic_uploads: true,
+      images_upload_url: buildUploadUrl(),
+      images_upload_credentials: true,
       images_reuse_filename: true,
       image_caption: false,
       content_style: 'img{max-width:100%;height:auto;} table{width:100%;border-collapse:collapse;} table td,table th{border:1px solid #d1d5db;padding:4px 6px;}',
