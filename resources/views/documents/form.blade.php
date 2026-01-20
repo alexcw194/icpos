@@ -152,16 +152,37 @@
 @push('scripts')
 @php
   $uploadUrl = $document->id ? route('documents.editor.upload', $document) : '';
+  $ckeditorSrc = asset('vendor/ckeditor/ckeditor.js');
 @endphp
-<script src="{{ asset('vendor/ckeditor/ckeditor.js') }}"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
+  (function () {
     const form = document.getElementById('docForm');
     const draftToken = document.getElementById('draft_token')?.value || '';
     const documentId = @json($document->id ?? null);
     const uploadBaseUrl = @json($uploadUrl);
     const csrfToken = @json(csrf_token());
+    const ckeditorSrc = @json($ckeditorSrc);
     let dialogHooked = false;
+    let booted = false;
+
+    const ensureCkeditor = () => new Promise((resolve, reject) => {
+      if (window.CKEDITOR) {
+        resolve();
+        return;
+      }
+      const existing = document.querySelector(`script[src="${ckeditorSrc}"]`);
+      if (existing) {
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error('CKEditor load failed.')), { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = ckeditorSrc;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('CKEditor load failed.'));
+      document.head.appendChild(script);
+    });
 
     const buildUploadUrl = () => {
       if (!uploadBaseUrl) {
@@ -263,10 +284,28 @@
       });
     };
 
-    initEditor();
+    const bootEditor = () => {
+      if (booted) {
+        return;
+      }
+      booted = true;
+      ensureCkeditor()
+        .then(() => initEditor())
+        .catch(() => {
+          booted = false;
+        });
+    };
 
-    form.addEventListener('submit', () => {
-      if (CKEDITOR.instances['doc-editor']) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootEditor, { once: true });
+    } else {
+      bootEditor();
+    }
+
+    document.addEventListener('turbo:load', bootEditor);
+
+    form?.addEventListener('submit', () => {
+      if (window.CKEDITOR && CKEDITOR.instances['doc-editor']) {
         CKEDITOR.instances['doc-editor'].updateElement();
       }
     });
@@ -327,6 +366,6 @@
 
     salesSignerSelect?.addEventListener('change', toggleSalesPosition);
     toggleSalesPosition();
-  });
+  })();
 </script>
 @endpush
