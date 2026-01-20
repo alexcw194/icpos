@@ -152,7 +152,8 @@
 @push('scripts')
 @php
   $uploadUrl = $document->id ? route('documents.editor.upload', $document) : '';
-  $ckeditorSrc = asset('vendor/ckeditor/ckeditor.js');
+  $ckeditorVersion = @filemtime(public_path('vendor/ckeditor/ckeditor.js')) ?: time();
+  $ckeditorSrc = asset('vendor/ckeditor/ckeditor.js').'?v='.$ckeditorVersion;
 @endphp
 <script>
   (function () {
@@ -242,7 +243,7 @@
         extraPlugins: 'image2,uploadimage,pastefromword,pastetext',
         toolbar,
         removeButtons: 'Source,Save,NewPage,Preview,Print,Templates,Find,Replace,SelectAll,Scayt,Flash,Smiley,SpecialChar,PageBreak,Iframe,About',
-        removePlugins: 'image,iframe,flash,smiley,specialchar,pagebreak,templates,scayt,about',
+        removePlugins: 'iframe,flash,smiley,specialchar,pagebreak,templates,scayt,about',
         image_dialogTab: 'info',
         imageRemoveLinkByEmptyURL: true,
         allowedContent: true,
