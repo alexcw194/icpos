@@ -471,6 +471,7 @@ class DocumentController extends Controller
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
             'table', 'thead', 'tbody', 'tr', 'td', 'th',
             'figure', 'figcaption', 'img',
+            'a', 'hr',
         ];
         $allowedImageClasses = [
             'image',
@@ -525,6 +526,9 @@ class DocumentController extends Controller
                     if ($node->nodeName === 'img' && in_array($attrName, ['src', 'alt', 'width', 'height'], true)) {
                         continue;
                     }
+                    if ($node->nodeName === 'a' && in_array($attrName, ['href', 'target', 'rel'], true)) {
+                        continue;
+                    }
                     if (in_array($node->nodeName, ['td', 'th'], true) && in_array($attrName, ['colspan', 'rowspan'], true)) {
                         continue;
                     }
@@ -565,6 +569,13 @@ class DocumentController extends Controller
                     if ($val !== '' && !preg_match('/^\\d+$/', $val)) {
                         $node->removeAttribute($attr);
                     }
+                }
+            }
+
+            if ($node->nodeName === 'a') {
+                $href = (string) $node->getAttribute('href');
+                if ($href === '' || preg_match('/^\\s*javascript:/i', $href) || preg_match('/^\\s*data:/i', $href)) {
+                    $node->removeAttribute('href');
                 }
             }
         }

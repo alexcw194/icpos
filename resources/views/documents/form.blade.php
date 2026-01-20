@@ -178,6 +178,9 @@
     };
 
     const hookImageDialog = () => {
+      if (!window.CKEDITOR) {
+        return;
+      }
       if (dialogHooked) return;
       CKEDITOR.on('dialogDefinition', (evt) => {
         if (evt.data.name !== 'image') return;
@@ -192,6 +195,9 @@
     };
 
     const initEditor = () => {
+      if (!window.CKEDITOR) {
+        return;
+      }
       const existing = CKEDITOR.instances['doc-editor'];
       if (existing) {
         existing.updateElement();
@@ -201,26 +207,28 @@
 
       const uploadUrl = buildUploadUrl();
       const toolbar = [
+        { name: 'clipboard', items: ['Undo', 'Redo', '-', 'PasteText', 'PasteFromWord'] },
         { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', '-', 'RemoveFormat'] },
-        { name: 'paragraph', items: ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight'] },
+        { name: 'paragraph', items: ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'] },
         { name: 'styles', items: ['Format', 'FontSize'] },
-        { name: 'insert', items: uploadUrl ? ['Table', 'Image'] : ['Table'] },
-        { name: 'clipboard', items: ['Undo', 'Redo'] },
+        { name: 'insert', items: uploadUrl ? ['Image', 'Table', 'HorizontalRule'] : ['Table', 'HorizontalRule'] },
+        { name: 'links', items: ['Link', 'Unlink'] },
         { name: 'document', items: ['Maximize'] },
       ];
 
       const config = {
         height: 520,
-        extraPlugins: 'image2,uploadimage',
+        extraPlugins: 'image2,uploadimage,pastefromword,pastetext',
         toolbar,
         removeButtons: 'Source,Save,NewPage,Preview,Print,Templates,Find,Replace,SelectAll,Scayt,Flash,Smiley,SpecialChar,PageBreak,Iframe,About',
+        removePlugins: 'image,iframe,flash,smiley,specialchar,pagebreak,templates,scayt,about',
         image_dialogTab: 'info',
         imageRemoveLinkByEmptyURL: true,
         allowedContent: true,
         fontSize_sizes: '12/12px;14/14px;16/16px;18/18px;20/20px;22/22px',
         image2_alignClasses: ['doc-img-left', 'doc-img-center', 'doc-img-right'],
         image2_disableResizer: false,
-        extraAllowedContent: 'img[!src,alt,width,height,style];table(*){*}(*);tr(*){*}(*);td(*){*}(*);p(*){*}(*);div(*){*}(*);span(*){*}(*);',
+        extraAllowedContent: 'img[!src,alt,width,height,style];table(*){*}(*);tr(*){*}(*);td(*){*}(*);p(*){*}(*);div(*){*}(*);span(*){*}(*);a[!href,target,rel];hr;',
       };
       if (uploadUrl) {
         config.filebrowserUploadUrl = uploadUrl;
