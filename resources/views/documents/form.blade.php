@@ -190,6 +190,7 @@
     };
 
     tinymce.init({
+      license_key: 'gpl',
       selector: '#doc-editor',
       height: 520,
       menubar: false,
