@@ -305,6 +305,11 @@
     }
   }
 
+  function scrollToPreview(){
+    if (!isMobile || !previewCol) return;
+    previewCol.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   // Rulebook: Search only on Enter or click icon (no realtime)
   const q = document.getElementById('qtnSearch');
   if (q) {
@@ -352,8 +357,10 @@
       });
       const html = await resp.text();
       box.innerHTML = html;
+      scrollToPreview();
     } catch (err) {
       box.innerHTML = '<div class="card"><div class="card-body text-danger">Gagal memuat preview.</div></div>';
+      scrollToPreview();
     }
 
     // update URL tanpa reload
@@ -362,7 +369,58 @@
     const newUrl = `${window.location.pathname}?${params.toString()}`;
     history.replaceState({}, '', newUrl);
   });
+
+  const initialPreview = new URLSearchParams(window.location.search).get('preview');
+  if (initialPreview && previewCol && !previewCol.classList.contains('d-none')) {
+    scrollToPreview();
+  }
 })();
+
+window.icposSharePdfFile = async function (btn) {
+  const url = btn.getAttribute('data-share-url');
+  const title = btn.getAttribute('data-share-title') || 'Quotation';
+  const safe = (title || 'Quotation')
+    .trim()
+    .replaceAll('/', '-')
+    .replaceAll('\\', '-')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const filename = `${safe}.pdf`;
+
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error('PDF download failed: ' + res.status);
+
+    const blob = await res.blob();
+    const file = new File([blob], filename, { type: 'application/pdf' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share({ title, files: [file] });
+      return false;
+    }
+
+    if (navigator.share) {
+      await navigator.share({ title, url });
+      return false;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+
+    alert('Browser tidak mendukung share. PDF sudah diunduh.');
+    return false;
+  } catch (e) {
+    return false;
+  }
+};
 </script>
 @endpush
 @endsection
