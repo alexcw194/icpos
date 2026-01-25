@@ -22,7 +22,6 @@ class ItemController extends Controller
     {
         $viewMode = $this->resolveInventoryViewMode($request);
         $filters  = $this->extractInventoryFilters($request);
-        $isProjectItems = $this->isProjectItemsRequest($request);
 
         $itemsQuery = Item::query()
             ->with([
@@ -32,10 +31,6 @@ class ItemController extends Controller
             ])
             ->inUnit($filters['unit_id'])
             ->inBrand($filters['brand_id']);
-
-        if ($isProjectItems) {
-            $itemsQuery->where('item_type', 'project');
-        }
 
         if ($filters['q'] !== '') {
             $term = $filters['q'];
@@ -102,9 +97,6 @@ class ItemController extends Controller
 
     public function create(Request $request)
     {
-        $isProjectItems = $this->isProjectItemsRequest($request);
-        $forceItemType = $isProjectItems ? 'project' : null;
-
         $units  = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
         $brands = Brand::orderBy('name')->get(['id','name']);
         $defaultUnitId = Unit::whereRaw('LOWER(code) = ?', ['pcs'])->value('id');
@@ -118,17 +110,17 @@ class ItemController extends Controller
         $item = new Item([
         'sellable' => true,
         'purchasable' => true,
-        'item_type' => $forceItemType ?? 'standard',
+        'item_type' => 'standard',
         ]);
 
         if ($request->ajax() && $request->boolean('modal')) {
             return view('items._modal_create', compact(
-                'item','sizes','colors','units','brands','defaultUnitId','parents','familyCodes','forceItemType'
+                'item','sizes','colors','units','brands','defaultUnitId','parents','familyCodes'
             ));
         }
 
         return view('items.create', compact(
-            'sizes','colors','units','brands','defaultUnitId','parents','familyCodes','forceItemType'
+            'sizes','colors','units','brands','defaultUnitId','parents','familyCodes'
         ));
     }
 
@@ -146,7 +138,7 @@ class ItemController extends Controller
         $returnUrl = $this->safeReturnUrl(is_string($r) ? $r : null) ?? $fallbackIndex;
 
         // Helper: render ulang modal (422) dengan dataset yang sama seperti create()
-        $renderModal422 = function (array $errors = []) use ($request, $isProjectItems) {
+        $renderModal422 = function (array $errors = []) use ($request) {
             $units  = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
             $brands = Brand::orderBy('name')->get(['id','name']);
             $defaultUnitId = Unit::whereRaw('LOWER(code) = ?', ['pcs'])->value('id');
@@ -161,13 +153,9 @@ class ItemController extends Controller
                 ->pluck('family_code');
 
             // supaya default checkbox tetap ON saat pertama kali / rerender
-            $forceItemType = $isProjectItems ? 'project' : null;
             $item = new Item();
             $item->sellable = 1;
             $item->purchasable = 1;
-            if ($isProjectItems) {
-                $item->item_type = 'project';
-            }
 
             session()->flashInput($request->input());
 
@@ -180,8 +168,7 @@ class ItemController extends Controller
                     'brands',
                     'defaultUnitId',
                     'parents',
-                    'familyCodes',
-                    'forceItemType'
+                    'familyCodes'
                 ))
                 ->withErrors($errors)
                 ->setStatusCode(422);
@@ -214,15 +201,8 @@ class ItemController extends Controller
             'length_per_piece'    => $this->normalizeLengthValue($request->input('length_per_piece')),
         ]);
 
-        if ($isProjectItems) {
-            $request->merge(['item_type' => 'project']);
-        }
-
         // Validasi (modal harus balik 422 HTML, bukan redirect 302)
         $allowedItemTypes = ['standard','kit','cut_raw','cut_piece'];
-        if ($isProjectItems) {
-            $allowedItemTypes[] = 'project';
-        }
         $rules = [
             'name'        => ['required','string','max:255'],
             'sku'         => ['nullable','string','max:255','unique:items,sku'],
@@ -309,14 +289,12 @@ class ItemController extends Controller
 
     public function show(Item $item)
     {
-        $this->abortIfNotProjectItem(request(), $item);
         $item->load(['unit','brand','size','color','parent']);
         return view('items.show', compact('item'));
     }
 
     public function edit(Request $request, Item $item)
     {
-        $this->abortIfNotProjectItem($request, $item);
         $item->load(['variants' => fn($q) => $q->orderBy('id')]);
 
         $unitsActive = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
@@ -336,13 +314,11 @@ class ItemController extends Controller
         $familyCodes = Item::whereNotNull('family_code')
             ->orderBy('family_code')->distinct()->pluck('family_code');
 
-        $forceItemType = $this->isProjectItemsRequest($request) ? 'project' : null;
-        return view('items.edit', compact('item','sizes','colors','units','brands','parents','familyCodes','forceItemType'));
+        return view('items.edit', compact('item','sizes','colors','units','brands','parents','familyCodes'));
     }
 
     public function update(Request $request, Item $item)
     {
-        $this->abortIfNotProjectItem($request, $item);
         $isProjectItems = $this->isProjectItemsRequest($request);
         $fallbackIndex = $isProjectItems ? route('project-items.index') : route('items.index');
         $returnUrl = $this->safeReturnUrl($request->input('r')) ?? $fallbackIndex;
@@ -355,10 +331,6 @@ class ItemController extends Controller
             'length_per_piece'    => $this->normalizeLengthValue($request->input('length_per_piece')),
         ]);
 
-        if ($isProjectItems) {
-            $request->merge(['item_type' => 'project']);
-        }
-
         // Rule unit: izinkan unit lama walau non-aktif
         $unitRule = Rule::exists('units','id')->where('is_active', 1);
         if ((int)$request->input('unit_id') === (int)$item->unit_id) {
@@ -366,9 +338,6 @@ class ItemController extends Controller
         }
 
         $allowedItemTypes = ['standard','kit','cut_raw','cut_piece'];
-        if ($isProjectItems || $item->item_type === 'project') {
-            $allowedItemTypes[] = 'project';
-        }
 
         $data = $request->validate([
             'name'        => ['required','string','max:255'],
@@ -439,7 +408,6 @@ class ItemController extends Controller
 
     public function destroy(Request $request, Item $item)
     {
-        $this->abortIfNotProjectItem($request, $item);
         $fallbackIndex = $this->isProjectItemsRequest($request) ? route('project-items.index') : route('items.index');
         $returnUrl = $this->safeReturnUrl($request->input('r')) ?? $fallbackIndex;
 
@@ -458,7 +426,7 @@ class ItemController extends Controller
     {
         $q = trim($req->get('q', ''));
         $itemType = (string) $req->get('item_type', '');
-        $allowedTypes = ['standard','kit','cut_raw','cut_piece','project'];
+        $allowedTypes = ['standard','kit','cut_raw','cut_piece'];
         $itemType = in_array($itemType, $allowedTypes, true) ? $itemType : '';
 
         $items = Item::query()
@@ -581,13 +549,6 @@ class ItemController extends Controller
     private function isProjectItemsRequest(Request $request): bool
     {
         return $request->routeIs('project-items.*');
-    }
-
-    private function abortIfNotProjectItem(Request $request, Item $item): void
-    {
-        if ($this->isProjectItemsRequest($request) && $item->item_type !== 'project') {
-            abort(404);
-        }
     }
 
     private function isDuplicateSkuException(QueryException $e): bool

@@ -57,7 +57,6 @@
           'kit'        => 'Kit/Bundel',
           'cut_raw'    => 'Raw Roll (dipotong)',
           'cut_piece'  => 'Finished Piece (hasil potong)',
-          'project'    => 'Project',
         ];
         $typeLabel = $typeLabels[$item->item_type] ?? ucfirst($item->item_type ?? 'standard');
       @endphp

@@ -8,7 +8,6 @@
     $formAction = $isProjectItems ? route('project-items.store') : route('items.store');
     $cancelUrl = request('r', $isProjectItems ? route('project-items.index') : route('items.index'));
     $pageTitle = $isProjectItems ? 'Tambah Project Item' : 'Tambah Item';
-    $forceItemType = $forceItemType ?? ($isProjectItems ? 'project' : null);
   @endphp
 
   <form action="{{ $formAction }}" method="POST" class="card" id="itemCreateForm">
@@ -22,7 +21,7 @@
     </div>
 
     {{-- Teruskan $defaultUnitId ke _form supaya select Unit default ke PCS --}}
-    @include('items._form', ['defaultUnitId' => $defaultUnitId ?? null, 'forceItemType' => $forceItemType])
+    @include('items._form', ['defaultUnitId' => $defaultUnitId ?? null])
 
     {{-- Footer global (Batal di kiri, aksi di kanan, inline group) --}}
     @include('layouts.partials.form_footer', [

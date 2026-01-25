@@ -24,7 +24,7 @@ class InventoryRowController extends Controller
         $entity = (string) $request->input('entity', 'variant');
         $entity = in_array($entity, ['variant','item','all'], true) ? $entity : 'variant';
         $itemType = (string) $request->input('item_type', '');
-        $allowedTypes = ['standard','kit','cut_raw','cut_piece','project'];
+        $allowedTypes = ['standard','kit','cut_raw','cut_piece'];
         $itemType = in_array($itemType, $allowedTypes, true) ? $itemType : '';
 
         $like = '%' . $q . '%';

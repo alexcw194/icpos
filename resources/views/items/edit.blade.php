@@ -8,7 +8,6 @@
     $formAction = $isProjectItems ? route('project-items.update', $item) : route('items.update', $item);
     $cancelUrl = request('r', $isProjectItems ? route('project-items.index') : route('items.index'));
     $pageTitle = $isProjectItems ? 'Edit Project Item' : 'Edit Item';
-    $forceItemType = $forceItemType ?? ($isProjectItems ? 'project' : null);
   @endphp
 
   <form action="{{ $formAction }}" method="POST" class="card" id="itemEditForm">
@@ -22,7 +21,7 @@
       </div>
     </div>
 
-    @include('items._form', ['item' => $item, 'forceItemType' => $forceItemType])
+    @include('items._form', ['item' => $item])
 
     {{-- Footer global --}}
     @include('layouts.partials.form_footer', [

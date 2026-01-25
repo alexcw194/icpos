@@ -25,7 +25,7 @@
       <input type="hidden" name="r" value="{{ request('r') }}">
 
       <div class="modal-body">
-        @include('items._form', ['item' => $item, 'forceItemType' => $forceItemType ?? null])
+        @include('items._form', ['item' => $item])
       </div>
 
       <div class="modal-footer">

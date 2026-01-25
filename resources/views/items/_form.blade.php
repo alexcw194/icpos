@@ -12,7 +12,6 @@
 
 @php
   $v = fn($field, $default = '') => old($field, isset($item) ? ($item->{$field} ?? $default) : $default);
-  $forceItemType = $forceItemType ?? null;
 
   // Unit terpilih (default ke PCS saat create)
   $selectedUnitId = old(
@@ -21,16 +20,13 @@
   );
 
   // Nilai awal tipe & flags
-  $currentType = old('item_type', $forceItemType ?? (isset($item) ? ($item->item_type ?? 'standard') : 'standard'));
+  $currentType = old('item_type', isset($item) ? ($item->item_type ?? 'standard') : 'standard');
   $typeOptions = [
     'standard'  => 'Standard',
     'kit'       => 'Kit/Bundel',
     'cut_raw'   => 'Raw Roll (dipotong)',
     'cut_piece' => 'Finished Piece (hasil potong)',
   ];
-  if ($currentType === 'project') {
-    $typeOptions = ['project' => 'Project'] + $typeOptions;
-  }
   $variantMode = old('variant_type', isset($item) ? ($item->variant_type ?? 'none') : 'none');
   $hasVariants = isset($item)
     ? ($item->relationLoaded('variants') ? $item->variants->isNotEmpty() : $item->variants()->exists())
@@ -112,11 +108,6 @@
   <div class="row g-3 mt-3">
     <div class="col-md-4">
       <label class="form-label">Tipe Item</label>
-      @if($forceItemType)
-        <input type="hidden" name="item_type" value="{{ $forceItemType }}">
-        <div class="form-control-plaintext fw-semibold">Project</div>
-        <div class="form-hint">Tipe item dikunci untuk Project Items.</div>
-      @else
       <select name="item_type" id="item_type" class="form-select" required>
         @foreach ($typeOptions as $k => $lbl)
           <option value="{{ $k }}" {{ $currentType === $k ? 'selected' : '' }}>{{ $lbl }}</option>
@@ -135,7 +126,6 @@
           <li><b>Finished Piece (hasil potong)</b> — Item potongan siap jual (mis. 20m/30m). Wajib isi <b>Length per Piece</b>. Disarankan set <b>Parent</b> ke item RAW asalnya.</li>
         </ul>
       </div>
-      @endif
     </div>
 
     <div class="col-md-4">
