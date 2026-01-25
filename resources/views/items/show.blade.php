@@ -7,6 +7,7 @@
     $isProjectItems = request()->routeIs('project-items.*');
     $editUrl = $isProjectItems ? route('project-items.edit', $item) : route('items.edit', $item);
     $backUrl = $isProjectItems ? route('project-items.index') : route('items.index');
+    $parentShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
     $transferLabel = $isProjectItems ? 'Transfer ke Retail List' : 'Transfer ke Project List';
     $transferAction = $isProjectItems
       ? route('project-items.transfer-to-retail', $item)
@@ -200,7 +201,7 @@
             <div class="kv-k">Parent</div>
             <div class="kv-v">
               @if($item->parent)
-                <a href="{{ route('items.show', $item->parent) }}">{{ $item->parent->name }}</a>
+                <a href="{{ route($parentShowRoute, $item->parent) }}">{{ $item->parent->name }}</a>
               @else
                 <span class="text-muted">—</span>
               @endif

@@ -12,6 +12,9 @@
       @forelse($rows as $row)
         @php
           $item = $row['item'];
+          $isProjectItems = $isProjectItems ?? false;
+          $itemShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
+          $itemEditRoute = $isProjectItems ? 'project-items.edit' : 'items.edit';
           $hasVariants = $row['has_variants'];
           $variantCount = $row['variant_count'];
           $badgeText = $hasVariants ? 'Varian (' . $variantCount . ')' : 'Single';
@@ -62,8 +65,8 @@
             <div class="row-actions d-inline-flex align-items-center gap-2">
               {{-- Enterprise safety: NO delete in list --}}
               @include('layouts.partials.crud_actions', [
-                'view' => route('items.show', $item),
-                'edit' => route('items.edit', $item),
+                'view' => route($itemShowRoute, $item),
+                'edit' => route($itemEditRoute, $item),
                 'delete' => null,
                 'size' => 'sm',
               ])
@@ -136,6 +139,9 @@
   @forelse($rows as $row)
     @php
       $item = $row['item'];
+      $isProjectItems = $isProjectItems ?? false;
+      $itemShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
+      $itemEditRoute = $isProjectItems ? 'project-items.edit' : 'items.edit';
     @endphp
     <div class="card inventory-card mb-3">
       <div class="card-body">
@@ -169,8 +175,8 @@
         <div class="row-actions mt-3 d-flex align-items-center gap-2">
           {{-- Enterprise safety: NO delete in list --}}
           @include('layouts.partials.crud_actions', [
-            'view' => route('items.show', $item),
-            'edit' => route('items.edit', $item),
+            'view' => route($itemShowRoute, $item),
+            'edit' => route($itemEditRoute, $item),
             'delete' => null,
             'size' => 'sm',
           ])

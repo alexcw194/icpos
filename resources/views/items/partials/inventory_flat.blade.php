@@ -18,6 +18,9 @@
    *   - low_stock (bool)
    */
   $returnUrl = request()->fullUrl();
+  $isProjectItems = $isProjectItems ?? false;
+  $itemShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
+  $itemEditRoute = $isProjectItems ? 'project-items.edit' : 'items.edit';
 @endphp
 
 {{-- ===================== Desktop table ===================== --}}
@@ -48,10 +51,10 @@
           $itemId = $row['item_id'];
           $variantId = $row['variant_id'] ?? null;
 
-          $itemView = route('items.show', $itemId);
+          $itemView = route($itemShowRoute, $itemId);
 
           // admin-only edit URLs keep return
-          $itemEdit = route('items.edit', $itemId) . '?r=' . urlencode($returnUrl);
+          $itemEdit = route($itemEditRoute, $itemId) . '?r=' . urlencode($returnUrl);
 
           $variantView = $isVariant
             ? (route('items.variants.index', $itemId) . '#variant-' . $variantId)
@@ -76,7 +79,7 @@
             @if($isVariant && !empty($row['parent_name']))
               <div class="small text-muted">
                 Parent:
-                <a href="{{ route('items.show', $itemId) }}">{{ $row['parent_name'] }}</a>
+                <a href="{{ route($itemShowRoute, $itemId) }}">{{ $row['parent_name'] }}</a>
               </div>
             @endif
 
@@ -150,8 +153,8 @@
       $itemId = $row['item_id'];
       $variantId = $row['variant_id'] ?? null;
 
-      $itemView = route('items.show', $itemId);
-      $itemEdit = route('items.edit', $itemId) . '?r=' . urlencode($returnUrl);
+      $itemView = route($itemShowRoute, $itemId);
+      $itemEdit = route($itemEditRoute, $itemId) . '?r=' . urlencode($returnUrl);
 
       $variantView = $isVariant
         ? (route('items.variants.index', $itemId) . '#variant-' . $variantId)
@@ -218,7 +221,7 @@
               @if($isVariant && !empty($row['parent_name']))
                 <div class="text-muted small mt-1">
                   Parent:
-                  <a href="{{ route('items.show', $itemId) }}">{{ $row['parent_name'] }}</a>
+                  <a href="{{ route($itemShowRoute, $itemId) }}">{{ $row['parent_name'] }}</a>
                 </div>
               @endif
             </div>

@@ -260,9 +260,9 @@
       </form>
 
       @if($viewMode === 'flat')
-        @include('items.partials.inventory_flat', ['rows' => $flatRows, 'filters' => $filters])
+        @include('items.partials.inventory_flat', ['rows' => $flatRows, 'filters' => $filters, 'isProjectItems' => $isProjectItems])
       @else
-        @include('items.partials.inventory_grouped', ['rows' => $groupedRows])
+        @include('items.partials.inventory_grouped', ['rows' => $groupedRows, 'isProjectItems' => $isProjectItems])
       @endif
 
       <div class="card-footer d-flex justify-content-end">

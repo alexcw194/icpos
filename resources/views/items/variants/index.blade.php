@@ -8,7 +8,7 @@
     <div class="card-header">
       <div class="card-title">Variants - {{ $item->name }}</div>
       <div class="ms-auto btn-list">
-        <a href="{{ route('items.edit', $item) }}" class="btn btn-secondary">Back to Item</a>
+        <a href="{{ route($item->list_type === 'project' ? 'project-items.edit' : 'items.edit', $item) }}" class="btn btn-secondary">Back to Item</a>
 
         @hasanyrole('SuperAdmin|Admin')
           <a href="{{ route('items.variants.create', $item) }}" class="btn btn-primary">+ Add Variant</a>
