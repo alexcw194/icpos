@@ -841,7 +841,7 @@
     const params = new URLSearchParams();
     params.set('q', query || '');
     if (sourceType === 'project') {
-      params.set('item_type', 'project');
+      params.set('list_type', 'project');
     }
     return `${ITEM_SEARCH_URL}?${params.toString()}`;
   };

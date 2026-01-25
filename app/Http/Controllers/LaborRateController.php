@@ -67,10 +67,10 @@ class LaborRateController extends Controller
         if (!$item) {
             return response()->json(['ok' => false, 'message' => 'Item tidak ditemukan.'], 404);
         }
-        if ($source === 'project' && $item->item_type !== 'project') {
+        if ($source === 'project' && $item->list_type !== 'project') {
             return response()->json(['ok' => false, 'message' => 'Item bukan Project Item.'], 422);
         }
-        if ($source === 'item' && $item->item_type === 'project') {
+        if ($source === 'item' && $item->list_type === 'project') {
             return response()->json(['ok' => false, 'message' => 'Gunakan Project Item Labor untuk item ini.'], 422);
         }
 

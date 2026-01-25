@@ -8,6 +8,7 @@
     $formAction = $isProjectItems ? route('project-items.update', $item) : route('items.update', $item);
     $cancelUrl = request('r', $isProjectItems ? route('project-items.index') : route('items.index'));
     $pageTitle = $isProjectItems ? 'Edit Project Item' : 'Edit Item';
+    $listType = $listType ?? ($isProjectItems ? 'project' : 'retail');
   @endphp
 
   <form action="{{ $formAction }}" method="POST" class="card" id="itemEditForm">
@@ -16,7 +17,8 @@
 
     <div class="card-header">
       <div class="card-title">{{ $pageTitle }}: {{ $item->name }}</div>
-      <div class="ms-auto btn-list">
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <span class="badge bg-secondary-lt">List: {{ ucfirst($listType) }}</span>
         <a href="{{ route('items.variants.index', $item) }}" class="btn btn-primary">Kelola Varian</a>
       </div>
     </div>

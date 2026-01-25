@@ -24,8 +24,11 @@ class InventoryRowController extends Controller
         $entity = (string) $request->input('entity', 'variant');
         $entity = in_array($entity, ['variant','item','all'], true) ? $entity : 'variant';
         $itemType = (string) $request->input('item_type', '');
+        $listType = (string) $request->input('list_type', '');
         $allowedTypes = ['standard','kit','cut_raw','cut_piece'];
         $itemType = in_array($itemType, $allowedTypes, true) ? $itemType : '';
+        $allowedListTypes = ['retail','project'];
+        $listType = in_array($listType, $allowedListTypes, true) ? $listType : '';
 
         $like = '%' . $q . '%';
 
@@ -53,6 +56,7 @@ class InventoryRowController extends Controller
                 'color:id,name',
                 'variants:' . implode(',', $variantSelect),
             ])
+            ->when($listType !== '', fn($q) => $q->where('list_type', $listType))
             ->when($itemType !== '', fn($q) => $q->where('item_type', $itemType))
             ->when($q !== '', function ($query) use ($like) {
                 $query->where(function ($w) use ($like) {

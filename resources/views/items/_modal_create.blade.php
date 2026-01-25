@@ -3,12 +3,16 @@
   $isProjectItems = request()->routeIs('project-items.*');
   $modalTitle = $isProjectItems ? 'Tambah Project Item' : 'Tambah Item';
   $formAction = $isProjectItems ? route('project-items.store') : route('items.store');
+  $listType = $listType ?? ($isProjectItems ? 'project' : 'retail');
 @endphp
 
 <div class="modal-dialog modal-lg modal-dialog-scrollable">
   <div class="modal-content">
     <div class="modal-header">
-      <h5 class="modal-title">{{ $modalTitle }}</h5>
+      <div class="d-flex align-items-center gap-2">
+        <h5 class="modal-title">{{ $modalTitle }}</h5>
+        <span class="badge bg-secondary-lt">List: {{ ucfirst($listType) }}</span>
+      </div>
       <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
     </div>
 

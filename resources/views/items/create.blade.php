@@ -8,6 +8,7 @@
     $formAction = $isProjectItems ? route('project-items.store') : route('items.store');
     $cancelUrl = request('r', $isProjectItems ? route('project-items.index') : route('items.index'));
     $pageTitle = $isProjectItems ? 'Tambah Project Item' : 'Tambah Item';
+    $listType = $listType ?? ($isProjectItems ? 'project' : 'retail');
   @endphp
 
   <form action="{{ $formAction }}" method="POST" class="card" id="itemCreateForm">
@@ -15,8 +16,9 @@
 
     <div class="card-header">
       <div class="card-title">{{ $pageTitle }}</div>
-      <div class="ms-auto text-muted small">
-        Kelola varian tersedia setelah item disimpan.
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <span class="badge bg-secondary-lt">List: {{ ucfirst($listType) }}</span>
+        <div class="text-muted small">Kelola varian tersedia setelah item disimpan.</div>
       </div>
     </div>
 

@@ -22,6 +22,7 @@ class ItemController extends Controller
     {
         $viewMode = $this->resolveInventoryViewMode($request);
         $filters  = $this->extractInventoryFilters($request);
+        $listType = $this->forcedListType($request);
 
         $itemsQuery = Item::query()
             ->with([
@@ -30,7 +31,8 @@ class ItemController extends Controller
                 'variants' => fn($q) => $q->orderBy('id'),
             ])
             ->inUnit($filters['unit_id'])
-            ->inBrand($filters['brand_id']);
+            ->inBrand($filters['brand_id'])
+            ->where('list_type', $listType);
 
         if ($filters['q'] !== '') {
             $term = $filters['q'];
@@ -97,6 +99,7 @@ class ItemController extends Controller
 
     public function create(Request $request)
     {
+        $listType = $this->forcedListType($request);
         $units  = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
         $brands = Brand::orderBy('name')->get(['id','name']);
         $defaultUnitId = Unit::whereRaw('LOWER(code) = ?', ['pcs'])->value('id');
@@ -115,18 +118,19 @@ class ItemController extends Controller
 
         if ($request->ajax() && $request->boolean('modal')) {
             return view('items._modal_create', compact(
-                'item','sizes','colors','units','brands','defaultUnitId','parents','familyCodes'
+                'item','sizes','colors','units','brands','defaultUnitId','parents','familyCodes','listType'
             ));
         }
 
         return view('items.create', compact(
-            'sizes','colors','units','brands','defaultUnitId','parents','familyCodes'
+            'sizes','colors','units','brands','defaultUnitId','parents','familyCodes','listType'
         ));
     }
 
     public function store(Request $request)
     {
         $isProjectItems = $this->isProjectItemsRequest($request);
+        $listType = $this->forcedListType($request);
 
         // Detect modal AJAX submit
         $isModal = $request->ajax() && ($request->boolean('modal') || $request->query('modal'));
@@ -138,7 +142,7 @@ class ItemController extends Controller
         $returnUrl = $this->safeReturnUrl(is_string($r) ? $r : null) ?? $fallbackIndex;
 
         // Helper: render ulang modal (422) dengan dataset yang sama seperti create()
-        $renderModal422 = function (array $errors = []) use ($request) {
+        $renderModal422 = function (array $errors = []) use ($request, $listType) {
             $units  = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
             $brands = Brand::orderBy('name')->get(['id','name']);
             $defaultUnitId = Unit::whereRaw('LOWER(code) = ?', ['pcs'])->value('id');
@@ -168,7 +172,8 @@ class ItemController extends Controller
                     'brands',
                     'defaultUnitId',
                     'parents',
-                    'familyCodes'
+                    'familyCodes',
+                    'listType'
                 ))
                 ->withErrors($errors)
                 ->setStatusCode(422);
@@ -236,6 +241,7 @@ class ItemController extends Controller
         }
 
         $data = $validator->validated();
+        $data['list_type'] = $listType;
 
         // Attributes JSON
         $attrs = [];
@@ -289,12 +295,14 @@ class ItemController extends Controller
 
     public function show(Item $item)
     {
+        $this->abortIfWrongListType(request(), $item);
         $item->load(['unit','brand','size','color','parent']);
         return view('items.show', compact('item'));
     }
 
     public function edit(Request $request, Item $item)
     {
+        $this->abortIfWrongListType($request, $item);
         $item->load(['variants' => fn($q) => $q->orderBy('id')]);
 
         $unitsActive = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
@@ -314,11 +322,13 @@ class ItemController extends Controller
         $familyCodes = Item::whereNotNull('family_code')
             ->orderBy('family_code')->distinct()->pluck('family_code');
 
-        return view('items.edit', compact('item','sizes','colors','units','brands','parents','familyCodes'));
+        $listType = $this->forcedListType($request);
+        return view('items.edit', compact('item','sizes','colors','units','brands','parents','familyCodes','listType'));
     }
 
     public function update(Request $request, Item $item)
     {
+        $this->abortIfWrongListType($request, $item);
         $isProjectItems = $this->isProjectItemsRequest($request);
         $fallbackIndex = $isProjectItems ? route('project-items.index') : route('items.index');
         $returnUrl = $this->safeReturnUrl($request->input('r')) ?? $fallbackIndex;
@@ -359,6 +369,7 @@ class ItemController extends Controller
             'attr_size'  => ['nullable','string','max:50'],
             'attr_color' => ['nullable','string','max:50'],
         ]);
+        unset($data['list_type']);
 
         // Cegah parent ke diri sendiri
         if ($request->filled('parent_id') && (int)$request->input('parent_id') === (int)$item->id) {
@@ -408,6 +419,7 @@ class ItemController extends Controller
 
     public function destroy(Request $request, Item $item)
     {
+        $this->abortIfWrongListType($request, $item);
         $fallbackIndex = $this->isProjectItemsRequest($request) ? route('project-items.index') : route('items.index');
         $returnUrl = $this->safeReturnUrl($request->input('r')) ?? $fallbackIndex;
 
@@ -426,14 +438,18 @@ class ItemController extends Controller
     {
         $q = trim($req->get('q', ''));
         $itemType = (string) $req->get('item_type', '');
+        $listType = (string) $req->get('list_type', '');
         $allowedTypes = ['standard','kit','cut_raw','cut_piece'];
         $itemType = in_array($itemType, $allowedTypes, true) ? $itemType : '';
+        $allowedListTypes = ['retail','project'];
+        $listType = in_array($listType, $allowedListTypes, true) ? $listType : '';
 
         $items = Item::query()
             ->with([
                 'unit:id,code',
                 'variants:id,item_id,sku,price,attributes,is_active',
             ])
+            ->when($listType !== '', fn($qq) => $qq->where('list_type', $listType))
             ->when($itemType !== '', fn($qq) => $qq->where('item_type', $itemType))
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
@@ -549,6 +565,18 @@ class ItemController extends Controller
     private function isProjectItemsRequest(Request $request): bool
     {
         return $request->routeIs('project-items.*');
+    }
+
+    private function forcedListType(Request $request): string
+    {
+        return $request->routeIs('project-items.*') ? 'project' : 'retail';
+    }
+
+    private function abortIfWrongListType(Request $request, Item $item): void
+    {
+        if ($item->list_type !== $this->forcedListType($request)) {
+            abort(404);
+        }
     }
 
     private function isDuplicateSkuException(QueryException $e): bool

@@ -21,12 +21,12 @@ class ProjectLaborController extends Controller
         $type = in_array($type, ['item', 'project'], true) ? $type : 'item';
         $q = trim((string) $request->input('q', ''));
 
-        $itemsQuery = Item::query()->select('id', 'name', 'sku', 'item_type');
+        $itemsQuery = Item::query()->select('id', 'name', 'sku', 'item_type', 'list_type');
         if ($type === 'project') {
-            $itemsQuery->where('item_type', 'project');
+            $itemsQuery->where('list_type', 'project');
         } else {
             $itemsQuery->where(function ($query) {
-                $query->whereNull('item_type')->orWhere('item_type', '!=', 'project');
+                $query->whereNull('list_type')->orWhere('list_type', '!=', 'project');
             });
         }
 
@@ -64,10 +64,10 @@ class ProjectLaborController extends Controller
         if ($type === 'item' && !$canUpdateItem) {
             abort(403);
         }
-        if ($type === 'project' && $item->item_type !== 'project') {
+        if ($type === 'project' && $item->list_type !== 'project') {
             return back()->with('error', 'Item bukan Project Item.');
         }
-        if ($type === 'item' && $item->item_type === 'project') {
+        if ($type === 'item' && $item->list_type === 'project') {
             return back()->with('error', 'Gunakan Project Item Labor untuk item ini.');
         }
 

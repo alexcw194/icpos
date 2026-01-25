@@ -23,6 +23,7 @@ class Item extends Model
         'stock',
         'unit_id',
         'brand_id',
+        'list_type',
         'item_type',
         'parent_id',
         'family_code',
@@ -199,6 +200,16 @@ class Item extends Model
     public function scopeInBrand($query, $brandId)
     {
         return $brandId ? $query->where('brand_id', $brandId) : $query;
+    }
+
+    public function scopeRetail($query)
+    {
+        return $query->where('list_type', 'retail');
+    }
+
+    public function scopeProject($query)
+    {
+        return $query->where('list_type', 'project');
     }
 
     public function size(){ return $this->belongsTo(Size::class); }
