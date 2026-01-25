@@ -141,7 +141,17 @@
                     @foreach($section->lines as $line)
                       <tr>
                         <td>{{ $line->line_no }}</td>
-                        <td class="text-wrap">{{ $line->description }}</td>
+                        <td class="text-wrap">
+                          {{ $line->description }}
+                          @if(($line->line_type ?? 'product') === 'percent')
+                            <div class="text-muted small">
+                              {{ number_format((float)($line->percent_value ?? 0), 4, ',', '.') }}%
+                              ({{ $line->basis_type ?? 'bq_product_total' }})
+                            </div>
+                          @elseif(($line->line_type ?? 'product') === 'charge')
+                            <div class="text-muted small">Charge line</div>
+                          @endif
+                        </td>
                         <td class="text-end">{{ number_format((float)$line->qty, 2, ',', '.') }}</td>
                         <td>{{ $line->unit }}</td>
                         <td class="text-end">{{ $money($line->material_total) }}</td>

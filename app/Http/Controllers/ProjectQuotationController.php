@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Company;
+use App\Models\BqLineTemplate;
 use App\Models\Project;
 use App\Models\ProjectQuotation;
 use App\Models\ProjectQuotationLine;
@@ -85,6 +86,8 @@ class ProjectQuotationController extends Controller
             ],
         ]);
 
+        $bqTemplatesData = $this->activeBqTemplatesData();
+
         return view('projects.quotations.create', compact(
             'project',
             'quotation',
@@ -92,7 +95,8 @@ class ProjectQuotationController extends Controller
             'salesUsers',
             'paymentTerms',
             'sections',
-            'contacts'
+            'contacts',
+            'bqTemplatesData'
         ));
     }
 
@@ -253,6 +257,8 @@ class ProjectQuotationController extends Controller
             ]);
         }
 
+        $bqTemplatesData = $this->activeBqTemplatesData();
+
         return view('projects.quotations.edit', compact(
             'project',
             'quotation',
@@ -260,7 +266,8 @@ class ProjectQuotationController extends Controller
             'salesUsers',
             'paymentTerms',
             'sections',
-            'contacts'
+            'contacts',
+            'bqTemplatesData'
         ));
     }
 
@@ -349,6 +356,103 @@ class ProjectQuotationController extends Controller
             ->with('success', 'BQ berhasil diperbarui.');
     }
 
+    public function applyTemplate(Request $request, ProjectQuotation $quotation)
+    {
+        $this->authorize('update', $quotation);
+
+        $project = $request->route('project');
+        if ($project instanceof Project) {
+            $this->ensureProjectMatch($project, $quotation);
+        }
+
+        if ($quotation->isLocked()) {
+            return back()->with('warning', 'BQ yang sudah issued/won/lost tidak bisa diedit.');
+        }
+
+        $data = $request->validate([
+            'template_id' => ['required', 'exists:bq_line_templates,id'],
+        ]);
+
+        $template = BqLineTemplate::query()
+            ->where('is_active', true)
+            ->with(['lines' => fn ($q) => $q->orderBy('sort_order')->orderBy('id')])
+            ->findOrFail($data['template_id']);
+
+        $quotation->load(['sections.lines']);
+        $section = $this->findAddonsSection($quotation);
+        if (!$section) {
+            $nextSort = (int) ($quotation->sections->max('sort_order') ?? 0) + 1;
+            $section = ProjectQuotationSection::create([
+                'project_quotation_id' => $quotation->id,
+                'name' => 'Add-ons',
+                'sort_order' => $nextSort,
+            ]);
+            $quotation->load(['sections.lines']);
+        }
+
+        $section->load('lines');
+        $existing = [];
+        foreach ($section->lines as $line) {
+            $existing[$this->lineSignature(
+                $line->line_type ?? 'product',
+                $line->description ?? '',
+                $line->percent_value,
+                $line->basis_type
+            )] = true;
+        }
+
+        $nextLineNo = $this->nextLineNumber($section->lines);
+        foreach ($template->lines as $tplLine) {
+            $type = $tplLine->type;
+            $label = $tplLine->label;
+            $signature = $this->lineSignature($type, $label, $tplLine->percent_value, $tplLine->basis_type);
+            if (isset($existing[$signature])) {
+                continue;
+            }
+
+            $qty = $type === 'charge' ? (float) ($tplLine->default_qty ?? 1) : 1;
+            $unit = $type === 'charge' ? ($tplLine->default_unit ?? 'LS') : '%';
+            $unitPrice = $type === 'charge' ? (float) ($tplLine->default_unit_price ?? 0) : 0;
+            $materialTotal = $type === 'charge' ? ($qty * $unitPrice) : 0;
+            $percentValue = $type === 'percent' ? (float) ($tplLine->percent_value ?? 0) : null;
+            $basisType = $type === 'percent' ? ($tplLine->basis_type ?? 'bq_product_total') : null;
+
+            ProjectQuotationLine::create([
+                'section_id' => $section->id,
+                'line_no' => (string) $nextLineNo++,
+                'description' => $label,
+                'source_type' => 'item',
+                'item_id' => null,
+                'item_label' => null,
+                'line_type' => $type,
+                'source_template_id' => $template->id,
+                'source_template_line_id' => $tplLine->id,
+                'percent_value' => $percentValue,
+                'basis_type' => $basisType,
+                'computed_amount' => null,
+                'editable_price' => $tplLine->editable_price,
+                'editable_percent' => $tplLine->editable_percent,
+                'can_remove' => $tplLine->can_remove,
+                'qty' => $qty,
+                'unit' => $unit,
+                'unit_price' => $unitPrice,
+                'material_total' => $materialTotal,
+                'labor_total' => 0,
+                'labor_source' => 'manual',
+                'labor_unit_cost_snapshot' => 0,
+                'labor_override_reason' => null,
+                'line_total' => $materialTotal,
+            ]);
+
+            $existing[$signature] = true;
+        }
+
+        $quotation->load(['sections.lines']);
+        $this->recalculateTotalsFromLines($quotation);
+
+        return back()->with('success', 'Template berhasil diterapkan.');
+    }
+
     public function destroy(Project $project, ProjectQuotation $quotation)
     {
         $this->authorize('delete', $quotation);
@@ -416,6 +520,148 @@ class ProjectQuotationController extends Controller
         return back()->with('success', 'BQ ditandai sebagai lost.');
     }
 
+    private function activeBqTemplatesData(): array
+    {
+        return BqLineTemplate::query()
+            ->where('is_active', true)
+            ->with(['lines' => fn ($q) => $q->orderBy('sort_order')->orderBy('id')])
+            ->orderBy('name')
+            ->get()
+            ->map(function (BqLineTemplate $template) {
+                return [
+                    'id' => $template->id,
+                    'name' => $template->name,
+                    'description' => $template->description,
+                    'lines' => $template->lines->map(function ($line) {
+                        return [
+                            'id' => $line->id,
+                            'sort_order' => $line->sort_order,
+                            'type' => $line->type,
+                            'label' => $line->label,
+                            'default_qty' => $line->default_qty !== null ? (float) $line->default_qty : null,
+                            'default_unit' => $line->default_unit,
+                            'default_unit_price' => $line->default_unit_price !== null ? (float) $line->default_unit_price : null,
+                            'percent_value' => $line->percent_value !== null ? (float) $line->percent_value : null,
+                            'basis_type' => $line->basis_type,
+                            'editable_price' => (bool) $line->editable_price,
+                            'editable_percent' => (bool) $line->editable_percent,
+                            'can_remove' => (bool) $line->can_remove,
+                        ];
+                    })->values()->all(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function findAddonsSection(ProjectQuotation $quotation): ?ProjectQuotationSection
+    {
+        foreach ($quotation->sections as $section) {
+            $name = strtolower(trim((string) $section->name));
+            if (in_array($name, ['add-ons', 'add ons', 'biaya tambahan'], true)) {
+                return $section;
+            }
+        }
+
+        return null;
+    }
+
+    private function nextLineNumber($lines): int
+    {
+        $max = collect($lines)->map(fn ($line) => (int) ($line->line_no ?? 0))->max();
+        return (int) ($max ?? 0) + 1;
+    }
+
+    private function lineSignature(string $type, ?string $label, $percentValue, ?string $basisType): string
+    {
+        $labelKey = mb_strtolower(trim((string) $label));
+        $signature = $type . '|' . $labelKey;
+
+        if ($type === 'percent') {
+            $percent = number_format((float) ($percentValue ?? 0), 4, '.', '');
+            $signature .= '|' . $percent . '|' . ($basisType ?? '');
+        }
+
+        return $signature;
+    }
+
+    private function recalculateTotalsFromLines(ProjectQuotation $quotation): void
+    {
+        $quotation->load(['sections.lines']);
+
+        $subtotalMaterial = 0.0;
+        $subtotalLabor = 0.0;
+        $productSubtotal = 0.0;
+        $chargeTotal = 0.0;
+        $percentTotal = 0.0;
+
+        $sectionProductTotals = [];
+        foreach ($quotation->sections as $section) {
+            $sectionProductTotal = 0.0;
+            foreach ($section->lines as $line) {
+                $lineType = $line->line_type ?? 'product';
+                $material = (float) $line->material_total;
+                $labor = (float) $line->labor_total;
+
+                if ($lineType === 'product') {
+                    $lineTotal = $material + $labor;
+                    if ((float) $line->line_total !== $lineTotal) {
+                        $line->line_total = $lineTotal;
+                        $line->save();
+                    }
+                    $subtotalMaterial += $material;
+                    $subtotalLabor += $labor;
+                    $productSubtotal += $lineTotal;
+                    $sectionProductTotal += $lineTotal;
+                } elseif ($lineType === 'charge') {
+                    $lineTotal = $material + $labor;
+                    if ((float) $line->line_total !== $lineTotal) {
+                        $line->line_total = $lineTotal;
+                        $line->save();
+                    }
+                    $chargeTotal += $lineTotal;
+                }
+            }
+            $sectionProductTotals[$section->id] = $sectionProductTotal;
+        }
+
+        foreach ($quotation->sections as $section) {
+            $sectionProductTotal = $sectionProductTotals[$section->id] ?? 0.0;
+            foreach ($section->lines as $line) {
+                if (($line->line_type ?? 'product') !== 'percent') {
+                    continue;
+                }
+
+                $basisType = $line->basis_type ?? 'bq_product_total';
+                $basis = $basisType === 'section_product_total' ? $sectionProductTotal : $productSubtotal;
+                if ($basis <= 0 && $basisType === 'section_product_total' && $productSubtotal > 0) {
+                    $basis = $productSubtotal;
+                }
+
+                $percent = (float) ($line->percent_value ?? 0);
+                $computed = round($basis * ($percent / 100), 2);
+                $line->computed_amount = $computed;
+                $line->material_total = $computed;
+                $line->labor_total = 0;
+                $line->line_total = $computed;
+                $line->save();
+                $percentTotal += $computed;
+            }
+        }
+
+        $subtotal = $productSubtotal + $chargeTotal + $percentTotal;
+        $taxPercent = (float) ($quotation->tax_percent ?? 0);
+        $taxAmount = $quotation->tax_enabled ? ($subtotal * ($taxPercent / 100)) : 0.0;
+
+        $quotation->update([
+            'subtotal_material' => $subtotalMaterial,
+            'subtotal_labor' => $subtotalLabor,
+            'subtotal' => $subtotal,
+            'tax_amount' => $taxAmount,
+            'grand_total' => $subtotal + $taxAmount,
+        ]);
+    }
+
     private function ensureProjectMatch(Project $project, ProjectQuotation $quotation): void
     {
         if ((int) $quotation->project_id !== (int) $project->id) {
@@ -458,6 +704,15 @@ class ProjectQuotationController extends Controller
             'sections.*.lines.*.source_type' => ['nullable', 'in:item,project'],
             'sections.*.lines.*.item_id' => ['nullable', 'exists:items,id'],
             'sections.*.lines.*.item_label' => ['nullable', 'string', 'max:255'],
+            'sections.*.lines.*.line_type' => ['nullable', 'in:product,charge,percent'],
+            'sections.*.lines.*.source_template_id' => ['nullable', 'exists:bq_line_templates,id'],
+            'sections.*.lines.*.source_template_line_id' => ['nullable', 'exists:bq_line_template_lines,id'],
+            'sections.*.lines.*.percent_value' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'sections.*.lines.*.basis_type' => ['nullable', 'in:bq_product_total,section_product_total'],
+            'sections.*.lines.*.computed_amount' => ['nullable', 'numeric', 'min:0'],
+            'sections.*.lines.*.editable_price' => ['nullable', 'boolean'],
+            'sections.*.lines.*.editable_percent' => ['nullable', 'boolean'],
+            'sections.*.lines.*.can_remove' => ['nullable', 'boolean'],
             'sections.*.lines.*.qty' => ['required', 'numeric', 'min:0'],
             'sections.*.lines.*.unit' => ['required', 'string', 'max:16'],
             'sections.*.lines.*.unit_price' => ['nullable', 'numeric', 'min:0'],
@@ -470,8 +725,31 @@ class ProjectQuotationController extends Controller
 
         foreach (($data['sections'] ?? []) as $sIndex => $section) {
             foreach (($section['lines'] ?? []) as $lIndex => $line) {
-                $laborSource = $line['labor_source'] ?? 'manual';
+                $lineType = $line['line_type'] ?? 'product';
                 $itemId = $line['item_id'] ?? null;
+
+                if ($lineType !== 'product' && !empty($itemId)) {
+                    throw ValidationException::withMessages([
+                        "sections.$sIndex.lines.$lIndex.item_id" => 'Charge/percent lines tidak boleh punya item.',
+                    ]);
+                }
+
+                if ($lineType === 'percent') {
+                    $percentValue = $line['percent_value'] ?? null;
+                    $basisType = $line['basis_type'] ?? null;
+                    if ($percentValue === null || $percentValue === '') {
+                        throw ValidationException::withMessages([
+                            "sections.$sIndex.lines.$lIndex.percent_value" => 'Percent wajib diisi.',
+                        ]);
+                    }
+                    if (!$basisType) {
+                        throw ValidationException::withMessages([
+                            "sections.$sIndex.lines.$lIndex.basis_type" => 'Basis type wajib diisi.',
+                        ]);
+                    }
+                }
+
+                $laborSource = $line['labor_source'] ?? 'manual';
                 $reason = $line['labor_override_reason'] ?? null;
                 if ($laborSource === 'manual' && !empty($itemId) && empty($reason)) {
                     throw ValidationException::withMessages([

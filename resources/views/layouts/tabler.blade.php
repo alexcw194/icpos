@@ -211,6 +211,7 @@
                               || request()->routeIs('units.*')
                               || request()->routeIs('jenis.*')
                               || request()->routeIs('brands.*')
+                              || request()->routeIs('bq-line-templates.*')
                               || request()->routeIs('contact-titles.*')
                               || request()->routeIs('contact-positions.*')
                               || request()->routeIs('document-counters.*')
@@ -256,6 +257,7 @@
                         <li><a href="{{ route('colors.index') }}" class="dropdown-item {{ request()->routeIs('colors.*') ? 'active' : '' }}">Colors</a></li>
                         <li><a href="{{ route('warehouses.index') }}" class="dropdown-item {{ request()->routeIs('warehouses.*') ? 'active' : '' }}">Warehouses</a></li>
                         <li><a href="{{ route('banks.index') }}" class="dropdown-item {{ request()->routeIs('banks.*') ? 'active' : '' }}">Banks</a></li>
+                        <li><a href="{{ route('bq-line-templates.index') }}" class="dropdown-item {{ request()->routeIs('bq-line-templates.*') ? 'active' : '' }}">BQ Line Templates</a></li>
                         @role('SuperAdmin')
                           <li><a href="{{ route('contact-titles.index') }}" class="dropdown-item {{ request()->routeIs('contact-titles.*') ? 'active' : '' }}">Titles</a></li>
                           <li><a href="{{ route('contact-positions.index') }}" class="dropdown-item {{ request()->routeIs('contact-positions.*') ? 'active' : '' }}">Positions</a></li>

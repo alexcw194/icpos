@@ -14,6 +14,15 @@ class ProjectQuotationLine extends Model
         'source_type',
         'item_id',
         'item_label',
+        'line_type',
+        'source_template_id',
+        'source_template_line_id',
+        'percent_value',
+        'basis_type',
+        'computed_amount',
+        'editable_price',
+        'editable_percent',
+        'can_remove',
         'qty',
         'unit',
         'unit_price',
@@ -32,6 +41,11 @@ class ProjectQuotationLine extends Model
         'labor_total' => 'decimal:2',
         'labor_unit_cost_snapshot' => 'decimal:2',
         'line_total' => 'decimal:2',
+        'percent_value' => 'decimal:4',
+        'computed_amount' => 'decimal:2',
+        'editable_price' => 'boolean',
+        'editable_percent' => 'boolean',
+        'can_remove' => 'boolean',
     ];
 
     public function section(): BelongsTo

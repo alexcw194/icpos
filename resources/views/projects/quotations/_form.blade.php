@@ -14,6 +14,15 @@
           'source_type' => data_get($line, 'source_type', 'item'),
           'item_id' => data_get($line, 'item_id'),
           'item_label' => data_get($line, 'item_label', ''),
+          'line_type' => data_get($line, 'line_type', 'product'),
+          'source_template_id' => data_get($line, 'source_template_id'),
+          'source_template_line_id' => data_get($line, 'source_template_line_id'),
+          'percent_value' => data_get($line, 'percent_value', 0),
+          'basis_type' => data_get($line, 'basis_type', 'bq_product_total'),
+          'computed_amount' => data_get($line, 'computed_amount', data_get($line, 'material_total', 0)),
+          'editable_price' => data_get($line, 'editable_price', true),
+          'editable_percent' => data_get($line, 'editable_percent', true),
+          'can_remove' => data_get($line, 'can_remove', true),
           'labor_source' => data_get($line, 'labor_source', 'manual'),
           'labor_unit_cost_snapshot' => data_get($line, 'labor_unit_cost_snapshot', 0),
           'labor_override_reason' => data_get($line, 'labor_override_reason', ''),
@@ -186,12 +195,18 @@
   </div>
 </div>
 
+@php $hasBqTemplates = !empty($bqTemplatesData ?? []); @endphp
 <div class="card mb-3">
   <div class="card-header d-flex align-items-center">
     <h3 class="card-title">BQ Sections & Lines</h3>
-    <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="btn-add-section">
-      + Add Section
-    </button>
+    <div class="ms-auto btn-list">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-apply-template" @disabled(!$hasBqTemplates)>
+        Apply Template
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-section">
+        + Add Section
+      </button>
+    </div>
   </div>
   <div class="card-body" id="bq-sections">
     @foreach($sectionsData as $sIndex => $section)
@@ -217,6 +232,7 @@
             <thead>
               <tr>
                 <th style="width:70px;">No</th>
+                <th style="width:110px;">Type</th>
                 <th>Description</th>
                 <th style="width:90px;" class="text-end">Qty</th>
                 <th style="width:90px;">Unit</th>
@@ -229,38 +245,68 @@
             </thead>
             <tbody>
               @foreach($section['lines'] ?? [] as $lIndex => $line)
+                @php
+                  $laborSource = $line['labor_source'] ?? 'manual';
+                  $laborBadge = $laborSource === 'master_item' ? ['I','bg-azure-lt'] : ($laborSource === 'master_project' ? ['P','bg-indigo-lt'] : ['M','bg-secondary-lt']);
+                  $lineType = $line['line_type'] ?? 'product';
+                  $canRemove = (bool) ($line['can_remove'] ?? true);
+                  $editablePrice = (bool) ($line['editable_price'] ?? true);
+                  $editablePercent = (bool) ($line['editable_percent'] ?? true);
+                @endphp
                 <tr class="bq-line" data-line-index="{{ $lIndex }}">
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][line_no]" class="form-control" value="{{ $line['line_no'] ?? '' }}"></td>
                   <td>
-                    <div class="row g-2 align-items-center mb-1">
-                      <div class="col-4">
-                        <select name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][source_type]" class="form-select form-select-sm bq-line-source">
-                          <option value="item" @selected(($line['source_type'] ?? 'item') === 'item')>Item</option>
-                          <option value="project" @selected(($line['source_type'] ?? 'item') === 'project')>Project</option>
-                        </select>
-                      </div>
-                      <div class="col-8">
-                        <input type="text"
-                               name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_label]"
-                               class="form-control form-control-sm bq-item-search"
-                               placeholder="Cari item..."
-                               value="{{ $line['item_label'] ?? '' }}">
-                        <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_id]" class="bq-line-item-id" value="{{ $line['item_id'] ?? '' }}">
-                        <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_source]" class="bq-line-labor-source" value="{{ $line['labor_source'] ?? 'manual' }}">
-                        <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="{{ $line['labor_unit_cost_snapshot'] ?? 0 }}">
-                        <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_override_reason]" class="bq-line-labor-reason" value="{{ $line['labor_override_reason'] ?? '' }}">
+                    <select name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][line_type]" class="form-select form-select-sm bq-line-type">
+                      <option value="product" @selected($lineType === 'product')>Product</option>
+                      <option value="charge" @selected($lineType === 'charge')>Charge</option>
+                      <option value="percent" @selected($lineType === 'percent')>Percent</option>
+                    </select>
+                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][source_template_id]" class="bq-line-template-id" value="{{ $line['source_template_id'] ?? '' }}">
+                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][source_template_line_id]" class="bq-line-template-line-id" value="{{ $line['source_template_line_id'] ?? '' }}">
+                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][editable_price]" class="bq-line-editable-price" value="{{ $editablePrice ? 1 : 0 }}">
+                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][editable_percent]" class="bq-line-editable-percent" value="{{ $editablePercent ? 1 : 0 }}">
+                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][can_remove]" class="bq-line-can-remove" value="{{ $canRemove ? 1 : 0 }}">
+                  </td>
+                  <td>
+                    <div class="bq-item-controls">
+                      <div class="row g-2 align-items-center mb-1">
+                        <div class="col-4">
+                          <select name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][source_type]" class="form-select form-select-sm bq-line-source">
+                            <option value="item" @selected(($line['source_type'] ?? 'item') === 'item')>Item</option>
+                            <option value="project" @selected(($line['source_type'] ?? 'item') === 'project')>Project</option>
+                          </select>
+                        </div>
+                        <div class="col-8">
+                          <input type="text"
+                                 name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_label]"
+                                 class="form-control form-control-sm bq-item-search"
+                                 placeholder="Cari item..."
+                                 value="{{ $line['item_label'] ?? '' }}">
+                          <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_id]" class="bq-line-item-id" value="{{ $line['item_id'] ?? '' }}">
+                          <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_source]" class="bq-line-labor-source" value="{{ $line['labor_source'] ?? 'manual' }}">
+                          <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="{{ $line['labor_unit_cost_snapshot'] ?? 0 }}">
+                          <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_override_reason]" class="bq-line-labor-reason" value="{{ $line['labor_override_reason'] ?? '' }}">
+                        </div>
                       </div>
                     </div>
                     <textarea name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][description]" class="form-control bq-line-desc" rows="2" required>{{ $line['description'] ?? '' }}</textarea>
                   </td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][qty]" class="form-control text-end" value="{{ $line['qty'] ?? 0 }}" required></td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit]" class="form-control" value="{{ $line['unit'] ?? 'LS' }}" required></td>
-                  <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit_price]" class="form-control text-end js-line-unit-price" value="{{ $line['unit_price'] ?? 0 }}"></td>
+                  <td>
+                    <div class="bq-price-wrap">
+                      <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit_price]" class="form-control text-end js-line-unit-price" value="{{ $line['unit_price'] ?? 0 }}">
+                    </div>
+                    <div class="bq-percent-wrap d-none">
+                      <div class="input-group input-group-sm">
+                        <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][percent_value]" class="form-control text-end js-line-percent" value="{{ $line['percent_value'] ?? 0 }}">
+                        <span class="input-group-text">%</span>
+                      </div>
+                      <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][basis_type]" class="bq-line-basis" value="{{ $line['basis_type'] ?? 'bq_product_total' }}">
+                      <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][computed_amount]" class="bq-line-computed" value="{{ $line['computed_amount'] ?? 0 }}">
+                    </div>
+                  </td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][material_total]" class="form-control text-end js-line-material" value="{{ $line['material_total'] ?? 0 }}" required></td>
-                  @php
-                    $laborSource = $line['labor_source'] ?? 'manual';
-                    $laborBadge = $laborSource === 'master_item' ? ['I','bg-azure-lt'] : ($laborSource === 'master_project' ? ['P','bg-indigo-lt'] : ['M','bg-secondary-lt']);
-                  @endphp
                   <td>
                     <div class="d-flex align-items-center gap-2">
                       <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required>
@@ -269,7 +315,7 @@
                     </div>
                   </td>
                   <td class="text-end"><span class="js-line-total">0</span></td>
-                  <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line">Remove</button></td>
+                  <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line" @disabled(!$canRemove)>Remove</button></td>
                 </tr>
               @endforeach
             </tbody>
@@ -333,6 +379,34 @@
   </div>
 </div>
 
+<div class="modal fade" id="bqTemplateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Apply BQ Line Template</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Template</label>
+          <select id="bq-template-select" class="form-select">
+            <option value="">Pilih template</option>
+            @foreach(($bqTemplatesData ?? []) as $tpl)
+              <option value="{{ $tpl['id'] }}">{{ $tpl['name'] }}</option>
+            @endforeach
+          </select>
+          <div class="form-hint">Template akan menambahkan baris ke section Add-ons.</div>
+        </div>
+        <div class="text-muted small" id="bq-template-desc"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn me-auto" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-confirm-apply-template">Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 @push('scripts')
 <script>
 (() => {
@@ -344,10 +418,15 @@
   const LABOR_UPDATE_URL = @json(route('labor-rates.update', [], false));
   const CAN_UPDATE_ITEM_LABOR = @json(auth()->user()?->hasAnyRole(['Admin','SuperAdmin','Finance']) ?? false);
   const CAN_UPDATE_PROJECT_LABOR = @json(auth()->user()?->hasAnyRole(['Admin','SuperAdmin','PM']) ?? false);
+  const BQ_TEMPLATES = @json($bqTemplatesData ?? []);
 
   const termTable = document.getElementById('terms-table');
   const btnAddTerm = document.getElementById('btn-add-term');
   const btnAddSection = document.getElementById('btn-add-section');
+  const btnApplyTemplate = document.getElementById('btn-apply-template');
+  const templateSelect = document.getElementById('bq-template-select');
+  const templateDesc = document.getElementById('bq-template-desc');
+  const btnConfirmApplyTemplate = document.getElementById('btn-confirm-apply-template');
 
   const parseNumber = (val) => {
     if (val === null || val === undefined) return 0;
@@ -358,6 +437,28 @@
 
   const formatNumber = (val) => {
     return Number(val || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const formatPercent = (val) => {
+    return Number(val || 0).toLocaleString('id-ID', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  };
+
+  const roundMoney = (val) => {
+    return Math.round((Number(val || 0) + Number.EPSILON) * 100) / 100;
+  };
+
+  const escapeHtml = (val) => {
+    return String(val ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
+  const getLineType = (row) => {
+    const typeSel = row.querySelector('.bq-line-type');
+    return typeSel?.value || 'product';
   };
 
   const getSourceType = (row) => {
@@ -395,9 +496,107 @@
     setLaborBadge(row, source, opts);
   };
 
+  const setReadOnly = (input, value) => {
+    if (!input) return;
+    input.readOnly = value;
+    input.classList.toggle('bg-light', value);
+  };
+
+  const togglePercentFields = (row, isPercent) => {
+    row.querySelector('.bq-percent-wrap')?.classList.toggle('d-none', !isPercent);
+    row.querySelector('.bq-price-wrap')?.classList.toggle('d-none', isPercent);
+  };
+
+  const applyEditableFlags = (row) => {
+    const lineType = getLineType(row);
+    const editablePrice = row.querySelector('.bq-line-editable-price')?.value === '1';
+    const editablePercent = row.querySelector('.bq-line-editable-percent')?.value === '1';
+    const unitPriceEl = row.querySelector('.js-line-unit-price');
+    const materialEl = row.querySelector('.js-line-material');
+    const percentEl = row.querySelector('.js-line-percent');
+
+    if (lineType === 'charge') {
+      setReadOnly(unitPriceEl, !editablePrice);
+      setReadOnly(materialEl, !editablePrice);
+    } else {
+      setReadOnly(unitPriceEl, false);
+      setReadOnly(materialEl, lineType === 'percent');
+    }
+
+    if (lineType === 'percent') {
+      setReadOnly(percentEl, !editablePercent);
+    } else if (percentEl) {
+      setReadOnly(percentEl, false);
+    }
+  };
+
+  const syncLineTypeRow = (row) => {
+    const lineType = getLineType(row);
+    const itemControls = row.querySelector('.bq-item-controls');
+    const sourceSel = row.querySelector('.bq-line-source');
+    const searchInput = row.querySelector('.bq-item-search');
+    const itemIdEl = row.querySelector('.bq-line-item-id');
+    const qtyEl = row.querySelector('input[name$="[qty]"]');
+    const unitEl = row.querySelector('input[name$="[unit]"]');
+    const laborEl = row.querySelector('.js-line-labor');
+    const materialEl = row.querySelector('.js-line-material');
+
+    const isPercent = lineType === 'percent';
+    togglePercentFields(row, isPercent);
+
+    if (lineType === 'product') {
+      itemControls?.classList.remove('d-none');
+      if (sourceSel) sourceSel.disabled = false;
+      if (searchInput) searchInput.disabled = false;
+      updateMasterButtonVisibility(row);
+      syncSourceRow(row);
+    } else {
+      itemControls?.classList.add('d-none');
+      if (sourceSel) sourceSel.disabled = true;
+      if (searchInput) {
+        if (searchInput._ts) {
+          searchInput._ts.destroy();
+          searchInput._ts = null;
+        }
+        searchInput.value = '';
+        searchInput.disabled = true;
+      }
+      if (itemIdEl) itemIdEl.value = '';
+      setLaborSource(row, 'manual');
+      updateMasterButtonVisibility(row);
+    }
+
+    if (lineType === 'percent') {
+      if (qtyEl) qtyEl.value = '1';
+      if (unitEl) unitEl.value = '%';
+      if (laborEl) laborEl.value = formatNumber(0);
+      if (materialEl) setReadOnly(materialEl, true);
+      if (laborEl) setReadOnly(laborEl, true);
+      if (qtyEl) setReadOnly(qtyEl, true);
+      if (unitEl) setReadOnly(unitEl, true);
+    } else if (lineType === 'charge') {
+      if (laborEl) laborEl.value = formatNumber(0);
+      if (laborEl) setReadOnly(laborEl, true);
+      if (materialEl) setReadOnly(materialEl, false);
+      if (qtyEl) setReadOnly(qtyEl, false);
+      if (unitEl) setReadOnly(unitEl, false);
+    } else {
+      if (laborEl) setReadOnly(laborEl, false);
+      if (materialEl) setReadOnly(materialEl, false);
+      if (qtyEl) setReadOnly(qtyEl, false);
+      if (unitEl) setReadOnly(unitEl, false);
+    }
+
+    applyEditableFlags(row);
+  };
+
   const updateMasterButtonVisibility = (row) => {
     const btn = row.querySelector('.js-update-labor-master');
     if (!btn) return;
+    if (getLineType(row) !== 'product') {
+      btn.classList.add('d-none');
+      return;
+    }
     const sourceType = getSourceType(row);
     const allowed = sourceType === 'project' ? CAN_UPDATE_PROJECT_LABOR : CAN_UPDATE_ITEM_LABOR;
     btn.classList.toggle('d-none', !allowed);
@@ -473,16 +672,19 @@
   const recalcTotals = () => {
     let subMat = 0;
     let subLab = 0;
+    let chargeTotal = 0;
+    let percentTotal = 0;
     const sectionTotals = new Map();
+    const sectionProductTotals = new Map();
 
     document.querySelectorAll('.bq-line').forEach((row) => {
+      const lineType = getLineType(row);
+      if (lineType !== 'product') return;
       const mat = parseNumber(row.querySelector('.js-line-material')?.value);
       const lab = parseNumber(row.querySelector('.js-line-labor')?.value);
       const total = mat + lab;
       subMat += mat;
       subLab += lab;
-      const totalEl = row.querySelector('.js-line-total');
-      if (totalEl) totalEl.textContent = formatNumber(total);
 
       const section = row.closest('.bq-section');
       if (section) {
@@ -490,7 +692,50 @@
         current.mat += mat;
         current.lab += lab;
         sectionTotals.set(section, current);
+
+        const currentTotal = sectionProductTotals.get(section) || 0;
+        sectionProductTotals.set(section, currentTotal + total);
       }
+    });
+
+    const productSubtotal = subMat + subLab;
+
+    document.querySelectorAll('.bq-line').forEach((row) => {
+      const lineType = getLineType(row);
+      const matEl = row.querySelector('.js-line-material');
+      const labEl = row.querySelector('.js-line-labor');
+      const totalEl = row.querySelector('.js-line-total');
+
+      let mat = parseNumber(matEl?.value);
+      let lab = parseNumber(labEl?.value);
+      let total = 0;
+
+      if (lineType === 'percent') {
+        const percentEl = row.querySelector('.js-line-percent');
+        const basisType = row.querySelector('.bq-line-basis')?.value || 'bq_product_total';
+        const pct = parseNumber(percentEl?.value);
+        const section = row.closest('.bq-section');
+        let basis = basisType === 'section_product_total'
+          ? (section ? (sectionProductTotals.get(section) || 0) : 0)
+          : productSubtotal;
+        if (basis <= 0 && basisType === 'section_product_total' && productSubtotal > 0) {
+          basis = productSubtotal;
+        }
+        const computed = roundMoney(basis * (pct / 100));
+        total = computed;
+        percentTotal += computed;
+        if (matEl) matEl.value = formatNumber(computed);
+        if (labEl) labEl.value = formatNumber(0);
+        const computedEl = row.querySelector('.bq-line-computed');
+        if (computedEl) computedEl.value = computed.toFixed(2);
+      } else if (lineType === 'charge') {
+        total = mat + lab;
+        chargeTotal += total;
+      } else {
+        total = mat + lab;
+      }
+
+      if (totalEl) totalEl.textContent = formatNumber(total);
     });
 
     document.querySelectorAll('.bq-section').forEach((section) => {
@@ -502,7 +747,7 @@
       renumberLines(section);
     });
 
-    const subtotal = subMat + subLab;
+    const subtotal = productSubtotal + chargeTotal + percentTotal;
     const taxEnabled = document.getElementById('tax_enabled');
     const taxPercent = document.getElementById('tax_percent');
     const taxPct = taxEnabled?.checked ? parseNumber(taxPercent?.value) : 0;
@@ -548,53 +793,106 @@
     return indices.length ? Math.max(...indices) + 1 : 0;
   };
 
-  const makeLine = (sIndex, lIndex) => {
+  const makeLine = (sIndex, lIndex, data = {}) => {
+    const lineNo = escapeHtml(data.line_no || '');
+    const description = escapeHtml(data.description || '');
+    const sourceType = data.source_type === 'project' ? 'project' : 'item';
+    const itemLabel = escapeHtml(data.item_label || '');
+    const itemId = escapeHtml(data.item_id || '');
+    const qty = data.qty ?? 1;
+    const unit = escapeHtml(data.unit || 'LS');
+    const unitPrice = data.unit_price ?? 0;
+    const materialTotal = data.material_total ?? 0;
+    const laborTotal = data.labor_total ?? 0;
+    const laborSource = data.labor_source || 'manual';
+    const laborUnit = data.labor_unit_cost_snapshot ?? 0;
+    const laborReason = escapeHtml(data.labor_override_reason || '');
+    const lineType = data.line_type || 'product';
+    const percentValue = data.percent_value ?? 0;
+    const basisType = data.basis_type || 'bq_product_total';
+    const computedAmount = data.computed_amount ?? 0;
+    const sourceTemplateId = data.source_template_id || '';
+    const sourceTemplateLineId = data.source_template_line_id || '';
+    const editablePrice = data.editable_price !== undefined ? data.editable_price : true;
+    const editablePercent = data.editable_percent !== undefined ? data.editable_percent : true;
+    const canRemove = data.can_remove !== undefined ? data.can_remove : true;
+    const laborBadge = laborSource === 'master_item'
+      ? ['I','bg-azure-lt']
+      : (laborSource === 'master_project' ? ['P','bg-indigo-lt'] : ['M','bg-secondary-lt']);
+
     return `
       <tr class="bq-line" data-line-index="${lIndex}">
-        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][line_no]" class="form-control"></td>
+        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][line_no]" class="form-control" value="${lineNo}"></td>
         <td>
-          <div class="row g-2 align-items-center mb-1">
-            <div class="col-4">
-              <select name="sections[${sIndex}][lines][${lIndex}][source_type]" class="form-select form-select-sm bq-line-source">
-                <option value="item">Item</option>
-                <option value="project">Project</option>
-              </select>
-            </div>
-            <div class="col-8">
-              <input type="text"
-                     name="sections[${sIndex}][lines][${lIndex}][item_label]"
-                     class="form-control form-control-sm bq-item-search"
-                     placeholder="Cari item...">
-              <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][item_id]" class="bq-line-item-id" value="">
-              <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_source]" class="bq-line-labor-source" value="manual">
-              <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="0">
-              <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_override_reason]" class="bq-line-labor-reason" value="">
+          <select name="sections[${sIndex}][lines][${lIndex}][line_type]" class="form-select form-select-sm bq-line-type">
+            <option value="product" ${lineType === 'product' ? 'selected' : ''}>Product</option>
+            <option value="charge" ${lineType === 'charge' ? 'selected' : ''}>Charge</option>
+            <option value="percent" ${lineType === 'percent' ? 'selected' : ''}>Percent</option>
+          </select>
+          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][source_template_id]" class="bq-line-template-id" value="${escapeHtml(sourceTemplateId)}">
+          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][source_template_line_id]" class="bq-line-template-line-id" value="${escapeHtml(sourceTemplateLineId)}">
+          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][editable_price]" class="bq-line-editable-price" value="${editablePrice ? 1 : 0}">
+          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][editable_percent]" class="bq-line-editable-percent" value="${editablePercent ? 1 : 0}">
+          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][can_remove]" class="bq-line-can-remove" value="${canRemove ? 1 : 0}">
+        </td>
+        <td>
+          <div class="bq-item-controls">
+            <div class="row g-2 align-items-center mb-1">
+              <div class="col-4">
+                <select name="sections[${sIndex}][lines][${lIndex}][source_type]" class="form-select form-select-sm bq-line-source">
+                  <option value="item" ${sourceType === 'item' ? 'selected' : ''}>Item</option>
+                  <option value="project" ${sourceType === 'project' ? 'selected' : ''}>Project</option>
+                </select>
+              </div>
+              <div class="col-8">
+                <input type="text"
+                       name="sections[${sIndex}][lines][${lIndex}][item_label]"
+                       class="form-control form-control-sm bq-item-search"
+                       placeholder="Cari item..."
+                       value="${itemLabel}">
+                <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][item_id]" class="bq-line-item-id" value="${itemId}">
+                <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_source]" class="bq-line-labor-source" value="${laborSource}">
+                <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="${laborUnit}">
+                <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_override_reason]" class="bq-line-labor-reason" value="${laborReason}">
+              </div>
             </div>
           </div>
-          <textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control bq-line-desc" rows="2" required></textarea>
+          <textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control bq-line-desc" rows="2" required>${description}</textarea>
         </td>
-        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][qty]" class="form-control text-end" value="1" required></td>
-        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit]" class="form-control" value="LS" required></td>
-        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit_price]" class="form-control text-end js-line-unit-price" value="0"></td>
-        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][material_total]" class="form-control text-end js-line-material" value="0" required></td>
+        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][qty]" class="form-control text-end" value="${qty}" required></td>
+        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit]" class="form-control" value="${unit}" required></td>
+        <td>
+          <div class="bq-price-wrap">
+            <input type="text" name="sections[${sIndex}][lines][${lIndex}][unit_price]" class="form-control text-end js-line-unit-price" value="${unitPrice}">
+          </div>
+          <div class="bq-percent-wrap d-none">
+            <div class="input-group input-group-sm">
+              <input type="text" name="sections[${sIndex}][lines][${lIndex}][percent_value]" class="form-control text-end js-line-percent" value="${percentValue}">
+              <span class="input-group-text">%</span>
+            </div>
+            <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][basis_type]" class="bq-line-basis" value="${escapeHtml(basisType)}">
+            <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][computed_amount]" class="bq-line-computed" value="${computedAmount}">
+          </div>
+        </td>
+        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][material_total]" class="form-control text-end js-line-material" value="${materialTotal}" required></td>
         <td>
           <div class="d-flex align-items-center gap-2">
-            <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="0" required>
-            <span class="badge bg-secondary-lt text-dark js-labor-badge" title="Labor Source">M</span>
+            <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" required>
+            <span class="badge ${laborBadge[1]} text-dark js-labor-badge" title="Labor Source">${laborBadge[0]}</span>
             <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
           </div>
         </td>
         <td class="text-end"><span class="js-line-total">0</span></td>
-        <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line">Remove</button></td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line" ${canRemove ? '' : 'disabled'}>Remove</button></td>
       </tr>
     `;
   };
 
-  const makeSection = (sIndex) => {
+  const makeSection = (sIndex, name = '') => {
     return `
       <div class="bq-section border rounded p-3 mb-3" data-section-index="${sIndex}">
         <div class="d-flex align-items-center mb-2 gap-2 flex-wrap">
-          <input type="text" name="sections[${sIndex}][name]" class="form-control me-2 section-name" placeholder="Section name" required>
+          <input type="text" name="sections[${sIndex}][name]" class="form-control me-2 section-name" placeholder="Section name" value="${escapeHtml(name)}" required>
           <input type="hidden" name="sections[${sIndex}][sort_order]" value="${sIndex}">
           <div class="d-flex align-items-center gap-2 ms-auto">
             <div>
@@ -613,6 +911,7 @@
             <thead>
               <tr>
                 <th style="width:70px;">No</th>
+                <th style="width:110px;">Type</th>
                 <th>Description</th>
                 <th style="width:90px;" class="text-end">Qty</th>
                 <th style="width:90px;">Unit</th>
@@ -649,6 +948,141 @@
       </tr>
     `;
   };
+
+  const normalizeLabel = (val) => String(val ?? '').trim().toLowerCase();
+
+  const normalizeSectionName = (val) => {
+    return normalizeLabel(val).replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
+  const makeSignature = (type, label, percentValue, basisType) => {
+    const base = `${type}|${normalizeLabel(label)}`;
+    if (type !== 'percent') return base;
+    const pct = parseNumber(percentValue || 0).toFixed(4);
+    return `${base}|${pct}|${basisType || 'bq_product_total'}`;
+  };
+
+  const findAddonsSection = () => {
+    const targets = new Set(['add-ons', 'add ons', 'biaya tambahan']);
+    return [...sectionsEl.querySelectorAll('.bq-section')].find((section) => {
+      const name = section.querySelector('.section-name')?.value || '';
+      return targets.has(normalizeSectionName(name));
+    });
+  };
+
+  const ensureAddonsSection = () => {
+    let section = findAddonsSection();
+    if (section) return section;
+
+    const idx = nextSectionIndex();
+    sectionsEl.insertAdjacentHTML('beforeend', makeSection(idx, 'Add-ons'));
+    section = sectionsEl.lastElementChild;
+    initItemPickers(section);
+    const defaultRow = section.querySelector('.bq-line');
+    if (defaultRow) {
+      const desc = defaultRow.querySelector('.bq-line-desc')?.value || '';
+      const itemId = defaultRow.querySelector('.bq-line-item-id')?.value || '';
+      const mat = parseNumber(defaultRow.querySelector('.js-line-material')?.value);
+      const lab = parseNumber(defaultRow.querySelector('.js-line-labor')?.value);
+      if (!desc && !itemId && mat === 0 && lab === 0) {
+        defaultRow.remove();
+      }
+    }
+    return section;
+  };
+
+  const applyTemplateToForm = (template) => {
+    if (!template) return;
+    const section = ensureAddonsSection();
+    const body = section.querySelector('tbody');
+    if (!body) return;
+
+    const existing = new Set();
+    section.querySelectorAll('.bq-line').forEach((row) => {
+      const type = getLineType(row);
+      const label = row.querySelector('.bq-line-desc')?.value || '';
+      const percentValue = row.querySelector('.js-line-percent')?.value || 0;
+      const basisType = row.querySelector('.bq-line-basis')?.value || 'bq_product_total';
+      existing.add(makeSignature(type, label, percentValue, basisType));
+    });
+
+    const lines = [...(template.lines || [])].sort((a, b) => {
+      const order = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      return order !== 0 ? order : (a.id ?? 0) - (b.id ?? 0);
+    });
+
+    lines.forEach((line) => {
+      const signature = makeSignature(line.type, line.label, line.percent_value, line.basis_type);
+      if (existing.has(signature)) return;
+
+      const isCharge = line.type === 'charge';
+      const qty = isCharge ? (line.default_qty ?? 1) : 1;
+      const unit = isCharge ? (line.default_unit || 'LS') : '%';
+      const unitPrice = isCharge ? (line.default_unit_price ?? 0) : 0;
+      const materialTotal = isCharge ? (qty * unitPrice) : 0;
+
+      const lineData = {
+        line_type: line.type,
+        description: line.label || '',
+        source_type: 'item',
+        item_id: '',
+        item_label: '',
+        qty: qty,
+        unit: unit,
+        unit_price: unitPrice,
+        material_total: materialTotal,
+        labor_total: 0,
+        percent_value: line.type === 'percent' ? (line.percent_value ?? 0) : 0,
+        basis_type: line.type === 'percent' ? (line.basis_type || 'bq_product_total') : 'bq_product_total',
+        computed_amount: 0,
+        source_template_id: template.id,
+        source_template_line_id: line.id,
+        editable_price: line.editable_price !== false,
+        editable_percent: line.editable_percent !== false,
+        can_remove: line.can_remove !== false,
+      };
+
+      const lIndex = nextLineIndex(section);
+      body.insertAdjacentHTML('beforeend', makeLine(section.dataset.sectionIndex, lIndex, lineData));
+      const newRow = body.lastElementChild;
+      if (newRow) {
+        syncLineTypeRow(newRow);
+      }
+      existing.add(signature);
+    });
+
+    recalcTotals();
+  };
+
+  const templateModalEl = document.getElementById('bqTemplateModal');
+  const templateModal = templateModalEl && window.bootstrap ? new bootstrap.Modal(templateModalEl) : null;
+
+  if (btnApplyTemplate && templateModal) {
+    btnApplyTemplate.addEventListener('click', () => {
+      templateModal.show();
+    });
+  }
+
+  if (templateSelect) {
+    templateSelect.addEventListener('change', () => {
+      const id = parseInt(templateSelect.value || '0', 10);
+      const tpl = (BQ_TEMPLATES || []).find((row) => row.id === id);
+      if (templateDesc) templateDesc.textContent = tpl?.description || '';
+    });
+  }
+
+  if (btnConfirmApplyTemplate && templateSelect) {
+    btnConfirmApplyTemplate.addEventListener('click', () => {
+      const id = parseInt(templateSelect.value || '0', 10);
+      const tpl = (BQ_TEMPLATES || []).find((row) => row.id === id);
+      if (!tpl) {
+        alert('Pilih template terlebih dulu.');
+        return;
+      }
+      applyTemplateToForm(tpl);
+      templateModal?.hide();
+    });
+  }
 
   if (btnAddSection) {
     btnAddSection.addEventListener('click', () => {
@@ -783,6 +1217,7 @@
     if (
       target.classList.contains('js-line-material') ||
       target.classList.contains('js-line-labor') ||
+      target.classList.contains('js-line-percent') ||
       target.id === 'tax_percent'
     ) {
       recalcTotals();
@@ -805,9 +1240,19 @@
   document.addEventListener('focusout', (e) => {
     const target = e.target;
     if (!(target instanceof HTMLInputElement)) return;
-    if (!target.classList.contains('js-line-unit-price') && !target.classList.contains('js-line-labor')) return;
+    if (
+      !target.classList.contains('js-line-unit-price') &&
+      !target.classList.contains('js-line-labor') &&
+      !target.classList.contains('js-line-percent')
+    ) return;
 
     const val = parseNumber(target.value);
+    if (target.classList.contains('js-line-percent')) {
+      target.value = formatPercent(val);
+      recalcTotals();
+      return;
+    }
+
     target.value = formatNumber(val);
 
     const row = target.closest('.bq-line');
@@ -937,6 +1382,11 @@
     const searchInput = row.querySelector('.bq-item-search');
     if (!sourceSel || !searchInput) return;
 
+    if (getLineType(row) !== 'product') {
+      searchInput.disabled = true;
+      return;
+    }
+
     const sourceType = sourceSel.value === 'project' ? 'project' : 'item';
     if (searchInput.dataset.sourceType && searchInput.dataset.sourceType !== sourceType) {
       searchInput.value = '';
@@ -952,13 +1402,23 @@
 
   const initItemPickers = (scope) => {
     const root = scope || sectionsEl;
-    root.querySelectorAll('.bq-line').forEach((row) => syncSourceRow(row));
+    const rows = [];
+    if (root.classList?.contains('bq-line')) {
+      rows.push(root);
+    }
+    rows.push(...root.querySelectorAll('.bq-line'));
+    rows.forEach((row) => syncLineTypeRow(row));
   };
 
   sectionsEl.addEventListener('change', (e) => {
     if (e.target.classList.contains('bq-line-source')) {
       const row = e.target.closest('.bq-line');
       if (row) syncSourceRow(row);
+    }
+    if (e.target.classList.contains('bq-line-type')) {
+      const row = e.target.closest('.bq-line');
+      if (row) syncLineTypeRow(row);
+      recalcTotals();
     }
   });
 
