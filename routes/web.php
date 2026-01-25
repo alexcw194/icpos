@@ -302,6 +302,10 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     // =======================
     Route::resource('items', ItemController::class)->except(['index','show']);
     Route::resource('project-items', ItemController::class)->except(['index','show']);
+    Route::post('items/{item}/transfer-to-project', [ItemController::class, 'transferListType'])
+        ->name('items.transfer-to-project');
+    Route::post('project-items/{item}/transfer-to-retail', [ItemController::class, 'transferListType'])
+        ->name('project-items.transfer-to-retail');
 
     Route::resource('items.variants', ItemVariantController::class)
         ->parameters(['variants' => 'variant'])

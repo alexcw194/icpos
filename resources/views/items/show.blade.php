@@ -7,6 +7,13 @@
     $isProjectItems = request()->routeIs('project-items.*');
     $editUrl = $isProjectItems ? route('project-items.edit', $item) : route('items.edit', $item);
     $backUrl = $isProjectItems ? route('project-items.index') : route('items.index');
+    $transferLabel = $isProjectItems ? 'Transfer ke Retail List' : 'Transfer ke Project List';
+    $transferAction = $isProjectItems
+      ? route('project-items.transfer-to-retail', $item)
+      : route('items.transfer-to-project', $item);
+    $transferConfirm = $isProjectItems
+      ? 'Pindahkan item ini ke Retail List?'
+      : 'Pindahkan item ini ke Project List?';
   @endphp
 
   <div class="card">
@@ -39,6 +46,11 @@
             <a href="{{ route('items.variants.index', $item) }}" class="dropdown-item">
               Kelola Varian
             </a>
+
+            <form method="POST" action="{{ $transferAction }}" onsubmit="return confirm('{{ $transferConfirm }}');">
+              @csrf
+              <button type="submit" class="dropdown-item">{{ $transferLabel }}</button>
+            </form>
 
             <div class="dropdown-divider"></div>
 

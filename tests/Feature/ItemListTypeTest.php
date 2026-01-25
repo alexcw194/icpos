@@ -140,4 +140,24 @@ class ItemListTypeTest extends TestCase
 
         $response->assertStatus(404);
     }
+
+    public function test_transfer_to_project_list_updates_list_type(): void
+    {
+        $admin = $this->makeAdminUser();
+
+        $item = Item::create([
+            'name' => 'Retail Item Transfer',
+            'sku' => 'RET-ITEM-4',
+            'price' => 1000,
+            'list_type' => 'retail',
+        ]);
+
+        $response = $this->actingAs($admin)->post("/items/{$item->id}/transfer-to-project");
+
+        $response->assertRedirect(route('project-items.show', $item));
+        $this->assertDatabaseHas('items', [
+            'id' => $item->id,
+            'list_type' => 'project',
+        ]);
+    }
 }

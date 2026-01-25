@@ -428,6 +428,25 @@ class ItemController extends Controller
         return redirect()->to($returnUrl)->with('success','Item deleted!');
     }
 
+    public function transferListType(Request $request, Item $item)
+    {
+        $this->abortIfWrongListType($request, $item);
+
+        $currentType = $this->forcedListType($request);
+        $targetType = $currentType === 'project' ? 'retail' : 'project';
+
+        if ($item->list_type !== $targetType) {
+            $item->update(['list_type' => $targetType]);
+        }
+
+        $targetRoute = $targetType === 'project' ? 'project-items.show' : 'items.show';
+        $targetLabel = $targetType === 'project' ? 'Project List' : 'Retail List';
+
+        return redirect()
+            ->route($targetRoute, $item)
+            ->with('success', "Item dipindahkan ke {$targetLabel}.");
+    }
+
     /**
      * Endpoint untuk item quick-search (TomSelect).
      * - q kosong: kirim Top-N item saja (tanpa varian) agar ringan.
