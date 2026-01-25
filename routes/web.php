@@ -301,7 +301,9 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     // Items (WRITE untuk Admin/SuperAdmin)
     // =======================
     Route::resource('items', ItemController::class)->except(['index','show']);
-    Route::resource('project-items', ItemController::class)->except(['index','show']);
+    Route::resource('project-items', ItemController::class)
+        ->parameters(['project-items' => 'item'])
+        ->except(['index','show']);
     Route::post('items/{item}/transfer-to-project', [ItemController::class, 'transferListType'])
         ->name('items.transfer-to-project');
     Route::post('project-items/{item}/transfer-to-retail', [ItemController::class, 'transferListType'])
