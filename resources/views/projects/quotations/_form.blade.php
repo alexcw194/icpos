@@ -288,7 +288,12 @@
                                value="{{ !empty($line['catalog_id']) ? ($line['description'] ?? '') : '' }}">
                       </div>
                     </div>
-                    <textarea name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][description]" class="form-control bq-line-desc" rows="2" required>{{ $line['description'] ?? '' }}</textarea>
+                    <div class="row g-2 bq-desc-row">
+                      <div class="col-3 d-none d-md-block bq-desc-spacer"></div>
+                      <div class="col-12 col-md-9">
+                        <textarea name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][description]" class="form-control bq-line-desc" rows="2" required>{{ $line['description'] ?? '' }}</textarea>
+                      </div>
+                    </div>
                   </td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][qty]" class="form-control text-end" value="{{ $line['qty'] ?? 0 }}" required></td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit]" class="form-control" value="{{ $line['unit'] ?? 'LS' }}" required></td>
@@ -1031,7 +1036,12 @@
                      value="${catalogLabel}">
             </div>
           </div>
-          <textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control bq-line-desc" rows="2" required>${description}</textarea>
+          <div class="row g-2 bq-desc-row">
+            <div class="col-3 d-none d-md-block bq-desc-spacer"></div>
+            <div class="col-12 col-md-9">
+              <textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control bq-line-desc" rows="2" required>${description}</textarea>
+            </div>
+          </div>
         </td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][qty]" class="form-control text-end" value="${qty}" required></td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit]" class="form-control" value="${unit}" required></td>
