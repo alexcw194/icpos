@@ -333,13 +333,67 @@
         <label class="form-label">Notes</label>
         <textarea name="notes" class="form-control" rows="5">{{ old('notes', $quotation->notes ?? '') }}</textarea>
       </div>
-      <div class="col-md-6">
-        <label class="form-label">Signatory Name</label>
-        <input type="text" name="signatory_name" class="form-control" value="{{ old('signatory_name', $quotation->signatory_name ?? auth()->user()?->name) }}">
+      @php
+        $signatureUsers = collect($signatureUsers ?? []);
+        $directorName = 'Christian Widargo';
+        $directorTitle = 'Direktur Utama';
+        $signerName = old('signatory_name', $quotation->signatory_name ?? auth()->user()?->name ?? '');
+        $signerTitle = old('signatory_title', $quotation->signatory_title ?? '');
+        $selectedSigner = old('signatory_choice');
+
+        if (!$selectedSigner) {
+          if ($signerName && strcasecmp($signerName, $directorName) === 0) {
+            $selectedSigner = 'director';
+          } else {
+            $match = $signatureUsers->first(function ($row) use ($signerName) {
+              return $signerName && strcasecmp($row->name ?? '', $signerName) === 0;
+            });
+            $selectedSigner = $match?->id;
+          }
+        }
+
+        if (!$selectedSigner) {
+          $selectedSigner = auth()->id();
+        }
+
+        if ($selectedSigner && $selectedSigner !== 'director') {
+          $selectedUser = $signatureUsers->firstWhere('id', (int) $selectedSigner);
+          if (!$signerTitle && $selectedUser?->default_position) {
+            $signerTitle = $selectedUser->default_position;
+          }
+        }
+
+        if ($selectedSigner === 'director' && !$signerTitle) {
+          $signerTitle = $directorTitle;
+        }
+      @endphp
+
+      <div class="col-md-4">
+        <label class="form-label">Signature</label>
+        <select id="bq-signatory-choice" class="form-select">
+          <option value="">Pilih Signature</option>
+          <option value="director"
+                  data-name="{{ $directorName }}"
+                  data-position="{{ $directorTitle }}"
+                  @selected($selectedSigner === 'director')>Direktur Utama</option>
+          @foreach($signatureUsers as $user)
+            <option value="{{ $user->id }}"
+                    data-name="{{ $user->name }}"
+                    data-position="{{ $user->default_position ?? '' }}"
+                    @selected((string) $selectedSigner === (string) $user->id)>
+              {{ $user->name }}
+            </option>
+          @endforeach
+        </select>
+        <input type="hidden" name="signatory_choice" id="signatory_choice" value="{{ $selectedSigner }}">
       </div>
-      <div class="col-md-6">
+      <div class="col-md-4">
+        <label class="form-label">Signatory Name</label>
+        <input type="text" name="signatory_name" id="bq-signatory-name" class="form-control" value="{{ $signerName }}" readonly>
+      </div>
+      <div class="col-md-4" id="bq-signatory-title-wrap">
         <label class="form-label">Signatory Title</label>
-        <input type="text" name="signatory_title" class="form-control" value="{{ old('signatory_title', $quotation->signatory_title ?? '') }}">
+        <input type="text" name="signatory_title" id="bq-signatory-title" class="form-control" value="{{ $signerTitle }}">
       </div>
     </div>
   </div>
@@ -1397,6 +1451,43 @@
 
   initItemPickers();
   recalcTotals();
+
+  const signerSelect = document.getElementById('bq-signatory-choice');
+  const signerNameInput = document.getElementById('bq-signatory-name');
+  const signerTitleInput = document.getElementById('bq-signatory-title');
+  const signerChoiceInput = document.getElementById('signatory_choice');
+  const signerTitleWrap = document.getElementById('bq-signatory-title-wrap');
+
+  const syncSigner = (opts = {}) => {
+    if (!signerSelect) return;
+    const selected = signerSelect.value || '';
+    const option = signerSelect.selectedOptions[0];
+    const name = option?.dataset?.name || '';
+    const position = option?.dataset?.position || '';
+    const isDirector = selected === 'director';
+
+    if (signerChoiceInput) signerChoiceInput.value = selected;
+    if (signerNameInput && (opts.force || !signerNameInput.value)) {
+      signerNameInput.value = name;
+    }
+
+    if (signerTitleInput) {
+      if (isDirector) {
+        signerTitleInput.value = position || signerTitleInput.value;
+      } else if (opts.force || !signerTitleInput.value) {
+        signerTitleInput.value = position;
+      }
+    }
+
+    if (signerTitleWrap) {
+      signerTitleWrap.style.display = isDirector ? 'none' : '';
+    }
+  };
+
+  if (signerSelect) {
+    signerSelect.addEventListener('change', () => syncSigner({ force: true }));
+    syncSigner();
+  }
 })();
 </script>
 @endpush

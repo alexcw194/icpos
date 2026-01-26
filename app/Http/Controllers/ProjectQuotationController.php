@@ -41,6 +41,7 @@ class ProjectQuotationController extends Controller
         $project->load(['customer', 'company', 'salesOwner']);
         $companies = Company::orderBy('name')->get(['id', 'alias', 'name', 'is_taxable', 'default_tax_percent']);
         $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
+        $signatureUsers = $this->signatureOptions();
         $contacts = $project->customer?->contacts()->orderBy('first_name')->get() ?? collect();
 
         $quotation = new ProjectQuotation([
@@ -90,6 +91,7 @@ class ProjectQuotationController extends Controller
             'quotation',
             'companies',
             'salesUsers',
+            'signatureUsers',
             'paymentTerms',
             'sections',
             'contacts'
@@ -214,6 +216,7 @@ class ProjectQuotationController extends Controller
         $quotation->load(['sections.lines', 'paymentTerms']);
         $companies = Company::orderBy('name')->get(['id', 'alias', 'name', 'is_taxable', 'default_tax_percent']);
         $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
+        $signatureUsers = $this->signatureOptions();
         $contacts = $project->customer?->contacts()->orderBy('first_name')->get() ?? collect();
 
         $paymentTerms = $quotation->paymentTerms;
@@ -258,6 +261,7 @@ class ProjectQuotationController extends Controller
             'quotation',
             'companies',
             'salesUsers',
+            'signatureUsers',
             'paymentTerms',
             'sections',
             'contacts'
@@ -538,5 +542,23 @@ class ProjectQuotationController extends Controller
             'phone' => $company->phone,
             'email' => $company->email,
         ];
+    }
+
+    private function signatureOptions()
+    {
+        $user = auth()->user();
+        $query = User::query();
+        if ($user && $user->hasRole('Sales')) {
+            $query->whereKey($user->id);
+        }
+
+        return $query
+            ->leftJoin('signatures', 'signatures.user_id', '=', 'users.id')
+            ->orderBy('users.name')
+            ->get([
+                'users.id',
+                'users.name',
+                'signatures.default_position as default_position',
+            ]);
     }
 }
