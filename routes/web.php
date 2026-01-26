@@ -30,8 +30,7 @@ use App\Http\Controllers\{
     GoodsReceiptController,
     ManufactureJobController,
     ManufactureRecipeController,
-    BqLineTemplateController,
-    BqLineTemplateLineController,
+    BqLineCatalogController,
 };
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\SettingController;
@@ -115,6 +114,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
     Route::get('/api/items/search', [ItemController::class, 'quickSearch'])->name('items.search'); // <- tanpa ->middleware(['auth'])
     Route::get('/api/inventory/rows/search', [InventoryRowController::class, 'search'])
         ->name('inventory.rows.search');
+    Route::get('/api/bq-line-catalogs/search', [BqLineCatalogController::class, 'search'])
+        ->name('bq-line-catalogs.search');
 
     // Projects & Project Quotations (BQ)
     Route::resource('projects', ProjectController::class);
@@ -127,10 +128,6 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('projects.quotations.won');
     Route::post('projects/{project}/quotations/{quotation}/lost', [ProjectQuotationController::class, 'markLost'])
         ->name('projects.quotations.lost');
-    Route::post('projects/{project}/quotations/{quotation}/apply-template', [ProjectQuotationController::class, 'applyTemplate'])
-        ->name('projects.quotations.apply-template');
-    Route::post('bqs/{quotation}/apply-template', [ProjectQuotationController::class, 'applyTemplate'])
-        ->name('bqs.apply-template');
 
     // Quotations
     Route::resource('quotations', QuotationController::class);
@@ -354,17 +351,7 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
 
     Route::resource('warehouses', WarehouseController::class)->except(['show']);
     Route::resource('banks', \App\Http\Controllers\BankController::class)->except(['show']);
-    Route::resource('bq-line-templates', BqLineTemplateController::class);
-    Route::prefix('bq-line-templates/{bqLineTemplate}/lines')->name('bq-line-templates.lines.')->group(function () {
-        Route::get('/', [BqLineTemplateLineController::class, 'index'])->name('index');
-        Route::get('/create', [BqLineTemplateLineController::class, 'create'])->name('create');
-        Route::post('/', [BqLineTemplateLineController::class, 'store'])->name('store');
-        Route::get('/{line}/edit', [BqLineTemplateLineController::class, 'edit'])->name('edit');
-        Route::match(['put','patch'], '/{line}', [BqLineTemplateLineController::class, 'update'])->name('update');
-        Route::delete('/{line}', [BqLineTemplateLineController::class, 'destroy'])->name('destroy');
-        Route::post('/{line}/move-up', [BqLineTemplateLineController::class, 'moveUp'])->name('move-up');
-        Route::post('/{line}/move-down', [BqLineTemplateLineController::class, 'moveDown'])->name('move-down');
-    });
+    Route::resource('bq-line-catalogs', BqLineCatalogController::class)->except(['show']);
 
     // Document Counters (manual numbering)
     Route::get('document-counters', [DocumentCounterController::class, 'index'])

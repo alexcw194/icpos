@@ -7,12 +7,11 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
-## BQ Line Templates
+## BQ Line Catalog
 
-- Go to Admin > Master Data > BQ Line Templates.
-- Create a template, set Active, then Manage Lines to add charge or percent rows.
-- Use Up/Down to reorder lines (sort order).
-- In BQ create/edit, click Apply Template to append lines into the Add-ons section (duplicates are skipped).
+- Go to Admin > Master Data > BQ Line Catalog.
+- Create charge/percent catalog entries with defaults and set Active.
+- In BQ create/edit, pick a Catalog entry on charge/percent lines to autofill defaults.
 
 ## About Laravel
 

@@ -146,7 +146,7 @@
                           @if(($line->line_type ?? 'product') === 'percent')
                             <div class="text-muted small">
                               {{ number_format((float)($line->percent_value ?? 0), 4, ',', '.') }}%
-                              ({{ $line->basis_type ?? 'bq_product_total' }})
+                              ({{ $line->percent_basis ?? 'product_subtotal' }})
                             </div>
                           @elseif(($line->line_type ?? 'product') === 'charge')
                             <div class="text-muted small">Charge line</div>

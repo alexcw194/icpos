@@ -32,9 +32,15 @@ class ProjectQuotationTotalsService
                 $unitPrice = Number::idToFloat($line['unit_price'] ?? 0);
                 $materialTotal = Number::idToFloat($line['material_total'] ?? 0);
                 $laborTotal = Number::idToFloat($line['labor_total'] ?? 0);
-                $percentValue = Number::idToFloat($line['percent_value'] ?? 0);
-                $basisType = $line['basis_type'] ?? 'bq_product_total';
-                $computedAmount = Number::idToFloat($line['computed_amount'] ?? 0);
+                $percentValue = $lineType === 'percent'
+                    ? Number::idToFloat($line['percent_value'] ?? 0)
+                    : null;
+                $percentBasis = $lineType === 'percent'
+                    ? ($line['percent_basis'] ?? 'product_subtotal')
+                    : null;
+                $computedAmount = $lineType === 'percent'
+                    ? Number::idToFloat($line['computed_amount'] ?? 0)
+                    : null;
                 $laborUnitSnapshot = Number::idToFloat($line['labor_unit_cost_snapshot'] ?? 0);
                 if ($laborUnitSnapshot <= 0 && $qty > 0 && $laborTotal > 0) {
                     $laborUnitSnapshot = $laborTotal / $qty;
@@ -59,14 +65,11 @@ class ProjectQuotationTotalsService
                     'item_id' => $line['item_id'] ?? null,
                     'item_label' => $line['item_label'] ?? null,
                     'line_type' => $lineType,
-                    'source_template_id' => $line['source_template_id'] ?? null,
-                    'source_template_line_id' => $line['source_template_line_id'] ?? null,
+                    'catalog_id' => $line['catalog_id'] ?? null,
                     'percent_value' => $percentValue,
-                    'basis_type' => $basisType,
+                    'percent_basis' => $percentBasis,
                     'computed_amount' => $computedAmount,
-                    'editable_price' => isset($line['editable_price']) ? (bool) $line['editable_price'] : true,
-                    'editable_percent' => isset($line['editable_percent']) ? (bool) $line['editable_percent'] : true,
-                    'can_remove' => isset($line['can_remove']) ? (bool) $line['can_remove'] : true,
+                    'cost_bucket' => $line['cost_bucket'] ?? 'overhead',
                     'qty' => $qty,
                     'unit' => $line['unit'] ?? 'PCS',
                     'unit_price' => $unitPrice,
@@ -93,11 +96,11 @@ class ProjectQuotationTotalsService
                     continue;
                 }
 
-                $basis = ($line['basis_type'] ?? 'bq_product_total') === 'section_product_total'
+                $basis = ($line['percent_basis'] ?? 'product_subtotal') === 'section_product_subtotal'
                     ? ($sectionProductTotals[$sIndex] ?? 0.0)
                     : $productSubtotal;
 
-                if ($basis <= 0 && ($line['basis_type'] ?? '') === 'section_product_total' && $productSubtotal > 0) {
+                if ($basis <= 0 && ($line['percent_basis'] ?? '') === 'section_product_subtotal' && $productSubtotal > 0) {
                     $basis = $productSubtotal;
                 }
 
