@@ -307,10 +307,12 @@
                   </td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][material_total]" class="form-control text-end js-line-material" value="{{ $line['material_total'] ?? 0 }}" required></td>
                   <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor flex-grow-1" value="{{ $line['labor_total'] ?? 0 }}" required>
-                      <span class="badge {{ $laborBadge[1] }} text-dark js-labor-badge" title="Labor Source">{{ $laborBadge[0] }}</span>
-                      <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
+                    <div class="d-flex flex-column gap-1">
+                      <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="badge {{ $laborBadge[1] }} text-dark js-labor-badge" title="Labor Source">{{ $laborBadge[0] }}</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
+                      </div>
                     </div>
                   </td>
                   <td class="text-end"><span class="js-line-total">0</span></td>
@@ -1048,10 +1050,12 @@
         </td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][material_total]" class="form-control text-end js-line-material" value="${materialTotal}" required></td>
         <td>
-          <div class="d-flex align-items-center gap-2">
-            <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor flex-grow-1" value="${laborTotal}" required>
-            <span class="badge ${laborBadge[1]} text-dark js-labor-badge" title="Labor Source">${laborBadge[0]}</span>
-            <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
+          <div class="d-flex flex-column gap-1">
+            <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" required>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge ${laborBadge[1]} text-dark js-labor-badge" title="Labor Source">${laborBadge[0]}</span>
+              <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
+            </div>
           </div>
         </td>
         <td class="text-end"><span class="js-line-total">0</span></td>
