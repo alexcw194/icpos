@@ -83,9 +83,12 @@ class BqLineCatalogController extends Controller
     public function search(Request $request)
     {
         $q = $request->string('q')->toString();
+        $type = $request->string('type')->toString();
+        $typeFilter = in_array($type, ['charge', 'percent'], true) ? $type : null;
 
         $rows = BqLineCatalog::query()
             ->where('is_active', true)
+            ->when($typeFilter, fn ($qq) => $qq->where('type', $typeFilter))
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
                     $w->where('name', 'like', "%{$q}%")

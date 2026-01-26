@@ -534,8 +534,13 @@
       preload: 'focus',
       closeAfterSelect: true,
       load(query, cb){
+        const row = input.closest('.bq-line');
+        const lineType = row ? getLineType(row) : '';
         const params = new URLSearchParams();
         params.set('q', query || '');
+        if (lineType === 'charge' || lineType === 'percent') {
+          params.set('type', lineType);
+        }
         fetch(`${CATALOG_SEARCH_URL}?${params.toString()}`, {
           credentials: 'same-origin',
           headers: {
@@ -1368,7 +1373,18 @@
     }
     if (e.target.classList.contains('bq-line-type')) {
       const row = e.target.closest('.bq-line');
-      if (row) syncLineTypeRow(row);
+      if (row) {
+        syncLineTypeRow(row);
+        const catalogIdEl = row.querySelector('.bq-line-catalog-id');
+        const catalogInput = row.querySelector('.bq-line-catalog');
+        if (catalogIdEl) catalogIdEl.value = '';
+        if (catalogInput?._catalogTs) {
+          catalogInput._catalogTs.clear(true);
+          catalogInput._catalogTs.clearOptions();
+        } else if (catalogInput) {
+          catalogInput.value = '';
+        }
+      }
       recalcTotals();
     }
   });
