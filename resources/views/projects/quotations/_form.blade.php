@@ -289,7 +289,7 @@
                       </div>
                     </div>
                     <div class="row g-2 bq-desc-row">
-                      <div class="col-12 col-md-9">
+                      <div class="col-12">
                         <textarea name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][description]" class="form-control bq-line-desc" rows="2" required>{{ $line['description'] ?? '' }}</textarea>
                       </div>
                     </div>
@@ -1036,7 +1036,7 @@
             </div>
           </div>
             <div class="row g-2 bq-desc-row">
-              <div class="col-12 col-md-9">
+              <div class="col-12">
                 <textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control bq-line-desc" rows="2" required>${description}</textarea>
               </div>
             </div>
