@@ -217,6 +217,10 @@
               <input type="text" class="form-control form-control-sm text-end js-section-labor" value="0" readonly>
             </div>
           </div>
+          <div class="btn-group">
+            <button type="button" class="btn btn-sm btn-outline-secondary btn-move-section-up">Up</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary btn-move-section-down">Down</button>
+          </div>
           <button type="button" class="btn btn-sm btn-outline-danger btn-remove-section">Remove</button>
         </div>
 
@@ -924,6 +928,30 @@
     taxPercent.readOnly = !taxable;
   };
 
+  const updateSectionSortOrder = () => {
+    const sections = [...sectionsEl.querySelectorAll('.bq-section')];
+    sections.forEach((section, idx) => {
+      const input = section.querySelector('input[name$="[sort_order]"]');
+      if (input) input.value = String(idx + 1);
+    });
+  };
+
+  const findPrevSection = (section) => {
+    let prev = section?.previousElementSibling;
+    while (prev && !prev.classList.contains('bq-section')) {
+      prev = prev.previousElementSibling;
+    }
+    return prev;
+  };
+
+  const findNextSection = (section) => {
+    let next = section?.nextElementSibling;
+    while (next && !next.classList.contains('bq-section')) {
+      next = next.nextElementSibling;
+    }
+    return next;
+  };
+
   const nextSectionIndex = () => {
     const indices = [...sectionsEl.querySelectorAll('.bq-section')].map((el) => parseInt(el.dataset.sectionIndex || '0', 10));
     return indices.length ? Math.max(...indices) + 1 : 0;
@@ -1049,6 +1077,10 @@
               <input type="text" class="form-control form-control-sm text-end js-section-labor" value="0" readonly>
             </div>
           </div>
+          <div class="btn-group">
+            <button type="button" class="btn btn-sm btn-outline-secondary btn-move-section-up">Up</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary btn-move-section-down">Down</button>
+          </div>
           <button type="button" class="btn btn-sm btn-outline-danger btn-remove-section">Remove</button>
         </div>
         <div class="table-responsive">
@@ -1099,6 +1131,7 @@
       const idx = nextSectionIndex();
       sectionsEl.insertAdjacentHTML('beforeend', makeSection(idx));
       initItemPickers(sectionsEl.lastElementChild);
+      updateSectionSortOrder();
       recalcTotals();
     });
   }
@@ -1112,6 +1145,26 @@
   }
 
   sectionsEl.addEventListener('click', (e) => {
+    if (e.target.classList.contains('btn-move-section-up')) {
+      const section = e.target.closest('.bq-section');
+      const prev = findPrevSection(section);
+      if (section && prev) {
+        sectionsEl.insertBefore(section, prev);
+        updateSectionSortOrder();
+      }
+      return;
+    }
+
+    if (e.target.classList.contains('btn-move-section-down')) {
+      const section = e.target.closest('.bq-section');
+      const next = findNextSection(section);
+      if (section && next) {
+        sectionsEl.insertBefore(next, section);
+        updateSectionSortOrder();
+      }
+      return;
+    }
+
     if (e.target.classList.contains('btn-add-line')) {
       const section = e.target.closest('.bq-section');
       const sIndex = parseInt(section.dataset.sectionIndex || '0', 10);
@@ -1130,6 +1183,7 @@
 
     if (e.target.classList.contains('btn-remove-section')) {
       e.target.closest('.bq-section')?.remove();
+      updateSectionSortOrder();
       recalcTotals();
     }
   });
@@ -1451,6 +1505,7 @@
 
   initItemPickers();
   recalcTotals();
+  updateSectionSortOrder();
 
   const signerSelect = document.getElementById('bq-signatory-choice');
   const signerNameInput = document.getElementById('bq-signatory-name');

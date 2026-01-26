@@ -64,7 +64,7 @@ class ProjectQuotationController extends Controller
 
         $sections = collect([
             (object) [
-                'name' => 'Pekerjaan Utama',
+                'name' => 'Perlengkapan Utama',
                 'sort_order' => 1,
                 'lines' => collect([
                     (object) [
@@ -233,7 +233,7 @@ class ProjectQuotationController extends Controller
         if ($sections->isEmpty()) {
             $sections = collect([
                 (object) [
-                    'name' => 'Pekerjaan Utama',
+                'name' => 'Perlengkapan Utama',
                     'sort_order' => 1,
                     'lines' => collect([
                         (object) [
