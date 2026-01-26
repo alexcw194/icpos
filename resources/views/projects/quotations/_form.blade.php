@@ -234,7 +234,7 @@
                 <th style="width:90px;">Unit</th>
                 <th style="width:120px;" class="text-end">Unit Price</th>
                 <th style="width:140px;" class="text-end">Material</th>
-                <th style="width:160px;" class="text-end">Labor</th>
+                <th style="width:180px;" class="text-end">Labor</th>
                 <th style="width:140px;" class="text-end">Line Total</th>
                 <th style="width:1%"></th>
               </tr>
@@ -289,8 +289,7 @@
                       </div>
                     </div>
                     <div class="row g-2 bq-desc-row">
-                      <div class="col-3 d-none d-md-block bq-desc-spacer"></div>
-                      <div class="col-12 col-md-9">
+                      <div class="col-12 col-md-8">
                         <textarea name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][description]" class="form-control bq-line-desc" rows="2" required>{{ $line['description'] ?? '' }}</textarea>
                       </div>
                     </div>
@@ -312,9 +311,9 @@
                   </td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][material_total]" class="form-control text-end js-line-material" value="{{ $line['material_total'] ?? 0 }}" required></td>
                   <td>
-                    <div class="d-flex flex-column gap-1">
+                    <div class="d-flex align-items-start gap-2 bq-labor-cell">
                       <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required>
-                      <div class="d-flex align-items-center gap-2">
+                      <div class="d-flex flex-column gap-1 bq-labor-tools">
                         <span class="badge {{ $laborBadge[1] }} text-dark js-labor-badge" title="Labor Source">{{ $laborBadge[0] }}</span>
                         <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
                       </div>
@@ -1036,12 +1035,11 @@
                      value="${catalogLabel}">
             </div>
           </div>
-          <div class="row g-2 bq-desc-row">
-            <div class="col-3 d-none d-md-block bq-desc-spacer"></div>
-            <div class="col-12 col-md-9">
-              <textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control bq-line-desc" rows="2" required>${description}</textarea>
+            <div class="row g-2 bq-desc-row">
+              <div class="col-12 col-md-8">
+                <textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control bq-line-desc" rows="2" required>${description}</textarea>
+              </div>
             </div>
-          </div>
         </td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][qty]" class="form-control text-end" value="${qty}" required></td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit]" class="form-control" value="${unit}" required></td>
@@ -1060,9 +1058,9 @@
         </td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][material_total]" class="form-control text-end js-line-material" value="${materialTotal}" required></td>
         <td>
-          <div class="d-flex flex-column gap-1">
+          <div class="d-flex align-items-start gap-2 bq-labor-cell">
             <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" required>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex flex-column gap-1 bq-labor-tools">
               <span class="badge ${laborBadge[1]} text-dark js-labor-badge" title="Labor Source">${laborBadge[0]}</span>
               <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
             </div>
@@ -1106,7 +1104,7 @@
                 <th style="width:90px;">Unit</th>
                 <th style="width:120px;" class="text-end">Unit Price</th>
                 <th style="width:140px;" class="text-end">Material</th>
-                <th style="width:160px;" class="text-end">Labor</th>
+                <th style="width:180px;" class="text-end">Labor</th>
                 <th style="width:140px;" class="text-end">Line Total</th>
                 <th style="width:1%"></th>
               </tr>
@@ -1567,6 +1565,13 @@
   }
   .bq-line-desc{
     min-height: 56px;
+  }
+  .bq-labor-cell .js-line-labor{
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .bq-labor-tools{
+    min-width: 42px;
   }
 </style>
 @endpush
