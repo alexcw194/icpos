@@ -228,14 +228,13 @@
           <table class="table table-sm table-vcenter">
             <thead>
               <tr>
-                <th style="width:70px;">No</th>
-                <th style="width:110px;">Type</th>
+                <th style="width:110px;">No / Type</th>
                 <th>Description</th>
                 <th style="width:90px;" class="text-end">Qty</th>
                 <th style="width:90px;">Unit</th>
                 <th style="width:120px;" class="text-end">Unit Price</th>
                 <th style="width:140px;" class="text-end">Material</th>
-                <th style="width:140px;" class="text-end">Labor</th>
+                <th style="width:160px;" class="text-end">Labor</th>
                 <th style="width:140px;" class="text-end">Line Total</th>
                 <th style="width:1%"></th>
               </tr>
@@ -248,8 +247,8 @@
                   $lineType = $line['line_type'] ?? 'product';
                 @endphp
                 <tr class="bq-line" data-line-index="{{ $lIndex }}">
-                  <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][line_no]" class="form-control" value="{{ $line['line_no'] ?? '' }}"></td>
                   <td>
+                    <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][line_no]" class="form-control mb-1" value="{{ $line['line_no'] ?? '' }}">
                     <select name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][line_type]" class="form-select form-select-sm bq-line-type">
                       <option value="product" @selected($lineType === 'product')>Product</option>
                       <option value="charge" @selected($lineType === 'charge')>Charge</option>
@@ -309,7 +308,7 @@
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][material_total]" class="form-control text-end js-line-material" value="{{ $line['material_total'] ?? 0 }}" required></td>
                   <td>
                     <div class="d-flex align-items-center gap-2">
-                      <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required>
+                      <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor flex-grow-1" value="{{ $line['labor_total'] ?? 0 }}" required>
                       <span class="badge {{ $laborBadge[1] }} text-dark js-labor-badge" title="Labor Source">{{ $laborBadge[0] }}</span>
                       <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
                     </div>
@@ -989,8 +988,8 @@
 
     return `
       <tr class="bq-line" data-line-index="${lIndex}">
-        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][line_no]" class="form-control" value="${lineNo}"></td>
         <td>
+          <input type="text" name="sections[${sIndex}][lines][${lIndex}][line_no]" class="form-control mb-1" value="${lineNo}">
           <select name="sections[${sIndex}][lines][${lIndex}][line_type]" class="form-select form-select-sm bq-line-type">
             <option value="product" ${lineType === 'product' ? 'selected' : ''}>Product</option>
             <option value="charge" ${lineType === 'charge' ? 'selected' : ''}>Charge</option>
@@ -1050,7 +1049,7 @@
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][material_total]" class="form-control text-end js-line-material" value="${materialTotal}" required></td>
         <td>
           <div class="d-flex align-items-center gap-2">
-            <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" required>
+            <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor flex-grow-1" value="${laborTotal}" required>
             <span class="badge ${laborBadge[1]} text-dark js-labor-badge" title="Labor Source">${laborBadge[0]}</span>
             <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
           </div>
@@ -1087,14 +1086,13 @@
           <table class="table table-sm table-vcenter">
             <thead>
               <tr>
-                <th style="width:70px;">No</th>
-                <th style="width:110px;">Type</th>
+                <th style="width:110px;">No / Type</th>
                 <th>Description</th>
                 <th style="width:90px;" class="text-end">Qty</th>
                 <th style="width:90px;">Unit</th>
                 <th style="width:120px;" class="text-end">Unit Price</th>
                 <th style="width:140px;" class="text-end">Material</th>
-                <th style="width:140px;" class="text-end">Labor</th>
+                <th style="width:160px;" class="text-end">Labor</th>
                 <th style="width:140px;" class="text-end">Line Total</th>
                 <th style="width:1%"></th>
               </tr>
