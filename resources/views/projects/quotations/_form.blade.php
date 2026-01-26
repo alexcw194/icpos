@@ -260,13 +260,13 @@
                   <td>
                     <div class="bq-item-controls">
                       <div class="row g-2 align-items-center mb-1">
-                        <div class="col-4">
+                        <div class="col-3">
                           <select name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][source_type]" class="form-select form-select-sm bq-line-source">
                             <option value="item" @selected(($line['source_type'] ?? 'item') === 'item')>Item</option>
                             <option value="project" @selected(($line['source_type'] ?? 'item') === 'project')>Project</option>
                           </select>
                         </div>
-                        <div class="col-8">
+                        <div class="col-5">
                           <input type="text"
                                  name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_label]"
                                  class="form-control form-control-sm bq-item-search"
@@ -1003,13 +1003,13 @@
         <td>
           <div class="bq-item-controls">
             <div class="row g-2 align-items-center mb-1">
-              <div class="col-4">
+              <div class="col-3">
                 <select name="sections[${sIndex}][lines][${lIndex}][source_type]" class="form-select form-select-sm bq-line-source">
                   <option value="item" ${sourceType === 'item' ? 'selected' : ''}>Item</option>
                   <option value="project" ${sourceType === 'project' ? 'selected' : ''}>Project</option>
                 </select>
               </div>
-              <div class="col-8">
+              <div class="col-5">
                 <input type="text"
                        name="sections[${sIndex}][lines][${lIndex}][item_label]"
                        class="form-control form-control-sm bq-item-search"
@@ -1554,6 +1554,9 @@
   .bq-section .section-name{
     flex: 1 1 380px;
     max-width: 520px;
+  }
+  .bq-line-desc{
+    min-height: 56px;
   }
 </style>
 @endpush
