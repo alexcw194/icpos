@@ -288,7 +288,7 @@
                                value="{{ !empty($line['catalog_id']) ? ($line['description'] ?? '') : '' }}">
                       </div>
                     </div>
-                    <div class="row g-2 bq-desc-row">
+                    <div class="row g-2 bq-desc-row bq-desc-span">
                       <div class="col-12">
                         <textarea name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][description]" class="form-control bq-line-desc" rows="2" required>{{ $line['description'] ?? '' }}</textarea>
                       </div>
@@ -1035,7 +1035,7 @@
                      value="${catalogLabel}">
             </div>
           </div>
-            <div class="row g-2 bq-desc-row">
+            <div class="row g-2 bq-desc-row bq-desc-span">
               <div class="col-12">
                 <textarea name="sections[${sIndex}][lines][${lIndex}][description]" class="form-control bq-line-desc" rows="2" required>${description}</textarea>
               </div>
@@ -1572,6 +1572,9 @@
   }
   .bq-labor-tools{
     min-width: 42px;
+  }
+  .bq-desc-span{
+    width: 75%;
   }
 </style>
 @endpush
