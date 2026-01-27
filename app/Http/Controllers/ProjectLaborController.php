@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Item;
 use App\Models\ItemLaborRate;
+use App\Models\LaborCost;
 use App\Models\ProjectItemLaborRate;
+use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class ProjectLaborController extends Controller
 {
@@ -45,8 +48,65 @@ class ProjectLaborController extends Controller
 
         $canUpdateItem = $user?->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']) ?? false;
         $canUpdateProject = $user?->hasAnyRole(['Admin', 'SuperAdmin', 'PM']) ?? false;
+        $canManageCost = $user?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
 
-        return view('projects.labor.index', compact('items', 'rates', 'type', 'q', 'canUpdateItem', 'canUpdateProject'));
+        $subContractors = collect();
+        $selectedSubContractorId = null;
+        $defaultSubContractorId = null;
+        $laborCosts = collect();
+
+        if ($canManageCost && Schema::hasTable('sub_contractors')) {
+            $subContractors = \App\Models\SubContractor::query()
+                ->when(Schema::hasColumn('sub_contractors', 'is_active'), function ($query) {
+                    $query->where('is_active', true);
+                })
+                ->orderBy('name')
+                ->get(['id', 'name']);
+
+            if (Schema::hasTable('settings')) {
+                $defaultSubContractorId = (int) Setting::get('default_sub_contractor_id', 0);
+                if ($defaultSubContractorId <= 0) {
+                    $defaultSubContractorId = null;
+                }
+            }
+
+            $selectedSubContractorId = (int) $request->input('sub_contractor_id', $defaultSubContractorId ?: 0);
+            if ($selectedSubContractorId <= 0 && $subContractors->isNotEmpty()) {
+                $selectedSubContractorId = (int) $subContractors->first()->id;
+            }
+            if ($selectedSubContractorId <= 0) {
+                $selectedSubContractorId = null;
+            }
+
+            if (
+                $selectedSubContractorId
+                && Schema::hasTable('labor_costs')
+                && Schema::hasColumn('labor_costs', 'item_id')
+                && Schema::hasColumn('labor_costs', 'context')
+            ) {
+                $context = $type === 'project' ? 'project' : 'retail';
+                $laborCosts = LaborCost::query()
+                    ->where('sub_contractor_id', $selectedSubContractorId)
+                    ->where('context', $context)
+                    ->whereIn('item_id', $items->pluck('id'))
+                    ->get(['item_id', 'cost_amount'])
+                    ->keyBy('item_id');
+            }
+        }
+
+        return view('projects.labor.index', compact(
+            'items',
+            'rates',
+            'type',
+            'q',
+            'canUpdateItem',
+            'canUpdateProject',
+            'canManageCost',
+            'subContractors',
+            'selectedSubContractorId',
+            'defaultSubContractorId',
+            'laborCosts'
+        ));
     }
 
     public function update(Request $request, Item $item)
@@ -57,6 +117,7 @@ class ProjectLaborController extends Controller
         $user = $request->user();
         $canUpdateItem = $user?->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']) ?? false;
         $canUpdateProject = $user?->hasAnyRole(['Admin', 'SuperAdmin', 'PM']) ?? false;
+        $canManageCost = $user?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
 
         if ($type === 'project' && !$canUpdateProject) {
             abort(403);
@@ -71,10 +132,17 @@ class ProjectLaborController extends Controller
             return back()->with('error', 'Gunakan Project Item Labor untuk item ini.');
         }
 
-        $data = $request->validate([
+        $rules = [
             'labor_unit_cost' => ['required', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:255'],
-        ]);
+            'sub_contractor_id' => ['nullable', 'integer'],
+        ];
+        if ($canManageCost && Schema::hasTable('sub_contractors')) {
+            $rules['sub_contractor_id'][] = 'exists:sub_contractors,id';
+            $rules['labor_cost_amount'] = ['nullable', 'numeric', 'min:0'];
+        }
+
+        $data = $request->validate($rules);
 
         if ($type === 'project') {
             $rate = ProjectItemLaborRate::firstOrNew(['project_item_id' => $item->id]);
@@ -90,8 +158,46 @@ class ProjectLaborController extends Controller
             $rate->save();
         }
 
+        if ($canManageCost && !empty($data['sub_contractor_id']) && Schema::hasTable('labor_costs')) {
+            $context = $type === 'project' ? 'project' : 'retail';
+            $cost = LaborCost::firstOrNew([
+                'sub_contractor_id' => (int) $data['sub_contractor_id'],
+                'item_id' => $item->id,
+                'context' => $context,
+            ]);
+            $cost->cost_amount = (float) ($data['labor_cost_amount'] ?? 0);
+            $cost->save();
+        }
+
         return redirect()
-            ->route('projects.labor.index', ['type' => $type, 'q' => $request->input('q')])
+            ->route('projects.labor.index', [
+                'type' => $type,
+                'q' => $request->input('q'),
+                'sub_contractor_id' => $request->input('sub_contractor_id'),
+            ])
             ->with('success', 'Labor master tersimpan.');
+    }
+
+    public function setDefaultSubContractor(Request $request)
+    {
+        $user = $request->user();
+        $canManageCost = $user?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
+        if (!$canManageCost) {
+            abort(403);
+        }
+
+        if (!Schema::hasTable('settings') || !Schema::hasTable('sub_contractors')) {
+            return back()->with('error', 'Sub-contractor belum tersedia.');
+        }
+
+        $data = $request->validate([
+            'sub_contractor_id' => ['required', 'exists:sub_contractors,id'],
+        ]);
+
+        Setting::setMany([
+            'default_sub_contractor_id' => (int) $data['sub_contractor_id'],
+        ]);
+
+        return back()->with('success', 'Default sub-contractor diperbarui.');
     }
 }

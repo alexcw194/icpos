@@ -18,13 +18,34 @@
   <div class="card">
     <div class="card-header d-flex align-items-center gap-2 flex-wrap">
       <div class="btn-group" role="group">
-        <a href="{{ route('projects.labor.index', ['type' => 'item', 'q' => $q]) }}" class="btn btn-outline-primary {{ $type === 'item' ? 'active' : '' }}">Item Labor</a>
-        <a href="{{ route('projects.labor.index', ['type' => 'project', 'q' => $q]) }}" class="btn btn-outline-primary {{ $type === 'project' ? 'active' : '' }}">Project Item Labor</a>
+        <a href="{{ route('projects.labor.index', ['type' => 'item', 'q' => $q, 'sub_contractor_id' => $selectedSubContractorId]) }}" class="btn btn-outline-primary {{ $type === 'item' ? 'active' : '' }}">Item Labor</a>
+        <a href="{{ route('projects.labor.index', ['type' => 'project', 'q' => $q, 'sub_contractor_id' => $selectedSubContractorId]) }}" class="btn btn-outline-primary {{ $type === 'project' ? 'active' : '' }}">Project Item Labor</a>
       </div>
+
+      @if(!empty($canManageCost) && $subContractors->isNotEmpty())
+        <form method="get" class="d-flex align-items-center gap-2">
+          <input type="hidden" name="type" value="{{ $type }}">
+          <input type="hidden" name="q" value="{{ $q }}">
+          <select name="sub_contractor_id" id="labor-sub-contractor" class="form-select form-select-sm">
+            @foreach($subContractors as $sub)
+              <option value="{{ $sub->id }}" @selected((string) $selectedSubContractorId === (string) $sub->id)>{{ $sub->name }}</option>
+            @endforeach
+          </select>
+        </form>
+        <form method="post" action="{{ route('projects.labor.default-sub-contractor') }}" class="d-flex align-items-center gap-2">
+          @csrf
+          <input type="hidden" name="sub_contractor_id" id="labor-sub-contractor-default" value="{{ $selectedSubContractorId }}">
+          <span class="text-muted small">Set as default</span>
+          <button class="btn btn-sm btn-outline-secondary">Set</button>
+        </form>
+      @endif
 
       <form method="get" class="ms-auto d-flex align-items-center gap-2">
         <input type="hidden" name="type" value="{{ $type }}">
         <input type="search" name="q" class="form-control" placeholder="Cari item / SKU" value="{{ $q }}">
+        @if(!empty($selectedSubContractorId))
+          <input type="hidden" name="sub_contractor_id" value="{{ $selectedSubContractorId }}">
+        @endif
         <button class="btn btn-primary">Cari</button>
       </form>
     </div>
@@ -36,6 +57,9 @@
             <th>Item</th>
             <th style="width:140px;">SKU</th>
             <th style="width:160px;" class="text-end">Labor Unit</th>
+            @if(!empty($canManageCost))
+              <th style="width:160px;" class="text-end">Labor Cost</th>
+            @endif
             <th>Notes</th>
             <th style="width:160px;">Updated By</th>
             <th style="width:140px;">Updated At</th>
@@ -48,6 +72,8 @@
             @php
               $rate = $rates[$item->id] ?? null;
               $laborValue = $rate?->labor_unit_cost ?? 0;
+              $costRow = $laborCosts[$item->id] ?? null;
+              $laborCostValue = $costRow?->cost_amount ?? 0;
               $formId = 'labor-form-'.$item->id;
             @endphp
             <tr>
@@ -58,6 +84,9 @@
                     @csrf
                     <input type="hidden" name="type" value="{{ $type }}">
                     <input type="hidden" name="q" value="{{ $q }}">
+                    @if(!empty($selectedSubContractorId))
+                      <input type="hidden" name="sub_contractor_id" value="{{ $selectedSubContractorId }}">
+                    @endif
                   </form>
                 @endif
               </td>
@@ -69,6 +98,15 @@
                   {{ number_format((float)$laborValue, 2, ',', '.') }}
                 @endif
               </td>
+              @if(!empty($canManageCost))
+                <td class="text-end">
+                  @if($canUpdate)
+                    <input type="text" name="labor_cost_amount" form="{{ $formId }}" class="form-control form-control-sm text-end" value="{{ number_format((float)$laborCostValue, 2, ',', '.') }}">
+                  @else
+                    {{ number_format((float)$laborCostValue, 2, ',', '.') }}
+                  @endif
+                </td>
+              @endif
               <td>
                 @if($canUpdate)
                   <input type="text" name="notes" form="{{ $formId }}" class="form-control form-control-sm" value="{{ $rate?->notes }}">
@@ -92,7 +130,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="7" class="text-center text-muted">Tidak ada item.</td>
+              <td colspan="{{ !empty($canManageCost) ? 8 : 7 }}" class="text-center text-muted">Tidak ada item.</td>
             </tr>
           @endforelse
         </tbody>
@@ -104,4 +142,22 @@
     </div>
   </div>
 </div>
+
+@if(!empty($canManageCost) && $subContractors->isNotEmpty())
+  @push('scripts')
+  <script>
+  (function () {
+    var filter = document.getElementById('labor-sub-contractor');
+    var hidden = document.getElementById('labor-sub-contractor-default');
+    if (!filter) return;
+    filter.addEventListener('change', function () {
+      if (hidden) {
+        hidden.value = filter.value;
+      }
+      filter.form && filter.form.submit();
+    });
+  })();
+  </script>
+  @endpush
+@endif
 @endsection
