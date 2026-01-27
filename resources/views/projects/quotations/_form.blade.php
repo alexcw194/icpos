@@ -53,8 +53,6 @@
   $customerId = old('customer_id', $quotation->customer_id ?? $project->customer_id ?? null);
   $salesOwnerId = old('sales_owner_user_id', $quotation->sales_owner_user_id ?? $project->sales_owner_user_id ?? auth()->id());
   $contacts = $contacts ?? collect();
-  $canUpdateItemLabor = auth()->check() && auth()->user()->hasAnyRole(['Admin','SuperAdmin','Finance']);
-  $canUpdateProjectLabor = auth()->check() && auth()->user()->hasAnyRole(['Admin','SuperAdmin','PM']);
   $showLaborCost = !empty($canManageCost);
   $repriceLaborUrl = (!empty($quotation) && !empty($quotation->exists))
     ? route('projects.quotations.reprice-labor', [$project, $quotation], false)
@@ -267,7 +265,6 @@
               @foreach($section['lines'] ?? [] as $lIndex => $line)
                 @php
                   $laborSource = $line['labor_source'] ?? 'manual';
-                  $laborBadge = $laborSource === 'master_item' ? ['I','bg-azure-lt'] : ($laborSource === 'master_project' ? ['P','bg-indigo-lt'] : ['M','bg-secondary-lt']);
                   $lineType = $line['line_type'] ?? 'product';
                   $laborCostMissing = !empty($line['labor_cost_missing']);
                 @endphp
@@ -336,13 +333,7 @@
                   </td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][material_total]" class="form-control text-end js-line-material" value="{{ $line['material_total'] ?? 0 }}" required></td>
                   <td>
-                    <div class="d-flex align-items-start gap-2 bq-labor-cell">
-                      <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required>
-                      <div class="d-flex flex-column gap-1 bq-labor-tools">
-                        <span class="badge {{ $laborBadge[1] }} text-dark js-labor-badge" title="Labor Source">{{ $laborBadge[0] }}</span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
-                      </div>
-                    </div>
+                    <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required>
                   </td>
                   @if(!empty($canManageCost))
                     <td>
@@ -492,10 +483,7 @@
 
   const ITEM_SEARCH_URL = {!! json_encode(route('items.search', [], false)) !!};
   const LABOR_RATE_URL = {!! json_encode(route('labor-rates.show', [], false)) !!};
-  const LABOR_UPDATE_URL = {!! json_encode(route('labor-rates.update', [], false)) !!};
   const CATALOG_SEARCH_URL = {!! json_encode(route('bq-line-catalogs.search', [], false)) !!};
-  const CAN_UPDATE_ITEM_LABOR = {!! json_encode($canUpdateItemLabor) !!};
-  const CAN_UPDATE_PROJECT_LABOR = {!! json_encode($canUpdateProjectLabor) !!};
   const SHOW_LABOR_COST = {!! json_encode($showLaborCost) !!};
   const REPRICE_LABOR_URL = {!! json_encode($repriceLaborUrl) !!};
 
@@ -552,30 +540,9 @@
     return row.querySelector('.bq-line-labor-source')?.value || 'manual';
   };
 
-  const setLaborBadge = (row, source, opts = {}) => {
-    const badge = row.querySelector('.js-labor-badge');
-    if (!badge) return;
-
-    if (opts.missing) {
-      badge.textContent = 'Labor Missing';
-      badge.className = 'badge bg-yellow-lt text-dark js-labor-badge';
-      return;
-    }
-
-    const map = {
-      master_item: { text: 'I', cls: 'bg-azure-lt' },
-      master_project: { text: 'P', cls: 'bg-indigo-lt' },
-      manual: { text: 'M', cls: 'bg-secondary-lt' },
-    };
-    const cfg = map[source] || map.manual;
-    badge.textContent = cfg.text;
-    badge.className = `badge ${cfg.cls} text-dark js-labor-badge`;
-  };
-
-  const setLaborSource = (row, source, opts = {}) => {
+  const setLaborSource = (row, source) => {
     const sourceEl = row.querySelector('.bq-line-labor-source');
     if (sourceEl) sourceEl.value = source;
-    setLaborBadge(row, source, opts);
   };
 
   const setReadOnly = (input, value) => {
@@ -751,7 +718,6 @@
       itemControls?.classList.remove('d-none');
       if (sourceSel) sourceSel.disabled = false;
       if (searchInput) searchInput.disabled = false;
-      updateMasterButtonVisibility(row);
       syncSourceRow(row);
     } else {
       itemControls?.classList.add('d-none');
@@ -766,7 +732,6 @@
       }
       if (itemIdEl) itemIdEl.value = '';
       setLaborSource(row, 'manual');
-      updateMasterButtonVisibility(row);
     }
 
     syncCatalogRow(row);
@@ -795,28 +760,6 @@
 
   };
 
-  const updateMasterButtonVisibility = (row) => {
-    const btn = row.querySelector('.js-update-labor-master');
-    if (!btn) return;
-    if (getLineType(row) !== 'product') {
-      btn.classList.add('d-none');
-      return;
-    }
-    const sourceType = getSourceType(row);
-    const allowed = sourceType === 'project' ? CAN_UPDATE_PROJECT_LABOR : CAN_UPDATE_ITEM_LABOR;
-    btn.classList.toggle('d-none', !allowed);
-  };
-
-  const syncLaborBadgeFromRow = (row) => {
-    const reason = row.querySelector('.bq-line-labor-reason')?.value || '';
-    const source = getLaborSource(row);
-    if (reason === 'Labor Missing') {
-      setLaborBadge(row, source, { missing: true });
-    } else {
-      setLaborBadge(row, source);
-    }
-    updateMasterButtonVisibility(row);
-  };
 
   const updateLaborSnapshot = (row, laborTotal) => {
     const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
@@ -850,9 +793,8 @@
     if (!hasMaster) {
       laborInput.value = formatNumber(0);
       updateLaborSnapshot(row, 0);
-      setLaborSource(row, 'manual', { missing: true });
+      setLaborSource(row, 'manual');
       if (reasonEl && !reasonEl.value) reasonEl.value = 'Labor Missing';
-      row.dataset.laborMasterRate = '';
       recalcTotals();
       return;
     }
@@ -862,7 +804,6 @@
     updateLaborSnapshot(row, laborTotal);
     setLaborSource(row, sourceType === 'project' ? 'master_project' : 'master_item');
     if (reasonEl && reasonEl.value === 'Labor Missing') reasonEl.value = '';
-    row.dataset.laborMasterRate = String(unitCost);
     recalcTotals();
   };
 
@@ -1059,9 +1000,6 @@
     const catalogId = data.catalog_id || '';
     const catalogLabel = catalogId ? description : '';
     const costBucket = data.cost_bucket || 'overhead';
-    const laborBadge = laborSource === 'master_item'
-      ? ['I','bg-azure-lt']
-      : (laborSource === 'master_project' ? ['P','bg-indigo-lt'] : ['M','bg-secondary-lt']);
 
     return `
       <tr class="bq-line" data-line-index="${lIndex}">
@@ -1129,13 +1067,7 @@
         </td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][material_total]" class="form-control text-end js-line-material" value="${materialTotal}" required></td>
         <td>
-          <div class="d-flex align-items-start gap-2 bq-labor-cell">
-            <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" required>
-            <div class="d-flex flex-column gap-1 bq-labor-tools">
-              <span class="badge ${laborBadge[1]} text-dark js-labor-badge" title="Labor Source">${laborBadge[0]}</span>
-              <button type="button" class="btn btn-sm btn-outline-secondary js-update-labor-master d-none">Update</button>
-            </div>
-          </div>
+          <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" required>
         </td>
         ${SHOW_LABOR_COST ? `
         <td>
@@ -1294,69 +1226,6 @@
       }
     });
   }
-
-  document.addEventListener('click', (e) => {
-    const target = e.target;
-    if (!(target instanceof HTMLElement)) return;
-    if (!target.classList.contains('js-update-labor-master')) return;
-
-    const row = target.closest('.bq-line');
-    if (!row) return;
-
-    const sourceType = getSourceType(row);
-    const itemId = row.querySelector('.bq-line-item-id')?.value;
-    if (!itemId) {
-      alert('Item belum dipilih.');
-      return;
-    }
-
-    const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
-    const laborTotal = parseNumber(row.querySelector('.js-line-labor')?.value);
-    const unitCost = qty > 0 ? (laborTotal / qty) : laborTotal;
-    const prevMaster = parseNumber(row.dataset.laborMasterRate || 0);
-    let reason = '';
-
-    if (unitCost < prevMaster) {
-      reason = window.prompt('Nilai turun. Alasan wajib:') || '';
-      if (!reason) return;
-    }
-
-    const token = document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content');
-    fetch(LABOR_UPDATE_URL, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Accept': 'application/json',
-        ...(token ? { 'X-CSRF-TOKEN': token } : {}),
-      },
-      body: JSON.stringify({
-        source: sourceType,
-        item_id: itemId,
-        labor_unit_cost: unitCost,
-        reason: reason || null,
-      }),
-    })
-      .then(r => r.ok ? r.json() : Promise.reject(r))
-      .then((data) => {
-        if (!data || !data.ok) throw new Error(data?.message || 'Update gagal.');
-        row.dataset.laborMasterRate = String(unitCost);
-        updateLaborSnapshot(row, laborTotal);
-        setLaborSource(row, sourceType === 'project' ? 'master_project' : 'master_item');
-        const reasonEl = row.querySelector('.bq-line-labor-reason');
-        if (reasonEl && reason) reasonEl.value = reason;
-        recalcTotals();
-      })
-      .catch(async (err) => {
-        if (err?.json) {
-          const res = await err.json().catch(() => null);
-          alert(res?.message || 'Update master gagal.');
-          return;
-        }
-        alert('Update master gagal.');
-      });
-  });
 
   document.addEventListener('input', (e) => {
     const target = e.target;
@@ -1522,7 +1391,6 @@
 
         const qty = parseNumber(qtyEl?.value);
         if (materialEl) materialEl.value = formatNumber(qty * price);
-        updateMasterButtonVisibility(row);
         const sourceType = getSourceType(row);
         if (data.item_id) {
           fetchLaborRate(sourceType, data.item_id).then((rateData) => applyLaborRate(row, sourceType, rateData));
@@ -1560,7 +1428,6 @@
     searchInput.disabled = false;
     searchInput.placeholder = sourceType === 'item' ? 'Cari item...' : 'Cari project item...';
     initItemPicker(searchInput, sourceType);
-    syncLaborBadgeFromRow(row);
   };
 
   const initItemPickers = (scope) => {
@@ -1681,13 +1548,6 @@
   }
   .bq-line-desc{
     min-height: 56px;
-  }
-  .bq-labor-cell .js-line-labor{
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  .bq-labor-tools{
-    min-width: 42px;
   }
   .bq-desc-span{
     width: 75%;
