@@ -53,6 +53,12 @@
   $customerId = old('customer_id', $quotation->customer_id ?? $project->customer_id ?? null);
   $salesOwnerId = old('sales_owner_user_id', $quotation->sales_owner_user_id ?? $project->sales_owner_user_id ?? auth()->id());
   $contacts = $contacts ?? collect();
+  $canUpdateItemLabor = auth()->check() && auth()->user()->hasAnyRole(['Admin','SuperAdmin','Finance']);
+  $canUpdateProjectLabor = auth()->check() && auth()->user()->hasAnyRole(['Admin','SuperAdmin','PM']);
+  $showLaborCost = !empty($canManageCost);
+  $repriceLaborUrl = (!empty($quotation) && !empty($quotation->exists))
+    ? route('projects.quotations.reprice-labor', [$project, $quotation], false)
+    : null;
 @endphp
 
 <div class="card mb-3">
@@ -484,14 +490,14 @@
   const sectionsEl = document.getElementById('bq-sections');
   if (!sectionsEl) return;
 
-  const ITEM_SEARCH_URL = @json(route('items.search', [], false));
-  const LABOR_RATE_URL = @json(route('labor-rates.show', [], false));
-  const LABOR_UPDATE_URL = @json(route('labor-rates.update', [], false));
-  const CATALOG_SEARCH_URL = @json(route('bq-line-catalogs.search', [], false));
-  const CAN_UPDATE_ITEM_LABOR = @json(auth()->check() && auth()->user()->hasAnyRole(['Admin','SuperAdmin','Finance']));
-  const CAN_UPDATE_PROJECT_LABOR = @json(auth()->check() && auth()->user()->hasAnyRole(['Admin','SuperAdmin','PM']));
-  const SHOW_LABOR_COST = @json(!empty($canManageCost));
-  const REPRICE_LABOR_URL = @json(($quotation->exists ?? false) ? route('projects.quotations.reprice-labor', [$project, $quotation], false) : null);
+  const ITEM_SEARCH_URL = {!! json_encode(route('items.search', [], false)) !!};
+  const LABOR_RATE_URL = {!! json_encode(route('labor-rates.show', [], false)) !!};
+  const LABOR_UPDATE_URL = {!! json_encode(route('labor-rates.update', [], false)) !!};
+  const CATALOG_SEARCH_URL = {!! json_encode(route('bq-line-catalogs.search', [], false)) !!};
+  const CAN_UPDATE_ITEM_LABOR = {!! json_encode($canUpdateItemLabor) !!};
+  const CAN_UPDATE_PROJECT_LABOR = {!! json_encode($canUpdateProjectLabor) !!};
+  const SHOW_LABOR_COST = {!! json_encode($showLaborCost) !!};
+  const REPRICE_LABOR_URL = {!! json_encode($repriceLaborUrl) !!};
 
   const termTable = document.getElementById('terms-table');
   const btnAddTerm = document.getElementById('btn-add-term');
