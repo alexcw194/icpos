@@ -2,10 +2,6 @@
 
 @section('content')
 <div class="container-xl">
-  @if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-  @endif
-
   <div class="page-header mb-3">
     <div class="row align-items-center">
       <div class="col">
