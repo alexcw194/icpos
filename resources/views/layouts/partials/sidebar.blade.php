@@ -104,7 +104,7 @@
 
               <ul class="nav nav-pills sub-nav flex-column ms-4">
                 <li>
-                  <a class="nav-link {{ request()->is('projects*') ? 'active' : '' }}"
+                  <a class="nav-link {{ (request()->is('projects*') && !request()->is('projects/labor*')) ? 'active' : '' }}"
                      href="{{ route('projects.index') }}">
                     Projects List
                   </a>
@@ -262,13 +262,13 @@
 
                 <ul class="nav nav-pills sub-nav flex-column ms-4">
                   <li>
-                    <a class="nav-link {{ request('type') !== 'project' ? 'active' : '' }}"
+                    <a class="nav-link {{ (request()->is('po*') && request('type') !== 'project') ? 'active' : '' }}"
                        href="{{ route('po.index', ['type' => 'item']) }}">
                       Purchase Items
                     </a>
                   </li>
                   <li>
-                    <a class="nav-link {{ request('type') === 'project' ? 'active' : '' }}"
+                    <a class="nav-link {{ (request()->is('po*') && request('type') === 'project') ? 'active' : '' }}"
                        href="{{ route('po.index', ['type' => 'project']) }}">
                       Purchase Projects
                     </a>
