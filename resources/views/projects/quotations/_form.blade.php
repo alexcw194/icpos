@@ -385,7 +385,8 @@
         $signatureUsers = collect($signatureUsers ?? []);
         $directorName = 'Christian Widargo';
         $directorTitle = 'Direktur Utama';
-        $signerName = old('signatory_name', $quotation->signatory_name ?? auth()->user()?->name ?? '');
+  $currentUser = auth()->user();
+  $signerName = old('signatory_name', $quotation->signatory_name ?? ($currentUser ? $currentUser->name : ''));
         $signerTitle = old('signatory_title', $quotation->signatory_title ?? '');
         $selectedSigner = old('signatory_choice');
 
@@ -396,7 +397,7 @@
             $match = $signatureUsers->first(function ($row) use ($signerName) {
               return $signerName && strcasecmp($row->name ?? '', $signerName) === 0;
             });
-            $selectedSigner = $match?->id;
+            $selectedSigner = $match ? $match->id : null;
           }
         }
 
@@ -406,7 +407,7 @@
 
         if ($selectedSigner && $selectedSigner !== 'director') {
           $selectedUser = $signatureUsers->firstWhere('id', (int) $selectedSigner);
-          if (!$signerTitle && $selectedUser?->default_position) {
+          if (!$signerTitle && $selectedUser && $selectedUser->default_position) {
             $signerTitle = $selectedUser->default_position;
           }
         }
@@ -487,8 +488,8 @@
   const LABOR_RATE_URL = @json(route('labor-rates.show', [], false));
   const LABOR_UPDATE_URL = @json(route('labor-rates.update', [], false));
   const CATALOG_SEARCH_URL = @json(route('bq-line-catalogs.search', [], false));
-  const CAN_UPDATE_ITEM_LABOR = @json(auth()->user()?->hasAnyRole(['Admin','SuperAdmin','Finance']) ?? false);
-  const CAN_UPDATE_PROJECT_LABOR = @json(auth()->user()?->hasAnyRole(['Admin','SuperAdmin','PM']) ?? false);
+  const CAN_UPDATE_ITEM_LABOR = @json(auth()->check() && auth()->user()->hasAnyRole(['Admin','SuperAdmin','Finance']));
+  const CAN_UPDATE_PROJECT_LABOR = @json(auth()->check() && auth()->user()->hasAnyRole(['Admin','SuperAdmin','PM']));
   const SHOW_LABOR_COST = @json(!empty($canManageCost));
   const REPRICE_LABOR_URL = @json(($quotation->exists ?? false) ? route('projects.quotations.reprice-labor', [$project, $quotation], false) : null);
 
