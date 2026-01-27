@@ -91,7 +91,6 @@ class ProjectQuotationController extends Controller
                         'labor_total' => 0,
                         'labor_source' => 'manual',
                         'labor_unit_cost_snapshot' => 0,
-                        'labor_override_reason' => null,
                     ],
                 ]),
             ],
@@ -269,7 +268,6 @@ class ProjectQuotationController extends Controller
                             'labor_total' => 0,
                             'labor_source' => 'manual',
                             'labor_unit_cost_snapshot' => 0,
-                            'labor_override_reason' => null,
                         ],
                     ]),
                 ],
@@ -585,7 +583,6 @@ class ProjectQuotationController extends Controller
             'sections.*.lines.*.labor_total' => ['required', 'numeric', 'min:0'],
             'sections.*.lines.*.labor_source' => ['nullable', 'in:master_item,master_project,manual'],
             'sections.*.lines.*.labor_unit_cost_snapshot' => ['nullable', 'numeric', 'min:0'],
-            'sections.*.lines.*.labor_override_reason' => ['nullable', 'string', 'max:255'],
         ]);
 
         foreach (($data['sections'] ?? []) as $sIndex => $section) {
@@ -614,13 +611,6 @@ class ProjectQuotationController extends Controller
                     }
                 }
 
-                $laborSource = $line['labor_source'] ?? 'manual';
-                $reason = $line['labor_override_reason'] ?? null;
-                if ($laborSource === 'manual' && !empty($itemId) && empty($reason)) {
-                    throw ValidationException::withMessages([
-                        "sections.$sIndex.lines.$lIndex.labor_override_reason" => 'Alasan override labor wajib diisi.',
-                    ]);
-                }
             }
         }
 

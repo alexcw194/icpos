@@ -22,7 +22,6 @@
           'cost_bucket' => data_get($line, 'cost_bucket', 'overhead'),
           'labor_source' => data_get($line, 'labor_source', 'manual'),
           'labor_unit_cost_snapshot' => data_get($line, 'labor_unit_cost_snapshot', 0),
-          'labor_override_reason' => data_get($line, 'labor_override_reason', ''),
           'labor_cost_amount' => data_get($line, 'labor_cost_amount'),
           'labor_margin_amount' => data_get($line, 'labor_margin_amount'),
           'labor_cost_missing' => data_get($line, 'labor_cost_missing', false),
@@ -297,7 +296,6 @@
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_id]" class="bq-line-item-id" value="{{ $line['item_id'] ?? '' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_source]" class="bq-line-labor-source" value="{{ $line['labor_source'] ?? 'manual' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="{{ $line['labor_unit_cost_snapshot'] ?? 0 }}">
-                          <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_override_reason]" class="bq-line-labor-reason" value="{{ $line['labor_override_reason'] ?? '' }}">
                         </div>
                       </div>
                     </div>
@@ -783,7 +781,6 @@
 
   const applyLaborRate = (row, sourceType, rateData) => {
     const laborInput = row.querySelector('.js-line-labor');
-    const reasonEl = row.querySelector('.bq-line-labor-reason');
     const unitCost = parseNumber(rateData?.unit_cost);
     const hasMaster = rateData?.unit_cost != null;
     const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
@@ -794,7 +791,6 @@
       laborInput.value = formatNumber(0);
       updateLaborSnapshot(row, 0);
       setLaborSource(row, 'manual');
-      if (reasonEl && !reasonEl.value) reasonEl.value = 'Labor Missing';
       recalcTotals();
       return;
     }
@@ -803,7 +799,6 @@
     laborInput.value = formatNumber(laborTotal);
     updateLaborSnapshot(row, laborTotal);
     setLaborSource(row, sourceType === 'project' ? 'master_project' : 'master_item');
-    if (reasonEl && reasonEl.value === 'Labor Missing') reasonEl.value = '';
     recalcTotals();
   };
 
@@ -989,7 +984,6 @@
     const laborTotal = data.labor_total ?? 0;
     const laborSource = data.labor_source || 'manual';
     const laborUnit = data.labor_unit_cost_snapshot ?? 0;
-    const laborReason = escapeHtml(data.labor_override_reason || '');
     const laborCostAmount = data.labor_cost_amount ?? '';
     const laborMarginAmount = data.labor_margin_amount ?? '';
     const laborCostMissing = data.labor_cost_missing ? true : false;
@@ -1031,7 +1025,6 @@
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][item_id]" class="bq-line-item-id" value="${itemId}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_source]" class="bq-line-labor-source" value="${laborSource}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="${laborUnit}">
-                <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_override_reason]" class="bq-line-labor-reason" value="${laborReason}">
               </div>
             </div>
           </div>
@@ -1298,14 +1291,7 @@
       const prevVal = parseNumber(target.dataset.prevValue || 0);
       if (prevVal !== val) {
         const source = getLaborSource(row);
-        const reasonEl = row.querySelector('.bq-line-labor-reason');
         if (source !== 'manual') {
-          const reason = window.prompt('Alasan override labor (wajib):');
-          if (!reason) {
-            target.value = formatNumber(prevVal);
-            return;
-          }
-          if (reasonEl) reasonEl.value = reason;
           setLaborSource(row, 'manual');
         }
         updateLaborSnapshot(row, val);
