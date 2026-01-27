@@ -9,13 +9,21 @@ return new class extends Migration {
     {
         Schema::table('labor_costs', function (Blueprint $t) {
             if (Schema::hasColumn('labor_costs', 'labor_id')) {
-                $t->dropUnique(['labor_id', 'sub_contractor_id']);
+                try {
+                    $t->dropForeign(['labor_id']);
+                } catch (\Throwable $e) {
+                    // ignore if constraint already removed
+                }
+                try {
+                    $t->dropUnique(['labor_id', 'sub_contractor_id']);
+                } catch (\Throwable $e) {
+                    // ignore if index already removed
+                }
             }
         });
 
         Schema::table('labor_costs', function (Blueprint $t) {
             if (Schema::hasColumn('labor_costs', 'labor_id')) {
-                $t->dropForeign(['labor_id']);
                 $t->dropColumn('labor_id');
             }
             if (!Schema::hasColumn('labor_costs', 'item_id')) {
