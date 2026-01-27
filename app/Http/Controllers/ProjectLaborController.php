@@ -7,6 +7,7 @@ use App\Models\ItemLaborRate;
 use App\Models\LaborCost;
 use App\Models\ProjectItemLaborRate;
 use App\Models\Setting;
+use App\Support\Number;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -143,6 +144,10 @@ class ProjectLaborController extends Controller
         }
 
         $data = $request->validate($rules);
+        $data['labor_unit_cost'] = Number::idToFloat($data['labor_unit_cost'] ?? 0);
+        if (array_key_exists('labor_cost_amount', $data)) {
+            $data['labor_cost_amount'] = Number::idToFloat($data['labor_cost_amount'] ?? 0);
+        }
 
         if ($type === 'project') {
             $rate = ProjectItemLaborRate::firstOrNew(['project_item_id' => $item->id]);
@@ -158,7 +163,14 @@ class ProjectLaborController extends Controller
             $rate->save();
         }
 
-        if ($canManageCost && !empty($data['sub_contractor_id']) && Schema::hasTable('labor_costs')) {
+        $canSaveCost = $canManageCost
+            && !empty($data['sub_contractor_id'])
+            && Schema::hasTable('labor_costs')
+            && Schema::hasColumn('labor_costs', 'item_id')
+            && Schema::hasColumn('labor_costs', 'context')
+            && Schema::hasColumn('labor_costs', 'cost_amount');
+
+        if ($canSaveCost) {
             $context = $type === 'project' ? 'project' : 'retail';
             $cost = LaborCost::firstOrNew([
                 'sub_contractor_id' => (int) $data['sub_contractor_id'],
