@@ -17,6 +17,7 @@ use App\Http\Controllers\{
     DeliveryController,
     LaborRateController,
     ProjectLaborController,
+    LaborController,
     CompanyController,
     AiSuggestController,
     UnitController,
@@ -31,6 +32,7 @@ use App\Http\Controllers\{
     ManufactureJobController,
     ManufactureRecipeController,
     BqLineCatalogController,
+    SubContractorController,
 };
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\SettingController;
@@ -92,6 +94,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/places/search', [AiSuggestController::class, 'company'])->name('places.search');
     Route::get('/api/labor-rates', [LaborRateController::class, 'show'])->name('labor-rates.show');
     Route::post('/api/labor-rates', [LaborRateController::class, 'update'])->name('labor-rates.update');
+    Route::get('/api/labors/search', [LaborController::class, 'search'])->name('labors.search');
 
     // =======================
 // Items (READ-ONLY untuk semua user login)
@@ -352,6 +355,14 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::resource('warehouses', WarehouseController::class)->except(['show']);
     Route::resource('banks', \App\Http\Controllers\BankController::class)->except(['show']);
     Route::resource('bq-line-catalogs', BqLineCatalogController::class)->except(['show']);
+    Route::resource('labors', LaborController::class)->except(['show']);
+    Route::resource('sub-contractors', SubContractorController::class)
+        ->parameters(['sub-contractors' => 'subContractor'])
+        ->except(['show']);
+    Route::get('labors/{labor}/cost', [LaborController::class, 'cost'])
+        ->name('labors.cost.show');
+    Route::post('labors/{labor}/cost', [LaborController::class, 'storeCost'])
+        ->name('labors.cost.store');
 
     // Document Counters (manual numbering)
     Route::get('document-counters', [DocumentCounterController::class, 'index'])

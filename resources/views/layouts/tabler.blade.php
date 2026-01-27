@@ -258,6 +258,8 @@
                         <li><a href="{{ route('warehouses.index') }}" class="dropdown-item {{ request()->routeIs('warehouses.*') ? 'active' : '' }}">Warehouses</a></li>
                         <li><a href="{{ route('banks.index') }}" class="dropdown-item {{ request()->routeIs('banks.*') ? 'active' : '' }}">Banks</a></li>
                         <li><a href="{{ route('bq-line-catalogs.index') }}" class="dropdown-item {{ request()->routeIs('bq-line-catalogs.*') ? 'active' : '' }}">BQ Line Catalog</a></li>
+                        <li><a href="{{ route('labors.index') }}" class="dropdown-item {{ request()->routeIs('labors.*') ? 'active' : '' }}">Labors</a></li>
+                        <li><a href="{{ route('sub-contractors.index') }}" class="dropdown-item {{ request()->routeIs('sub-contractors.*') ? 'active' : '' }}">Sub-Contractors</a></li>
                         @role('SuperAdmin')
                           <li><a href="{{ route('contact-titles.index') }}" class="dropdown-item {{ request()->routeIs('contact-titles.*') ? 'active' : '' }}">Titles</a></li>
                           <li><a href="{{ route('contact-positions.index') }}" class="dropdown-item {{ request()->routeIs('contact-positions.*') ? 'active' : '' }}">Positions</a></li>

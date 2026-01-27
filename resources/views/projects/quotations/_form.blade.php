@@ -13,7 +13,9 @@
           'labor_total' => data_get($line, 'labor_total', 0),
           'source_type' => data_get($line, 'source_type', 'item'),
           'item_id' => data_get($line, 'item_id'),
+          'labor_id' => data_get($line, 'labor_id'),
           'item_label' => data_get($line, 'item_label', ''),
+          'labor_label' => data_get($line, 'labor_label', data_get($line, 'labor.name', '')),
           'line_type' => data_get($line, 'line_type', 'product'),
           'catalog_id' => data_get($line, 'catalog_id'),
           'percent_value' => data_get($line, 'percent_value', 0),
@@ -273,9 +275,22 @@
                                  placeholder="Cari item..."
                                  value="{{ $line['item_label'] ?? '' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_id]" class="bq-line-item-id" value="{{ $line['item_id'] ?? '' }}">
+                          <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_id]" class="bq-line-labor-id" value="{{ $line['labor_id'] ?? '' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_source]" class="bq-line-labor-source" value="{{ $line['labor_source'] ?? 'manual' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="{{ $line['labor_unit_cost_snapshot'] ?? 0 }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_override_reason]" class="bq-line-labor-reason" value="{{ $line['labor_override_reason'] ?? '' }}">
+                        </div>
+                      </div>
+                      <div class="row g-2 align-items-center mb-1">
+                        <div class="col-12">
+                          <div class="input-group input-group-sm">
+                            <span class="input-group-text">Labor</span>
+                            <input type="text"
+                                   name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_label]"
+                                   class="form-control form-control-sm bq-labor-search"
+                                   placeholder="Pilih labor..."
+                                   value="{{ $line['labor_label'] ?? '' }}">
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -445,6 +460,7 @@
   if (!sectionsEl) return;
 
   const ITEM_SEARCH_URL = @json(route('items.search', [], false));
+  const LABOR_SEARCH_URL = @json(route('labors.search', [], false));
   const LABOR_RATE_URL = @json(route('labor-rates.show', [], false));
   const LABOR_UPDATE_URL = @json(route('labor-rates.update', [], false));
   const CATALOG_SEARCH_URL = @json(route('bq-line-catalogs.search', [], false));
@@ -683,6 +699,8 @@
     const sourceSel = row.querySelector('.bq-line-source');
     const searchInput = row.querySelector('.bq-item-search');
     const itemIdEl = row.querySelector('.bq-line-item-id');
+    const laborSearch = row.querySelector('.bq-labor-search');
+    const laborIdEl = row.querySelector('.bq-line-labor-id');
     const qtyEl = row.querySelector('input[name$="[qty]"]');
     const unitEl = row.querySelector('input[name$="[unit]"]');
     const laborEl = row.querySelector('.js-line-labor');
@@ -696,6 +714,8 @@
       itemControls?.classList.remove('d-none');
       if (sourceSel) sourceSel.disabled = false;
       if (searchInput) searchInput.disabled = false;
+      if (laborSearch) laborSearch.disabled = false;
+      initLaborPicker(laborSearch);
       updateMasterButtonVisibility(row);
       syncSourceRow(row);
     } else {
@@ -709,7 +729,16 @@
         searchInput.value = '';
         searchInput.disabled = true;
       }
+      if (laborSearch) {
+        if (laborSearch._laborTs) {
+          laborSearch._laborTs.destroy();
+          laborSearch._laborTs = null;
+        }
+        laborSearch.value = '';
+        laborSearch.disabled = true;
+      }
       if (itemIdEl) itemIdEl.value = '';
+      if (laborIdEl) laborIdEl.value = '';
       setLaborSource(row, 'manual');
       updateMasterButtonVisibility(row);
     }
@@ -973,6 +1002,8 @@
     const sourceType = data.source_type === 'project' ? 'project' : 'item';
     const itemLabel = escapeHtml(data.item_label || '');
     const itemId = escapeHtml(data.item_id || '');
+    const laborId = escapeHtml(data.labor_id || '');
+    const laborLabel = escapeHtml(data.labor_label || '');
     const qty = data.qty ?? 1;
     const unit = escapeHtml(data.unit || 'LS');
     const unitPrice = data.unit_price ?? 0;
@@ -1020,9 +1051,22 @@
                        placeholder="Cari item..."
                        value="${itemLabel}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][item_id]" class="bq-line-item-id" value="${itemId}">
+                <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_id]" class="bq-line-labor-id" value="${laborId}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_source]" class="bq-line-labor-source" value="${laborSource}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="${laborUnit}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_override_reason]" class="bq-line-labor-reason" value="${laborReason}">
+              </div>
+            </div>
+            <div class="row g-2 align-items-center mb-1">
+              <div class="col-12">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">Labor</span>
+                  <input type="text"
+                         name="sections[${sIndex}][lines][${lIndex}][labor_label]"
+                         class="form-control form-control-sm bq-labor-search"
+                         placeholder="Pilih labor..."
+                         value="${laborLabel}">
+                </div>
               </div>
             </div>
           </div>
@@ -1363,6 +1407,63 @@
       params.set('list_type', 'project');
     }
     return `${ITEM_SEARCH_URL}?${params.toString()}`;
+  };
+
+  const initLaborPicker = (input) => {
+    if (!input || !window.TomSelect) return;
+    if (input._laborTs) return;
+
+    const ts = new TomSelect(input, {
+      valueField: 'id',
+      labelField: 'name',
+      searchField: ['name', 'code'],
+      maxOptions: 200,
+      create: false,
+      persist: false,
+      dropdownParent: 'body',
+      preload: 'focus',
+      closeAfterSelect: true,
+      load(query, cb){
+        const params = new URLSearchParams();
+        params.set('q', query || '');
+        fetch(`${LABOR_SEARCH_URL}?${params.toString()}`, {
+          credentials: 'same-origin',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+          },
+          cache: 'no-store',
+        })
+          .then(r => r.ok ? r.text() : '[]')
+          .then(t => {
+            const s = t.replace(/^\uFEFF/, '').trimStart();
+            let data = [];
+            try { data = JSON.parse(s); } catch (e) { cb([]); return; }
+            cb(Array.isArray(data) ? data : []);
+          })
+          .catch(() => cb([]));
+      },
+      render: {
+        option(d, esc) { return `<div>${esc(d.name || '')}</div>`; }
+      },
+      onChange(val){
+        const row = input.closest('.bq-line');
+        if (!row) return;
+        const laborIdEl = row.querySelector('.bq-line-labor-id');
+        if (!val) {
+          if (laborIdEl) laborIdEl.value = '';
+          return;
+        }
+        const data = this.options[val];
+        if (laborIdEl) laborIdEl.value = data?.id || '';
+      }
+    });
+
+    input._laborTs = ts;
+    ts.on('focus', () => {
+      ts.load('');
+      ts.open();
+    });
   };
 
   const initItemPicker = (input, sourceType) => {

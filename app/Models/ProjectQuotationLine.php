@@ -13,6 +13,7 @@ class ProjectQuotationLine extends Model
         'description',
         'source_type',
         'item_id',
+        'labor_id',
         'item_label',
         'line_type',
         'catalog_id',
@@ -28,6 +29,8 @@ class ProjectQuotationLine extends Model
         'labor_source',
         'labor_unit_cost_snapshot',
         'labor_override_reason',
+        'labor_cost_amount',
+        'labor_cost_source',
         'line_total',
     ];
 
@@ -37,6 +40,7 @@ class ProjectQuotationLine extends Model
         'material_total' => 'decimal:2',
         'labor_total' => 'decimal:2',
         'labor_unit_cost_snapshot' => 'decimal:2',
+        'labor_cost_amount' => 'decimal:2',
         'line_total' => 'decimal:2',
         'percent_value' => 'decimal:4',
         'computed_amount' => 'decimal:2',
@@ -45,5 +49,10 @@ class ProjectQuotationLine extends Model
     public function section(): BelongsTo
     {
         return $this->belongsTo(ProjectQuotationSection::class, 'section_id');
+    }
+
+    public function labor(): BelongsTo
+    {
+        return $this->belongsTo(Labor::class, 'labor_id');
     }
 }

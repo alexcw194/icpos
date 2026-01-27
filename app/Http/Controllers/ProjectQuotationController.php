@@ -213,7 +213,7 @@ class ProjectQuotationController extends Controller
                 ->with('warning', 'BQ yang sudah issued/won/lost tidak bisa diedit.');
         }
 
-        $quotation->load(['sections.lines', 'paymentTerms']);
+        $quotation->load(['sections.lines.labor', 'paymentTerms']);
         $companies = Company::orderBy('name')->get(['id', 'alias', 'name', 'is_taxable', 'default_tax_percent']);
         $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
         $signatureUsers = $this->signatureOptions();
@@ -461,7 +461,9 @@ class ProjectQuotationController extends Controller
             'sections.*.lines.*.description' => ['required', 'string'],
             'sections.*.lines.*.source_type' => ['nullable', 'in:item,project'],
             'sections.*.lines.*.item_id' => ['nullable', 'exists:items,id'],
+            'sections.*.lines.*.labor_id' => ['nullable', 'exists:labors,id'],
             'sections.*.lines.*.item_label' => ['nullable', 'string', 'max:255'],
+            'sections.*.lines.*.labor_label' => ['nullable', 'string', 'max:190'],
             'sections.*.lines.*.line_type' => ['nullable', 'in:product,charge,percent'],
             'sections.*.lines.*.catalog_id' => ['nullable', 'exists:bq_line_catalogs,id'],
             'sections.*.lines.*.percent_value' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -482,10 +484,17 @@ class ProjectQuotationController extends Controller
             foreach (($section['lines'] ?? []) as $lIndex => $line) {
                 $lineType = $line['line_type'] ?? 'product';
                 $itemId = $line['item_id'] ?? null;
+                $laborId = $line['labor_id'] ?? null;
 
                 if ($lineType !== 'product' && !empty($itemId)) {
                     throw ValidationException::withMessages([
                         "sections.$sIndex.lines.$lIndex.item_id" => 'Charge/percent lines tidak boleh punya item.',
+                    ]);
+                }
+
+                if ($lineType !== 'product' && !empty($laborId)) {
+                    throw ValidationException::withMessages([
+                        "sections.$sIndex.lines.$lIndex.labor_id" => 'Charge/percent lines tidak boleh punya labor.',
                     ]);
                 }
 
