@@ -121,9 +121,11 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
     // Projects & Project Quotations (BQ)
     Route::resource('projects', ProjectController::class);
     Route::get('projects/labor', [ProjectLaborController::class, 'index'])->name('projects.labor.index');
-    Route::post('projects/labor/{item}', [ProjectLaborController::class, 'update'])->name('projects.labor.update');
     Route::post('projects/labor/default-sub-contractor', [ProjectLaborController::class, 'setDefaultSubContractor'])
         ->name('projects.labor.default-sub-contractor');
+    Route::post('projects/labor/{item}', [ProjectLaborController::class, 'update'])
+        ->whereNumber('item')
+        ->name('projects.labor.update');
     Route::resource('projects.quotations', ProjectQuotationController::class);
     Route::post('projects/{project}/quotations/{quotation}/issue', [ProjectQuotationController::class, 'issue'])
         ->name('projects.quotations.issue');
