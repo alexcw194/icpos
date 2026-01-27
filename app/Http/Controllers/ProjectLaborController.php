@@ -183,6 +183,7 @@ class ProjectLaborController extends Controller
             && Schema::hasColumn('labor_costs', 'context')
             && Schema::hasColumn('labor_costs', 'cost_amount');
 
+        $laborCostNotice = null;
         if ($canSaveCost) {
             $context = $type === 'project' ? 'project' : 'retail';
             $cost = LaborCost::firstOrNew([
@@ -192,15 +193,23 @@ class ProjectLaborController extends Controller
             ]);
             $cost->cost_amount = (float) ($data['labor_cost_amount'] ?? 0);
             $cost->save();
+        } elseif ($canManageCost && !empty($data['sub_contractor_id'])) {
+            $laborCostNotice = 'Labor cost belum bisa disimpan. Jalankan migration untuk tabel labor_costs.';
         }
 
-        return redirect()
+        $redirect = redirect()
             ->route('projects.labor.index', [
                 'type' => $type,
                 'q' => $request->input('q'),
                 'sub_contractor_id' => $request->input('sub_contractor_id'),
             ])
             ->with('success', 'Labor master tersimpan.');
+
+        if ($laborCostNotice) {
+            $redirect->with('warning', $laborCostNotice);
+        }
+
+        return $redirect;
     }
 
     public function setDefaultSubContractor(Request $request)
