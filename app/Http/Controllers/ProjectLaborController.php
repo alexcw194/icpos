@@ -134,19 +134,32 @@ class ProjectLaborController extends Controller
         }
 
         $rules = [
-            'labor_unit_cost' => ['required', 'numeric', 'min:0'],
+            'labor_unit_cost' => ['required', 'string'],
             'notes' => ['nullable', 'string', 'max:255'],
             'sub_contractor_id' => ['nullable', 'integer'],
         ];
         if ($canManageCost && Schema::hasTable('sub_contractors')) {
             $rules['sub_contractor_id'][] = 'exists:sub_contractors,id';
-            $rules['labor_cost_amount'] = ['nullable', 'numeric', 'min:0'];
+            $rules['labor_cost_amount'] = ['nullable', 'string'];
         }
 
         $data = $request->validate($rules);
         $data['labor_unit_cost'] = Number::idToFloat($data['labor_unit_cost'] ?? 0);
+        if ($data['labor_unit_cost'] < 0) {
+            throw ValidationException::withMessages([
+                'labor_unit_cost' => 'Labor unit harus >= 0.',
+            ]);
+        }
         if (array_key_exists('labor_cost_amount', $data)) {
-            $data['labor_cost_amount'] = Number::idToFloat($data['labor_cost_amount'] ?? 0);
+            $rawCost = $data['labor_cost_amount'];
+            $data['labor_cost_amount'] = $rawCost === null || $rawCost === ''
+                ? 0
+                : Number::idToFloat($rawCost);
+            if ($data['labor_cost_amount'] < 0) {
+                throw ValidationException::withMessages([
+                    'labor_cost_amount' => 'Labor cost harus >= 0.',
+                ]);
+            }
         }
 
         if ($type === 'project') {
