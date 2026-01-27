@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\LaborCost;
 use App\Support\Number;
+use Illuminate\Support\Facades\Schema;
 
 class ProjectQuotationTotalsService
 {
@@ -150,6 +151,14 @@ class ProjectQuotationTotalsService
 
     private function buildLaborCostMap(array $sections, array $data): array
     {
+        if (
+            !Schema::hasTable('labor_costs')
+            || !Schema::hasColumn('labor_costs', 'item_id')
+            || !Schema::hasColumn('labor_costs', 'context')
+        ) {
+            return [];
+        }
+
         $itemIds = [];
         $contexts = [];
         foreach ($sections as $section) {

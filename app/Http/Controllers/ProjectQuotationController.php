@@ -17,6 +17,7 @@ use App\Support\Number;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class ProjectQuotationController extends Controller
@@ -46,11 +47,9 @@ class ProjectQuotationController extends Controller
         $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
         $signatureUsers = $this->signatureOptions();
         $contacts = $project->customer?->contacts()->orderBy('first_name')->get() ?? collect();
-        $canManageCost = auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
-        $subContractors = $canManageCost
-            ? SubContractor::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])
-            : collect();
-        $defaultSubContractorId = (int) Setting::get('default_sub_contractor_id', 0);
+        $canManageCost = $this->canManageLaborCost();
+        $subContractors = $this->loadSubContractors($canManageCost);
+        $defaultSubContractorId = $this->defaultSubContractorId($canManageCost);
         $selectedSubContractorId = old('sub_contractor_id') ?: ($defaultSubContractorId ?: null);
 
         $quotation = new ProjectQuotation([
@@ -63,7 +62,9 @@ class ProjectQuotationController extends Controller
             'tax_percent' => 0,
             'sales_owner_user_id' => $project->sales_owner_user_id ?? auth()->id(),
             'signatory_name' => auth()->user()?->name,
-            'sub_contractor_id' => $selectedSubContractorId,
+            'sub_contractor_id' => $this->supportsSubContractor()
+                ? $selectedSubContractorId
+                : null,
         ]);
 
         $paymentTerms = collect([
@@ -118,10 +119,8 @@ class ProjectQuotationController extends Controller
         $data = $this->validateQuotation($request);
         $data['tax_enabled'] = !empty($data['tax_enabled']);
         $data['tax_percent'] = Number::idToFloat($data['tax_percent'] ?? 0);
-        $canManageCost = $request->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
-        if (!$canManageCost) {
-            $data['sub_contractor_id'] = (int) Setting::get('default_sub_contractor_id', 0) ?: null;
-        }
+        $canManageCost = $this->canManageLaborCost($request->user());
+        $this->normalizeSubContractorInput($data, $canManageCost, null);
 
         if ((int) $data['customer_id'] !== (int) $project->customer_id) {
             throw ValidationException::withMessages([
@@ -236,10 +235,8 @@ class ProjectQuotationController extends Controller
         $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
         $signatureUsers = $this->signatureOptions();
         $contacts = $project->customer?->contacts()->orderBy('first_name')->get() ?? collect();
-        $canManageCost = auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
-        $subContractors = $canManageCost
-            ? SubContractor::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])
-            : collect();
+        $canManageCost = $this->canManageLaborCost();
+        $subContractors = $this->loadSubContractors($canManageCost);
         $selectedSubContractorId = old('sub_contractor_id', $quotation->sub_contractor_id);
 
         $paymentTerms = $quotation->paymentTerms;
@@ -306,10 +303,8 @@ class ProjectQuotationController extends Controller
         $data = $this->validateQuotation($request);
         $data['tax_enabled'] = !empty($data['tax_enabled']);
         $data['tax_percent'] = Number::idToFloat($data['tax_percent'] ?? 0);
-        $canManageCost = $request->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
-        if (!$canManageCost) {
-            $data['sub_contractor_id'] = $quotation->sub_contractor_id;
-        }
+        $canManageCost = $this->canManageLaborCost($request->user());
+        $this->normalizeSubContractorInput($data, $canManageCost, $quotation);
 
         if ((int) $data['customer_id'] !== (int) $project->customer_id) {
             throw ValidationException::withMessages([
@@ -389,7 +384,11 @@ class ProjectQuotationController extends Controller
         $this->authorize('update', $quotation);
         $this->ensureProjectMatch($project, $quotation);
 
-        $canManageCost = $request->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
+        if (!$this->supportsSubContractor()) {
+            abort(404);
+        }
+
+        $canManageCost = $this->canManageLaborCost($request->user());
         if (!$canManageCost) {
             abort(403);
         }
@@ -542,7 +541,7 @@ class ProjectQuotationController extends Controller
         $data = $request->validate([
             'company_id' => ['required', 'exists:companies,id'],
             'customer_id' => ['required', 'exists:customers,id'],
-            'sub_contractor_id' => ['nullable', 'exists:sub_contractors,id'],
+            'sub_contractor_id' => $this->subContractorRule(),
             'quotation_date' => ['required', 'date'],
             'to_name' => ['required', 'string', 'max:190'],
             'attn_name' => ['nullable', 'string', 'max:190'],
@@ -626,6 +625,74 @@ class ProjectQuotationController extends Controller
         }
 
         return $data;
+    }
+
+    private function canManageLaborCost(?User $user = null): bool
+    {
+        $user = $user ?? auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        return $user->hasAnyRole(['Admin', 'SuperAdmin']) && $this->supportsSubContractor();
+    }
+
+    private function supportsSubContractor(): bool
+    {
+        return Schema::hasTable('sub_contractors')
+            && Schema::hasColumn('project_quotations', 'sub_contractor_id');
+    }
+
+    private function loadSubContractors(bool $canManageCost)
+    {
+        if (!$canManageCost || !Schema::hasTable('sub_contractors')) {
+            return collect();
+        }
+
+        $query = SubContractor::query();
+        if (Schema::hasColumn('sub_contractors', 'is_active')) {
+            $query->where('is_active', true);
+        }
+
+        return $query->orderBy('name')->get(['id', 'name']);
+    }
+
+    private function defaultSubContractorId(bool $canManageCost): ?int
+    {
+        if (!$canManageCost || !Schema::hasTable('settings')) {
+            return null;
+        }
+
+        $id = (int) Setting::get('default_sub_contractor_id', 0);
+        return $id > 0 ? $id : null;
+    }
+
+    private function normalizeSubContractorInput(array &$data, bool $canManageCost, ?ProjectQuotation $quotation): void
+    {
+        if (!$this->supportsSubContractor()) {
+            unset($data['sub_contractor_id']);
+            return;
+        }
+
+        if ($canManageCost) {
+            return;
+        }
+
+        if ($quotation) {
+            $data['sub_contractor_id'] = $quotation->sub_contractor_id;
+            return;
+        }
+
+        $data['sub_contractor_id'] = $this->defaultSubContractorId(true);
+    }
+
+    private function subContractorRule(): array
+    {
+        if (!$this->supportsSubContractor()) {
+            return ['nullable'];
+        }
+
+        return ['nullable', 'exists:sub_contractors,id'];
     }
 
     private function validatePaymentTermsSum(array $terms): void
