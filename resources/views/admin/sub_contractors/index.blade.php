@@ -18,7 +18,7 @@
       <div class="row g-2">
         <div class="col-md-6">
           <div class="input-group">
-            <input type="text" name="q" class="form-control" placeholder="Cari nama/notes..." value="{{ $q ?? '' }}">
+            <input type="text" name="q" class="form-control" placeholder="Cari nama..." value="{{ $q ?? '' }}">
             <button class="btn btn-outline" type="submit">Cari</button>
             @if(!empty($q) || !empty($status))
               <a href="{{ route('sub-contractors.index') }}" class="btn btn-link">Reset</a>
@@ -42,7 +42,6 @@
             <tr>
               <th class="w-1">#</th>
               <th>Name</th>
-              <th>Notes</th>
               <th class="w-1">Active</th>
               <th>Updated</th>
               <th class="w-1"></th>
@@ -55,7 +54,6 @@
                 <td>
                   <a href="{{ route('sub-contractors.edit', $row) }}" class="fw-semibold">{{ $row->name }}</a>
                 </td>
-                <td class="text-muted">{{ $row->notes }}</td>
                 <td>
                   @if($row->is_active)
                     <span class="badge bg-green">Active</span>
@@ -73,7 +71,7 @@
                 </td>
               </tr>
             @empty
-              <tr><td colspan="6" class="text-center text-muted">Tidak ada data</td></tr>
+              <tr><td colspan="5" class="text-center text-muted">Tidak ada data</td></tr>
             @endforelse
           </tbody>
         </table>

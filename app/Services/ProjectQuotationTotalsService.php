@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Labor;
 use App\Models\LaborCost;
 use App\Support\Number;
 
@@ -49,10 +48,20 @@ class ProjectQuotationTotalsService
                     $laborUnitSnapshot = $laborTotal / $qty;
                 }
                 $lineTotal = 0.0;
-                $laborId = $lineType === 'product' ? ($line['labor_id'] ?? null) : null;
-                $laborCost = $laborId ? ($laborCostMap[(int) $laborId] ?? null) : null;
-                $laborCostAmount = $laborCost['amount'] ?? null;
-                $laborCostSource = $laborCost['source'] ?? 'none';
+                $laborCostAmount = null;
+                $laborMarginAmount = null;
+                $laborCostMissing = false;
+                $itemId = $lineType === 'product' ? ($line['item_id'] ?? null) : null;
+                $context = ($line['source_type'] ?? 'item') === 'project' ? 'project' : 'retail';
+                if ($itemId) {
+                    $key = $itemId.'|'.$context;
+                    $laborCostAmount = $laborCostMap[$key] ?? null;
+                    if ($laborCostAmount === null) {
+                        $laborCostMissing = true;
+                    } else {
+                        $laborMarginAmount = $laborTotal - $laborCostAmount;
+                    }
+                }
 
                 if ($lineType === 'product') {
                     $lineTotal = $materialTotal + $laborTotal;
@@ -70,7 +79,6 @@ class ProjectQuotationTotalsService
                     'description' => $line['description'] ?? '',
                     'source_type' => $line['source_type'] ?? 'item',
                     'item_id' => $line['item_id'] ?? null,
-                    'labor_id' => $laborId,
                     'item_label' => $line['item_label'] ?? null,
                     'line_type' => $lineType,
                     'catalog_id' => $line['catalog_id'] ?? null,
@@ -87,7 +95,8 @@ class ProjectQuotationTotalsService
                     'labor_unit_cost_snapshot' => $laborUnitSnapshot,
                     'labor_override_reason' => $line['labor_override_reason'] ?? null,
                     'labor_cost_amount' => $laborCostAmount,
-                    'labor_cost_source' => $laborCostSource,
+                    'labor_margin_amount' => $laborMarginAmount,
+                    'labor_cost_missing' => $laborCostMissing,
                     'line_total' => $lineTotal,
                 ];
             }
@@ -141,52 +150,47 @@ class ProjectQuotationTotalsService
 
     private function buildLaborCostMap(array $sections, array $data): array
     {
-        $laborIds = [];
+        $itemIds = [];
+        $contexts = [];
         foreach ($sections as $section) {
             foreach (($section['lines'] ?? []) as $line) {
-                if (!empty($line['labor_id'])) {
-                    $laborIds[] = (int) $line['labor_id'];
+                if (($line['line_type'] ?? 'product') !== 'product') {
+                    continue;
                 }
+                $itemId = $line['item_id'] ?? null;
+                if (!$itemId) {
+                    continue;
+                }
+                $itemIds[] = (int) $itemId;
+                $contexts[] = (($line['source_type'] ?? 'item') === 'project') ? 'project' : 'retail';
             }
         }
 
-        $laborIds = array_values(array_unique(array_filter($laborIds)));
-        if (!$laborIds) {
+        $itemIds = array_values(array_unique(array_filter($itemIds)));
+        if (!$itemIds) {
             return [];
         }
 
-        $labors = Labor::query()
-            ->whereIn('id', $laborIds)
-            ->get(['id', 'default_sub_contractor_id'])
-            ->keyBy('id');
-
-        $subIds = $labors->pluck('default_sub_contractor_id')->filter()->unique()->values()->all();
-
-        $costs = [];
-        if ($subIds) {
-            $costs = LaborCost::query()
-                ->whereIn('labor_id', $laborIds)
-                ->whereIn('sub_contractor_id', $subIds)
-                ->get(['labor_id', 'sub_contractor_id', 'cost_amount', 'is_active'])
-                ->keyBy(fn ($row) => $row->labor_id.'-'.$row->sub_contractor_id);
+        $subId = (int) ($data['sub_contractor_id'] ?? 0);
+        if ($subId <= 0) {
+            return [];
         }
 
+        $contexts = array_values(array_unique(array_filter($contexts)));
+        if (!$contexts) {
+            $contexts = ['retail'];
+        }
+
+        $costs = LaborCost::query()
+            ->where('sub_contractor_id', $subId)
+            ->whereIn('item_id', $itemIds)
+            ->whereIn('context', $contexts)
+            ->get(['item_id', 'context', 'cost_amount'])
+            ->keyBy(fn ($row) => $row->item_id.'|'.$row->context);
+
         $map = [];
-        foreach ($laborIds as $laborId) {
-            $labor = $labors->get($laborId);
-            $subId = $labor?->default_sub_contractor_id;
-            if (!$subId) {
-                $map[$laborId] = ['amount' => null, 'source' => 'none'];
-                continue;
-            }
-
-            $cost = $costs[$laborId.'-'.$subId] ?? null;
-            if (!$cost || !$cost->is_active) {
-                $map[$laborId] = ['amount' => null, 'source' => 'none'];
-                continue;
-            }
-
-            $map[$laborId] = ['amount' => (float) $cost->cost_amount, 'source' => 'sub_contractor'];
+        foreach ($costs as $key => $row) {
+            $map[$key] = (float) $row->cost_amount;
         }
 
         return $map;

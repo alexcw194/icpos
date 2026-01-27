@@ -8,6 +8,9 @@ use App\Models\ProjectQuotation;
 use App\Models\ProjectQuotationLine;
 use App\Models\ProjectQuotationPaymentTerm;
 use App\Models\ProjectQuotationSection;
+use App\Models\SubContractor;
+use App\Models\LaborCost;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\ProjectQuotationTotalsService;
 use App\Support\Number;
@@ -43,6 +46,12 @@ class ProjectQuotationController extends Controller
         $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
         $signatureUsers = $this->signatureOptions();
         $contacts = $project->customer?->contacts()->orderBy('first_name')->get() ?? collect();
+        $canManageCost = auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
+        $subContractors = $canManageCost
+            ? SubContractor::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])
+            : collect();
+        $defaultSubContractorId = (int) Setting::get('default_sub_contractor_id', 0);
+        $selectedSubContractorId = old('sub_contractor_id') ?: ($defaultSubContractorId ?: null);
 
         $quotation = new ProjectQuotation([
             'quotation_date' => now()->toDateString(),
@@ -54,6 +63,7 @@ class ProjectQuotationController extends Controller
             'tax_percent' => 0,
             'sales_owner_user_id' => $project->sales_owner_user_id ?? auth()->id(),
             'signatory_name' => auth()->user()?->name,
+            'sub_contractor_id' => $selectedSubContractorId,
         ]);
 
         $paymentTerms = collect([
@@ -94,7 +104,10 @@ class ProjectQuotationController extends Controller
             'signatureUsers',
             'paymentTerms',
             'sections',
-            'contacts'
+            'contacts',
+            'subContractors',
+            'selectedSubContractorId',
+            'canManageCost'
         ));
     }
 
@@ -105,6 +118,10 @@ class ProjectQuotationController extends Controller
         $data = $this->validateQuotation($request);
         $data['tax_enabled'] = !empty($data['tax_enabled']);
         $data['tax_percent'] = Number::idToFloat($data['tax_percent'] ?? 0);
+        $canManageCost = $request->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
+        if (!$canManageCost) {
+            $data['sub_contractor_id'] = (int) Setting::get('default_sub_contractor_id', 0) ?: null;
+        }
 
         if ((int) $data['customer_id'] !== (int) $project->customer_id) {
             throw ValidationException::withMessages([
@@ -125,6 +142,7 @@ class ProjectQuotationController extends Controller
                 'project_id' => $project->id,
                 'company_id' => $company->id,
                 'customer_id' => $data['customer_id'],
+                'sub_contractor_id' => $data['sub_contractor_id'] ?? null,
                 'number' => 'TEMP',
                 'version' => 1,
                 'status' => ProjectQuotation::STATUS_DRAFT,
@@ -213,11 +231,16 @@ class ProjectQuotationController extends Controller
                 ->with('warning', 'BQ yang sudah issued/won/lost tidak bisa diedit.');
         }
 
-        $quotation->load(['sections.lines.labor', 'paymentTerms']);
+        $quotation->load(['sections.lines', 'paymentTerms']);
         $companies = Company::orderBy('name')->get(['id', 'alias', 'name', 'is_taxable', 'default_tax_percent']);
         $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
         $signatureUsers = $this->signatureOptions();
         $contacts = $project->customer?->contacts()->orderBy('first_name')->get() ?? collect();
+        $canManageCost = auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
+        $subContractors = $canManageCost
+            ? SubContractor::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])
+            : collect();
+        $selectedSubContractorId = old('sub_contractor_id', $quotation->sub_contractor_id);
 
         $paymentTerms = $quotation->paymentTerms;
         $sections = $quotation->sections;
@@ -264,7 +287,10 @@ class ProjectQuotationController extends Controller
             'signatureUsers',
             'paymentTerms',
             'sections',
-            'contacts'
+            'contacts',
+            'subContractors',
+            'selectedSubContractorId',
+            'canManageCost'
         ));
     }
 
@@ -280,6 +306,10 @@ class ProjectQuotationController extends Controller
         $data = $this->validateQuotation($request);
         $data['tax_enabled'] = !empty($data['tax_enabled']);
         $data['tax_percent'] = Number::idToFloat($data['tax_percent'] ?? 0);
+        $canManageCost = $request->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
+        if (!$canManageCost) {
+            $data['sub_contractor_id'] = $quotation->sub_contractor_id;
+        }
 
         if ((int) $data['customer_id'] !== (int) $project->customer_id) {
             throw ValidationException::withMessages([
@@ -298,6 +328,7 @@ class ProjectQuotationController extends Controller
             $quotation->update([
                 'company_id' => $company->id,
                 'customer_id' => $data['customer_id'],
+                'sub_contractor_id' => $data['sub_contractor_id'] ?? null,
                 'quotation_date' => $data['quotation_date'],
                 'to_name' => $data['to_name'],
                 'attn_name' => $data['attn_name'] ?? null,
@@ -351,6 +382,85 @@ class ProjectQuotationController extends Controller
         return redirect()
             ->route('projects.quotations.show', [$project, $quotation])
             ->with('success', 'BQ berhasil diperbarui.');
+    }
+
+    public function repriceLabor(Request $request, Project $project, ProjectQuotation $quotation)
+    {
+        $this->authorize('update', $quotation);
+        $this->ensureProjectMatch($project, $quotation);
+
+        $canManageCost = $request->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
+        if (!$canManageCost) {
+            abort(403);
+        }
+
+        $data = $request->validate([
+            'sub_contractor_id' => ['required', 'exists:sub_contractors,id'],
+        ]);
+
+        $quotation->update([
+            'sub_contractor_id' => $data['sub_contractor_id'],
+        ]);
+
+        $lines = $quotation->lines()->get(['id', 'item_id', 'source_type', 'line_type', 'labor_total']);
+        $itemIds = $lines->where('line_type', 'product')
+            ->pluck('item_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $contexts = $lines->where('line_type', 'product')
+            ->map(fn ($line) => ($line->source_type === 'project') ? 'project' : 'retail')
+            ->unique()
+            ->values()
+            ->all();
+
+        $costs = [];
+        if ($itemIds) {
+            $costs = LaborCost::query()
+                ->where('sub_contractor_id', $data['sub_contractor_id'])
+                ->whereIn('item_id', $itemIds)
+                ->when($contexts, fn ($q) => $q->whereIn('context', $contexts))
+                ->get(['item_id', 'context', 'cost_amount'])
+                ->keyBy(fn ($row) => $row->item_id.'|'.$row->context);
+        }
+
+        foreach ($lines as $line) {
+            $lineType = $line->line_type ?: 'product';
+            if ($lineType !== 'product' || !$line->item_id) {
+                $line->labor_cost_amount = null;
+                $line->labor_margin_amount = null;
+                $line->labor_cost_missing = false;
+                $line->save();
+                continue;
+            }
+
+            $context = $line->source_type === 'project' ? 'project' : 'retail';
+            $key = $line->item_id.'|'.$context;
+            $cost = $costs[$key] ?? null;
+            if (!$cost) {
+                $line->labor_cost_amount = null;
+                $line->labor_margin_amount = null;
+                $line->labor_cost_missing = true;
+                $line->save();
+                continue;
+            }
+
+            $costAmount = (float) $cost->cost_amount;
+            $line->labor_cost_amount = $costAmount;
+            $line->labor_margin_amount = (float) $line->labor_total - $costAmount;
+            $line->labor_cost_missing = false;
+            $line->save();
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return redirect()
+            ->route('projects.quotations.edit', [$project, $quotation])
+            ->with('success', 'Labor cost berhasil diperbarui.');
     }
 
     public function destroy(Project $project, ProjectQuotation $quotation)
@@ -432,6 +542,7 @@ class ProjectQuotationController extends Controller
         $data = $request->validate([
             'company_id' => ['required', 'exists:companies,id'],
             'customer_id' => ['required', 'exists:customers,id'],
+            'sub_contractor_id' => ['nullable', 'exists:sub_contractors,id'],
             'quotation_date' => ['required', 'date'],
             'to_name' => ['required', 'string', 'max:190'],
             'attn_name' => ['nullable', 'string', 'max:190'],
@@ -461,9 +572,7 @@ class ProjectQuotationController extends Controller
             'sections.*.lines.*.description' => ['required', 'string'],
             'sections.*.lines.*.source_type' => ['nullable', 'in:item,project'],
             'sections.*.lines.*.item_id' => ['nullable', 'exists:items,id'],
-            'sections.*.lines.*.labor_id' => ['nullable', 'exists:labors,id'],
             'sections.*.lines.*.item_label' => ['nullable', 'string', 'max:255'],
-            'sections.*.lines.*.labor_label' => ['nullable', 'string', 'max:190'],
             'sections.*.lines.*.line_type' => ['nullable', 'in:product,charge,percent'],
             'sections.*.lines.*.catalog_id' => ['nullable', 'exists:bq_line_catalogs,id'],
             'sections.*.lines.*.percent_value' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -484,17 +593,10 @@ class ProjectQuotationController extends Controller
             foreach (($section['lines'] ?? []) as $lIndex => $line) {
                 $lineType = $line['line_type'] ?? 'product';
                 $itemId = $line['item_id'] ?? null;
-                $laborId = $line['labor_id'] ?? null;
 
                 if ($lineType !== 'product' && !empty($itemId)) {
                     throw ValidationException::withMessages([
                         "sections.$sIndex.lines.$lIndex.item_id" => 'Charge/percent lines tidak boleh punya item.',
-                    ]);
-                }
-
-                if ($lineType !== 'product' && !empty($laborId)) {
-                    throw ValidationException::withMessages([
-                        "sections.$sIndex.lines.$lIndex.labor_id" => 'Charge/percent lines tidak boleh punya labor.',
                     ]);
                 }
 

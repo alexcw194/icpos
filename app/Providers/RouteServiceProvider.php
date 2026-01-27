@@ -15,7 +15,6 @@ class RouteServiceProvider extends ServiceProvider
         Route::pattern('salesOrder', '[0-9]+');
         Route::pattern('attachment', '[0-9]+');
         Route::pattern('project', '[0-9]+');
-        Route::pattern('labor', '[0-9]+');
 
         // (opsional, kalau kamu juga pakai parameter ini sebagai angka)
         Route::pattern('quotation', '[0-9]+');

@@ -10,7 +10,6 @@ class SubContractor extends Model
     protected $fillable = [
         'name',
         'is_active',
-        'notes',
     ];
 
     protected $casts = [

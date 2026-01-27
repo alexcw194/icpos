@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Models\SubContractor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -12,7 +13,11 @@ class SettingController extends Controller
     public function edit()
     {
         $s = Setting::allKeyed();
-        return view('admin.settings.edit', compact('s'));
+        $subContractors = SubContractor::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        return view('admin.settings.edit', compact('s', 'subContractors'));
     }
 
     public function update(Request $request)
@@ -37,6 +42,9 @@ class SettingController extends Controller
 
             // ===== Username policy =====
             'mail_username_policy' => ['required','in:force_email,default_email,custom_only'],
+
+            // ===== Default Sub-Contractor =====
+            'default_sub_contractor_id' => ['nullable', 'exists:sub_contractors,id'],
         ]);
 
         // Upload logo
@@ -96,6 +104,9 @@ class SettingController extends Controller
 
             // >>> FIX: simpan ke key dengan DOT, bukan underscore
             'mail.username_policy'=> $validated['mail_username_policy'],
+
+            // Default Sub-Contractor
+            'default_sub_contractor_id' => (string) ($validated['default_sub_contractor_id'] ?? ''),
         ]);
 
         return redirect()

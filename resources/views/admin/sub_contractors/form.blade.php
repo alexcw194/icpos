@@ -32,13 +32,6 @@
         </div>
 
         <div class="mb-3">
-          <label class="form-label">Notes</label>
-          <textarea name="notes" rows="3"
-                    class="form-control @error('notes') is-invalid @enderror">{{ old('notes', $row->notes) }}</textarea>
-          @error('notes') <div class="invalid-feedback">{{ $message }}</div> @enderror
-        </div>
-
-        <div class="mb-3">
           <label class="form-label d-block">Status</label>
           <input type="hidden" name="is_active" value="0">
           <label class="form-check form-switch">

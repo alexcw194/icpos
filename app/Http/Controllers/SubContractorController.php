@@ -14,8 +14,7 @@ class SubContractorController extends Controller
 
         $rows = SubContractor::query()
             ->when($q !== '', function ($qq) use ($q) {
-                $qq->where('name', 'like', "%{$q}%")
-                   ->orWhere('notes', 'like', "%{$q}%");
+                $qq->where('name', 'like', "%{$q}%");
             })
             ->when($status === 'active', fn ($qq) => $qq->where('is_active', true))
             ->when($status === 'inactive', fn ($qq) => $qq->where('is_active', false))
@@ -36,7 +35,6 @@ class SubContractorController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:190'],
-            'notes' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
@@ -63,7 +61,6 @@ class SubContractorController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:190'],
-            'notes' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 

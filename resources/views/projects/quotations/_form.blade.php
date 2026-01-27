@@ -13,9 +13,7 @@
           'labor_total' => data_get($line, 'labor_total', 0),
           'source_type' => data_get($line, 'source_type', 'item'),
           'item_id' => data_get($line, 'item_id'),
-          'labor_id' => data_get($line, 'labor_id'),
           'item_label' => data_get($line, 'item_label', ''),
-          'labor_label' => data_get($line, 'labor_label', data_get($line, 'labor.name', '')),
           'line_type' => data_get($line, 'line_type', 'product'),
           'catalog_id' => data_get($line, 'catalog_id'),
           'percent_value' => data_get($line, 'percent_value', 0),
@@ -25,6 +23,9 @@
           'labor_source' => data_get($line, 'labor_source', 'manual'),
           'labor_unit_cost_snapshot' => data_get($line, 'labor_unit_cost_snapshot', 0),
           'labor_override_reason' => data_get($line, 'labor_override_reason', ''),
+          'labor_cost_amount' => data_get($line, 'labor_cost_amount'),
+          'labor_margin_amount' => data_get($line, 'labor_margin_amount'),
+          'labor_cost_missing' => data_get($line, 'labor_cost_missing', false),
         ];
       })->toArray();
       return [
@@ -86,6 +87,17 @@
           @endif
         </select>
       </div>
+      @if(!empty($canManageCost))
+        <div class="col-md-4">
+          <label class="form-label">Sub-Contractor</label>
+          <select name="sub_contractor_id" id="bq-sub-contractor" class="form-select">
+            <option value="">-</option>
+            @foreach($subContractors as $sc)
+              <option value="{{ $sc->id }}" @selected((string) $selectedSubContractorId === (string) $sc->id)>{{ $sc->name }}</option>
+            @endforeach
+          </select>
+        </div>
+      @endif
       <div class="col-md-4">
         <label class="form-label">Sales Owner</label>
         <select name="sales_owner_user_id" class="form-select" required>
@@ -237,6 +249,10 @@
                 <th style="width:120px;" class="text-end">Unit Price</th>
                 <th style="width:140px;" class="text-end">Material</th>
                 <th style="width:180px;" class="text-end">Labor</th>
+                @if(!empty($canManageCost))
+                  <th style="width:140px;" class="text-end">Labor Cost</th>
+                  <th style="width:140px;" class="text-end">Margin</th>
+                @endif
                 <th style="width:140px;" class="text-end">Line Total</th>
                 <th style="width:1%"></th>
               </tr>
@@ -247,6 +263,7 @@
                   $laborSource = $line['labor_source'] ?? 'manual';
                   $laborBadge = $laborSource === 'master_item' ? ['I','bg-azure-lt'] : ($laborSource === 'master_project' ? ['P','bg-indigo-lt'] : ['M','bg-secondary-lt']);
                   $lineType = $line['line_type'] ?? 'product';
+                  $laborCostMissing = !empty($line['labor_cost_missing']);
                 @endphp
                 <tr class="bq-line" data-line-index="{{ $lIndex }}">
                   <td>
@@ -275,22 +292,9 @@
                                  placeholder="Cari item..."
                                  value="{{ $line['item_label'] ?? '' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_id]" class="bq-line-item-id" value="{{ $line['item_id'] ?? '' }}">
-                          <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_id]" class="bq-line-labor-id" value="{{ $line['labor_id'] ?? '' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_source]" class="bq-line-labor-source" value="{{ $line['labor_source'] ?? 'manual' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="{{ $line['labor_unit_cost_snapshot'] ?? 0 }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_override_reason]" class="bq-line-labor-reason" value="{{ $line['labor_override_reason'] ?? '' }}">
-                        </div>
-                      </div>
-                      <div class="row g-2 align-items-center mb-1">
-                        <div class="col-12">
-                          <div class="input-group input-group-sm">
-                            <span class="input-group-text">Labor</span>
-                            <input type="text"
-                                   name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_label]"
-                                   class="form-control form-control-sm bq-labor-search"
-                                   placeholder="Pilih labor..."
-                                   value="{{ $line['labor_label'] ?? '' }}">
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -334,6 +338,26 @@
                       </div>
                     </div>
                   </td>
+                  @if(!empty($canManageCost))
+                    <td>
+                      <input type="text"
+                             name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_cost_amount]"
+                             class="form-control text-end js-line-labor-cost"
+                             value="{{ $line['labor_cost_amount'] ?? '' }}"
+                             readonly>
+                      <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_cost_missing]" class="js-line-labor-cost-missing" value="{{ $laborCostMissing ? 1 : 0 }}">
+                      @if($laborCostMissing)
+                        <span class="badge bg-yellow-lt text-dark mt-1">Cost Missing</span>
+                      @endif
+                    </td>
+                    <td>
+                      <input type="text"
+                             name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_margin_amount]"
+                             class="form-control text-end js-line-labor-margin"
+                             value="{{ $line['labor_margin_amount'] ?? '' }}"
+                             readonly>
+                    </td>
+                  @endif
                   <td class="text-end"><span class="js-line-total">0</span></td>
                   <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line">Remove</button></td>
                 </tr>
@@ -460,12 +484,13 @@
   if (!sectionsEl) return;
 
   const ITEM_SEARCH_URL = @json(route('items.search', [], false));
-  const LABOR_SEARCH_URL = @json(route('labors.search', [], false));
   const LABOR_RATE_URL = @json(route('labor-rates.show', [], false));
   const LABOR_UPDATE_URL = @json(route('labor-rates.update', [], false));
   const CATALOG_SEARCH_URL = @json(route('bq-line-catalogs.search', [], false));
   const CAN_UPDATE_ITEM_LABOR = @json(auth()->user()?->hasAnyRole(['Admin','SuperAdmin','Finance']) ?? false);
   const CAN_UPDATE_PROJECT_LABOR = @json(auth()->user()?->hasAnyRole(['Admin','SuperAdmin','PM']) ?? false);
+  const SHOW_LABOR_COST = @json(!empty($canManageCost));
+  const REPRICE_LABOR_URL = @json(($quotation->exists ?? false) ? route('projects.quotations.reprice-labor', [$project, $quotation], false) : null);
 
   const termTable = document.getElementById('terms-table');
   const btnAddTerm = document.getElementById('btn-add-term');
@@ -699,8 +724,6 @@
     const sourceSel = row.querySelector('.bq-line-source');
     const searchInput = row.querySelector('.bq-item-search');
     const itemIdEl = row.querySelector('.bq-line-item-id');
-    const laborSearch = row.querySelector('.bq-labor-search');
-    const laborIdEl = row.querySelector('.bq-line-labor-id');
     const qtyEl = row.querySelector('input[name$="[qty]"]');
     const unitEl = row.querySelector('input[name$="[unit]"]');
     const laborEl = row.querySelector('.js-line-labor');
@@ -714,8 +737,6 @@
       itemControls?.classList.remove('d-none');
       if (sourceSel) sourceSel.disabled = false;
       if (searchInput) searchInput.disabled = false;
-      if (laborSearch) laborSearch.disabled = false;
-      initLaborPicker(laborSearch);
       updateMasterButtonVisibility(row);
       syncSourceRow(row);
     } else {
@@ -729,16 +750,7 @@
         searchInput.value = '';
         searchInput.disabled = true;
       }
-      if (laborSearch) {
-        if (laborSearch._laborTs) {
-          laborSearch._laborTs.destroy();
-          laborSearch._laborTs = null;
-        }
-        laborSearch.value = '';
-        laborSearch.disabled = true;
-      }
       if (itemIdEl) itemIdEl.value = '';
-      if (laborIdEl) laborIdEl.value = '';
       setLaborSource(row, 'manual');
       updateMasterButtonVisibility(row);
     }
@@ -883,6 +895,9 @@
       const lineType = getLineType(row);
       const matEl = row.querySelector('.js-line-material');
       const labEl = row.querySelector('.js-line-labor');
+      const costEl = row.querySelector('.js-line-labor-cost');
+      const marginEl = row.querySelector('.js-line-labor-margin');
+      const missingEl = row.querySelector('.js-line-labor-cost-missing');
       const totalEl = row.querySelector('.js-line-total');
 
       let mat = parseNumber(matEl?.value);
@@ -915,6 +930,16 @@
       }
 
       if (totalEl) totalEl.textContent = formatNumber(total);
+
+      if (costEl && marginEl) {
+        const missing = parseNumber(missingEl?.value || 0) === 1;
+        if (lineType === 'product' && !missing && costEl.value !== '') {
+          const cost = parseNumber(costEl.value);
+          marginEl.value = formatNumber(lab - cost);
+        } else {
+          marginEl.value = '';
+        }
+      }
     });
 
     document.querySelectorAll('.bq-section').forEach((section) => {
@@ -1002,8 +1027,6 @@
     const sourceType = data.source_type === 'project' ? 'project' : 'item';
     const itemLabel = escapeHtml(data.item_label || '');
     const itemId = escapeHtml(data.item_id || '');
-    const laborId = escapeHtml(data.labor_id || '');
-    const laborLabel = escapeHtml(data.labor_label || '');
     const qty = data.qty ?? 1;
     const unit = escapeHtml(data.unit || 'LS');
     const unitPrice = data.unit_price ?? 0;
@@ -1012,6 +1035,9 @@
     const laborSource = data.labor_source || 'manual';
     const laborUnit = data.labor_unit_cost_snapshot ?? 0;
     const laborReason = escapeHtml(data.labor_override_reason || '');
+    const laborCostAmount = data.labor_cost_amount ?? '';
+    const laborMarginAmount = data.labor_margin_amount ?? '';
+    const laborCostMissing = data.labor_cost_missing ? true : false;
     const lineType = data.line_type || 'product';
     const percentValue = data.percent_value ?? 0;
     const percentBasis = data.percent_basis || 'product_subtotal';
@@ -1051,22 +1077,9 @@
                        placeholder="Cari item..."
                        value="${itemLabel}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][item_id]" class="bq-line-item-id" value="${itemId}">
-                <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_id]" class="bq-line-labor-id" value="${laborId}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_source]" class="bq-line-labor-source" value="${laborSource}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="${laborUnit}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_override_reason]" class="bq-line-labor-reason" value="${laborReason}">
-              </div>
-            </div>
-            <div class="row g-2 align-items-center mb-1">
-              <div class="col-12">
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text">Labor</span>
-                  <input type="text"
-                         name="sections[${sIndex}][lines][${lIndex}][labor_label]"
-                         class="form-control form-control-sm bq-labor-search"
-                         placeholder="Pilih labor..."
-                         value="${laborLabel}">
-                </div>
               </div>
             </div>
           </div>
@@ -1110,6 +1123,23 @@
             </div>
           </div>
         </td>
+        ${SHOW_LABOR_COST ? `
+        <td>
+          <input type="text"
+                 name="sections[${sIndex}][lines][${lIndex}][labor_cost_amount]"
+                 class="form-control text-end js-line-labor-cost"
+                 value="${laborCostAmount}"
+                 readonly>
+          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_cost_missing]" class="js-line-labor-cost-missing" value="${laborCostMissing ? 1 : 0}">
+          ${laborCostMissing ? '<span class="badge bg-yellow-lt text-dark mt-1">Cost Missing</span>' : ''}
+        </td>
+        <td>
+          <input type="text"
+                 name="sections[${sIndex}][lines][${lIndex}][labor_margin_amount]"
+                 class="form-control text-end js-line-labor-margin"
+                 value="${laborMarginAmount}"
+                 readonly>
+        </td>` : ''}
         <td class="text-end"><span class="js-line-total">0</span></td>
         <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line">Remove</button></td>
       </tr>
@@ -1149,6 +1179,7 @@
                 <th style="width:120px;" class="text-end">Unit Price</th>
                 <th style="width:140px;" class="text-end">Material</th>
                 <th style="width:180px;" class="text-end">Labor</th>
+                ${SHOW_LABOR_COST ? '<th style="width:140px;" class="text-end">Labor Cost</th><th style="width:140px;" class="text-end">Margin</th>' : ''}
                 <th style="width:140px;" class="text-end">Line Total</th>
                 <th style="width:1%"></th>
               </tr>
@@ -1409,63 +1440,6 @@
     return `${ITEM_SEARCH_URL}?${params.toString()}`;
   };
 
-  const initLaborPicker = (input) => {
-    if (!input || !window.TomSelect) return;
-    if (input._laborTs) return;
-
-    const ts = new TomSelect(input, {
-      valueField: 'id',
-      labelField: 'name',
-      searchField: ['name', 'code'],
-      maxOptions: 200,
-      create: false,
-      persist: false,
-      dropdownParent: 'body',
-      preload: 'focus',
-      closeAfterSelect: true,
-      load(query, cb){
-        const params = new URLSearchParams();
-        params.set('q', query || '');
-        fetch(`${LABOR_SEARCH_URL}?${params.toString()}`, {
-          credentials: 'same-origin',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json',
-          },
-          cache: 'no-store',
-        })
-          .then(r => r.ok ? r.text() : '[]')
-          .then(t => {
-            const s = t.replace(/^\uFEFF/, '').trimStart();
-            let data = [];
-            try { data = JSON.parse(s); } catch (e) { cb([]); return; }
-            cb(Array.isArray(data) ? data : []);
-          })
-          .catch(() => cb([]));
-      },
-      render: {
-        option(d, esc) { return `<div>${esc(d.name || '')}</div>`; }
-      },
-      onChange(val){
-        const row = input.closest('.bq-line');
-        if (!row) return;
-        const laborIdEl = row.querySelector('.bq-line-labor-id');
-        if (!val) {
-          if (laborIdEl) laborIdEl.value = '';
-          return;
-        }
-        const data = this.options[val];
-        if (laborIdEl) laborIdEl.value = data?.id || '';
-      }
-    });
-
-    input._laborTs = ts;
-    ts.on('focus', () => {
-      ts.load('');
-      ts.open();
-    });
-  };
-
   const initItemPicker = (input, sourceType) => {
     if (!input || !window.TomSelect) return;
     const nextType = sourceType || 'item';
@@ -1613,6 +1587,33 @@
     syncCompanyTax();
     recalcTotals();
   });
+
+  const subContractorSelect = document.getElementById('bq-sub-contractor');
+  if (subContractorSelect && REPRICE_LABOR_URL) {
+    subContractorSelect.addEventListener('change', () => {
+      const selected = subContractorSelect.value;
+      if (!selected) return;
+      subContractorSelect.disabled = true;
+      const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+      fetch(REPRICE_LABOR_URL, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json',
+          ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+        },
+        body: JSON.stringify({ sub_contractor_id: selected }),
+      })
+        .then(r => r.ok ? r.json() : Promise.reject(r))
+        .then(() => window.location.reload())
+        .catch(() => {
+          alert('Gagal memperbarui labor cost.');
+          subContractorSelect.disabled = false;
+        });
+    });
+  }
 
   initItemPickers();
   recalcTotals();

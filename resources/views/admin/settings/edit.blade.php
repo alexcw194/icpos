@@ -114,6 +114,25 @@
 
       <hr class="my-4">
 
+      {{-- ================= BQ DEFAULTS ================= --}}
+      <h3 class="card-title mb-2">BQ Defaults</h3>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Default Sub-Contractor</label>
+          <select name="default_sub_contractor_id" class="form-select">
+            <option value="">-</option>
+            @foreach($subContractors ?? [] as $sc)
+              <option value="{{ $sc->id }}" @selected((string)($s['default_sub_contractor_id'] ?? '') === (string)$sc->id)>
+                {{ $sc->name }}
+              </option>
+            @endforeach
+          </select>
+          @error('default_sub_contractor_id')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+      </div>
+
+      <hr class="my-4">
+
       {{-- ================= MAIL (GLOBAL) ================= --}}
       <h3 class="card-title mb-2">Email / SMTP (Global)</h3>
       <div class="row g-3">

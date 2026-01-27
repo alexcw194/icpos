@@ -8,24 +8,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class LaborCost extends Model
 {
     protected $fillable = [
-        'labor_id',
         'sub_contractor_id',
+        'item_id',
+        'context',
         'cost_amount',
-        'is_active',
     ];
 
     protected $casts = [
         'cost_amount' => 'decimal:2',
-        'is_active' => 'boolean',
     ];
-
-    public function labor(): BelongsTo
-    {
-        return $this->belongsTo(Labor::class);
-    }
 
     public function subContractor(): BelongsTo
     {
         return $this->belongsTo(SubContractor::class, 'sub_contractor_id');
+    }
+
+    public function item(): BelongsTo
+    {
+        return $this->belongsTo(Item::class, 'item_id');
     }
 }
