@@ -505,7 +505,14 @@
 
   const parseNumber = (val) => {
     if (val === null || val === undefined) return 0;
-    const s = String(val).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
+    if (typeof val === 'number') return Number.isNaN(val) ? 0 : val;
+    let s = String(val).trim();
+    if (!s) return 0;
+    if (s.includes(',')) {
+      s = s.replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
+    } else {
+      s = s.replace(/[^0-9.-]/g, '');
+    }
     const n = parseFloat(s);
     return Number.isNaN(n) ? 0 : n;
   };
