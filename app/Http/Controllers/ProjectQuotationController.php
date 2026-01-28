@@ -208,8 +208,8 @@ class ProjectQuotationController extends Controller
                     'label' => $term['label'] ?? ($term['code'] ?? 'DP'),
                     'percent' => Number::idToFloat($term['percent'] ?? 0),
                     'due_trigger' => $this->normalizePaymentTermTrigger($term['due_trigger'] ?? null),
-                    'offset_days' => $term['offset_days'] ?? null,
-                    'day_of_month' => $term['day_of_month'] ?? null,
+                    'offset_days' => $this->normalizeOffsetDays($term['offset_days'] ?? null),
+                    'day_of_month' => $this->normalizeDayOfMonth($term['day_of_month'] ?? null),
                     'sequence' => (int) ($term['sequence'] ?? ($pIndex + 1)),
                     'trigger_note' => $term['trigger_note'] ?? null,
                 ]);
@@ -392,8 +392,8 @@ class ProjectQuotationController extends Controller
                     'label' => $term['label'] ?? ($term['code'] ?? 'DP'),
                     'percent' => Number::idToFloat($term['percent'] ?? 0),
                     'due_trigger' => $this->normalizePaymentTermTrigger($term['due_trigger'] ?? null),
-                    'offset_days' => $term['offset_days'] ?? null,
-                    'day_of_month' => $term['day_of_month'] ?? null,
+                    'offset_days' => $this->normalizeOffsetDays($term['offset_days'] ?? null),
+                    'day_of_month' => $this->normalizeDayOfMonth($term['day_of_month'] ?? null),
                     'sequence' => (int) ($term['sequence'] ?? ($pIndex + 1)),
                     'trigger_note' => $term['trigger_note'] ?? null,
                 ]);
@@ -590,7 +590,7 @@ class ProjectQuotationController extends Controller
             'payment_terms.*.trigger_note' => ['nullable', 'string', 'max:190'],
             'payment_terms.*.due_trigger' => ['nullable', Rule::in(self::PAYMENT_TERM_TRIGGERS)],
             'payment_terms.*.offset_days' => ['nullable', 'integer', 'min:0'],
-            'payment_terms.*.day_of_month' => ['nullable', 'integer', 'min:1', 'max:31'],
+            'payment_terms.*.day_of_month' => ['nullable', 'integer', 'min:1', 'max:28'],
 
             'sections' => ['required', 'array', 'min:1'],
             'sections.*.name' => ['required', 'string', 'max:190'],
@@ -615,6 +615,8 @@ class ProjectQuotationController extends Controller
             'sections.*.lines.*.labor_source' => ['nullable', 'in:master_item,master_project,manual'],
             'sections.*.lines.*.labor_unit_cost_snapshot' => ['nullable', 'numeric', 'min:0'],
         ]);
+
+        $this->validatePaymentTermSchedules($data['payment_terms'] ?? []);
 
         foreach (($data['sections'] ?? []) as $sIndex => $section) {
             foreach (($section['lines'] ?? []) as $lIndex => $line) {
@@ -730,6 +732,55 @@ class ProjectQuotationController extends Controller
         }
     }
 
+    private function validatePaymentTermSchedules(array $terms): void
+    {
+        foreach ($terms as $idx => $term) {
+            $trigger = $this->normalizePaymentTermTrigger($term['due_trigger'] ?? null);
+            $offset = $this->normalizeOffsetDays($term['offset_days'] ?? null);
+            $day = $this->normalizeDayOfMonth($term['day_of_month'] ?? null);
+
+            if (in_array($trigger, ['after_invoice_days', 'after_delivery_days'], true)) {
+                if ($offset === null) {
+                    throw ValidationException::withMessages([
+                        "payment_terms.$idx.offset_days" => 'Offset Days wajib diisi.',
+                    ]);
+                }
+                if ($day !== null) {
+                    throw ValidationException::withMessages([
+                        "payment_terms.$idx.day_of_month" => 'Day of Month tidak boleh diisi untuk schedule ini.',
+                    ]);
+                }
+            } elseif (in_array($trigger, ['eom_day', 'next_month_day'], true)) {
+                if ($day === null) {
+                    throw ValidationException::withMessages([
+                        "payment_terms.$idx.day_of_month" => 'Day of Month wajib diisi.',
+                    ]);
+                }
+                if ($day < 1 || $day > 28) {
+                    throw ValidationException::withMessages([
+                        "payment_terms.$idx.day_of_month" => 'Day of Month harus 1-28.',
+                    ]);
+                }
+                if ($offset !== null) {
+                    throw ValidationException::withMessages([
+                        "payment_terms.$idx.offset_days" => 'Offset Days tidak boleh diisi untuk schedule ini.',
+                    ]);
+                }
+            } elseif (in_array($trigger, ['on_invoice', 'on_delivery'], true)) {
+                if ($offset !== null) {
+                    throw ValidationException::withMessages([
+                        "payment_terms.$idx.offset_days" => 'Offset Days tidak boleh diisi untuk schedule ini.',
+                    ]);
+                }
+                if ($day !== null) {
+                    throw ValidationException::withMessages([
+                        "payment_terms.$idx.day_of_month" => 'Day of Month tidak boleh diisi untuk schedule ini.',
+                    ]);
+                }
+            }
+        }
+    }
+
     private function normalizePaymentTermTrigger(?string $trigger): ?string
     {
         $trigger = trim((string) ($trigger ?? ''));
@@ -743,6 +794,22 @@ class ProjectQuotationController extends Controller
             return 'next_month_day';
         }
         return $trigger;
+    }
+
+    private function normalizeOffsetDays($value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        return (int) $value;
+    }
+
+    private function normalizeDayOfMonth($value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        return (int) $value;
     }
 
     private function brandSnapshot(Company $company): array

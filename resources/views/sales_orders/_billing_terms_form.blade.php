@@ -76,15 +76,15 @@
               @endif
             </td>
             <td>
-              <input type="text" name="billing_terms[{{ $i }}][offset_days]" class="form-control form-control-sm text-end js-term-offset"
-                     value="{{ $term['offset_days'] ?? '' }}" @disabled($locked)>
+              <input type="number" name="billing_terms[{{ $i }}][offset_days]" class="form-control form-control-sm text-end js-term-offset"
+                     value="{{ $term['offset_days'] ?? '' }}" min="0" inputmode="numeric" placeholder="e.g. 14" @disabled($locked)>
               @if($locked)
                 <input type="hidden" name="billing_terms[{{ $i }}][offset_days]" value="{{ $term['offset_days'] ?? '' }}">
               @endif
             </td>
             <td>
-              <input type="text" name="billing_terms[{{ $i }}][day_of_month]" class="form-control form-control-sm text-end js-term-day"
-                     value="{{ $term['day_of_month'] ?? '' }}" @disabled($locked)>
+              <input type="number" name="billing_terms[{{ $i }}][day_of_month]" class="form-control form-control-sm text-end js-term-day"
+                     value="{{ $term['day_of_month'] ?? '' }}" min="1" max="28" inputmode="numeric" placeholder="e.g. 20" @disabled($locked)>
               @if($locked)
                 <input type="hidden" name="billing_terms[{{ $i }}][day_of_month]" value="{{ $term['day_of_month'] ?? '' }}">
               @endif
@@ -145,10 +145,10 @@
       </select>
     </td>
     <td>
-      <input type="text" name="billing_terms[__IDX__][offset_days]" class="form-control form-control-sm text-end js-term-offset" value="">
+      <input type="number" name="billing_terms[__IDX__][offset_days]" class="form-control form-control-sm text-end js-term-offset" value="" min="0" inputmode="numeric" placeholder="e.g. 14">
     </td>
     <td>
-      <input type="text" name="billing_terms[__IDX__][day_of_month]" class="form-control form-control-sm text-end js-term-day" value="">
+      <input type="number" name="billing_terms[__IDX__][day_of_month]" class="form-control form-control-sm text-end js-term-day" value="" min="1" max="28" inputmode="numeric" placeholder="e.g. 20">
     </td>
     <td>
       <input type="text" name="billing_terms[__IDX__][note]" class="form-control form-control-sm" value="">
@@ -207,14 +207,33 @@
   const updateScheduleVisibility = (row) => {
     if (!row) return;
     const trigger = row.querySelector('.js-term-trigger')?.value || '';
-    const offsetTd = row.querySelector('.js-term-offset')?.closest('td');
-    const dayTd = row.querySelector('.js-term-day')?.closest('td');
+    const offsetInput = row.querySelector('.js-term-offset');
+    const dayInput = row.querySelector('.js-term-day');
+    const offsetTd = offsetInput?.closest('td');
+    const dayTd = dayInput?.closest('td');
 
     const showOffset = ['after_invoice_days', 'after_delivery_days'].includes(trigger);
     const showDay = ['eom_day', 'next_month_day'].includes(trigger);
 
     if (offsetTd) offsetTd.style.display = showOffset ? '' : 'none';
     if (dayTd) dayTd.style.display = showDay ? '' : 'none';
+
+    if (offsetInput) {
+      if (showOffset) {
+        offsetInput.disabled = false;
+      } else {
+        offsetInput.value = '';
+        offsetInput.disabled = true;
+      }
+    }
+    if (dayInput) {
+      if (showDay) {
+        dayInput.disabled = false;
+      } else {
+        dayInput.value = '';
+        dayInput.disabled = true;
+      }
+    }
   };
 
   const applyScheduleVisibility = () => {

@@ -151,7 +151,7 @@ class SalesOrderController extends Controller
             'billing_terms.*.note' => ['nullable','string','max:190'],
             'billing_terms.*.due_trigger' => ['nullable', Rule::in(self::BILLING_DUE_TRIGGERS)],
             'billing_terms.*.offset_days' => ['nullable','integer','min:0'],
-            'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:31'],
+            'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:28'],
 
             'lines'               => ['required','array','min:1'],
             'lines.*.name'        => ['required','string'],
@@ -493,7 +493,7 @@ class SalesOrderController extends Controller
             'billing_terms.*.note' => ['nullable','string','max:190'],
             'billing_terms.*.due_trigger' => ['nullable', Rule::in(self::BILLING_DUE_TRIGGERS)],
             'billing_terms.*.offset_days' => ['nullable','integer','min:0'],
-            'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:31'],
+            'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:28'],
 
             'lines' => ['required','array','min:1'],
             'lines.*.id'             => ['nullable','integer'],
@@ -864,7 +864,7 @@ class SalesOrderController extends Controller
             'billing_terms.*.note' => ['nullable','string','max:190'],
             'billing_terms.*.due_trigger' => ['nullable', Rule::in(self::BILLING_DUE_TRIGGERS)],
             'billing_terms.*.offset_days' => ['nullable','integer','min:0'],
-            'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:31'],
+            'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:28'],
 
             'draft_token'    => ['nullable','string','max:64'],
         ]);
@@ -1145,6 +1145,47 @@ class SalesOrderController extends Controller
             }
             $offsetDays = $term['offset_days'] ?? null;
             $dayOfMonth = $term['day_of_month'] ?? null;
+            $offsetDays = $offsetDays !== '' && $offsetDays !== null ? (int) $offsetDays : null;
+            $dayOfMonth = $dayOfMonth !== '' && $dayOfMonth !== null ? (int) $dayOfMonth : null;
+            if (in_array($dueTrigger, ['after_invoice_days', 'after_delivery_days'], true)) {
+                if ($offsetDays === null) {
+                    throw ValidationException::withMessages([
+                        "billing_terms.$idx.offset_days" => 'Offset Days wajib diisi.',
+                    ]);
+                }
+                if ($dayOfMonth !== null) {
+                    throw ValidationException::withMessages([
+                        "billing_terms.$idx.day_of_month" => 'Day of Month tidak boleh diisi untuk schedule ini.',
+                    ]);
+                }
+            } elseif (in_array($dueTrigger, ['eom_day', 'next_month_day'], true)) {
+                if ($dayOfMonth === null) {
+                    throw ValidationException::withMessages([
+                        "billing_terms.$idx.day_of_month" => 'Day of Month wajib diisi.',
+                    ]);
+                }
+                if ($dayOfMonth < 1 || $dayOfMonth > 28) {
+                    throw ValidationException::withMessages([
+                        "billing_terms.$idx.day_of_month" => 'Day of Month harus 1-28.',
+                    ]);
+                }
+                if ($offsetDays !== null) {
+                    throw ValidationException::withMessages([
+                        "billing_terms.$idx.offset_days" => 'Offset Days tidak boleh diisi untuk schedule ini.',
+                    ]);
+                }
+            } elseif (in_array($dueTrigger, ['on_invoice', 'on_delivery'], true)) {
+                if ($offsetDays !== null) {
+                    throw ValidationException::withMessages([
+                        "billing_terms.$idx.offset_days" => 'Offset Days tidak boleh diisi untuk schedule ini.',
+                    ]);
+                }
+                if ($dayOfMonth !== null) {
+                    throw ValidationException::withMessages([
+                        "billing_terms.$idx.day_of_month" => 'Day of Month tidak boleh diisi untuk schedule ini.',
+                    ]);
+                }
+            }
 
             $clean[] = [
                 'seq' => $idx + 1,
@@ -1152,8 +1193,8 @@ class SalesOrderController extends Controller
                 'percent' => $percent,
                 'note' => $note !== '' ? $note : null,
                 'due_trigger' => $dueTrigger !== '' ? $dueTrigger : null,
-                'offset_days' => $offsetDays !== '' ? (int) $offsetDays : null,
-                'day_of_month' => $dayOfMonth !== '' ? (int) $dayOfMonth : null,
+                'offset_days' => $offsetDays,
+                'day_of_month' => $dayOfMonth,
                 'status' => 'planned',
             ];
         }

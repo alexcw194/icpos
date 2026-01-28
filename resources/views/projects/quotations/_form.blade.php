@@ -236,10 +236,10 @@
               </select>
             </td>
             <td>
-              <input type="text" name="payment_terms[{{ $i }}][offset_days]" class="form-control text-end js-term-offset" value="{{ $term['offset_days'] ?? '' }}">
+              <input type="number" name="payment_terms[{{ $i }}][offset_days]" class="form-control text-end js-term-offset" value="{{ $term['offset_days'] ?? '' }}" min="0" inputmode="numeric" placeholder="e.g. 14">
             </td>
             <td>
-              <input type="text" name="payment_terms[{{ $i }}][day_of_month]" class="form-control text-end js-term-day" value="{{ $term['day_of_month'] ?? '' }}">
+              <input type="number" name="payment_terms[{{ $i }}][day_of_month]" class="form-control text-end js-term-day" value="{{ $term['day_of_month'] ?? '' }}" min="1" max="28" inputmode="numeric" placeholder="e.g. 20">
             </td>
             <td>
               <input type="text" name="payment_terms[{{ $i }}][trigger_note]" class="form-control" value="{{ $term['trigger_note'] ?? '' }}">
@@ -1211,8 +1211,8 @@
             <option value="next_month_day">Next Month Day</option>
           </select>
         </td>
-        <td><input type="text" name="payment_terms[${idx}][offset_days]" class="form-control text-end js-term-offset" value=""></td>
-        <td><input type="text" name="payment_terms[${idx}][day_of_month]" class="form-control text-end js-term-day" value=""></td>
+        <td><input type="number" name="payment_terms[${idx}][offset_days]" class="form-control text-end js-term-offset" value="" min="0" inputmode="numeric" placeholder="e.g. 14"></td>
+        <td><input type="number" name="payment_terms[${idx}][day_of_month]" class="form-control text-end js-term-day" value="" min="1" max="28" inputmode="numeric" placeholder="e.g. 20"></td>
         <td><input type="text" name="payment_terms[${idx}][trigger_note]" class="form-control"></td>
         <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-term">Remove</button></td>
       </tr>
@@ -1241,14 +1241,33 @@
   const updateTermScheduleVisibility = (row) => {
     if (!row) return;
     const trigger = row.querySelector('.js-term-trigger')?.value || '';
-    const offsetTd = row.querySelector('.js-term-offset')?.closest('td');
-    const dayTd = row.querySelector('.js-term-day')?.closest('td');
+    const offsetInput = row.querySelector('.js-term-offset');
+    const dayInput = row.querySelector('.js-term-day');
+    const offsetTd = offsetInput?.closest('td');
+    const dayTd = dayInput?.closest('td');
 
     const showOffset = ['after_invoice_days', 'after_delivery_days'].includes(trigger);
     const showDay = ['eom_day', 'next_month_day'].includes(trigger);
 
     if (offsetTd) offsetTd.style.display = showOffset ? '' : 'none';
     if (dayTd) dayTd.style.display = showDay ? '' : 'none';
+
+    if (offsetInput) {
+      if (showOffset) {
+        offsetInput.disabled = false;
+      } else {
+        offsetInput.value = '';
+        offsetInput.disabled = true;
+      }
+    }
+    if (dayInput) {
+      if (showDay) {
+        dayInput.disabled = false;
+      } else {
+        dayInput.value = '';
+        dayInput.disabled = true;
+      }
+    }
   };
 
   const applyTermScheduleVisibility = () => {
