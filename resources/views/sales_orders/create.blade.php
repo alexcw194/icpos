@@ -151,10 +151,10 @@
                 if (!empty($pt->description)) { $label .= ' — '.$pt->description; }
                 $applies = is_array($pt->applicable_to ?? null) ? implode(',', $pt->applicable_to) : '';
               @endphp
-              <option value="{{ $pt->id }}" data-applicable="{{ $applies }}"
-                @selected((string)old('payment_term_id') === (string)$pt->id)>
-                {{ $label }}
-              </option>
+            <option value="{{ $pt->id }}" data-applicable="{{ $applies }}"
+                @selected((string)old('payment_term_id', $defaultPaymentTermId ?? null) === (string)$pt->id)>
+              {{ $label }}
+            </option>
             @endforeach
           </select>
         </div>

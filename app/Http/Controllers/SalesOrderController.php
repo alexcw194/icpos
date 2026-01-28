@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use App\Services\DocNumberService;
+use App\Services\PaymentTermEngine;
 use App\Http\Controllers\SalesOrderAttachmentController as SOAtt;
 
 class SalesOrderController extends Controller
@@ -45,6 +46,7 @@ class SalesOrderController extends Controller
             ->with('schedules')
             ->orderBy('code')
             ->get(['id','code','description','is_active','applicable_to']);
+        $defaultPaymentTermId = $this->defaultPaymentTermIdFor(old('po_type', 'goods'));
 
         $npwpRequired = (bool) ($quotation->company->require_npwp_on_so ?? false);
         $cust = $quotation->customer;
@@ -59,7 +61,7 @@ class SalesOrderController extends Controller
 
         // ⚠️ TIDAK ADA SalesOrder::create DI SINI
         return view('sales_orders.create_from_quotation', compact(
-            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items', 'projects', 'topOptions', 'paymentTerms'
+            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items', 'projects', 'topOptions', 'paymentTerms', 'defaultPaymentTermId'
         ));
     }
 
@@ -79,6 +81,7 @@ class SalesOrderController extends Controller
             ->with('schedules')
             ->orderBy('code')
             ->get(['id','code','description','is_active','applicable_to']);
+        $defaultPaymentTermId = $this->defaultPaymentTermIdFor(old('po_type', 'goods'));
         // tambahkan is_default ke select
         $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent','is_default']);
         $sales     = User::orderBy('name')->get(['id','name']);
@@ -104,6 +107,7 @@ class SalesOrderController extends Controller
             'projects'           => $projects,
             'topOptions'         => $topOptions,
             'paymentTerms'       => $paymentTerms,
+            'defaultPaymentTermId' => $defaultPaymentTermId,
             'companies'          => $companies,
             'sales'              => $sales,
             'selectedCompanyId'  => $selectedCompanyId, // dipakai di <select name="company_id">
@@ -187,6 +191,21 @@ class SalesOrderController extends Controller
         if (($data['po_type'] ?? 'goods') === 'project' && !$projectId && !$projectName) {
             return back()
                 ->withErrors(['project_name' => 'Project wajib diisi (pilih Project atau isi Project Name).'])
+                ->withInput();
+        }
+        if (($data['po_type'] ?? 'goods') === 'goods' && !$paymentTermId) {
+            return back()
+                ->withErrors(['payment_term_id' => 'Payment Term wajib untuk Goods.'])
+                ->withInput();
+        }
+        if (($data['po_type'] ?? 'goods') === 'goods' && !$paymentTermId) {
+            return back()
+                ->withErrors(['payment_term_id' => 'Payment Term wajib untuk Goods.'])
+                ->withInput();
+        }
+        if (($data['po_type'] ?? 'goods') === 'goods' && !$paymentTermId) {
+            return back()
+                ->withErrors(['payment_term_id' => 'Payment Term wajib untuk Goods.'])
                 ->withInput();
         }
 
@@ -351,6 +370,12 @@ class SalesOrderController extends Controller
             if (method_exists(\App\Http\Controllers\SalesOrderAttachmentController::class, 'attachFromDraft')) {
                 \App\Http\Controllers\SalesOrderAttachmentController::attachFromDraft($data['draft_token'], $so);
             }
+        }
+
+        if ($so && $so->payment_term_snapshot) {
+            app(PaymentTermEngine::class)->handle($so, 'so_confirmed', [
+                'so_date' => $so->order_date ?? now()->toDateString(),
+            ]);
         }
 
         // ✅ HABISKAN TOKEN SESSION DI SINI
@@ -1059,6 +1084,12 @@ class SalesOrderController extends Controller
             return response()->json(['ok' => true, 'id' => $so->id, 'number' => $so->so_number]);
         }
 
+        if ($so && $so->payment_term_snapshot) {
+            app(PaymentTermEngine::class)->handle($so, 'so_confirmed', [
+                'so_date' => $so->order_date ?? now()->toDateString(),
+            ]);
+        }
+
         session()->forget('so_draft_token');
 
         return redirect()->route('sales-orders.show', $so)
@@ -1153,6 +1184,26 @@ class SalesOrderController extends Controller
         }
 
         return $clean;
+    }
+
+    private function defaultPaymentTermIdFor(string $poType): ?int
+    {
+        $poType = $poType ?: 'goods';
+        if ($poType === 'goods') {
+            $id = TermOfPayment::where('code', 'DP50_BALANCE_ON_DELIVERY')->value('id');
+            if ($id) return (int) $id;
+        }
+
+        $row = TermOfPayment::query()
+            ->where('is_active', true)
+            ->get(['id','applicable_to'])
+            ->first(function ($term) use ($poType) {
+                $applies = $term->applicable_to;
+                if (!is_array($applies) || count($applies) === 0) return true;
+                return in_array($poType, $applies, true);
+            });
+
+        return $row?->id ? (int) $row->id : null;
     }
 
     private function termMatchesPoType(TermOfPayment $term, string $poType): bool
