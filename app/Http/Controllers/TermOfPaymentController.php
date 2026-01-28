@@ -41,7 +41,7 @@ class TermOfPaymentController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'code' => ['required', 'string', 'max:16', 'unique:term_of_payments,code'],
+            'code' => ['required', 'string', 'max:64', 'unique:term_of_payments,code'],
             'description' => ['nullable', 'string', 'max:255'],
             'is_active' => ['nullable', 'boolean'],
             'applicable_to' => ['nullable', 'array'],

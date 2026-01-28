@@ -11,6 +11,27 @@ return new class extends Migration {
             return;
         }
 
+        // Ensure code column length supports template codes
+        try {
+            DB::statement("ALTER TABLE `term_of_payments` MODIFY `code` VARCHAR(64)");
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        // Adjust SO billing term code length + FK
+        if (Schema::hasTable('so_billing_terms')) {
+            try { DB::statement("ALTER TABLE `so_billing_terms` DROP FOREIGN KEY `so_billing_terms_top_code_foreign`"); } catch (\Throwable $e) {}
+            try { DB::statement("ALTER TABLE `so_billing_terms` MODIFY `top_code` VARCHAR(64)"); } catch (\Throwable $e) {}
+            try {
+                DB::statement("ALTER TABLE `so_billing_terms` ADD CONSTRAINT `so_billing_terms_top_code_foreign` FOREIGN KEY (`top_code`) REFERENCES `term_of_payments`(`code`) ON UPDATE CASCADE ON DELETE RESTRICT");
+            } catch (\Throwable $e) {}
+        }
+
+        // Adjust project quotation payment terms (if exists)
+        if (Schema::hasTable('project_quotation_payment_terms')) {
+            try { DB::statement("ALTER TABLE `project_quotation_payment_terms` MODIFY `code` VARCHAR(64)"); } catch (\Throwable $e) {}
+        }
+
         $now = now();
         $templates = [
             [

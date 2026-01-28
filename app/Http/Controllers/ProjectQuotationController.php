@@ -563,7 +563,7 @@ class ProjectQuotationController extends Controller
             'sales_owner_user_id' => ['required', 'exists:users,id'],
 
             'payment_terms' => ['required', 'array', 'min:1'],
-            'payment_terms.*.code' => ['required', 'string', 'max:16', 'exists:term_of_payments,code'],
+            'payment_terms.*.code' => ['required', 'string', 'max:64', 'exists:term_of_payments,code'],
             'payment_terms.*.label' => ['nullable', 'string', 'max:50'],
             'payment_terms.*.percent' => ['nullable', 'numeric', 'min:0'],
             'payment_terms.*.sequence' => ['nullable', 'integer', 'min:0'],

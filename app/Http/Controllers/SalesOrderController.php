@@ -144,7 +144,7 @@ class SalesOrderController extends Controller
             'total_discount_value' => ['nullable','string'],
 
             'billing_terms' => ['required','array','min:1'],
-            'billing_terms.*.top_code' => ['required','string','max:16'],
+            'billing_terms.*.top_code' => ['required','string','max:64'],
             'billing_terms.*.percent' => ['required','string'],
             'billing_terms.*.note' => ['nullable','string','max:190'],
 
@@ -518,7 +518,7 @@ class SalesOrderController extends Controller
             'tax_percent' => ['required','string'],
 
             'billing_terms' => ['required','array','min:1'],
-            'billing_terms.*.top_code' => ['required','string','max:16'],
+            'billing_terms.*.top_code' => ['required','string','max:64'],
             'billing_terms.*.percent' => ['required','string'],
             'billing_terms.*.note' => ['nullable','string','max:190'],
 
@@ -876,7 +876,7 @@ class SalesOrderController extends Controller
             'tax_percent'    => ['nullable','numeric','min:0'],
 
             'billing_terms' => ['required','array','min:1'],
-            'billing_terms.*.top_code' => ['required','string','max:16'],
+            'billing_terms.*.top_code' => ['required','string','max:64'],
             'billing_terms.*.percent' => ['required','string'],
             'billing_terms.*.note' => ['nullable','string','max:190'],
 
