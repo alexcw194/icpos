@@ -1372,6 +1372,12 @@
     if (target.matches('input[name$="[qty]"]')) {
       const row = target.closest('.bq-line');
       if (row) {
+        const lineType = getLineType(row);
+        if (lineType !== 'percent') {
+          const price = parseNumber(row.querySelector('.js-line-unit-price')?.value);
+          const materialEl = row.querySelector('.js-line-material');
+          if (materialEl) materialEl.value = formatNumber(parseNumber(target.value) * price);
+        }
         const source = getLaborSource(row);
         const unitSnapshot = parseNumber(row.querySelector('.bq-line-labor-unit')?.value);
         if (source !== 'manual' && unitSnapshot > 0) {
