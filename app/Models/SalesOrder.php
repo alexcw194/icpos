@@ -15,6 +15,7 @@ class SalesOrder extends Model
         'so_number','order_date',
         'customer_po_number','customer_po_date','deadline',
         'po_type',
+        'payment_term_id','payment_term_snapshot',
         'project_id','project_name',
         'ship_to','bill_to','notes',
         'private_notes','under_amount',
@@ -52,6 +53,7 @@ class SalesOrder extends Model
 
         // snapshot
         'brand_snapshot' => 'array',
+        'payment_term_snapshot' => 'array',
     ];
 
     /**
@@ -106,6 +108,7 @@ class SalesOrder extends Model
     public function quotation(): BelongsTo { return $this->belongsTo(Quotation::class); }
     public function salesUser(): BelongsTo { return $this->belongsTo(User::class, 'sales_user_id'); }
     public function project(): BelongsTo   { return $this->belongsTo(Project::class); }
+    public function paymentTerm(): BelongsTo { return $this->belongsTo(TermOfPayment::class, 'payment_term_id'); }
 
     public function lines(): HasMany
     {

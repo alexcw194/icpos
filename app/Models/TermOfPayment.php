@@ -8,6 +8,7 @@ class TermOfPayment extends Model
 {
     public const ALLOWED_CODES = [
         'DP', 'T1', 'T2', 'T3', 'T4', 'T5', 'FINISH', 'R1', 'R2', 'R3',
+        'DP50_BALANCE_ON_DELIVERY', 'NET14', 'NET30', 'NET45', 'EOM20',
     ];
 
     protected $fillable = [

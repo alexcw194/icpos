@@ -74,6 +74,45 @@
                  value="{{ old('deadline', optional($so->deadline)->format('Y-m-d')) }}">
         </div>
 
+        <div class="col-md-6">
+          <label class="form-label">Payment Term (TOP)</label>
+          <select name="payment_term_id" id="payment_term_id" class="form-select">
+            <option value="">-- pilih --</option>
+            @foreach($paymentTerms as $pt)
+              @php
+                $label = $pt->code;
+                if (!empty($pt->description)) { $label .= ' — '.$pt->description; }
+                $applies = is_array($pt->applicable_to ?? null) ? implode(',', $pt->applicable_to) : '';
+              @endphp
+              <option value="{{ $pt->id }}" data-applicable="{{ $applies }}"
+                @selected((string)old('payment_term_id', $so->payment_term_id) === (string)$pt->id)>
+                {{ $label }}
+              </option>
+            @endforeach
+          </select>
+        </div>
+
+        <div class="col-12">
+          <div class="border rounded p-2">
+            <div class="text-muted mb-1">Payment Schedule Preview</div>
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th style="width:60px;">Seq</th>
+                    <th style="width:160px;">Portion</th>
+                    <th style="width:220px;">Trigger</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="payment-schedule-preview">
+                  <tr id="payment-schedule-empty"><td colspan="4" class="text-muted">Pilih Payment Term untuk melihat schedule.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         {{-- PROJECT INFO (conditional) --}}
         <div class="col-12" id="projectSection" data-project-section>
           <div class="row g-3">
@@ -460,6 +499,9 @@
   window.SO_ITEM_OPTIONS = @json($ITEM_OPTIONS);
   // ⬇️ Tambahan: kirim map id→label ke JS
   window.SO_ITEM_LABELS  = @json($ITEM_LABELS);
+  window.SO_PAYMENT_TERMS = @json($paymentTerms);
+  const paymentTermSnapshot = @json($so->payment_term_snapshot);
+  const currentPaymentTermId = @json($so->payment_term_id);
   const soId       = @json($so->id);   // <— ini penting
   const draftToken = (document.getElementById('draft_token')||{}).value || ''; // boleh tidak ada
   const csrf       = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -474,6 +516,10 @@
   const stageWrap = document.getElementById('stageWrap');
   const scopeActions = document.getElementById('scopeLineActions');
   const scopeAddBtn = document.getElementById('scope_add_btn');
+  const paymentTermSelect = document.getElementById('payment_term_id');
+  const scheduleBody = document.getElementById('payment-schedule-preview');
+  const paymentTerms = Array.isArray(window.SO_PAYMENT_TERMS) ? window.SO_PAYMENT_TERMS : [];
+  const paymentTermMap = new Map(paymentTerms.map((t) => [String(t.id), t]));
 
   function toggleProjectSection() {
     if (!projectSection) return;
@@ -525,6 +571,8 @@
     });
 
     recalc();
+    filterPaymentTermOptions();
+    updateSchedulePreview();
   }
 
   poTypeSelect?.addEventListener('change', () => {
@@ -532,6 +580,60 @@
     applyPoTypeRules();
   });
   toggleProjectSection();
+
+  function filterPaymentTermOptions() {
+    if (!paymentTermSelect) return;
+    const type = poTypeSelect?.value || 'goods';
+    Array.from(paymentTermSelect.options).forEach((opt) => {
+      if (!opt.value) return;
+      const raw = (opt.dataset.applicable || '').trim();
+      if (!raw) {
+        opt.disabled = false;
+        opt.hidden = false;
+        return;
+      }
+      const allowed = raw.split(',').map((v) => v.trim()).filter(Boolean);
+      const ok = allowed.includes(type);
+      opt.disabled = !ok;
+      opt.hidden = !ok;
+      if (!ok && opt.selected) opt.selected = false;
+    });
+  }
+
+  function formatTrigger(tr, row) {
+    switch (tr) {
+      case 'on_so': return 'On SO';
+      case 'on_delivery': return 'On Delivery';
+      case 'on_invoice': return 'On Invoice';
+      case 'after_invoice_days': return `After Invoice +${row.offset_days ?? 0} days`;
+      case 'end_of_month': return `End of Month day ${row.specific_day ?? 1}`;
+      default: return tr || '-';
+    }
+  }
+
+  function updateSchedulePreview() {
+    if (!scheduleBody) return;
+    const id = paymentTermSelect?.value || '';
+    let rows = [];
+    if (paymentTermSnapshot && String(id) === String(currentPaymentTermId)) {
+      rows = Array.isArray(paymentTermSnapshot.schedules) ? paymentTermSnapshot.schedules : [];
+    } else {
+      const term = paymentTermMap.get(String(id));
+      rows = Array.isArray(term?.schedules) ? term.schedules : [];
+    }
+    if (!id || rows.length === 0) {
+      scheduleBody.innerHTML = '<tr id="payment-schedule-empty"><td colspan="4" class="text-muted">Pilih Payment Term untuk melihat schedule.</td></tr>';
+      return;
+    }
+    scheduleBody.innerHTML = rows.map((row, idx) => {
+      const portion = row.portion_type === 'percent'
+        ? `${row.portion_value}%`
+        : rupiah(Number(row.portion_value || 0));
+      return `<tr>\n        <td>${row.sequence ?? (idx + 1)}</td>\n        <td>${portion}</td>\n        <td>${formatTrigger(row.due_trigger, row)}</td>\n        <td>${row.notes ?? ''}</td>\n      </tr>`;
+    }).join('');
+  }
+
+  paymentTermSelect?.addEventListener('change', updateSchedulePreview);
 
   function listUrl(){
     const base = @json(route('sales-orders.attachments.index'));

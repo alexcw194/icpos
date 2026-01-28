@@ -113,6 +113,46 @@
         </div>
       </div>
 
+      <div class="row g-3 mt-2">
+        <div class="col-md-6">
+          <label class="form-label">Payment Term (TOP)</label>
+          <select name="payment_term_id" id="payment_term_id" class="form-select">
+            <option value="">-- pilih --</option>
+            @foreach($paymentTerms as $pt)
+              @php
+                $label = $pt->code;
+                if (!empty($pt->description)) { $label .= ' — '.$pt->description; }
+                $applies = is_array($pt->applicable_to ?? null) ? implode(',', $pt->applicable_to) : '';
+              @endphp
+              <option value="{{ $pt->id }}" data-applicable="{{ $applies }}"
+                @selected((string)old('payment_term_id') === (string)$pt->id)>
+                {{ $label }}
+              </option>
+            @endforeach
+          </select>
+        </div>
+        <div class="col-12">
+          <div class="border rounded p-2">
+            <div class="text-muted mb-1">Payment Schedule Preview</div>
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th style="width:60px;">Seq</th>
+                    <th style="width:160px;">Portion</th>
+                    <th style="width:220px;">Trigger</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="payment-schedule-preview">
+                  <tr id="payment-schedule-empty"><td colspan="4" class="text-muted">Pilih Payment Term untuk melihat schedule.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="mb-3 mt-3"">
         <label class="form-label">Notes (Terms)</label>
         <textarea name="notes" class="form-control" rows="3">{{ old('notes') }}</textarea>
@@ -373,7 +413,7 @@
     ];
   })->values();
 @endphp
-<script> (function(){ window.SO_ITEM_OPTIONS = @json($ITEM_OPTIONS); })(); </script>
+<script> (function(){ window.SO_ITEM_OPTIONS = @json($ITEM_OPTIONS); window.SO_PAYMENT_TERMS = @json($paymentTerms); })(); </script>
 
 <script>
 (function () {
@@ -387,6 +427,10 @@
   const projectSection = document.querySelector('[data-project-section]');
   const stageWrap = document.getElementById('stageWrap');
   const scopeActions = document.getElementById('scopeLineActions');
+  const paymentTermSelect = document.getElementById('payment_term_id');
+  const scheduleBody = document.getElementById('payment-schedule-preview');
+  const paymentTerms = Array.isArray(window.SO_PAYMENT_TERMS) ? window.SO_PAYMENT_TERMS : [];
+  const paymentTermMap = new Map(paymentTerms.map((t) => [String(t.id), t]));
 
   function toggleProjectSection() {
     if (!projectSection) return;
@@ -438,6 +482,8 @@
     });
 
     recalc();
+    filterPaymentTermOptions();
+    updateSchedulePreview();
   }
 
   poTypeSelect?.addEventListener('change', () => {
@@ -445,6 +491,55 @@
     applyPoTypeRules();
   });
   toggleProjectSection();
+
+  function filterPaymentTermOptions() {
+    if (!paymentTermSelect) return;
+    const type = poTypeSelect?.value || 'goods';
+    Array.from(paymentTermSelect.options).forEach((opt) => {
+      if (!opt.value) return;
+      const raw = (opt.dataset.applicable || '').trim();
+      if (!raw) {
+        opt.disabled = false;
+        opt.hidden = false;
+        return;
+      }
+      const allowed = raw.split(',').map((v) => v.trim()).filter(Boolean);
+      const ok = allowed.includes(type);
+      opt.disabled = !ok;
+      opt.hidden = !ok;
+      if (!ok && opt.selected) opt.selected = false;
+    });
+  }
+
+  function formatTrigger(tr, row) {
+    switch (tr) {
+      case 'on_so': return 'On SO';
+      case 'on_delivery': return 'On Delivery';
+      case 'on_invoice': return 'On Invoice';
+      case 'after_invoice_days': return `After Invoice +${row.offset_days ?? 0} days`;
+      case 'end_of_month': return `End of Month day ${row.specific_day ?? 1}`;
+      default: return tr || '-';
+    }
+  }
+
+  function updateSchedulePreview() {
+    if (!scheduleBody) return;
+    const id = paymentTermSelect?.value || '';
+    const term = paymentTermMap.get(String(id));
+    const rows = Array.isArray(term?.schedules) ? term.schedules : [];
+    if (!id || rows.length === 0) {
+      scheduleBody.innerHTML = '<tr id=\"payment-schedule-empty\"><td colspan=\"4\" class=\"text-muted\">Pilih Payment Term untuk melihat schedule.</td></tr>';
+      return;
+    }
+    scheduleBody.innerHTML = rows.map((row, idx) => {
+      const portion = row.portion_type === 'percent'
+        ? `${row.portion_value}%`
+        : rupiah(Number(row.portion_value || 0));
+      return `<tr>\n        <td>${row.sequence ?? (idx + 1)}</td>\n        <td>${portion}</td>\n        <td>${formatTrigger(row.due_trigger, row)}</td>\n        <td>${row.notes ?? ''}</td>\n      </tr>`;
+    }).join('');
+  }
+
+  paymentTermSelect?.addEventListener('change', updateSchedulePreview);
 
   /* Helpers */
   const toNum = (v)=>{ if(v==null) return 0; v=String(v).trim(); if(!v) return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; };
