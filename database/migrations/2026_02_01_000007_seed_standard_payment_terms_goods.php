@@ -11,6 +11,11 @@ return new class extends Migration {
             return;
         }
 
+        // Adjust FK first to allow altering referenced column length
+        if (Schema::hasTable('so_billing_terms')) {
+            try { DB::statement("ALTER TABLE `so_billing_terms` DROP FOREIGN KEY `so_billing_terms_top_code_foreign`"); } catch (\Throwable $e) {}
+        }
+
         // Ensure code column length supports template codes
         try {
             DB::statement("ALTER TABLE `term_of_payments` MODIFY `code` VARCHAR(64)");
@@ -20,7 +25,6 @@ return new class extends Migration {
 
         // Adjust SO billing term code length + FK
         if (Schema::hasTable('so_billing_terms')) {
-            try { DB::statement("ALTER TABLE `so_billing_terms` DROP FOREIGN KEY `so_billing_terms_top_code_foreign`"); } catch (\Throwable $e) {}
             try { DB::statement("ALTER TABLE `so_billing_terms` MODIFY `top_code` VARCHAR(64)"); } catch (\Throwable $e) {}
             try {
                 DB::statement("ALTER TABLE `so_billing_terms` ADD CONSTRAINT `so_billing_terms_top_code_foreign` FOREIGN KEY (`top_code`) REFERENCES `term_of_payments`(`code`) ON UPDATE CASCADE ON DELETE RESTRICT");
