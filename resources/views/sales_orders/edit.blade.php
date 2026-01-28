@@ -49,17 +49,26 @@
     <div class="card-body">
       {{-- Row 1: PO & Deadline --}}
       <div class="row g-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label required">Customer PO No</label>
           <input type="text" name="customer_po_number" class="form-control"
                  value="{{ old('customer_po_number', $so->customer_po_number) }}" required>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Customer PO Date</label>
           <input type="date" name="customer_po_date" class="form-control"
                  value="{{ old('customer_po_date', optional($so->customer_po_date ?? $so->po_date)->format('Y-m-d')) }}">
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+          <label class="form-label required">PO Type</label>
+          <select name="po_type" class="form-select" required>
+            @php $poType = old('po_type', $so->po_type ?? 'goods'); @endphp
+            <option value="goods" {{ $poType === 'goods' ? 'selected' : '' }}>Goods</option>
+            <option value="project" {{ $poType === 'project' ? 'selected' : '' }}>Project</option>
+            <option value="maintenance" {{ $poType === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
+          </select>
+        </div>
+        <div class="col-md-3">
           <label class="form-label">Deadline</label>
           <input type="date" name="deadline" class="form-control"
                  value="{{ old('deadline', optional($so->deadline)->format('Y-m-d')) }}">

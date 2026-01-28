@@ -20,6 +20,12 @@
       ? '<span class="badge bg-green-lt">NPWP OK</span>'
       : '<span class="badge bg-red-lt">NPWP Missing — Billing Locked</span>';
   }
+  $poTypeMap = [
+    'goods' => ['Goods','bg-azure-lt text-dark'],
+    'project' => ['Project','bg-orange-lt text-dark'],
+    'maintenance' => ['Maintenance','bg-teal-lt text-dark'],
+  ];
+  [$poLabel, $poClass] = $poTypeMap[$o->po_type ?? 'goods'] ?? ['Goods','bg-azure-lt text-dark'];
 @endphp
 
 <div class="container-xl">
@@ -43,6 +49,7 @@
 
       <div class="mt-2">
         <span class="badge {{ $stClass }}">{{ $stLabel }}</span>
+        <span class="badge {{ $poClass }}">{{ $poLabel }}</span>
         {!! $npwpBadge !!}
       </div>
     </div>

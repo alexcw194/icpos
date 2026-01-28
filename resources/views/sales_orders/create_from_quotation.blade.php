@@ -35,17 +35,26 @@
     </div>
 
     <div class="card-body">
-      {{-- Row 1: PO No, PO Date, Deadline --}}
+      {{-- Row 1: PO No, PO Date, PO Type, Deadline --}}
       <div class="row g-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label required">Customer PO No</label>
           <input type="text" name="po_number" class="form-control" required>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Customer PO Date</label>
           <input type="date" name="po_date" class="form-control" value="{{ old('po_date', now()->format('Y-m-d')) }}">
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+          <label class="form-label required">PO Type</label>
+          <select name="po_type" class="form-select" required>
+            @php $poType = old('po_type', 'goods'); @endphp
+            <option value="goods" {{ $poType === 'goods' ? 'selected' : '' }}>Goods</option>
+            <option value="project" {{ $poType === 'project' ? 'selected' : '' }}>Project</option>
+            <option value="maintenance" {{ $poType === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
+          </select>
+        </div>
+        <div class="col-md-3">
           <label class="form-label">Deadline</label>
           <input type="date" name="deadline" class="form-control" value="{{ $validUntil }}">
         </div>

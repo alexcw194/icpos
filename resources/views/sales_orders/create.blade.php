@@ -68,19 +68,30 @@
         </div>
 
         {{-- PO NUMBER --}}
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Customer PO Number <span class="text-danger">*</span></label>
           <input type="text" name="customer_po_number" class="form-control" value="{{ old('customer_po_number') }}" required>
         </div>
 
         {{-- PO DATE --}}
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Customer PO Date</label>
           <input type="date" name="customer_po_date" class="form-control" value="{{ old('customer_po_date', now()->toDateString()) }}">
         </div>
 
+        {{-- PO TYPE --}}
+        <div class="col-md-3">
+          <label class="form-label">PO Type <span class="text-danger">*</span></label>
+          <select name="po_type" class="form-select" required>
+            @php $poType = old('po_type', 'goods'); @endphp
+            <option value="goods" {{ $poType === 'goods' ? 'selected' : '' }}>Goods</option>
+            <option value="project" {{ $poType === 'project' ? 'selected' : '' }}>Project</option>
+            <option value="maintenance" {{ $poType === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
+          </select>
+        </div>
+
         {{-- DEADLINE --}}
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Deadline</label>
           <input type="date" name="deadline" class="form-control" value="{{ old('deadline') }}">
         </div>

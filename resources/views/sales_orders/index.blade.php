@@ -70,6 +70,12 @@
                   ? '<span class="badge bg-green-lt">NPWP OK</span>'
                   : '<span class="badge bg-red-lt">NPWP Missing — Billing Locked</span>';
               }
+              $poTypeMap = [
+                'goods' => ['Goods','bg-azure-lt text-dark'],
+                'project' => ['Project','bg-orange-lt text-dark'],
+                'maintenance' => ['Maintenance','bg-teal-lt text-dark'],
+              ];
+              [$poLabel, $poClass] = $poTypeMap[$o->po_type ?? 'goods'] ?? ['Goods','bg-azure-lt text-dark'];
             @endphp
 
             <tr>
@@ -79,6 +85,9 @@
               <td class="align-middle">
                 <a href="{{ route('sales-orders.show',$o) }}" class="fw-bold">{{ $o->so_number }}</a>
                 <div class="text-muted small">PO: {{ $o->customer_po_number }}@if($o->customer_po_date) ({{ $o->customer_po_date }})@endif</div>
+                <div class="mt-1">
+                  <span class="badge {{ $poClass }}">{{ $poLabel }}</span>
+                </div>
 
                 {{-- ACTIONS (hidden by default, visible on row hover) --}}
                 <div class="so-actions small mt-1">

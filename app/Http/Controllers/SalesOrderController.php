@@ -92,6 +92,7 @@ class SalesOrderController extends Controller
             'customer_id'          => ['required','exists:customers,id'],
             'customer_po_number'   => ['required','string','max:100'],
             'customer_po_date'     => ['nullable','date'],
+            'po_type'              => ['required','in:goods,project,maintenance'],
             'deadline'             => ['nullable','date'],
             'ship_to'              => ['nullable','string'],
             'bill_to'              => ['nullable','string'],
@@ -217,6 +218,7 @@ class SalesOrderController extends Controller
                 'sales_user_id'       => $salesUserId, // ✅ JANGAN pakai $request di sini
                 'customer_po_number'  => $data['customer_po_number'],
                 'customer_po_date'    => $data['customer_po_date'] ?? null,
+                'po_type'             => $data['po_type'],
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
                 'notes'               => $data['notes'] ?? null,
@@ -371,6 +373,7 @@ class SalesOrderController extends Controller
         $data = $request->validate([
             'customer_po_number' => ['required','string','max:100'],
             'customer_po_date'   => ['nullable','date'],
+            'po_type'            => ['required','in:goods,project,maintenance'],
             'deadline'           => ['nullable','date'],
             'ship_to'            => ['nullable','string'],
             'bill_to'            => ['nullable','string'],
@@ -477,6 +480,7 @@ class SalesOrderController extends Controller
             $salesOrder->update([
                 'customer_po_number'    => $data['customer_po_number'],
                 'customer_po_date'      => $data['customer_po_date'] ?? null,
+                'po_type'               => $data['po_type'],
                 'deadline'              => $data['deadline'] ?? null,
                 'ship_to'               => $data['ship_to'] ?? null,
                 'bill_to'               => $data['bill_to'] ?? null,
@@ -620,6 +624,7 @@ class SalesOrderController extends Controller
         $data = $request->validate([
             'po_number'      => ['required','string','max:100'],
             'po_date'        => ['nullable','date'],
+            'po_type'        => ['required','in:goods,project,maintenance'],
             'deadline'       => ['nullable','date'],
             'ship_to'        => ['nullable','string'],
             'bill_to'        => ['nullable','string'],
@@ -665,6 +670,7 @@ class SalesOrderController extends Controller
 
                 'customer_po_number'  => $data['po_number'],
                 'customer_po_date'    => $data['po_date'] ?? null,
+                'po_type'             => $data['po_type'],
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
 

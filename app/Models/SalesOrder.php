@@ -13,6 +13,7 @@ class SalesOrder extends Model
         'company_id','customer_id','quotation_id','sales_user_id',
         'so_number','order_date',
         'customer_po_number','customer_po_date','deadline',
+        'po_type',
         'ship_to','bill_to','notes',
         'private_notes','under_amount',
         'discount_mode',
