@@ -14,6 +14,9 @@ class SalesOrderBillingTerm extends Model
         'seq',
         'top_code',
         'percent',
+        'due_trigger',
+        'offset_days',
+        'day_of_month',
         'note',
         'status',
         'invoice_id',
@@ -21,6 +24,8 @@ class SalesOrderBillingTerm extends Model
 
     protected $casts = [
         'percent' => 'decimal:2',
+        'offset_days' => 'integer',
+        'day_of_month' => 'integer',
     ];
 
     public function salesOrder(): BelongsTo

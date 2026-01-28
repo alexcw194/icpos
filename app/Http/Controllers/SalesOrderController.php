@@ -147,6 +147,9 @@ class SalesOrderController extends Controller
             'billing_terms.*.top_code' => ['required','string','max:64'],
             'billing_terms.*.percent' => ['required','string'],
             'billing_terms.*.note' => ['nullable','string','max:190'],
+            'billing_terms.*.due_trigger' => ['nullable','string','max:32'],
+            'billing_terms.*.offset_days' => ['nullable','integer','min:0'],
+            'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:31'],
 
             'lines'               => ['required','array','min:1'],
             'lines.*.name'        => ['required','string'],
@@ -349,6 +352,9 @@ class SalesOrderController extends Controller
                     'seq' => $term['seq'],
                     'top_code' => $term['top_code'],
                     'percent' => $term['percent'],
+                    'due_trigger' => $term['due_trigger'] ?? null,
+                    'offset_days' => $term['offset_days'] ?? null,
+                    'day_of_month' => $term['day_of_month'] ?? null,
                     'note' => $term['note'],
                     'status' => $term['status'] ?? 'planned',
                 ]);
@@ -521,6 +527,9 @@ class SalesOrderController extends Controller
             'billing_terms.*.top_code' => ['required','string','max:64'],
             'billing_terms.*.percent' => ['required','string'],
             'billing_terms.*.note' => ['nullable','string','max:190'],
+            'billing_terms.*.due_trigger' => ['nullable','string','max:32'],
+            'billing_terms.*.offset_days' => ['nullable','integer','min:0'],
+            'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:31'],
 
             'lines' => ['required','array','min:1'],
             'lines.*.id'             => ['nullable','integer'],
@@ -701,6 +710,9 @@ class SalesOrderController extends Controller
                     if ($existing->status === 'planned') {
                         $dataToUpdate['percent'] = $term['percent'];
                         $dataToUpdate['note'] = $term['note'];
+                        $dataToUpdate['due_trigger'] = $term['due_trigger'] ?? null;
+                        $dataToUpdate['offset_days'] = $term['offset_days'] ?? null;
+                        $dataToUpdate['day_of_month'] = $term['day_of_month'] ?? null;
                     }
                     $existing->update($dataToUpdate);
                 } else {
@@ -708,6 +720,9 @@ class SalesOrderController extends Controller
                         'seq' => $term['seq'],
                         'top_code' => $term['top_code'],
                         'percent' => $term['percent'],
+                        'due_trigger' => $term['due_trigger'] ?? null,
+                        'offset_days' => $term['offset_days'] ?? null,
+                        'day_of_month' => $term['day_of_month'] ?? null,
                         'note' => $term['note'],
                         'status' => $term['status'] ?? 'planned',
                     ]);
@@ -879,6 +894,9 @@ class SalesOrderController extends Controller
             'billing_terms.*.top_code' => ['required','string','max:64'],
             'billing_terms.*.percent' => ['required','string'],
             'billing_terms.*.note' => ['nullable','string','max:190'],
+            'billing_terms.*.due_trigger' => ['nullable','string','max:32'],
+            'billing_terms.*.offset_days' => ['nullable','integer','min:0'],
+            'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:31'],
 
             'draft_token'    => ['nullable','string','max:64'],
         ]);
@@ -1009,6 +1027,9 @@ class SalesOrderController extends Controller
                     'seq' => $term['seq'],
                     'top_code' => $term['top_code'],
                     'percent' => $term['percent'],
+                    'due_trigger' => $term['due_trigger'] ?? null,
+                    'offset_days' => $term['offset_days'] ?? null,
+                    'day_of_month' => $term['day_of_month'] ?? null,
                     'note' => $term['note'],
                     'status' => $term['status'] ?? 'planned',
                 ]);
@@ -1161,12 +1182,18 @@ class SalesOrderController extends Controller
 
             $sum += $percent;
             $note = trim((string) ($term['note'] ?? ''));
+            $dueTrigger = trim((string) ($term['due_trigger'] ?? ''));
+            $offsetDays = $term['offset_days'] ?? null;
+            $dayOfMonth = $term['day_of_month'] ?? null;
 
             $clean[] = [
                 'seq' => $idx + 1,
                 'top_code' => $code,
                 'percent' => $percent,
                 'note' => $note !== '' ? $note : null,
+                'due_trigger' => $dueTrigger !== '' ? $dueTrigger : null,
+                'offset_days' => $offsetDays !== '' ? (int) $offsetDays : null,
+                'day_of_month' => $dayOfMonth !== '' ? (int) $dayOfMonth : null,
                 'status' => 'planned',
             ];
         }

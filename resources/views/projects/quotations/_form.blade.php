@@ -42,6 +42,9 @@
         'code' => data_get($term, 'code', 'DP'),
         'label' => data_get($term, 'label', data_get($term, 'code', 'DP')),
         'percent' => data_get($term, 'percent', 0),
+        'due_trigger' => data_get($term, 'due_trigger'),
+        'offset_days' => data_get($term, 'offset_days'),
+        'day_of_month' => data_get($term, 'day_of_month'),
         'sequence' => data_get($term, 'sequence', $idx + 1),
         'trigger_note' => data_get($term, 'trigger_note'),
       ];
@@ -175,6 +178,9 @@
           <th style="width:140px;">Code</th>
           <th>Label</th>
           <th style="width:120px;" class="text-end">Percent</th>
+          <th style="width:170px;">Trigger</th>
+          <th style="width:120px;" class="text-end">Offset Days</th>
+          <th style="width:120px;" class="text-end">Day of Month</th>
           <th>Trigger Note</th>
           <th style="width:1%"></th>
         </tr>
@@ -204,6 +210,23 @@
             </td>
             <td>
               <input type="text" name="payment_terms[{{ $i }}][percent]" class="form-control text-end" value="{{ $term['percent'] ?? 0 }}">
+            </td>
+            <td>
+              <select name="payment_terms[{{ $i }}][due_trigger]" class="form-select">
+                @php $tr = $term['due_trigger'] ?? ''; @endphp
+                <option value="">--</option>
+                <option value="on_so" @selected($tr === 'on_so')>On SO</option>
+                <option value="on_delivery" @selected($tr === 'on_delivery')>On Delivery</option>
+                <option value="on_invoice" @selected($tr === 'on_invoice')>On Invoice</option>
+                <option value="after_invoice_days" @selected($tr === 'after_invoice_days')>After Invoice Days</option>
+                <option value="end_of_month" @selected($tr === 'end_of_month')>End of Month</option>
+              </select>
+            </td>
+            <td>
+              <input type="text" name="payment_terms[{{ $i }}][offset_days]" class="form-control text-end" value="{{ $term['offset_days'] ?? '' }}">
+            </td>
+            <td>
+              <input type="text" name="payment_terms[{{ $i }}][day_of_month]" class="form-control text-end" value="{{ $term['day_of_month'] ?? '' }}">
             </td>
             <td>
               <input type="text" name="payment_terms[{{ $i }}][trigger_note]" class="form-control" value="{{ $term['trigger_note'] ?? '' }}">
@@ -1164,6 +1187,18 @@
         </td>
         <td><input type="text" name="payment_terms[${idx}][label]" class="form-control"></td>
         <td><input type="text" name="payment_terms[${idx}][percent]" class="form-control text-end" value="0"></td>
+        <td>
+          <select name="payment_terms[${idx}][due_trigger]" class="form-select">
+            <option value="">--</option>
+            <option value="on_so">On SO</option>
+            <option value="on_delivery">On Delivery</option>
+            <option value="on_invoice">On Invoice</option>
+            <option value="after_invoice_days">After Invoice Days</option>
+            <option value="end_of_month">End of Month</option>
+          </select>
+        </td>
+        <td><input type="text" name="payment_terms[${idx}][offset_days]" class="form-control text-end" value=""></td>
+        <td><input type="text" name="payment_terms[${idx}][day_of_month]" class="form-control text-end" value=""></td>
         <td><input type="text" name="payment_terms[${idx}][trigger_note]" class="form-control"></td>
         <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-term">Remove</button></td>
       </tr>

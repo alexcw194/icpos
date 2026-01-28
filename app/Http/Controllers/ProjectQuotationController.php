@@ -194,6 +194,9 @@ class ProjectQuotationController extends Controller
                     'code' => $term['code'] ?? 'DP',
                     'label' => $term['label'] ?? ($term['code'] ?? 'DP'),
                     'percent' => Number::idToFloat($term['percent'] ?? 0),
+                    'due_trigger' => $term['due_trigger'] ?? null,
+                    'offset_days' => $term['offset_days'] ?? null,
+                    'day_of_month' => $term['day_of_month'] ?? null,
                     'sequence' => (int) ($term['sequence'] ?? ($pIndex + 1)),
                     'trigger_note' => $term['trigger_note'] ?? null,
                 ]);
@@ -374,6 +377,9 @@ class ProjectQuotationController extends Controller
                     'code' => $term['code'] ?? 'DP',
                     'label' => $term['label'] ?? ($term['code'] ?? 'DP'),
                     'percent' => Number::idToFloat($term['percent'] ?? 0),
+                    'due_trigger' => $term['due_trigger'] ?? null,
+                    'offset_days' => $term['offset_days'] ?? null,
+                    'day_of_month' => $term['day_of_month'] ?? null,
                     'sequence' => (int) ($term['sequence'] ?? ($pIndex + 1)),
                     'trigger_note' => $term['trigger_note'] ?? null,
                 ]);
@@ -568,6 +574,9 @@ class ProjectQuotationController extends Controller
             'payment_terms.*.percent' => ['nullable', 'numeric', 'min:0'],
             'payment_terms.*.sequence' => ['nullable', 'integer', 'min:0'],
             'payment_terms.*.trigger_note' => ['nullable', 'string', 'max:190'],
+            'payment_terms.*.due_trigger' => ['nullable', 'string', 'max:32'],
+            'payment_terms.*.offset_days' => ['nullable', 'integer', 'min:0'],
+            'payment_terms.*.day_of_month' => ['nullable', 'integer', 'min:1', 'max:31'],
 
             'sections' => ['required', 'array', 'min:1'],
             'sections.*.name' => ['required', 'string', 'max:190'],

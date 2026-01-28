@@ -18,6 +18,9 @@
         <tr>
           <th style="width:160px;">TOP Code</th>
           <th style="width:140px;" class="text-end">Percent</th>
+          <th style="width:170px;">Trigger</th>
+          <th style="width:120px;" class="text-end">Offset Days</th>
+          <th style="width:120px;" class="text-end">Day of Month</th>
           <th>Note (Milestone)</th>
           <th style="width:140px;">Status</th>
           <th style="width:1%"></th>
@@ -55,6 +58,34 @@
                      value="{{ $term['percent'] ?? 0 }}" @disabled($locked) @if($locked) data-skip-total="1" @endif>
               @if($locked)
                 <input type="hidden" name="billing_terms[{{ $i }}][percent]" value="{{ $term['percent'] ?? 0 }}">
+              @endif
+            </td>
+            <td>
+              <select name="billing_terms[{{ $i }}][due_trigger]" class="form-select form-select-sm" @disabled($locked)>
+                @php $tr = $term['due_trigger'] ?? ''; @endphp
+                <option value="">--</option>
+                <option value="on_so" @selected($tr === 'on_so')>On SO</option>
+                <option value="on_delivery" @selected($tr === 'on_delivery')>On Delivery</option>
+                <option value="on_invoice" @selected($tr === 'on_invoice')>On Invoice</option>
+                <option value="after_invoice_days" @selected($tr === 'after_invoice_days')>After Invoice Days</option>
+                <option value="end_of_month" @selected($tr === 'end_of_month')>End of Month</option>
+              </select>
+              @if($locked)
+                <input type="hidden" name="billing_terms[{{ $i }}][due_trigger]" value="{{ $term['due_trigger'] ?? '' }}">
+              @endif
+            </td>
+            <td>
+              <input type="text" name="billing_terms[{{ $i }}][offset_days]" class="form-control form-control-sm text-end"
+                     value="{{ $term['offset_days'] ?? '' }}" @disabled($locked)>
+              @if($locked)
+                <input type="hidden" name="billing_terms[{{ $i }}][offset_days]" value="{{ $term['offset_days'] ?? '' }}">
+              @endif
+            </td>
+            <td>
+              <input type="text" name="billing_terms[{{ $i }}][day_of_month]" class="form-control form-control-sm text-end"
+                     value="{{ $term['day_of_month'] ?? '' }}" @disabled($locked)>
+              @if($locked)
+                <input type="hidden" name="billing_terms[{{ $i }}][day_of_month]" value="{{ $term['day_of_month'] ?? '' }}">
               @endif
             </td>
             <td>
@@ -100,6 +131,22 @@
     </td>
     <td>
       <input type="text" name="billing_terms[__IDX__][percent]" class="form-control form-control-sm text-end" value="0">
+    </td>
+    <td>
+      <select name="billing_terms[__IDX__][due_trigger]" class="form-select form-select-sm">
+        <option value="">--</option>
+        <option value="on_so">On SO</option>
+        <option value="on_delivery">On Delivery</option>
+        <option value="on_invoice">On Invoice</option>
+        <option value="after_invoice_days">After Invoice Days</option>
+        <option value="end_of_month">End of Month</option>
+      </select>
+    </td>
+    <td>
+      <input type="text" name="billing_terms[__IDX__][offset_days]" class="form-control form-control-sm text-end" value="">
+    </td>
+    <td>
+      <input type="text" name="billing_terms[__IDX__][day_of_month]" class="form-control form-control-sm text-end" value="">
     </td>
     <td>
       <input type="text" name="billing_terms[__IDX__][note]" class="form-control form-control-sm" value="">

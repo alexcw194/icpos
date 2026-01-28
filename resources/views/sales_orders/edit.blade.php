@@ -226,6 +226,9 @@
               'top_code' => $t->top_code,
               'percent' => $t->percent,
               'note' => $t->note,
+              'due_trigger' => $t->due_trigger,
+              'offset_days' => $t->offset_days,
+              'day_of_month' => $t->day_of_month,
               'status' => $t->status,
             ];
           })->toArray();

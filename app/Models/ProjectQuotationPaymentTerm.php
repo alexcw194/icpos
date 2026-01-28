@@ -12,12 +12,17 @@ class ProjectQuotationPaymentTerm extends Model
         'code',
         'label',
         'percent',
+        'due_trigger',
+        'offset_days',
+        'day_of_month',
         'sequence',
         'trigger_note',
     ];
 
     protected $casts = [
         'percent' => 'decimal:2',
+        'offset_days' => 'integer',
+        'day_of_month' => 'integer',
     ];
 
     public function quotation(): BelongsTo
