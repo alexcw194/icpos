@@ -326,7 +326,7 @@ class SalesOrderController extends Controller
 
     public function index(Request $request)
     {
-        $allowed = ['open','partial_delivered','delivered','invoiced','closed','cancelled'];
+        $allowed = ['open','partial_delivered','delivered','invoiced','closed','cancelled','partially_billed','fully_billed'];
         $status  = $request->query('status');
         if ($status && !in_array($status, $allowed, true)) $status = null;
 
@@ -555,7 +555,25 @@ class SalesOrderController extends Controller
         $grand = $dpp + $ppn;
 
         // Simpan header + sinkronisasi lines
-        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$billingTerms) {
+        $existingTerms = $salesOrder->billingTerms()->get()->keyBy('top_code');
+        foreach ($existingTerms as $code => $term) {
+            if (!in_array($term->status, ['invoiced', 'paid'], true)) {
+                continue;
+            }
+            $incoming = collect($billingTerms)->firstWhere('top_code', $code);
+            if (!$incoming) {
+                return back()
+                    ->withErrors(['billing_terms' => "TOP {$code} sudah invoiced/paid dan tidak boleh dihapus."])
+                    ->withInput();
+            }
+            if (abs(((float) $incoming['percent']) - ((float) $term->percent)) > 0.01) {
+                return back()
+                    ->withErrors(['billing_terms' => "TOP {$code} sudah invoiced/paid dan percent tidak boleh diubah."])
+                    ->withInput();
+            }
+        }
+
+        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$billingTerms,$existingTerms) {
             $salesOrder->update([
                 'customer_po_number'    => $data['customer_po_number'],
                 'customer_po_date'      => $data['customer_po_date'] ?? null,
@@ -580,16 +598,32 @@ class SalesOrderController extends Controller
                 'under_amount'          => (float) ($data['under_amount'] ?? 0),
             ]);
 
-            $salesOrder->billingTerms()->delete();
+            $keepCodes = [];
             foreach ($billingTerms as $term) {
-                $salesOrder->billingTerms()->create([
-                    'seq' => $term['seq'],
-                    'top_code' => $term['top_code'],
-                    'percent' => $term['percent'],
-                    'note' => $term['note'],
-                    'status' => $term['status'] ?? 'planned',
-                ]);
+                $code = $term['top_code'];
+                $keepCodes[] = $code;
+                $existing = $existingTerms->get($code);
+                if ($existing) {
+                    $dataToUpdate = ['seq' => $term['seq']];
+                    if ($existing->status === 'planned') {
+                        $dataToUpdate['percent'] = $term['percent'];
+                        $dataToUpdate['note'] = $term['note'];
+                    }
+                    $existing->update($dataToUpdate);
+                } else {
+                    $salesOrder->billingTerms()->create([
+                        'seq' => $term['seq'],
+                        'top_code' => $term['top_code'],
+                        'percent' => $term['percent'],
+                        'note' => $term['note'],
+                        'status' => $term['status'] ?? 'planned',
+                    ]);
+                }
             }
+
+            $existingTerms
+                ->filter(fn ($t) => $t->status === 'planned' && !in_array($t->top_code, $keepCodes, true))
+                ->each->delete();
 
             // Hapus line yang tidak dikirim lagi
             $keepIds = collect($cleanLines)->pluck('id')->filter()->values()->all();

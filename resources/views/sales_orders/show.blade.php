@@ -8,6 +8,8 @@
     'partial_delivered'  => ['Partial Delivered','bg-cyan-lt text-dark'],
     'delivered'          => ['Delivered','bg-green-lt text-dark'],
     'invoiced'           => ['Invoiced','bg-purple-lt text-dark'],
+    'partially_billed'   => ['Partially Billed','bg-orange-lt text-dark'],
+    'fully_billed'       => ['Fully Billed','bg-teal-lt text-dark'],
     'closed'             => ['Closed','bg-secondary-lt text-dark'],
     'cancelled'          => ['Cancelled','bg-red-lt text-dark'], // NEW
   ];
@@ -65,12 +67,6 @@
       @else
         <span class="btn btn-secondary disabled" title="Anda tidak memiliki akses">Create Delivery Note</span>
       @endcan
-
-      @if($o->npwp_required && $o->npwp_status === 'missing')
-        <button type="button" class="btn btn-primary disabled" title="Lengkapi NPWP untuk membuat Invoice">Create Invoice</button>
-      @else
-        <a href="{{ route('invoices.create-from-so', $salesOrder) }}" class="btn btn-primary">Create Invoice</a>
-      @endif
 
       {{-- NEW: actions --}}
       @can('update', $o)
@@ -145,21 +141,41 @@
               <tr>
                 <th style="width:120px;">TOP Code</th>
                 <th style="width:120px;" class="text-end">Percent</th>
+                <th style="width:160px;" class="text-end">Amount</th>
                 <th>Note</th>
                 <th style="width:140px;">Status</th>
+                <th style="width:160px;"></th>
               </tr>
             </thead>
             <tbody>
               @forelse($o->billingTerms as $term)
+                @php
+                  $termAmount = round(((float) ($o->total ?? 0)) * ((float) $term->percent) / 100, 2);
+                  $status = $term->status ?? 'planned';
+                @endphp
                 <tr>
                   <td>{{ $term->top_code }}</td>
                   <td class="text-end">{{ number_format((float) $term->percent, 2) }}%</td>
+                  <td class="text-end">{{ number_format($termAmount, 2) }}</td>
                   <td>{{ $term->note ?? '-' }}</td>
-                  <td>{{ ucfirst($term->status ?? 'planned') }}</td>
+                  <td>{{ ucfirst($status) }}</td>
+                  <td class="text-end">
+                    @if($status === 'planned')
+                      <form action="{{ route('sales-orders.billing-terms.create-invoice', [$o, $term]) }}" method="POST" class="d-inline"
+                            onsubmit="return confirm('Create invoice untuk TOP {{ $term->top_code }}?')">
+                        @csrf
+                        <button class="btn btn-sm btn-primary">Create Invoice</button>
+                      </form>
+                    @elseif(!empty($term->invoice_id))
+                      <a href="{{ route('invoices.show', $term->invoice_id) }}" class="btn btn-sm btn-outline-primary">View Invoice</a>
+                    @else
+                      <span class="text-muted">—</span>
+                    @endif
+                  </td>
                 </tr>
               @empty
                 <tr>
-                  <td colspan="4" class="text-center text-muted">Belum ada billing term.</td>
+                  <td colspan="6" class="text-center text-muted">Belum ada billing term.</td>
                 </tr>
               @endforelse
             </tbody>

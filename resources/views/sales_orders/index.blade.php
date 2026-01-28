@@ -33,6 +33,8 @@
     {!! $btn('partial_delivered','Partial Delivered') !!}
     {!! $btn('delivered','Delivered') !!}
     {!! $btn('invoiced','Invoiced') !!}
+    {!! $btn('partially_billed','Partially Billed') !!}
+    {!! $btn('fully_billed','Fully Billed') !!}
     {!! $btn('closed','Closed') !!}
     {!! $btn('cancelled','Cancelled') !!}
   </div>
@@ -59,6 +61,8 @@
                 'partial_delivered'  => ['Partial Delivered','bg-cyan-lt text-dark'],
                 'delivered'          => ['Delivered','bg-green-lt text-dark'],
                 'invoiced'           => ['Invoiced','bg-purple-lt text-dark'],
+                'partially_billed'   => ['Partially Billed','bg-orange-lt text-dark'],
+                'fully_billed'       => ['Fully Billed','bg-teal-lt text-dark'],
                 'closed'             => ['Closed','bg-secondary-lt text-dark'],
                 'cancelled'          => ['Cancelled','bg-red-lt text-dark'],
               ];

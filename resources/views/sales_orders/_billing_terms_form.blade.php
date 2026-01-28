@@ -19,15 +19,20 @@
           <th style="width:160px;">TOP Code</th>
           <th style="width:140px;" class="text-end">Percent</th>
           <th>Note (Milestone)</th>
+          <th style="width:140px;">Status</th>
           <th style="width:1%"></th>
         </tr>
       </thead>
       <tbody>
         @foreach($billingTermsData as $i => $term)
+          @php
+            $status = $term['status'] ?? 'planned';
+            $locked = $status !== 'planned';
+          @endphp
           <tr data-term-row>
             <td>
-              <select name="billing_terms[{{ $i }}][top_code]" class="form-select form-select-sm">
-                <option value="">— pilih —</option>
+              <select name="billing_terms[{{ $i }}][top_code]" class="form-select form-select-sm" @disabled($locked)>
+                <option value="">-- pilih --</option>
                 @foreach($topOptions as $opt)
                   @php
                     $label = $opt->code;
@@ -41,17 +46,27 @@
                   <option value="{{ $opt->code }}" @selected(($term['top_code'] ?? '') === $opt->code)>{{ $label }}</option>
                 @endforeach
               </select>
+              @if($locked)
+                <input type="hidden" name="billing_terms[{{ $i }}][top_code]" value="{{ $term['top_code'] ?? '' }}">
+              @endif
             </td>
             <td>
               <input type="text" name="billing_terms[{{ $i }}][percent]" class="form-control form-control-sm text-end"
-                     value="{{ $term['percent'] ?? 0 }}">
+                     value="{{ $term['percent'] ?? 0 }}" @disabled($locked) @if($locked) data-skip-total="1" @endif>
+              @if($locked)
+                <input type="hidden" name="billing_terms[{{ $i }}][percent]" value="{{ $term['percent'] ?? 0 }}">
+              @endif
             </td>
             <td>
               <input type="text" name="billing_terms[{{ $i }}][note]" class="form-control form-control-sm"
-                     value="{{ $term['note'] ?? '' }}">
+                     value="{{ $term['note'] ?? '' }}" @disabled($locked)>
+              @if($locked)
+                <input type="hidden" name="billing_terms[{{ $i }}][note]" value="{{ $term['note'] ?? '' }}">
+              @endif
             </td>
+            <td>{{ ucfirst($status) }}</td>
             <td>
-              <button type="button" class="btn btn-sm btn-outline-danger btn-remove-billing-term">Remove</button>
+              <button type="button" class="btn btn-sm btn-outline-danger btn-remove-billing-term" @disabled($locked)>Remove</button>
             </td>
           </tr>
         @endforeach
@@ -68,7 +83,7 @@
   <tr data-term-row>
     <td>
       <select name="billing_terms[__IDX__][top_code]" class="form-select form-select-sm">
-        <option value="">— pilih —</option>
+        <option value="">-- pilih --</option>
         @foreach($topOptions as $opt)
           @php
             $label = $opt->code;
@@ -89,6 +104,7 @@
     <td>
       <input type="text" name="billing_terms[__IDX__][note]" class="form-control form-control-sm" value="">
     </td>
+    <td>Planned</td>
     <td>
       <button type="button" class="btn btn-sm btn-outline-danger btn-remove-billing-term">Remove</button>
     </td>
@@ -122,7 +138,7 @@
 
   const updateTotal = () => {
     let sum = 0;
-    table.querySelectorAll('input[name*="[percent]"]').forEach((inp) => {
+    table.querySelectorAll('input[name*="[percent]"]:not([data-skip-total])').forEach((inp) => {
       sum += parseNum(inp.value);
     });
     if (totalEl) totalEl.textContent = sum.toFixed(2) + '%';

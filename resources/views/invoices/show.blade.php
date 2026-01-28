@@ -71,6 +71,24 @@
           <div class="text-muted">Status</div>
           <div class="fw-semibold text-uppercase">{{ $invoice->status ?? 'draft' }}</div>
         </div>
+        @if($invoice->salesOrder)
+          <div class="col-md-3">
+            <div class="text-muted">Sales Order</div>
+            <div class="fw-semibold">
+              <a href="{{ route('sales-orders.show', $invoice->salesOrder) }}">{{ $invoice->salesOrder->so_number ?? ('#'.$invoice->salesOrder->id) }}</a>
+            </div>
+          </div>
+        @endif
+        @if($invoice->billingTerm)
+          <div class="col-md-3">
+            <div class="text-muted">TOP Code</div>
+            <div class="fw-semibold">{{ $invoice->billingTerm->top_code }}</div>
+          </div>
+          <div class="col-md-3">
+            <div class="text-muted">Percent</div>
+            <div class="fw-semibold">{{ number_format((float) $invoice->billingTerm->percent, 2) }}%</div>
+          </div>
+        @endif
         <div class="col-md-3">
           <div class="text-muted">Due Date</div>
           <div class="fw-semibold">{{ optional($invoice->due_date)->format('Y-m-d') ?? '—' }}</div>

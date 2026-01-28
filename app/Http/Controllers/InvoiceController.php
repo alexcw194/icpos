@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Invoice, Quotation, Company, SalesOrder, Bank};
-use App\Services\InvoiceBuilderFromSO;
+use App\Models\{Invoice, Quotation, Company, SalesOrder, SalesOrderBillingTerm, Bank};
+use App\Services\DocNumberService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Dompdf\Dompdf;
 use Dompdf\Options;
-use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 
 class InvoiceController extends Controller
@@ -32,7 +31,7 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice)
     {
         $this->authorize('view', $invoice);
-        $invoice->load(['company','customer','quotation.items','lines']);
+        $invoice->load(['company','customer','quotation.items','lines','salesOrder','billingTerm']);
 
         $banks = Bank::active()
             ->forCompany($invoice->company_id)
@@ -61,31 +60,105 @@ class InvoiceController extends Controller
 
     public function createFromSo(SalesOrder $salesOrder)
     {
-        $this->authorize('create', Invoice::class);
-        $salesOrder->load(['company','customer','lines.item','lines.variant']);
-        // return view with matrix of remaining billable qty per line
-        return view('invoices.create_from_so', ['so' => $salesOrder]);
+        abort(403, 'Invoice must be created from Billing Term.');
     }
 
 
-    public function storeFromSo(Request $request, SalesOrder $salesOrder, InvoiceBuilderFromSO $builder)
+    public function storeFromSo(Request $request, SalesOrder $salesOrder)
+    {
+        abort(403, 'Invoice must be created from Billing Term.');
+    }
+
+    public function storeFromBillingTerm(Request $request, SalesOrder $salesOrder, SalesOrderBillingTerm $term)
     {
         $this->authorize('create', Invoice::class);
-        $validated = $request->validate([
-        'date' => ['required','date'],
-        'due_date' => ['nullable','date','after_or_equal:date'],
-        'tax_percent' => ['nullable','numeric','min:0'],
-        'notes' => ['nullable','string'],
-        'lines' => ['required','array','min:1'],
-        'lines.*.sales_order_line_id' => ['required','integer'],
-        'lines.*.qty' => ['required','numeric','min:0.0001'],
-        'lines.*.unit_price' => ['nullable','numeric','min:0'],
-        'lines.*.discount_amount' => ['nullable','numeric','min:0'],
-        ]);
 
+        if ((int) $term->sales_order_id !== (int) $salesOrder->id) {
+            abort(404);
+        }
 
-        $invoice = $builder->build($salesOrder, $validated);
-        return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice created from Sales Order.');
+        if (($term->status ?? 'planned') !== 'planned') {
+            abort(422, 'Billing Term sudah dibuatkan invoice.');
+        }
+
+        $salesOrder->load(['company', 'customer', 'billingTerms']);
+
+        $percent = (float) $term->percent;
+        if ($percent < 0) {
+            abort(422, 'Percent tidak boleh negatif.');
+        }
+
+        $soTotal = (float) ($salesOrder->total ?? 0);
+        $amount = round($soTotal * $percent / 100, 2);
+        if ($amount < 0) {
+            abort(422, 'Invoice amount tidak valid.');
+        }
+
+        $billedPct = (float) $salesOrder->billingTerms()
+            ->whereIn('status', ['invoiced', 'paid'])
+            ->sum('percent');
+        $remaining = round($soTotal * max(0, (100 - $billedPct)) / 100, 2);
+        if ($amount - $remaining > 0.01) {
+            abort(422, 'Invoice amount melebihi sisa nilai SO.');
+        }
+
+        $invDate = now();
+        $taxPercent = (float) ($salesOrder->tax_percent ?? 0);
+        if ($taxPercent > 0) {
+            $subtotal = round($amount / (1 + ($taxPercent / 100)), 2);
+            $taxAmount = round($amount - $subtotal, 2);
+        } else {
+            $subtotal = $amount;
+            $taxAmount = 0.0;
+        }
+
+        $invoice = null;
+        DB::transaction(function () use ($salesOrder, $term, $percent, $invDate, $subtotal, $taxPercent, $taxAmount, $amount, &$invoice) {
+            $company = $salesOrder->company;
+            $invoice = Invoice::create([
+                'company_id' => $company->id,
+                'customer_id' => $salesOrder->customer_id,
+                'sales_order_id' => $salesOrder->id,
+                'so_billing_term_id' => $term->id,
+                'quotation_id' => $salesOrder->quotation_id,
+                'number' => 'TEMP',
+                'date' => $invDate,
+                'status' => 'draft',
+                'subtotal' => $subtotal,
+                'discount' => 0,
+                'tax_percent' => $taxPercent,
+                'tax_amount' => $taxAmount,
+                'total' => $amount,
+                'currency' => $salesOrder->currency ?? 'IDR',
+                'brand_snapshot' => $salesOrder->brand_snapshot,
+                'notes' => sprintf('Billing Term %s (%s%%) dari SO %s', $term->top_code, $percent, $salesOrder->so_number),
+                'created_by' => auth()->id(),
+            ]);
+
+            $invoice->update([
+                'number' => DocNumberService::next('invoice', $company, $invDate),
+            ]);
+
+            $invoice->lines()->create([
+                'sales_order_id' => $salesOrder->id,
+                'description' => sprintf('Billing Term %s (%s%%)', $term->top_code, $percent),
+                'unit' => 'ls',
+                'qty' => 1,
+                'unit_price' => $subtotal,
+                'discount_amount' => 0,
+                'line_subtotal' => $subtotal,
+                'line_total' => $subtotal,
+            ]);
+
+            $term->update([
+                'status' => 'invoiced',
+                'invoice_id' => $invoice->id,
+            ]);
+
+            $this->syncSoBillingStatus($salesOrder);
+        });
+
+        return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice created from Billing Term.');
     }
 
     protected function authorizePermission(string $permission): void
@@ -267,9 +340,46 @@ class InvoiceController extends Controller
             $invoice->status = 'paid';
 
             $invoice->save();
+
+            if ($invoice->so_billing_term_id) {
+                $term = SalesOrderBillingTerm::find($invoice->so_billing_term_id);
+                if ($term) {
+                    $term->status = 'paid';
+                    $term->save();
+                    if ($term->salesOrder) {
+                        $this->syncSoBillingStatus($term->salesOrder);
+                    }
+                }
+            }
         });
 
         return back()->with('success', 'Invoice marked as PAID.');
+    }
+
+    private function syncSoBillingStatus(SalesOrder $salesOrder): void
+    {
+        if (in_array($salesOrder->status, ['cancelled', 'closed'], true)) {
+            return;
+        }
+
+        $terms = $salesOrder->billingTerms()->get(['status']);
+        if ($terms->isEmpty()) {
+            return;
+        }
+
+        $allPaid = $terms->every(fn ($t) => $t->status === 'paid');
+        if ($allPaid) {
+            $salesOrder->status = 'fully_billed';
+            $salesOrder->save();
+            return;
+        }
+
+        $anyBilled = $terms->contains(fn ($t) => in_array($t->status, ['invoiced', 'paid'], true));
+        if ($anyBilled) {
+            $salesOrder->status = 'partially_billed';
+            $salesOrder->save();
+            return;
+        }
     }
 }
 

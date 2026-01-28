@@ -187,6 +187,7 @@
               'top_code' => $t->top_code,
               'percent' => $t->percent,
               'note' => $t->note,
+              'status' => $t->status,
             ];
           })->toArray();
         }

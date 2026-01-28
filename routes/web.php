@@ -216,8 +216,9 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
     Route::get('/invoices', [InvoiceController::class, 'index'])
         ->name('invoices.index');
         
-    Route::get('/sales-orders/{salesOrder}/invoices/create', [InvoiceController::class,'createFromSo'])->name('invoices.create-from-so');
-    Route::post('/sales-orders/{salesOrder}/invoices', [InvoiceController::class,'storeFromSo'])->name('invoices.store-from-so');
+    Route::post('/sales-orders/{salesOrder}/billing-terms/{term}/create-invoice', [InvoiceController::class,'storeFromBillingTerm'])
+        ->whereNumber('term')
+        ->name('sales-orders.billing-terms.create-invoice');
 
     Route::get('inventory/ledger', [\App\Http\Controllers\StockLedgerController::class, 'index'])
             ->name('inventory.ledger');
