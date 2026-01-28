@@ -97,6 +97,12 @@
                 ];
               })->toArray();
             }
+            $formatPortion = function ($value) {
+              if ($value === null || $value === '') return '';
+              $num = (float) $value;
+              $str = number_format($num, 4, '.', '');
+              return rtrim(rtrim($str, '0'), '.');
+            };
           @endphp
           <div class="table-responsive">
             <table class="table table-sm table-vcenter" id="schedule-table">
@@ -122,7 +128,7 @@
                     </td>
                     <td>
                       <input type="text" name="schedules[{{ $i }}][portion_value]" class="form-control form-control-sm text-end portion-value"
-                             value="{{ $sch['portion_value'] ?? 0 }}">
+                             value="{{ $formatPortion($sch['portion_value'] ?? 0) }}">
                     </td>
                     <td>
                       <select name="schedules[{{ $i }}][due_trigger]" class="form-select form-select-sm due-trigger">
