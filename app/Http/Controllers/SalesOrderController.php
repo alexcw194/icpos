@@ -267,6 +267,7 @@ class SalesOrderController extends Controller
                 'discount_mode'       => $data['discount_mode'],
                 'tax_percent'         => $taxPct, // simpan numeric
                 'status'              => 'open',
+                'contract_value'      => $grand,
             ]);
 
             foreach ($computedLines as $ln) {
@@ -307,6 +308,7 @@ class SalesOrderController extends Controller
                 'taxable_base'          => $dpp,
                 'tax_amount'            => $ppn,
                 'total'                 => $grand,
+                'contract_value'        => $grand,
             ]);
         });
 
@@ -345,7 +347,7 @@ class SalesOrderController extends Controller
     {
         $this->authorize('view', $salesOrder);
 
-        $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation','project','billingTerms']);
+        $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation','project','billingTerms','variations']);
         return view('sales_orders.show', compact('salesOrder'));
     }
 
@@ -595,6 +597,7 @@ class SalesOrderController extends Controller
                 'tax_percent'           => $taxPct,
                 'tax_amount'            => $ppn,
                 'total'                 => $grand,
+                'contract_value'        => $grand,
                 'under_amount'          => (float) ($data['under_amount'] ?? 0),
             ]);
 
@@ -905,6 +908,7 @@ class SalesOrderController extends Controller
                 'taxable_base'          => $taxableBase,
                 'tax_amount'            => $taxAmount,
                 'total'                 => $total,
+                'contract_value'        => $total,
             ]);
 
             // Pindahkan lampiran draft → final (kalau ada)

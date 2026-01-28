@@ -206,6 +206,17 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
     Route::delete('sales-orders/{salesOrder}', [SalesOrderController::class, 'destroy'])
         ->name('sales-orders.destroy');
 
+    Route::get('sales-orders/{salesOrder}/variations/create', [\App\Http\Controllers\SalesOrderVariationController::class, 'create'])
+        ->name('sales-orders.variations.create');
+    Route::post('sales-orders/{salesOrder}/variations', [\App\Http\Controllers\SalesOrderVariationController::class, 'store'])
+        ->name('sales-orders.variations.store');
+    Route::post('sales-orders/{salesOrder}/variations/{variation}/approve', [\App\Http\Controllers\SalesOrderVariationController::class, 'approve'])
+        ->whereNumber('variation')
+        ->name('sales-orders.variations.approve');
+    Route::post('sales-orders/{salesOrder}/variations/{variation}/apply', [\App\Http\Controllers\SalesOrderVariationController::class, 'apply'])
+        ->whereNumber('variation')
+        ->name('sales-orders.variations.apply');
+
     // NEW: attachments
     Route::post  ('sales-orders/{salesOrder}/attachments', [SalesOrderController::class, 'storeAttachment'])
         ->name('sales-orders.attachments.store');

@@ -48,6 +48,18 @@ class SalesOrderPolicy
                ($this->isAdmin($user) || $this->isSalesOwner($user, $so));
     }
 
+    /** Amend (VO) — tidak boleh jika cancelled */
+    public function amend(User $user, SalesOrder $so): bool
+    {
+        if ($so->status === 'cancelled') {
+            return false;
+        }
+
+        return $this->isSuperAdmin($user)
+            || $this->isAdmin($user)
+            || $this->isSalesOwner($user, $so);
+    }
+
     /**
      * Hapus lampiran:
      * - Admin/SuperAdmin: boleh saat OPEN & belum DN/INV

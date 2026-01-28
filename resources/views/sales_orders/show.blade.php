@@ -3,6 +3,8 @@
 @section('content')
 @php
   $o = $salesOrder;
+  $contractValue = (float) ($o->contract_value ?? $o->total ?? 0);
+  $voAppliedTotal = ($o->relationLoaded('variations') ? $o->variations->where('status', 'applied')->sum('delta_amount') : 0);
   $statusMap = [
     'open'               => ['Open','bg-yellow-lt text-dark'],
     'partial_delivered'  => ['Partial Delivered','bg-cyan-lt text-dark'],
@@ -75,6 +77,10 @@
         <a href="{{ route('sales-orders.edit', $o) }}" class="btn">Edit</a>
       @endcan
 
+      @can('amend', $o)
+        <a href="{{ route('sales-orders.variations.create', $o) }}" class="btn btn-outline-primary">Create VO</a>
+      @endcan
+
       @can('cancel', $o)
         <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalCancelSo">Cancel SO</button>
       @endcan
@@ -108,6 +114,9 @@
         @endif
         <div class="mb-2"><strong>Deadline:</strong> {{ $o->deadline ?? '—' }}</div>
         <div class="mb-2"><strong>Salesperson:</strong> {{ $o->salesUser->name ?? '-' }}</div>
+        <div class="mb-2"><strong>Original Value:</strong> {{ number_format((float) $o->total, 2) }}</div>
+        <div class="mb-2"><strong>VO Total:</strong> {{ number_format((float) $voAppliedTotal, 2) }}</div>
+        <div class="mb-2"><strong>Current Contract Value:</strong> {{ number_format((float) $contractValue, 2) }}</div>
         <div class="bg-white border rounded p-2" style="white-space: pre-wrap;">
           {{ $o->notes ?: '—' }}
         </div>
@@ -135,6 +144,59 @@
     <div class="col-12">
       <div class="card mb-3">
         <div class="card-header">
+          <h3 class="card-title">Variations (VO)</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table">
+            <thead>
+              <tr>
+                <th style="width:140px;">VO No</th>
+                <th style="width:120px;">Date</th>
+                <th>Reason</th>
+                <th style="width:140px;" class="text-end">Delta</th>
+                <th style="width:120px;">Status</th>
+                <th style="width:180px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @forelse($o->variations ?? [] as $vo)
+                <tr>
+                  <td>{{ $vo->vo_number }}</td>
+                  <td>{{ optional($vo->vo_date)->format('Y-m-d') }}</td>
+                  <td>{{ $vo->reason ?: '-' }}</td>
+                  <td class="text-end">{{ number_format((float) $vo->delta_amount, 2) }}</td>
+                  <td>{{ ucfirst($vo->status) }}</td>
+                  <td class="text-end">
+                    @can('amend', $o)
+                      @if($vo->status === 'draft')
+                        <form action="{{ route('sales-orders.variations.approve', [$o, $vo]) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('Approve VO ini?')">
+                          @csrf
+                          <button class="btn btn-sm btn-outline-primary">Approve</button>
+                        </form>
+                      @endif
+                      @if($vo->status === 'approved')
+                        <form action="{{ route('sales-orders.variations.apply', [$o, $vo]) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('Apply VO ini ke nilai kontrak?')">
+                          @csrf
+                          <button class="btn btn-sm btn-primary">Apply</button>
+                        </form>
+                      @endif
+                    @endcan
+                  </td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="6" class="text-center text-muted">Belum ada VO.</td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">
           <h3 class="card-title">Billing Terms</h3>
         </div>
         <div class="table-responsive">
@@ -152,7 +214,7 @@
             <tbody>
               @forelse($o->billingTerms as $term)
                 @php
-                  $termAmount = round(((float) ($o->total ?? 0)) * ((float) $term->percent) / 100, 2);
+                  $termAmount = round(((float) $contractValue) * ((float) $term->percent) / 100, 2);
                   $status = $term->status ?? 'planned';
                 @endphp
                 <tr>

@@ -103,7 +103,7 @@ class InvoiceController extends Controller
             abort(422, 'Percent tidak boleh negatif.');
         }
 
-        $soTotal = (float) ($salesOrder->total ?? 0);
+        $soTotal = (float) ($salesOrder->contract_value ?? $salesOrder->total ?? 0);
         $amount = round($soTotal * $percent / 100, 2);
         if ($amount < 0) {
             abort(422, 'Invoice amount tidak valid.');

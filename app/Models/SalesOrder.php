@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use App\Models\{Invoice, Delivery, SalesOrderVariation};
 
 class SalesOrder extends Model
 {
@@ -20,6 +21,7 @@ class SalesOrder extends Model
         'discount_mode',
         'lines_subtotal','total_discount_type','total_discount_value','total_discount_amount',
         'taxable_base','tax_percent','tax_amount','total',
+        'contract_value',
         'npwp_required','npwp_status','tax_npwp_number','tax_npwp_name','tax_npwp_address',
         'status',
         // NEW
@@ -43,6 +45,7 @@ class SalesOrder extends Model
         'tax_amount'            => 'decimal:2',
         'total'                 => 'decimal:2',
         'under_amount'          => 'decimal:2',
+        'contract_value'        => 'decimal:2',
 
         // boolean
         'npwp_required' => 'bool',
@@ -112,6 +115,21 @@ class SalesOrder extends Model
     public function billingTerms(): HasMany
     {
         return $this->hasMany(SalesOrderBillingTerm::class)->orderBy('seq');
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(Delivery::class);
+    }
+
+    public function variations(): HasMany
+    {
+        return $this->hasMany(SalesOrderVariation::class)->orderBy('vo_date')->orderBy('id');
     }
 
     public function attachments(){ return $this->hasMany(SalesOrderAttachment::class); }
