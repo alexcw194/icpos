@@ -135,6 +135,38 @@
     </div>
 
     <div class="col-12">
+      <div class="card mb-3">
+        <div class="card-header">
+          <h3 class="card-title">Billing Terms</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table">
+            <thead>
+              <tr>
+                <th style="width:120px;">TOP Code</th>
+                <th style="width:120px;" class="text-end">Percent</th>
+                <th>Note</th>
+                <th style="width:140px;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @forelse($o->billingTerms as $term)
+                <tr>
+                  <td>{{ $term->top_code }}</td>
+                  <td class="text-end">{{ number_format((float) $term->percent, 2) }}%</td>
+                  <td>{{ $term->note ?? '-' }}</td>
+                  <td>{{ ucfirst($term->status ?? 'planned') }}</td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="4" class="text-center text-muted">Belum ada billing term.</td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs">

@@ -156,6 +156,11 @@
         <div id="soFilesEmpty" class="text-muted mt-2">Belum ada lampiran.</div>
       </div>
 
+      @php
+        $billingTermsData = old('billing_terms', []);
+      @endphp
+      @include('sales_orders._billing_terms_form', ['billingTermsData' => $billingTermsData, 'topOptions' => $topOptions])
+
       {{-- ============ TABS: Items & More Info ============ --}}
       <ul class="nav nav-tabs mt-3" role="tablist">
         <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-items" role="tab">Items</a></li>

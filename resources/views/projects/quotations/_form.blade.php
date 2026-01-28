@@ -184,8 +184,17 @@
           <tr class="term-row" data-term-index="{{ $i }}">
             <td>
               <select name="payment_terms[{{ $i }}][code]" class="form-select">
-                @foreach(['DP','T1','T2','T3','T4','T5','FINISH','R1','R2','R3'] as $code)
-                  <option value="{{ $code }}" @selected(($term['code'] ?? 'DP') === $code)>{{ $code }}</option>
+                @foreach($topOptions as $opt)
+                  @php
+                    $label = $opt->code;
+                    if (!empty($opt->description)) {
+                      $label .= ' — '.$opt->description;
+                    }
+                    if (!$opt->is_active) {
+                      $label .= ' (inactive)';
+                    }
+                  @endphp
+                  <option value="{{ $opt->code }}" @selected(($term['code'] ?? 'DP') === $opt->code)>{{ $label }}</option>
                 @endforeach
               </select>
               <input type="hidden" name="payment_terms[{{ $i }}][sequence]" value="{{ $term['sequence'] ?? ($i + 1) }}">
@@ -1138,7 +1147,18 @@
       <tr class="term-row" data-term-index="${idx}">
         <td>
           <select name="payment_terms[${idx}][code]" class="form-select">
-            ${['DP','T1','T2','T3','T4','T5','FINISH','R1','R2','R3'].map(code => `<option value="${code}">${code}</option>`).join('')}
+            @foreach($topOptions as $opt)
+              @php
+                $label = $opt->code;
+                if (!empty($opt->description)) {
+                  $label .= ' — '.$opt->description;
+                }
+                if (!$opt->is_active) {
+                  $label .= ' (inactive)';
+                }
+              @endphp
+              <option value="{{ $opt->code }}">{{ $label }}</option>
+            @endforeach
           </select>
           <input type="hidden" name="payment_terms[${idx}][sequence]" value="${idx + 1}">
         </td>

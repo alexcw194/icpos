@@ -109,5 +109,10 @@ class SalesOrder extends Model
         return $this->hasMany(SalesOrderLine::class)->orderBy('position');
     }
 
+    public function billingTerms(): HasMany
+    {
+        return $this->hasMany(SalesOrderBillingTerm::class)->orderBy('seq');
+    }
+
     public function attachments(){ return $this->hasMany(SalesOrderAttachment::class); }
 }

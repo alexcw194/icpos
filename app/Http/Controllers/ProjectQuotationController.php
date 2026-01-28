@@ -8,6 +8,7 @@ use App\Models\ProjectQuotation;
 use App\Models\ProjectQuotationLine;
 use App\Models\ProjectQuotationPaymentTerm;
 use App\Models\ProjectQuotationSection;
+use App\Models\TermOfPayment;
 use App\Models\SubContractor;
 use App\Models\LaborCost;
 use App\Models\Setting;
@@ -22,7 +23,6 @@ use Illuminate\Validation\ValidationException;
 
 class ProjectQuotationController extends Controller
 {
-    private const TERM_CODES = ['DP', 'T1', 'T2', 'T3', 'T4', 'T5', 'FINISH', 'R1', 'R2', 'R3'];
 
     public function index(Project $project)
     {
@@ -51,6 +51,9 @@ class ProjectQuotationController extends Controller
         $subContractors = $this->loadSubContractors($canManageCost);
         $defaultSubContractorId = $this->defaultSubContractorId($canManageCost);
         $selectedSubContractorId = old('sub_contractor_id') ?: ($defaultSubContractorId ?: null);
+        $topOptions = TermOfPayment::query()
+            ->orderBy('code')
+            ->get(['code','description','is_active']);
 
         $quotation = new ProjectQuotation([
             'quotation_date' => now()->toDateString(),
@@ -107,7 +110,8 @@ class ProjectQuotationController extends Controller
             'contacts',
             'subContractors',
             'selectedSubContractorId',
-            'canManageCost'
+            'canManageCost',
+            'topOptions'
         ));
     }
 
@@ -237,6 +241,9 @@ class ProjectQuotationController extends Controller
         $canManageCost = $this->canManageLaborCost();
         $subContractors = $this->loadSubContractors($canManageCost);
         $selectedSubContractorId = old('sub_contractor_id', $quotation->sub_contractor_id);
+        $topOptions = TermOfPayment::query()
+            ->orderBy('code')
+            ->get(['code','description','is_active']);
 
         $paymentTerms = $quotation->paymentTerms;
         $sections = $quotation->sections;
@@ -285,7 +292,8 @@ class ProjectQuotationController extends Controller
             'contacts',
             'subContractors',
             'selectedSubContractorId',
-            'canManageCost'
+            'canManageCost',
+            'topOptions'
         ));
     }
 
@@ -555,7 +563,7 @@ class ProjectQuotationController extends Controller
             'sales_owner_user_id' => ['required', 'exists:users,id'],
 
             'payment_terms' => ['required', 'array', 'min:1'],
-            'payment_terms.*.code' => ['nullable', 'string', 'max:16'],
+            'payment_terms.*.code' => ['required', 'string', 'max:16', 'exists:term_of_payments,code'],
             'payment_terms.*.label' => ['nullable', 'string', 'max:50'],
             'payment_terms.*.percent' => ['nullable', 'numeric', 'min:0'],
             'payment_terms.*.sequence' => ['nullable', 'integer', 'min:0'],

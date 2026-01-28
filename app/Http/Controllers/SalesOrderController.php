@@ -7,15 +7,18 @@ use App\Models\{
     SalesOrder,
     SalesOrderLine,
     SalesOrderAttachment,
+    SalesOrderBillingTerm,
     Company,
     Customer,
     Item,
     Project,
+    TermOfPayment,
     User
 };
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use App\Services\DocNumberService;
 use App\Http\Controllers\SalesOrderAttachmentController as SOAtt;
 
@@ -35,6 +38,9 @@ class SalesOrderController extends Controller
             ->with('customer:id,name')
             ->orderBy('name')
             ->get(['id','name','code','customer_id']);
+        $topOptions = TermOfPayment::query()
+            ->orderBy('code')
+            ->get(['code','description','is_active']);
 
         $npwpRequired = (bool) ($quotation->company->require_npwp_on_so ?? false);
         $cust = $quotation->customer;
@@ -49,7 +55,7 @@ class SalesOrderController extends Controller
 
         // ⚠️ TIDAK ADA SalesOrder::create DI SINI
         return view('sales_orders.create_from_quotation', compact(
-            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items', 'projects'
+            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items', 'projects', 'topOptions'
         ));
     }
 
@@ -62,6 +68,9 @@ class SalesOrderController extends Controller
             ->with('customer:id,name')
             ->orderBy('name')
             ->get(['id','name','code','customer_id']);
+        $topOptions = TermOfPayment::query()
+            ->orderBy('code')
+            ->get(['code','description','is_active']);
         // tambahkan is_default ke select
         $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent','is_default']);
         $sales     = User::orderBy('name')->get(['id','name']);
@@ -85,6 +94,7 @@ class SalesOrderController extends Controller
             'customers'          => $customers,
             'items'              => $items,
             'projects'           => $projects,
+            'topOptions'         => $topOptions,
             'companies'          => $companies,
             'sales'              => $sales,
             'selectedCompanyId'  => $selectedCompanyId, // dipakai di <select name="company_id">
@@ -118,6 +128,11 @@ class SalesOrderController extends Controller
 
             'total_discount_type'  => ['nullable','in:amount,percent'],
             'total_discount_value' => ['nullable','string'],
+
+            'billing_terms' => ['required','array','min:1'],
+            'billing_terms.*.top_code' => ['required','string','max:16'],
+            'billing_terms.*.percent' => ['required','string'],
+            'billing_terms.*.note' => ['nullable','string','max:190'],
 
             'lines'               => ['required','array','min:1'],
             'lines.*.name'        => ['required','string'],
@@ -161,6 +176,8 @@ class SalesOrderController extends Controller
                 ->withErrors(['project_name' => 'Project wajib diisi (pilih Project atau isi Project Name).'])
                 ->withInput();
         }
+
+        $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? []);
 
         // 3) Hitung per-baris
         $computedLines = [];
@@ -229,7 +246,7 @@ class SalesOrderController extends Controller
 
         /** @var \App\Models\SalesOrder $so */
         $so = null;
-        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, &$so) {
+        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, &$so) {
             $so = SalesOrder::create([
                 'company_id'          => $company->id,
                 'customer_id'         => $data['customer_id'],
@@ -268,6 +285,17 @@ class SalesOrderController extends Controller
                     'line_total'       => $ln['line_total'],
                     'item_id'          => $ln['item_id'] ?? null,
                     'item_variant_id'  => $ln['item_variant_id'] ?? null,
+                ]);
+            }
+
+            foreach ($billingTerms as $term) {
+                SalesOrderBillingTerm::create([
+                    'sales_order_id' => $so->id,
+                    'seq' => $term['seq'],
+                    'top_code' => $term['top_code'],
+                    'percent' => $term['percent'],
+                    'note' => $term['note'],
+                    'status' => $term['status'] ?? 'planned',
                 ]);
             }
 
@@ -317,7 +345,7 @@ class SalesOrderController extends Controller
     {
         $this->authorize('view', $salesOrder);
 
-        $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation','project']);
+        $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation','project','billingTerms']);
         return view('sales_orders.show', compact('salesOrder'));
     }
 
@@ -333,6 +361,7 @@ class SalesOrderController extends Controller
             'lines',
             'attachments',
             'quotation',
+            'billingTerms',
         ]);
 
         // Data item untuk TomSelect di staging row
@@ -344,6 +373,9 @@ class SalesOrderController extends Controller
             ->with('customer:id,name')
             ->orderBy('name')
             ->get(['id','name','code','customer_id']);
+        $topOptions = TermOfPayment::query()
+            ->orderBy('code')
+            ->get(['code','description','is_active']);
         
          // Seed baris untuk view/JS (INI YANG PENTING)
         $lineSeed = ($salesOrder->lines ?? collect())->map(function ($l) {
@@ -368,6 +400,7 @@ class SalesOrderController extends Controller
             'salesOrder',
             'items',
             'projects',
+            'topOptions',
             'lineSeed',
             'ppnDefault',
             'defaultDiscountMode',
@@ -416,6 +449,11 @@ class SalesOrderController extends Controller
 
             'tax_percent' => ['required','string'],
 
+            'billing_terms' => ['required','array','min:1'],
+            'billing_terms.*.top_code' => ['required','string','max:16'],
+            'billing_terms.*.percent' => ['required','string'],
+            'billing_terms.*.note' => ['nullable','string','max:190'],
+
             'lines' => ['required','array','min:1'],
             'lines.*.id'             => ['nullable','integer'],
             'lines.*.name'           => ['required','string','max:255'],
@@ -447,6 +485,8 @@ class SalesOrderController extends Controller
                 ->withErrors(['project_name' => 'Project wajib diisi (pilih Project atau isi Project Name).'])
                 ->withInput();
         }
+
+        $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? []);
 
         $sub = 0; $perLineDc = 0;
         $cleanLines = [];
@@ -515,7 +555,7 @@ class SalesOrderController extends Controller
         $grand = $dpp + $ppn;
 
         // Simpan header + sinkronisasi lines
-        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName) {
+        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$billingTerms) {
             $salesOrder->update([
                 'customer_po_number'    => $data['customer_po_number'],
                 'customer_po_date'      => $data['customer_po_date'] ?? null,
@@ -539,6 +579,17 @@ class SalesOrderController extends Controller
                 'total'                 => $grand,
                 'under_amount'          => (float) ($data['under_amount'] ?? 0),
             ]);
+
+            $salesOrder->billingTerms()->delete();
+            foreach ($billingTerms as $term) {
+                $salesOrder->billingTerms()->create([
+                    'seq' => $term['seq'],
+                    'top_code' => $term['top_code'],
+                    'percent' => $term['percent'],
+                    'note' => $term['note'],
+                    'status' => $term['status'] ?? 'planned',
+                ]);
+            }
 
             // Hapus line yang tidak dikirim lagi
             $keepIds = collect($cleanLines)->pluck('id')->filter()->values()->all();
@@ -680,6 +731,11 @@ class SalesOrderController extends Controller
             'discount_mode'  => ['nullable','in:total,per_item'],
             'tax_percent'    => ['nullable','numeric','min:0'],
 
+            'billing_terms' => ['required','array','min:1'],
+            'billing_terms.*.top_code' => ['required','string','max:16'],
+            'billing_terms.*.percent' => ['required','string'],
+            'billing_terms.*.note' => ['nullable','string','max:190'],
+
             'draft_token'    => ['nullable','string','max:64'],
         ]);
 
@@ -700,12 +756,14 @@ class SalesOrderController extends Controller
                 ->withInput();
         }
 
+        $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? []);
+
         // Sales agent: pilih urutan prioritas
         $salesUserId = $request->input('sales_user_id')
             ?: ($quotation->sales_user_id ?: auth()->id());
 
         /** @var SalesOrder $so */
-        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName) {
+        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms) {
 
             // Nomor SO
             $number = app(DocNumberService::class)->next('sales_order', $company, now());
@@ -775,6 +833,17 @@ class SalesOrderController extends Controller
                 ]);
 
                 $linesSubtotal += $lineTotal;
+            }
+
+            foreach ($billingTerms as $term) {
+                SalesOrderBillingTerm::create([
+                    'sales_order_id' => $so->id,
+                    'seq' => $term['seq'],
+                    'top_code' => $term['top_code'],
+                    'percent' => $term['percent'],
+                    'note' => $term['note'],
+                    'status' => $term['status'] ?? 'planned',
+                ]);
             }
 
             // Diskon total (mode total)
@@ -866,5 +935,71 @@ class SalesOrderController extends Controller
             $s = str_replace(',', '.', $s);
         }
         return (float) $s;
+    }
+
+    private function normalizeBillingTerms(array $terms): array
+    {
+        $allowed = TermOfPayment::query()
+            ->pluck('code')
+            ->map(fn ($c) => strtoupper((string) $c))
+            ->values()
+            ->all();
+        $allowedMap = array_flip($allowed);
+
+        $clean = [];
+        $sum = 0.0;
+        $seen = [];
+
+        foreach ($terms as $idx => $term) {
+            $code = strtoupper(trim((string) ($term['top_code'] ?? '')));
+            if ($code === '') {
+                continue;
+            }
+
+            if (!isset($allowedMap[$code])) {
+                throw ValidationException::withMessages([
+                    "billing_terms.$idx.top_code" => 'Kode TOP tidak valid.',
+                ]);
+            }
+
+            if (isset($seen[$code])) {
+                throw ValidationException::withMessages([
+                    "billing_terms.$idx.top_code" => 'Kode TOP duplikat di Sales Order.',
+                ]);
+            }
+            $seen[$code] = true;
+
+            $percent = $this->toNumber($term['percent'] ?? 0);
+            if ($percent < 0) {
+                throw ValidationException::withMessages([
+                    "billing_terms.$idx.percent" => 'Percent tidak boleh negatif.',
+                ]);
+            }
+
+            $sum += $percent;
+            $note = trim((string) ($term['note'] ?? ''));
+
+            $clean[] = [
+                'seq' => $idx + 1,
+                'top_code' => $code,
+                'percent' => $percent,
+                'note' => $note !== '' ? $note : null,
+                'status' => 'planned',
+            ];
+        }
+
+        if (count($clean) < 1) {
+            throw ValidationException::withMessages([
+                'billing_terms' => 'Billing terms wajib diisi.',
+            ]);
+        }
+
+        if (abs($sum - 100) > 0.01) {
+            throw ValidationException::withMessages([
+                'billing_terms' => 'Total persentase TOP harus 100%.',
+            ]);
+        }
+
+        return $clean;
     }
 }

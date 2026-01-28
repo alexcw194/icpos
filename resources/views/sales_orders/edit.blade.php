@@ -179,6 +179,20 @@
         @endif
       </div>
 
+      @php
+        $billingTermsData = old('billing_terms');
+        if (!$billingTermsData) {
+          $billingTermsData = ($salesOrder->billingTerms ?? collect())->map(function ($t) {
+            return [
+              'top_code' => $t->top_code,
+              'percent' => $t->percent,
+              'note' => $t->note,
+            ];
+          })->toArray();
+        }
+      @endphp
+      @include('sales_orders._billing_terms_form', ['billingTermsData' => $billingTermsData, 'topOptions' => $topOptions])
+
       {{-- TABS --}}
       <ul class="nav nav-tabs mt-4" role="tablist">
         <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-items" role="tab">Items</a></li>

@@ -32,6 +32,7 @@ use App\Http\Controllers\{
     ManufactureRecipeController,
     BqLineCatalogController,
     SubContractorController,
+    TermOfPaymentController,
 };
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\SettingController;
@@ -359,6 +360,9 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::resource('bq-line-catalogs', BqLineCatalogController::class)->except(['show']);
     Route::resource('sub-contractors', SubContractorController::class)
         ->parameters(['sub-contractors' => 'subContractor'])
+        ->except(['show']);
+    Route::resource('term-of-payments', TermOfPaymentController::class)
+        ->parameters(['term-of-payments' => 'termOfPayment'])
         ->except(['show']);
 
     // Document Counters (manual numbering)
