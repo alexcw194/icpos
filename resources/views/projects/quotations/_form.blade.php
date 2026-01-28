@@ -1280,8 +1280,14 @@
 
   const updateTermScheduleColumns = () => {
     const rows = Array.from(termTable?.querySelectorAll('.term-row') || []);
-    const anyOffset = rows.some((row) => row.dataset.showOffset === '1');
-    const anyDay = rows.some((row) => row.dataset.showDay === '1');
+    const anyOffset = rows.some((row) => {
+      const trigger = row.querySelector('.js-term-trigger')?.value || '';
+      return ['after_invoice_days', 'after_delivery_days'].includes(trigger);
+    });
+    const anyDay = rows.some((row) => {
+      const trigger = row.querySelector('.js-term-trigger')?.value || '';
+      return ['eom_day', 'next_month_day'].includes(trigger);
+    });
     const offsetTh = termTable?.querySelector('th[data-col="offset"]');
     const dayTh = termTable?.querySelector('th[data-col="day"]');
     if (offsetTh) offsetTh.style.display = anyOffset ? '' : 'none';
@@ -1354,8 +1360,7 @@
 
     termTable.addEventListener('change', (e) => {
       if (e.target.classList.contains('js-term-trigger')) {
-        updateTermScheduleVisibility(e.target.closest('.term-row'));
-        updateTermScheduleColumns();
+        applyTermScheduleVisibility();
       }
     });
   }
