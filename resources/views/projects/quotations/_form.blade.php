@@ -191,8 +191,8 @@
           <th>Label</th>
           <th style="width:120px;" class="text-end">Percent</th>
           <th style="width:170px;">Trigger</th>
-          <th style="width:120px;" class="text-end" data-col="offset">Offset Days</th>
-          <th style="width:120px;" class="text-end" data-col="day">Day of Month</th>
+          <th style="width:120px; display:none;" class="text-end" data-col="offset">Offset Days</th>
+          <th style="width:120px; display:none;" class="text-end" data-col="day">Day of Month</th>
           <th>Trigger Note</th>
           <th style="width:1%"></th>
         </tr>
@@ -235,10 +235,10 @@
                 <option value="next_month_day" @selected($tr === 'next_month_day')>Next Month Day</option>
               </select>
             </td>
-            <td>
+            <td style="display:none;">
               <input type="number" name="payment_terms[{{ $i }}][offset_days]" class="form-control text-end js-term-offset" value="{{ $term['offset_days'] ?? '' }}" min="0" inputmode="numeric" placeholder="e.g. 14">
             </td>
-            <td>
+            <td style="display:none;">
               <input type="number" name="payment_terms[{{ $i }}][day_of_month]" class="form-control text-end js-term-day" value="{{ $term['day_of_month'] ?? '' }}" min="1" max="28" inputmode="numeric" placeholder="e.g. 20">
             </td>
             <td>
@@ -1211,8 +1211,8 @@
             <option value="next_month_day">Next Month Day</option>
           </select>
         </td>
-        <td><input type="number" name="payment_terms[${idx}][offset_days]" class="form-control text-end js-term-offset" value="" min="0" inputmode="numeric" placeholder="e.g. 14"></td>
-        <td><input type="number" name="payment_terms[${idx}][day_of_month]" class="form-control text-end js-term-day" value="" min="1" max="28" inputmode="numeric" placeholder="e.g. 20"></td>
+        <td style="display:none;"><input type="number" name="payment_terms[${idx}][offset_days]" class="form-control text-end js-term-offset" value="" min="0" inputmode="numeric" placeholder="e.g. 14"></td>
+        <td style="display:none;"><input type="number" name="payment_terms[${idx}][day_of_month]" class="form-control text-end js-term-day" value="" min="1" max="28" inputmode="numeric" placeholder="e.g. 20"></td>
         <td><input type="text" name="payment_terms[${idx}][trigger_note]" class="form-control"></td>
         <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-term">Remove</button></td>
       </tr>

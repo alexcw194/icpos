@@ -19,8 +19,8 @@
           <th style="width:160px;">TOP Code</th>
           <th style="width:140px;" class="text-end">Percent</th>
           <th style="width:170px;">Schedule</th>
-          <th style="width:120px;" class="text-end" data-col="offset">Offset Days</th>
-          <th style="width:120px;" class="text-end" data-col="day">Day of Month</th>
+          <th style="width:120px; display:none;" class="text-end" data-col="offset">Offset Days</th>
+          <th style="width:120px; display:none;" class="text-end" data-col="day">Day of Month</th>
           <th>Note (Milestone)</th>
           <th style="width:140px;">Status</th>
           <th style="width:1%"></th>
@@ -75,14 +75,14 @@
                 <input type="hidden" name="billing_terms[{{ $i }}][due_trigger]" value="{{ $term['due_trigger'] ?? '' }}">
               @endif
             </td>
-            <td>
+            <td style="display:none;">
               <input type="number" name="billing_terms[{{ $i }}][offset_days]" class="form-control form-control-sm text-end js-term-offset"
                      value="{{ $term['offset_days'] ?? '' }}" min="0" inputmode="numeric" placeholder="e.g. 14" @disabled($locked)>
               @if($locked)
                 <input type="hidden" name="billing_terms[{{ $i }}][offset_days]" value="{{ $term['offset_days'] ?? '' }}">
               @endif
             </td>
-            <td>
+            <td style="display:none;">
               <input type="number" name="billing_terms[{{ $i }}][day_of_month]" class="form-control form-control-sm text-end js-term-day"
                      value="{{ $term['day_of_month'] ?? '' }}" min="1" max="28" inputmode="numeric" placeholder="e.g. 20" @disabled($locked)>
               @if($locked)
@@ -144,10 +144,10 @@
         <option value="next_month_day">Next Month Day</option>
       </select>
     </td>
-    <td>
+    <td style="display:none;">
       <input type="number" name="billing_terms[__IDX__][offset_days]" class="form-control form-control-sm text-end js-term-offset" value="" min="0" inputmode="numeric" placeholder="e.g. 14">
     </td>
-    <td>
+    <td style="display:none;">
       <input type="number" name="billing_terms[__IDX__][day_of_month]" class="form-control form-control-sm text-end js-term-day" value="" min="1" max="28" inputmode="numeric" placeholder="e.g. 20">
     </td>
     <td>
