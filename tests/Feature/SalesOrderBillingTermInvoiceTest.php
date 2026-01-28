@@ -124,4 +124,48 @@ class SalesOrderBillingTermInvoiceTest extends TestCase
             ->post(route('sales-orders.billing-terms.create-invoice', [$so, $term]))
             ->assertStatus(403);
     }
+
+    public function test_retention_requires_previous_terms_paid(): void
+    {
+        $admin = $this->makeAdminUser();
+        $company = $this->makeCompany();
+        $customer = $this->makeCustomer();
+
+        TermOfPayment::firstOrCreate(
+            ['code' => 'DP'],
+            ['description' => 'Down Payment', 'is_active' => true]
+        );
+        TermOfPayment::firstOrCreate(
+            ['code' => 'R1'],
+            ['description' => 'Retention', 'is_active' => true]
+        );
+
+        $so = $this->makeSalesOrder($company, $customer);
+
+        $dp = SalesOrderBillingTerm::create([
+            'sales_order_id' => $so->id,
+            'seq' => 1,
+            'top_code' => 'DP',
+            'percent' => 50,
+            'status' => 'planned',
+        ]);
+
+        $r1 = SalesOrderBillingTerm::create([
+            'sales_order_id' => $so->id,
+            'seq' => 2,
+            'top_code' => 'R1',
+            'percent' => 50,
+            'status' => 'planned',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('sales-orders.billing-terms.create-invoice', [$so, $r1]))
+            ->assertStatus(422);
+
+        $dp->update(['status' => 'paid']);
+
+        $this->actingAs($admin)
+            ->post(route('sales-orders.billing-terms.create-invoice', [$so, $r1]))
+            ->assertRedirect();
+    }
 }

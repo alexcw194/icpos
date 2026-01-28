@@ -83,6 +83,21 @@ class InvoiceController extends Controller
 
         $salesOrder->load(['company', 'customer', 'billingTerms']);
 
+        $topCode = strtoupper((string) $term->top_code);
+        if (str_starts_with($topCode, 'R')) {
+            $prevTerms = $salesOrder->billingTerms()
+                ->where('seq', '<', $term->seq)
+                ->get();
+
+            $hasUnpaid = $prevTerms->contains(function ($t) {
+                return ($t->status ?? 'planned') !== 'paid';
+            });
+
+            if ($hasUnpaid) {
+                abort(422, 'Retention hanya dapat ditagih setelah semua term sebelumnya PAID.');
+            }
+        }
+
         $percent = (float) $term->percent;
         if ($percent < 0) {
             abort(422, 'Percent tidak boleh negatif.');
