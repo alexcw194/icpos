@@ -1355,6 +1355,7 @@
     termTable.addEventListener('change', (e) => {
       if (e.target.classList.contains('js-term-trigger')) {
         updateTermScheduleVisibility(e.target.closest('.term-row'));
+        updateTermScheduleColumns();
       }
     });
   }

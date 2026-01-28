@@ -275,6 +275,7 @@
   table.addEventListener('change', (e) => {
     if (e.target && e.target.classList.contains('js-term-trigger')) {
       updateScheduleVisibility(e.target.closest('tr'));
+      updateScheduleColumns();
     }
   });
 
