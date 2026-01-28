@@ -102,6 +102,11 @@ class DeliveryController extends Controller
         $salesOrder = SalesOrder::with(['customer', 'company', 'lines.item', 'lines.variant'])
                         ->findOrFail($salesOrderId);
 
+        if ($salesOrder->status === 'cancelled') {
+            return redirect()->route('sales-orders.show', $salesOrder)
+                ->with('error', 'SO cancelled. Delivery tidak dapat dibuat.');
+        }
+
         if (($salesOrder->po_type ?? 'goods') === 'maintenance') {
             return redirect()->route('sales-orders.show', $salesOrder)
                 ->with('error', 'Maintenance tidak menggunakan Delivery Note.');
@@ -539,6 +544,11 @@ class DeliveryController extends Controller
             if ($salesOrder && ($salesOrder->po_type ?? 'goods') === 'maintenance') {
                 throw ValidationException::withMessages([
                     'sales_order_id' => 'Maintenance tidak menggunakan Delivery Note.',
+                ]);
+            }
+            if ($salesOrder && $salesOrder->status === 'cancelled') {
+                throw ValidationException::withMessages([
+                    'sales_order_id' => 'SO cancelled. Delivery tidak dapat dibuat.',
                 ]);
             }
         }

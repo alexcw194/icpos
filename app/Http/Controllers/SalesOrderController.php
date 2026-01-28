@@ -672,16 +672,32 @@ class SalesOrderController extends Controller
     {
         $this->authorize('cancel', $salesOrder);
 
+        if ($salesOrder->status === 'fully_billed') {
+            return back()->withErrors(['cancel_reason' => 'SO sudah fully billed, tidak dapat dibatalkan.']);
+        }
+
+        $salesOrder->loadMissing('billingTerms');
+        if ($salesOrder->billingTerms->isNotEmpty() &&
+            $salesOrder->billingTerms->every(fn ($t) => $t->status === 'paid')) {
+            return back()->withErrors(['cancel_reason' => 'Semua billing term sudah paid, SO tidak bisa dibatalkan.']);
+        }
+
         $validated = $request->validate([
             'cancel_reason' => ['required','string','min:5'],
         ]);
 
-        $salesOrder->update([
-            'status'                => 'cancelled',
-            'cancelled_at'          => now(),
-            'cancelled_by_user_id'  => auth()->id(),
-            'cancel_reason'         => $validated['cancel_reason'],
-        ]);
+        DB::transaction(function () use ($salesOrder, $validated) {
+            $salesOrder->update([
+                'status'                => 'cancelled',
+                'cancelled_at'          => now(),
+                'cancelled_by_user_id'  => auth()->id(),
+                'cancel_reason'         => $validated['cancel_reason'],
+            ]);
+
+            $salesOrder->billingTerms()
+                ->where('status', 'planned')
+                ->update(['status' => 'cancelled']);
+        });
 
         session()->forget('so_draft_token');
 

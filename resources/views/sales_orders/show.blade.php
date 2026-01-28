@@ -5,6 +5,7 @@
   $o = $salesOrder;
   $contractValue = (float) ($o->contract_value ?? $o->total ?? 0);
   $voAppliedTotal = ($o->relationLoaded('variations') ? $o->variations->where('status', 'applied')->sum('delta_amount') : 0);
+  $isCancelled = $o->status === 'cancelled';
   $statusMap = [
     'open'               => ['Open','bg-yellow-lt text-dark'],
     'partial_delivered'  => ['Partial Delivered','bg-cyan-lt text-dark'],
@@ -59,39 +60,40 @@
     </div>
     <div class="btn-list">
       {{-- Delivery & Invoice actions --}}
-
-      @can('deliveries.create')
-        @if(($o->po_type ?? 'goods') === 'maintenance')
-          <span class="btn btn-secondary disabled" title="Maintenance tidak menggunakan Delivery Note">Create Delivery Note</span>
-        @elseif($o->status === 'delivered')
-          <span class="btn btn-secondary disabled" title="Sales order sudah terkirim penuh">Create Delivery Note</span>
+      @if(!$isCancelled)
+        @can('deliveries.create')
+          @if(($o->po_type ?? 'goods') === 'maintenance')
+            <span class="btn btn-secondary disabled" title="Maintenance tidak menggunakan Delivery Note">Create Delivery Note</span>
+          @elseif($o->status === 'delivered')
+            <span class="btn btn-secondary disabled" title="Sales order sudah terkirim penuh">Create Delivery Note</span>
+          @else
+            <a href="{{ route('deliveries.create', ['sales_order_id' => $o->id]) }}" class="btn btn-secondary">Create Delivery Note</a>
+          @endif
         @else
-          <a href="{{ route('deliveries.create', ['sales_order_id' => $o->id]) }}" class="btn btn-secondary">Create Delivery Note</a>
-        @endif
-      @else
-        <span class="btn btn-secondary disabled" title="Anda tidak memiliki akses">Create Delivery Note</span>
-      @endcan
+          <span class="btn btn-secondary disabled" title="Anda tidak memiliki akses">Create Delivery Note</span>
+        @endcan
 
-      {{-- NEW: actions --}}
-      @can('update', $o)
-        <a href="{{ route('sales-orders.edit', $o) }}" class="btn">Edit</a>
-      @endcan
+        {{-- NEW: actions --}}
+        @can('update', $o)
+          <a href="{{ route('sales-orders.edit', $o) }}" class="btn">Edit</a>
+        @endcan
 
-      @can('amend', $o)
-        <a href="{{ route('sales-orders.variations.create', $o) }}" class="btn btn-outline-primary">Create VO</a>
-      @endcan
+        @can('amend', $o)
+          <a href="{{ route('sales-orders.variations.create', $o) }}" class="btn btn-outline-primary">Create VO</a>
+        @endcan
 
-      @can('cancel', $o)
-        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalCancelSo">Cancel SO</button>
-      @endcan
+        @can('cancel', $o)
+          <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalCancelSo">Cancel SO</button>
+        @endcan
 
-      @can('delete', $o)
-        <form action="{{ route('sales-orders.destroy', $o) }}" method="POST" class="d-inline"
-              onsubmit="return confirm('Delete this Sales Order? This cannot be undone.')">
-          @csrf @method('DELETE')
-          <button type="submit" class="btn btn-danger">Delete</button>
-        </form>
-      @endcan
+        @can('delete', $o)
+          <form action="{{ route('sales-orders.destroy', $o) }}" method="POST" class="d-inline"
+                onsubmit="return confirm('Delete this Sales Order? This cannot be undone.')">
+            @csrf @method('DELETE')
+            <button type="submit" class="btn btn-danger">Delete</button>
+          </form>
+        @endcan
+      @endif
     </div>
   </div>
 

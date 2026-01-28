@@ -31,8 +31,11 @@ class SalesOrderPolicy
     /** Cancel — hanya saat OPEN & belum punya DN/Invoice */
     public function cancel(User $user, SalesOrder $so): bool
     {
-        return $this->isOpenAndUnlocked($so) &&
-               ($this->isAdmin($user) || $this->isSalesOwner($user, $so));
+        if ($so->status === 'cancelled') {
+            return false;
+        }
+
+        return $this->isSuperAdmin($user) || $this->isAdmin($user);
     }
 
     /** Delete — SuperAdmin saja, OPEN & belum punya DN/Invoice */

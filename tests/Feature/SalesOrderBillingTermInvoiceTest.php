@@ -168,4 +168,31 @@ class SalesOrderBillingTermInvoiceTest extends TestCase
             ->post(route('sales-orders.billing-terms.create-invoice', [$so, $r1]))
             ->assertRedirect();
     }
+
+    public function test_cannot_create_invoice_when_so_cancelled(): void
+    {
+        $admin = $this->makeAdminUser();
+        $company = $this->makeCompany();
+        $customer = $this->makeCustomer();
+
+        TermOfPayment::firstOrCreate(
+            ['code' => 'FINISH'],
+            ['description' => 'Finish', 'is_active' => true]
+        );
+
+        $so = $this->makeSalesOrder($company, $customer);
+        $so->update(['status' => 'cancelled']);
+
+        $term = SalesOrderBillingTerm::create([
+            'sales_order_id' => $so->id,
+            'seq' => 1,
+            'top_code' => 'FINISH',
+            'percent' => 100,
+            'status' => 'planned',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('sales-orders.billing-terms.create-invoice', [$so, $term]))
+            ->assertStatus(422);
+    }
 }

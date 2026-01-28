@@ -77,6 +77,10 @@ class InvoiceController extends Controller
             abort(404);
         }
 
+        if ($salesOrder->status === 'cancelled') {
+            abort(422, 'SO sudah cancelled.');
+        }
+
         if (($term->status ?? 'planned') !== 'planned') {
             abort(422, 'Billing Term sudah dibuatkan invoice.');
         }
