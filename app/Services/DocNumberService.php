@@ -12,6 +12,10 @@ class DocNumberService
     public static function next(string $docType, Company $company, Carbon $docDate): string
     {
         $year   = (int)$docDate->format('Y');
+        $counterType = match ($docType) {
+            'project_quotation' => 'project_quot',
+            default => $docType,
+        };
 
         // Tambah dukungan 'sales_order' + fallback prefix 'SO'
         $prefix = match ($docType) {
@@ -26,9 +30,9 @@ class DocNumberService
 
         $alias  = strtoupper($company->alias ?? 'CO');
 
-        $seq = DB::transaction(function () use ($company, $docType, $year) {
+        $seq = DB::transaction(function () use ($company, $docType, $counterType, $year) {
             $row = DB::table('document_counters')
-                ->where(['company_id' => $company->id, 'doc_type' => $docType, 'year' => $year])
+                ->where(['company_id' => $company->id, 'doc_type' => $counterType, 'year' => $year])
                 ->lockForUpdate()
                 ->first();
 
@@ -47,7 +51,7 @@ class DocNumberService
 
                 DB::table('document_counters')->insert([
                     'company_id' => $company->id,
-                    'doc_type'   => $docType,
+                    'doc_type'   => $counterType,
                     'year'       => $year,
                     'last_seq'   => $last,
                     'created_at' => now(),
@@ -61,7 +65,7 @@ class DocNumberService
             $next = $last + 1;
 
             DB::table('document_counters')
-              ->where(['company_id' => $company->id, 'doc_type' => $docType, 'year' => $year])
+              ->where(['company_id' => $company->id, 'doc_type' => $counterType, 'year' => $year])
               ->update(['last_seq' => $next, 'updated_at' => now()]);
 
             return $next;
