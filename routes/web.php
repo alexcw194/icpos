@@ -151,8 +151,6 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
 
     // Invoices & Deliveries (read-only + actions)
     Route::resource('invoices',   InvoiceController::class)->only(['index','show','destroy']);
-    Route::post('invoices/{invoice}/create-delivery', [DeliveryController::class, 'storeFromInvoice'])
-        ->name('invoices.create-delivery');
     Route::resource('deliveries', DeliveryController::class);
     Route::post('deliveries/{delivery}/post', [DeliveryController::class, 'post'])->name('deliveries.post');
     Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');

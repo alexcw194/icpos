@@ -102,6 +102,11 @@ class DeliveryController extends Controller
         $salesOrder = SalesOrder::with(['customer', 'company', 'lines.item', 'lines.variant'])
                         ->findOrFail($salesOrderId);
 
+        if (($salesOrder->po_type ?? 'goods') === 'maintenance') {
+            return redirect()->route('sales-orders.show', $salesOrder)
+                ->with('error', 'Maintenance tidak menggunakan Delivery Note.');
+        }
+
         // Isi header dari SO
         $delivery->fill([
             'company_id'     => $salesOrder->company_id,
@@ -144,7 +149,7 @@ class DeliveryController extends Controller
                 'company_id'   => $company->id,
                 'customer_id'  => $data['customer_id'],
                 'warehouse_id' => $data['warehouse_id'] ?? null,
-                'invoice_id'   => $data['invoice_id'] ?? null,
+                'invoice_id'   => null,
                 'quotation_id' => $data['quotation_id'] ?? null,
                 'sales_order_id' => $data['sales_order_id'],
                 'status'       => Delivery::STATUS_DRAFT,
@@ -199,7 +204,7 @@ class DeliveryController extends Controller
                 'company_id'   => $company->id,
                 'customer_id'  => $data['customer_id'],
                 'warehouse_id' => $data['warehouse_id'] ?? null,
-                'invoice_id'   => $data['invoice_id'] ?? null,
+                'invoice_id'   => null,
                 'quotation_id' => $data['quotation_id'] ?? null,
                 'date'         => $data['date'],
                 'reference'    => $data['reference'] ?? null,
@@ -400,30 +405,7 @@ class DeliveryController extends Controller
     {
         $this->authorizePermission('deliveries.create');
 
-        $delivery = DB::transaction(function () use ($invoice) {
-            $delivery = Delivery::create([
-                'company_id'   => $invoice->company_id,
-                'customer_id'  => $invoice->customer_id,
-                'invoice_id'   => $invoice->id,
-                'quotation_id' => $invoice->quotation_id,
-                'status'       => Delivery::STATUS_DRAFT,
-                'date'         => $invoice->date ?? Carbon::now(),
-                'reference'    => $invoice->number,
-                'recipient'    => $invoice->customer->name ?? null,
-                'address'      => $invoice->customer->address ?? null,
-                'brand_snapshot'=> $invoice->brand_snapshot,
-                'created_by'   => auth()->id(),
-            ]);
-
-            if ($invoice->quotation?->lines) {
-                $this->syncLines($delivery, $this->buildLinesFromQuotation($invoice->quotation->lines));
-            }
-
-            return $delivery;
-        });
-
-        return redirect()->route('deliveries.edit', $delivery)
-            ->with('success', 'Delivery draft dibuat dari invoice. Lengkapi detail & warehouse sebelum posting.');
+        abort(403, 'Delivery must be created from Sales Order.');
     }
 
     private function authorizePermission(string $permission): void
@@ -467,7 +449,6 @@ class DeliveryController extends Controller
             'company_id'   => 'required|exists:companies,id',
             'customer_id'  => 'required|exists:customers,id',
             'warehouse_id' => 'nullable|exists:warehouses,id',
-            'invoice_id'   => 'nullable|exists:invoices,id',
             'quotation_id' => 'nullable|exists:quotations,id',
             'sales_order_id' => 'required|exists:sales_orders,id',
             'date'         => 'required|date',
@@ -552,6 +533,15 @@ class DeliveryController extends Controller
         }
 
         $validated['sales_order_id'] = $salesOrderId;
+
+        if ($validated['sales_order_id']) {
+            $salesOrder = SalesOrder::find($validated['sales_order_id']);
+            if ($salesOrder && ($salesOrder->po_type ?? 'goods') === 'maintenance') {
+                throw ValidationException::withMessages([
+                    'sales_order_id' => 'Maintenance tidak menggunakan Delivery Note.',
+                ]);
+            }
+        }
 
         $validated['lines'] = $lines->all();
 

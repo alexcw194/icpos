@@ -43,11 +43,6 @@
         </button>
       @endif
 
-      {{-- Existing action: Create Delivery (retained) --}}
-      <form action="{{ route('invoices.create-delivery', $invoice) }}" method="POST">
-        @csrf
-        <button class="btn btn-primary">Create Delivery</button>
-      </form>
     </div>
   </div>
 

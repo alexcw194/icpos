@@ -41,20 +41,7 @@ class StockService
                 ->update(['qty_delivered' => $newDelivered]); // or clamp to that doc’s logic
         }
 
-        // Recompute SO status (open/partial_delivered/delivered)
-        $agg = DB::table('sales_order_lines')
-            ->selectRaw('SUM(qty_ordered) as ordered, SUM(qty_delivered) as delivered')
-            ->where('sales_order_id', $soLine->sales_order_id)
-            ->first();
-
-        $status = 'open';
-        if ($agg && (float)$agg->delivered > 0) {
-            $status = ((float)$agg->delivered + 1e-9 >= (float)$agg->ordered) ? 'delivered' : 'partial_delivered';
-        }
-
-        DB::table('sales_orders')
-            ->where('id', $soLine->sales_order_id)
-            ->update(['status' => $status]);
+        // NOTE: Delivery progress should not change SO billing status.
     }
 
     /**

@@ -59,7 +59,9 @@
       {{-- Delivery & Invoice actions --}}
 
       @can('deliveries.create')
-        @if($o->status === 'delivered')
+        @if(($o->po_type ?? 'goods') === 'maintenance')
+          <span class="btn btn-secondary disabled" title="Maintenance tidak menggunakan Delivery Note">Create Delivery Note</span>
+        @elseif($o->status === 'delivered')
           <span class="btn btn-secondary disabled" title="Sales order sudah terkirim penuh">Create Delivery Note</span>
         @else
           <a href="{{ route('deliveries.create', ['sales_order_id' => $o->id]) }}" class="btn btn-secondary">Create Delivery Note</a>
