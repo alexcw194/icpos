@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\{Invoice, Quotation, Company, SalesOrder, SalesOrderBillingTerm, Bank};
 use App\Services\DocNumberService;
-use App\Services\PaymentTermEngine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -269,15 +268,6 @@ class InvoiceController extends Controller
 
             $invoice->save();
         });
-
-        $invoice->load('salesOrder.company');
-        $salesOrder = $invoice->salesOrder;
-        if ($salesOrder && $salesOrder->payment_term_snapshot) {
-            app(PaymentTermEngine::class)->handle($salesOrder, 'invoice_issued', [
-                'invoice_date' => $invoice->date ?? now()->toDateString(),
-                'so_date' => $salesOrder->order_date ?? now()->toDateString(),
-            ]);
-        }
 
         return back()->with('success', 'Invoice posted.');
     }

@@ -4,9 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\TermOfPayment;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class TermOfPaymentController extends Controller
 {
+    private const DUE_TRIGGERS = [
+        'on_invoice',
+        'after_invoice_days',
+        'on_delivery',
+        'after_delivery_days',
+        'eom_day',
+        'next_month_day',
+    ];
     public function index(Request $request)
     {
         $q = $request->string('q')->toString();
@@ -49,7 +58,7 @@ class TermOfPaymentController extends Controller
             'schedules' => ['nullable', 'array'],
             'schedules.*.portion_type' => ['nullable', 'in:percent,fixed'],
             'schedules.*.portion_value' => ['nullable', 'string'],
-            'schedules.*.due_trigger' => ['nullable', 'in:on_so,on_delivery,on_invoice,after_invoice_days,end_of_month'],
+            'schedules.*.due_trigger' => ['nullable', Rule::in(self::DUE_TRIGGERS)],
             'schedules.*.offset_days' => ['nullable', 'integer', 'min:0'],
             'schedules.*.specific_day' => ['nullable', 'integer', 'min:1', 'max:31'],
             'schedules.*.notes' => ['nullable', 'string', 'max:255'],
@@ -98,7 +107,7 @@ class TermOfPaymentController extends Controller
             'schedules' => ['nullable', 'array'],
             'schedules.*.portion_type' => ['nullable', 'in:percent,fixed'],
             'schedules.*.portion_value' => ['nullable', 'string'],
-            'schedules.*.due_trigger' => ['nullable', 'in:on_so,on_delivery,on_invoice,after_invoice_days,end_of_month'],
+            'schedules.*.due_trigger' => ['nullable', Rule::in(self::DUE_TRIGGERS)],
             'schedules.*.offset_days' => ['nullable', 'integer', 'min:0'],
             'schedules.*.specific_day' => ['nullable', 'integer', 'min:1', 'max:31'],
             'schedules.*.notes' => ['nullable', 'string', 'max:255'],
@@ -167,10 +176,10 @@ class TermOfPaymentController extends Controller
             } elseif ($portionType === 'fixed') {
                 $hasFixed = true;
             }
-            if ($dueTrigger === 'after_invoice_days' && $offsetDays === null) {
+            if (in_array($dueTrigger, ['after_invoice_days', 'after_delivery_days'], true) && $offsetDays === null) {
                 $offsetDays = 0;
             }
-            if ($dueTrigger === 'end_of_month' && $specificDay === null) {
+            if (in_array($dueTrigger, ['eom_day', 'next_month_day'], true) && $specificDay === null) {
                 $specificDay = 1;
             }
             $clean[] = [

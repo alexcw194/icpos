@@ -16,11 +16,12 @@ return new class extends Migration {
             $table->enum('portion_type', ['percent', 'fixed']);
             $table->decimal('portion_value', 18, 4)->default(0);
             $table->enum('due_trigger', [
-                'on_so',
-                'on_delivery',
                 'on_invoice',
                 'after_invoice_days',
-                'end_of_month',
+                'on_delivery',
+                'after_delivery_days',
+                'eom_day',
+                'next_month_day',
             ]);
             $table->unsignedInteger('offset_days')->nullable();
             $table->unsignedInteger('specific_day')->nullable();

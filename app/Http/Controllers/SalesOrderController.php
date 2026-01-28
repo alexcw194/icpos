@@ -19,12 +19,23 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 use App\Services\DocNumberService;
-use App\Services\PaymentTermEngine;
 use App\Http\Controllers\SalesOrderAttachmentController as SOAtt;
 
 class SalesOrderController extends Controller
 {
+    private const BILLING_DUE_TRIGGERS = [
+        'on_invoice',
+        'after_invoice_days',
+        'on_delivery',
+        'after_delivery_days',
+        'eom_day',
+        'next_month_day',
+        // legacy support
+        'on_so',
+        'end_of_month',
+    ];
     /** Wizard: Create Sales Order from Quotation (UI). */
     public function createFromQuotation(Quotation $quotation)
     {
@@ -40,6 +51,7 @@ class SalesOrderController extends Controller
             ->orderBy('name')
             ->get(['id','name','code','customer_id']);
         $topOptions = TermOfPayment::query()
+            ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
             ->get(['code','description','is_active','applicable_to']);
         $paymentTerms = TermOfPayment::query()
@@ -75,6 +87,7 @@ class SalesOrderController extends Controller
             ->orderBy('name')
             ->get(['id','name','code','customer_id']);
         $topOptions = TermOfPayment::query()
+            ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
             ->get(['code','description','is_active','applicable_to']);
         $paymentTerms = TermOfPayment::query()
@@ -147,7 +160,7 @@ class SalesOrderController extends Controller
             'billing_terms.*.top_code' => ['required','string','max:64'],
             'billing_terms.*.percent' => ['required','string'],
             'billing_terms.*.note' => ['nullable','string','max:190'],
-            'billing_terms.*.due_trigger' => ['nullable','string','max:32'],
+            'billing_terms.*.due_trigger' => ['nullable', Rule::in(self::BILLING_DUE_TRIGGERS)],
             'billing_terms.*.offset_days' => ['nullable','integer','min:0'],
             'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:31'],
 
@@ -225,7 +238,7 @@ class SalesOrderController extends Controller
             if (!$this->termMatchesPoType($term, $data['po_type'] ?? 'goods')) {
                 return back()->withErrors(['payment_term_id' => 'Payment Term tidak sesuai PO Type.'])->withInput();
             }
-            $paymentTermSnapshot = $this->buildPaymentTermSnapshot($term);
+            $paymentTermSnapshot = null;
         }
 
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
@@ -378,12 +391,6 @@ class SalesOrderController extends Controller
             }
         }
 
-        if ($so && $so->payment_term_snapshot) {
-            app(PaymentTermEngine::class)->handle($so, 'so_confirmed', [
-                'so_date' => $so->order_date ?? now()->toDateString(),
-            ]);
-        }
-
         // ✅ HABISKAN TOKEN SESSION DI SINI
         session()->forget('so_draft_token');
 
@@ -442,6 +449,7 @@ class SalesOrderController extends Controller
             ->orderBy('name')
             ->get(['id','name','code','customer_id']);
         $topOptions = TermOfPayment::query()
+            ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
             ->get(['code','description','is_active','applicable_to']);
         $paymentTerms = TermOfPayment::query()
@@ -527,7 +535,7 @@ class SalesOrderController extends Controller
             'billing_terms.*.top_code' => ['required','string','max:64'],
             'billing_terms.*.percent' => ['required','string'],
             'billing_terms.*.note' => ['nullable','string','max:190'],
-            'billing_terms.*.due_trigger' => ['nullable','string','max:32'],
+            'billing_terms.*.due_trigger' => ['nullable', Rule::in(self::BILLING_DUE_TRIGGERS)],
             'billing_terms.*.offset_days' => ['nullable','integer','min:0'],
             'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:31'],
 
@@ -579,7 +587,7 @@ class SalesOrderController extends Controller
             if (!$this->termMatchesPoType($term, $data['po_type'] ?? 'goods')) {
                 return back()->withErrors(['payment_term_id' => 'Payment Term tidak sesuai PO Type.'])->withInput();
             }
-            $paymentTermSnapshot = $this->buildPaymentTermSnapshot($term);
+            $paymentTermSnapshot = null;
         }
 
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
@@ -668,6 +676,24 @@ class SalesOrderController extends Controller
             if (abs(((float) $incoming['percent']) - ((float) $term->percent)) > 0.01) {
                 return back()
                     ->withErrors(['billing_terms' => "TOP {$code} sudah invoiced/paid dan percent tidak boleh diubah."])
+                    ->withInput();
+            }
+            $incomingTrigger = (string) ($incoming['due_trigger'] ?? '');
+            $incomingOffset = $incoming['offset_days'] ?? null;
+            $incomingDay = $incoming['day_of_month'] ?? null;
+            if ($incomingTrigger !== (string) ($term->due_trigger ?? '')) {
+                return back()
+                    ->withErrors(['billing_terms' => "TOP {$code} sudah invoiced/paid dan schedule tidak boleh diubah."])
+                    ->withInput();
+            }
+            if ((string) ($incomingOffset ?? '') !== (string) ($term->offset_days ?? '')) {
+                return back()
+                    ->withErrors(['billing_terms' => "TOP {$code} sudah invoiced/paid dan schedule tidak boleh diubah."])
+                    ->withInput();
+            }
+            if ((string) ($incomingDay ?? '') !== (string) ($term->day_of_month ?? '')) {
+                return back()
+                    ->withErrors(['billing_terms' => "TOP {$code} sudah invoiced/paid dan schedule tidak boleh diubah."])
                     ->withInput();
             }
         }
@@ -894,7 +920,7 @@ class SalesOrderController extends Controller
             'billing_terms.*.top_code' => ['required','string','max:64'],
             'billing_terms.*.percent' => ['required','string'],
             'billing_terms.*.note' => ['nullable','string','max:190'],
-            'billing_terms.*.due_trigger' => ['nullable','string','max:32'],
+            'billing_terms.*.due_trigger' => ['nullable', Rule::in(self::BILLING_DUE_TRIGGERS)],
             'billing_terms.*.offset_days' => ['nullable','integer','min:0'],
             'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:31'],
 
@@ -933,7 +959,7 @@ class SalesOrderController extends Controller
             if (!$this->termMatchesPoType($term, $data['po_type'] ?? 'goods')) {
                 return back()->withErrors(['payment_term_id' => 'Payment Term tidak sesuai PO Type.'])->withInput();
             }
-            $paymentTermSnapshot = $this->buildPaymentTermSnapshot($term);
+            $paymentTermSnapshot = null;
         }
 
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
@@ -1105,12 +1131,6 @@ class SalesOrderController extends Controller
             return response()->json(['ok' => true, 'id' => $so->id, 'number' => $so->so_number]);
         }
 
-        if ($so && $so->payment_term_snapshot) {
-            app(PaymentTermEngine::class)->handle($so, 'so_confirmed', [
-                'so_date' => $so->order_date ?? now()->toDateString(),
-            ]);
-        }
-
         session()->forget('so_draft_token');
 
         return redirect()->route('sales-orders.show', $so)
@@ -1136,6 +1156,7 @@ class SalesOrderController extends Controller
     private function normalizeBillingTerms(array $terms, ?string $poType = null): array
     {
         $tops = TermOfPayment::query()
+            ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->get(['code','applicable_to']);
         $allowedMap = [];
         $applyMap = [];
@@ -1183,6 +1204,16 @@ class SalesOrderController extends Controller
             $sum += $percent;
             $note = trim((string) ($term['note'] ?? ''));
             $dueTrigger = trim((string) ($term['due_trigger'] ?? ''));
+            if ($dueTrigger !== '' && !in_array($dueTrigger, self::BILLING_DUE_TRIGGERS, true)) {
+                throw ValidationException::withMessages([
+                    "billing_terms.$idx.due_trigger" => 'Schedule trigger tidak valid.',
+                ]);
+            }
+            if ($dueTrigger === 'on_so') {
+                $dueTrigger = 'on_invoice';
+            } elseif ($dueTrigger === 'end_of_month') {
+                $dueTrigger = 'next_month_day';
+            }
             $offsetDays = $term['offset_days'] ?? null;
             $dayOfMonth = $term['day_of_month'] ?? null;
 
@@ -1242,27 +1273,4 @@ class SalesOrderController extends Controller
         return in_array($poType, $applies, true);
     }
 
-    private function buildPaymentTermSnapshot(TermOfPayment $term): array
-    {
-        $schedules = $term->schedules->map(function ($s) {
-            return [
-                'sequence' => $s->sequence,
-                'portion_type' => $s->portion_type,
-                'portion_value' => $s->portion_value,
-                'due_trigger' => $s->due_trigger,
-                'offset_days' => $s->offset_days,
-                'specific_day' => $s->specific_day,
-                'notes' => $s->notes,
-            ];
-        })->values()->all();
-
-        return [
-            'id' => $term->id,
-            'code' => $term->code,
-            'description' => $term->description,
-            'applicable_to' => $term->applicable_to,
-            'is_active' => (bool) $term->is_active,
-            'schedules' => $schedules,
-        ];
-    }
 }

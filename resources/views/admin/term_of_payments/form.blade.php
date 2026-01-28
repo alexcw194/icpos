@@ -86,19 +86,29 @@
           @php
             $schedulesData = old('schedules');
             if ($schedulesData === null) {
-              $schedulesData = ($row->schedules ?? collect())->map(function ($s) {
-                return [
-                  'portion_type' => $s->portion_type,
-                  'portion_value' => $s->portion_value,
-                  'due_trigger' => $s->due_trigger,
-                  'offset_days' => $s->offset_days,
-                  'specific_day' => $s->specific_day,
-                  'notes' => $s->notes,
-                ];
-              })->toArray();
-            }
-            $formatPortion = function ($value) {
-              if ($value === null || $value === '') return '';
+        $schedulesData = ($row->schedules ?? collect())->map(function ($s) {
+          return [
+            'portion_type' => $s->portion_type,
+            'portion_value' => $s->portion_value,
+            'due_trigger' => $s->due_trigger,
+            'offset_days' => $s->offset_days,
+            'specific_day' => $s->specific_day,
+            'notes' => $s->notes,
+          ];
+        })->toArray();
+      }
+      $normalizeTrigger = function ($value) {
+        $value = (string) ($value ?? '');
+        if ($value === 'on_so') return 'on_invoice';
+        if ($value === 'end_of_month') return 'next_month_day';
+        return $value;
+      };
+      $schedulesData = array_map(function ($row) use ($normalizeTrigger) {
+        $row['due_trigger'] = $normalizeTrigger($row['due_trigger'] ?? null);
+        return $row;
+      }, $schedulesData);
+      $formatPortion = function ($value) {
+        if ($value === null || $value === '') return '';
               $num = (float) $value;
               $str = number_format($num, 4, '.', '');
               return rtrim(rtrim($str, '0'), '.');
@@ -112,7 +122,7 @@
                   <th style="width:160px;" class="text-end">Value</th>
                   <th style="width:180px;">Trigger</th>
                   <th style="width:120px;" class="text-end">Offset Days</th>
-                  <th style="width:120px;" class="text-end">EOM Day</th>
+                  <th style="width:120px;" class="text-end">Day of Month</th>
                   <th>Notes</th>
                   <th style="width:1%"></th>
                 </tr>
@@ -132,12 +142,13 @@
                     </td>
                     <td>
                       <select name="schedules[{{ $i }}][due_trigger]" class="form-select form-select-sm due-trigger">
-                        @php $tr = $sch['due_trigger'] ?? 'on_so'; @endphp
-                        <option value="on_so" @selected($tr === 'on_so')>On SO</option>
-                        <option value="on_delivery" @selected($tr === 'on_delivery')>On Delivery</option>
+                        @php $tr = $sch['due_trigger'] ?? 'on_invoice'; @endphp
                         <option value="on_invoice" @selected($tr === 'on_invoice')>On Invoice</option>
                         <option value="after_invoice_days" @selected($tr === 'after_invoice_days')>After Invoice Days</option>
-                        <option value="end_of_month" @selected($tr === 'end_of_month')>End of Month</option>
+                        <option value="on_delivery" @selected($tr === 'on_delivery')>On Delivery</option>
+                        <option value="after_delivery_days" @selected($tr === 'after_delivery_days')>After Delivery Days</option>
+                        <option value="eom_day" @selected($tr === 'eom_day')>EOM Day</option>
+                        <option value="next_month_day" @selected($tr === 'next_month_day')>Next Month Day</option>
                       </select>
                     </td>
                     <td>
@@ -169,11 +180,12 @@
                     </td>
                     <td>
                       <select name="schedules[0][due_trigger]" class="form-select form-select-sm due-trigger">
-                        <option value="on_so">On SO</option>
-                        <option value="on_delivery">On Delivery</option>
                         <option value="on_invoice">On Invoice</option>
                         <option value="after_invoice_days">After Invoice Days</option>
-                        <option value="end_of_month">End of Month</option>
+                        <option value="on_delivery">On Delivery</option>
+                        <option value="after_delivery_days">After Delivery Days</option>
+                        <option value="eom_day">EOM Day</option>
+                        <option value="next_month_day">Next Month Day</option>
                       </select>
                     </td>
                     <td><input type="text" name="schedules[0][offset_days]" class="form-control form-control-sm text-end offset-days" value=""></td>
@@ -212,6 +224,41 @@
     });
   };
 
+  const updateScheduleVisibility = (row) => {
+    if (!row) return;
+    const trigger = row.querySelector('.due-trigger')?.value || '';
+    const offsetTd = row.querySelector('.offset-days')?.closest('td');
+    const dayTd = row.querySelector('.specific-day')?.closest('td');
+
+    const showOffset = ['after_invoice_days', 'after_delivery_days'].includes(trigger);
+    const showDay = ['eom_day', 'next_month_day'].includes(trigger);
+
+    if (offsetTd) offsetTd.style.display = showOffset ? '' : 'none';
+    if (dayTd) dayTd.style.display = showDay ? '' : 'none';
+  };
+
+  const applyScheduleVisibility = () => {
+    table.querySelectorAll('tbody tr[data-schedule-row]').forEach(updateScheduleVisibility);
+  };
+
+  const formatPortion = (val) => {
+    if (val == null) return '';
+    let s = String(val).trim();
+    if (!s) return '';
+    s = s.replace(/\s/g, '');
+    const hasComma = s.includes(',');
+    const hasDot = s.includes('.');
+    if (hasComma && hasDot) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+      s = s.replace(',', '.');
+    }
+    const num = parseFloat(s);
+    if (Number.isNaN(num)) return '';
+    const fixed = num.toFixed(4);
+    return fixed.replace(/\.?0+$/, '');
+  };
+
   addBtn.addEventListener('click', () => {
     const idx = table.querySelectorAll('tbody tr[data-schedule-row]').length;
     const row = document.createElement('tr');
@@ -226,11 +273,12 @@
       <td><input type="text" name="schedules[${idx}][portion_value]" class="form-control form-control-sm text-end portion-value" value="0"></td>
       <td>
         <select name="schedules[${idx}][due_trigger]" class="form-select form-select-sm due-trigger">
-          <option value="on_so">On SO</option>
-          <option value="on_delivery">On Delivery</option>
           <option value="on_invoice">On Invoice</option>
           <option value="after_invoice_days">After Invoice Days</option>
-          <option value="end_of_month">End of Month</option>
+          <option value="on_delivery">On Delivery</option>
+          <option value="after_delivery_days">After Delivery Days</option>
+          <option value="eom_day">EOM Day</option>
+          <option value="next_month_day">Next Month Day</option>
         </select>
       </td>
       <td><input type="text" name="schedules[${idx}][offset_days]" class="form-control form-control-sm text-end offset-days" value=""></td>
@@ -239,6 +287,7 @@
       <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-schedule">Remove</button></td>
     `;
     table.querySelector('tbody')?.appendChild(row);
+    updateScheduleVisibility(row);
   });
 
   table.addEventListener('click', (e) => {
@@ -247,6 +296,20 @@
     e.target.closest('tr')?.remove();
     reindex();
   });
+
+  table.addEventListener('change', (e) => {
+    if (e.target.classList.contains('due-trigger')) {
+      updateScheduleVisibility(e.target.closest('tr'));
+    }
+  });
+
+  table.addEventListener('blur', (e) => {
+    if (e.target.classList.contains('portion-value')) {
+      e.target.value = formatPortion(e.target.value);
+    }
+  }, true);
+
+  applyScheduleVisibility();
 })();
 </script>
 @endpush

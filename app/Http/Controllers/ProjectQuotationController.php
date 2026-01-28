@@ -20,9 +20,21 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class ProjectQuotationController extends Controller
 {
+    private const PAYMENT_TERM_TRIGGERS = [
+        'on_invoice',
+        'after_invoice_days',
+        'on_delivery',
+        'after_delivery_days',
+        'eom_day',
+        'next_month_day',
+        // legacy support
+        'on_so',
+        'end_of_month',
+    ];
 
     public function index(Project $project)
     {
@@ -52,6 +64,7 @@ class ProjectQuotationController extends Controller
         $defaultSubContractorId = $this->defaultSubContractorId($canManageCost);
         $selectedSubContractorId = old('sub_contractor_id') ?: ($defaultSubContractorId ?: null);
         $topOptions = TermOfPayment::query()
+            ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
             ->get(['code','description','is_active']);
 
@@ -194,7 +207,7 @@ class ProjectQuotationController extends Controller
                     'code' => $term['code'] ?? 'DP',
                     'label' => $term['label'] ?? ($term['code'] ?? 'DP'),
                     'percent' => Number::idToFloat($term['percent'] ?? 0),
-                    'due_trigger' => $term['due_trigger'] ?? null,
+                    'due_trigger' => $this->normalizePaymentTermTrigger($term['due_trigger'] ?? null),
                     'offset_days' => $term['offset_days'] ?? null,
                     'day_of_month' => $term['day_of_month'] ?? null,
                     'sequence' => (int) ($term['sequence'] ?? ($pIndex + 1)),
@@ -245,6 +258,7 @@ class ProjectQuotationController extends Controller
         $subContractors = $this->loadSubContractors($canManageCost);
         $selectedSubContractorId = old('sub_contractor_id', $quotation->sub_contractor_id);
         $topOptions = TermOfPayment::query()
+            ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
             ->get(['code','description','is_active']);
 
@@ -377,7 +391,7 @@ class ProjectQuotationController extends Controller
                     'code' => $term['code'] ?? 'DP',
                     'label' => $term['label'] ?? ($term['code'] ?? 'DP'),
                     'percent' => Number::idToFloat($term['percent'] ?? 0),
-                    'due_trigger' => $term['due_trigger'] ?? null,
+                    'due_trigger' => $this->normalizePaymentTermTrigger($term['due_trigger'] ?? null),
                     'offset_days' => $term['offset_days'] ?? null,
                     'day_of_month' => $term['day_of_month'] ?? null,
                     'sequence' => (int) ($term['sequence'] ?? ($pIndex + 1)),
@@ -569,12 +583,12 @@ class ProjectQuotationController extends Controller
             'sales_owner_user_id' => ['required', 'exists:users,id'],
 
             'payment_terms' => ['required', 'array', 'min:1'],
-            'payment_terms.*.code' => ['required', 'string', 'max:64', 'exists:term_of_payments,code'],
+            'payment_terms.*.code' => ['required', 'string', 'max:64', 'exists:term_of_payments,code', Rule::in(TermOfPayment::ALLOWED_CODES)],
             'payment_terms.*.label' => ['nullable', 'string', 'max:50'],
             'payment_terms.*.percent' => ['nullable', 'numeric', 'min:0'],
             'payment_terms.*.sequence' => ['nullable', 'integer', 'min:0'],
             'payment_terms.*.trigger_note' => ['nullable', 'string', 'max:190'],
-            'payment_terms.*.due_trigger' => ['nullable', 'string', 'max:32'],
+            'payment_terms.*.due_trigger' => ['nullable', Rule::in(self::PAYMENT_TERM_TRIGGERS)],
             'payment_terms.*.offset_days' => ['nullable', 'integer', 'min:0'],
             'payment_terms.*.day_of_month' => ['nullable', 'integer', 'min:1', 'max:31'],
 
@@ -714,6 +728,21 @@ class ProjectQuotationController extends Controller
                 'payment_terms' => 'Total persentase termin pembayaran harus 100%.',
             ]);
         }
+    }
+
+    private function normalizePaymentTermTrigger(?string $trigger): ?string
+    {
+        $trigger = trim((string) ($trigger ?? ''));
+        if ($trigger === '') {
+            return null;
+        }
+        if ($trigger === 'on_so') {
+            return 'on_invoice';
+        }
+        if ($trigger === 'end_of_month') {
+            return 'next_month_day';
+        }
+        return $trigger;
     }
 
     private function brandSnapshot(Company $company): array

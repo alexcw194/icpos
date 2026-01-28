@@ -75,7 +75,7 @@
         </div>
 
         <div class="col-md-6">
-          <label class="form-label">Payment Term (TOP)</label>
+          <label class="form-label">Payment Term Template</label>
           <select name="payment_term_id" id="payment_term_id" class="form-select">
             <option value="">-- pilih --</option>
             @foreach($paymentTerms as $pt)
@@ -90,27 +90,7 @@
               </option>
             @endforeach
           </select>
-        </div>
-
-        <div class="col-12">
-          <div class="border rounded p-2">
-            <div class="text-muted mb-1">Payment Schedule Preview</div>
-            <div class="table-responsive">
-              <table class="table table-sm mb-0">
-                <thead>
-                  <tr>
-                    <th style="width:60px;">Seq</th>
-                    <th style="width:160px;">Portion</th>
-                    <th style="width:220px;">Trigger</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody id="payment-schedule-preview">
-                  <tr id="payment-schedule-empty"><td colspan="4" class="text-muted">Pilih Payment Term untuk melihat schedule.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <small class="form-hint">Memilih template akan mengisi baris Billing Terms. Setelah itu bebas diedit.</small>
         </div>
 
         {{-- PROJECT INFO (conditional) --}}
@@ -226,13 +206,25 @@
               'top_code' => $t->top_code,
               'percent' => $t->percent,
               'note' => $t->note,
-              'due_trigger' => $t->due_trigger,
+              'due_trigger' => (function ($value) {
+                $value = (string) ($value ?? '');
+                if ($value === 'on_so') return 'on_invoice';
+                if ($value === 'end_of_month') return 'next_month_day';
+                return $value;
+              })($t->due_trigger),
               'offset_days' => $t->offset_days,
               'day_of_month' => $t->day_of_month,
               'status' => $t->status,
             ];
           })->toArray();
         }
+        $billingTermsData = array_map(function ($term) {
+          $value = (string) ($term['due_trigger'] ?? '');
+          if ($value === 'on_so') $value = 'on_invoice';
+          if ($value === 'end_of_month') $value = 'next_month_day';
+          $term['due_trigger'] = $value;
+          return $term;
+        }, $billingTermsData);
       @endphp
       @include('sales_orders._billing_terms_form', ['billingTermsData' => $billingTermsData, 'topOptions' => $topOptions])
 
@@ -503,8 +495,6 @@
   // ⬇️ Tambahan: kirim map id→label ke JS
   window.SO_ITEM_LABELS  = @json($ITEM_LABELS);
   window.SO_PAYMENT_TERMS = @json($paymentTerms);
-  const paymentTermSnapshot = @json($so->payment_term_snapshot);
-  const currentPaymentTermId = @json($so->payment_term_id);
   const soId       = @json($so->id);   // <— ini penting
   const draftToken = (document.getElementById('draft_token')||{}).value || ''; // boleh tidak ada
   const csrf       = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -520,7 +510,6 @@
   const scopeActions = document.getElementById('scopeLineActions');
   const scopeAddBtn = document.getElementById('scope_add_btn');
   const paymentTermSelect = document.getElementById('payment_term_id');
-  const scheduleBody = document.getElementById('payment-schedule-preview');
   const paymentTerms = Array.isArray(window.SO_PAYMENT_TERMS) ? window.SO_PAYMENT_TERMS : [];
   const paymentTermMap = new Map(paymentTerms.map((t) => [String(t.id), t]));
 
@@ -575,7 +564,6 @@
 
     recalc();
     filterPaymentTermOptions();
-    updateSchedulePreview();
   }
 
   poTypeSelect?.addEventListener('change', () => {
@@ -603,40 +591,50 @@
     });
   }
 
-  function formatTrigger(tr, row) {
-    switch (tr) {
-      case 'on_so': return 'On SO';
-      case 'on_delivery': return 'On Delivery';
-      case 'on_invoice': return 'On Invoice';
-      case 'after_invoice_days': return `After Invoice +${row.offset_days ?? 0} days`;
-      case 'end_of_month': return `End of Month day ${row.specific_day ?? 1}`;
-      default: return tr || '-';
+  function applyTemplateToBillingTerms() {
+    if (!paymentTermSelect) return;
+    const id = paymentTermSelect.value || '';
+    const term = paymentTermMap.get(String(id));
+    const schedules = Array.isArray(term?.schedules) ? term.schedules : [];
+    if (!id || schedules.length === 0) return;
+    const availableCodes = new Set(
+      Array.from(document.querySelectorAll('#billing-terms-table select[name*="[top_code]"] option'))
+        .map((opt) => opt.value)
+        .filter(Boolean)
+    );
+    const guessCodes = (count) => {
+      if (count <= 0) return [];
+      if (count === 1) return ['FINISH'];
+      if (count === 2) return ['DP', 'FINISH'];
+      const mids = ['T1', 'T2', 'T3', 'T4', 'T5'];
+      const codes = ['DP'];
+      for (let i = 0; i < count - 2; i++) {
+        codes.push(mids[i] || '');
+      }
+      codes.push('FINISH');
+      return codes;
+    };
+    const defaultCodes = guessCodes(schedules.length);
+    const rows = schedules.map((row, idx) => {
+      const rawTrigger = row.due_trigger || '';
+      const normalizedTrigger = rawTrigger === 'on_so'
+        ? 'on_invoice'
+        : (rawTrigger === 'end_of_month' ? 'next_month_day' : rawTrigger);
+      return {
+        top_code: availableCodes.has(defaultCodes[idx]) ? defaultCodes[idx] : '',
+        percent: row.portion_type === 'percent' ? row.portion_value : 0,
+        due_trigger: normalizedTrigger,
+        offset_days: row.offset_days ?? '',
+        day_of_month: row.specific_day ?? '',
+        note: row.notes ?? '',
+      };
+    });
+    if (typeof window.setBillingTermsRows === 'function') {
+      window.setBillingTermsRows(rows);
     }
   }
 
-  function updateSchedulePreview() {
-    if (!scheduleBody) return;
-    const id = paymentTermSelect?.value || '';
-    let rows = [];
-    if (paymentTermSnapshot && String(id) === String(currentPaymentTermId)) {
-      rows = Array.isArray(paymentTermSnapshot.schedules) ? paymentTermSnapshot.schedules : [];
-    } else {
-      const term = paymentTermMap.get(String(id));
-      rows = Array.isArray(term?.schedules) ? term.schedules : [];
-    }
-    if (!id || rows.length === 0) {
-      scheduleBody.innerHTML = '<tr id="payment-schedule-empty"><td colspan="4" class="text-muted">Pilih Payment Term untuk melihat schedule.</td></tr>';
-      return;
-    }
-    scheduleBody.innerHTML = rows.map((row, idx) => {
-      const portion = row.portion_type === 'percent'
-        ? `${row.portion_value}%`
-        : rupiah(Number(row.portion_value || 0));
-      return `<tr>\n        <td>${row.sequence ?? (idx + 1)}</td>\n        <td>${portion}</td>\n        <td>${formatTrigger(row.due_trigger, row)}</td>\n        <td>${row.notes ?? ''}</td>\n      </tr>`;
-    }).join('');
-  }
-
-  paymentTermSelect?.addEventListener('change', updateSchedulePreview);
+  paymentTermSelect?.addEventListener('change', applyTemplateToBillingTerms);
 
   function listUrl(){
     const base = @json(route('sales-orders.attachments.index'));

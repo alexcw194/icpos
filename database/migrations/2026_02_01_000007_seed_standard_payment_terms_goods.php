@@ -43,7 +43,7 @@ return new class extends Migration {
                 'description' => 'DP 50% + Balance on Delivery',
                 'applicable_to' => json_encode(['goods']),
                 'schedules' => [
-                    ['sequence' => 1, 'portion_type' => 'percent', 'portion_value' => 50, 'due_trigger' => 'on_so'],
+                    ['sequence' => 1, 'portion_type' => 'percent', 'portion_value' => 50, 'due_trigger' => 'on_invoice'],
                     ['sequence' => 2, 'portion_type' => 'percent', 'portion_value' => 50, 'due_trigger' => 'on_delivery'],
                 ],
             ],
@@ -76,7 +76,7 @@ return new class extends Migration {
                 'description' => 'End of Month, Day 20',
                 'applicable_to' => json_encode(['goods']),
                 'schedules' => [
-                    ['sequence' => 1, 'portion_type' => 'percent', 'portion_value' => 100, 'due_trigger' => 'end_of_month', 'specific_day' => 20],
+                    ['sequence' => 1, 'portion_type' => 'percent', 'portion_value' => 100, 'due_trigger' => 'next_month_day', 'specific_day' => 20],
                 ],
             ],
         ];

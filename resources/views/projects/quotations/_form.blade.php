@@ -42,7 +42,12 @@
         'code' => data_get($term, 'code', 'DP'),
         'label' => data_get($term, 'label', data_get($term, 'code', 'DP')),
         'percent' => data_get($term, 'percent', 0),
-        'due_trigger' => data_get($term, 'due_trigger'),
+        'due_trigger' => (function ($value) {
+          $value = (string) ($value ?? '');
+          if ($value === 'on_so') return 'on_invoice';
+          if ($value === 'end_of_month') return 'next_month_day';
+          return $value;
+        })(data_get($term, 'due_trigger')),
         'offset_days' => data_get($term, 'offset_days'),
         'day_of_month' => data_get($term, 'day_of_month'),
         'sequence' => data_get($term, 'sequence', $idx + 1),
@@ -50,6 +55,13 @@
       ];
     })->toArray();
   }
+  $paymentTermsData = array_map(function ($term) {
+    $value = (string) ($term['due_trigger'] ?? '');
+    if ($value === 'on_so') $value = 'on_invoice';
+    if ($value === 'end_of_month') $value = 'next_month_day';
+    $term['due_trigger'] = $value;
+    return $term;
+  }, $paymentTermsData);
 
   $companyId = old('company_id', $quotation->company_id ?? $project->company_id ?? ($companies->first()->id ?? null));
   $customerId = old('customer_id', $quotation->customer_id ?? $project->customer_id ?? null);
@@ -212,21 +224,22 @@
               <input type="text" name="payment_terms[{{ $i }}][percent]" class="form-control text-end" value="{{ $term['percent'] ?? 0 }}">
             </td>
             <td>
-              <select name="payment_terms[{{ $i }}][due_trigger]" class="form-select">
+              <select name="payment_terms[{{ $i }}][due_trigger]" class="form-select js-term-trigger">
                 @php $tr = $term['due_trigger'] ?? ''; @endphp
                 <option value="">--</option>
-                <option value="on_so" @selected($tr === 'on_so')>On SO</option>
-                <option value="on_delivery" @selected($tr === 'on_delivery')>On Delivery</option>
                 <option value="on_invoice" @selected($tr === 'on_invoice')>On Invoice</option>
                 <option value="after_invoice_days" @selected($tr === 'after_invoice_days')>After Invoice Days</option>
-                <option value="end_of_month" @selected($tr === 'end_of_month')>End of Month</option>
+                <option value="on_delivery" @selected($tr === 'on_delivery')>On Delivery</option>
+                <option value="after_delivery_days" @selected($tr === 'after_delivery_days')>After Delivery Days</option>
+                <option value="eom_day" @selected($tr === 'eom_day')>EOM Day</option>
+                <option value="next_month_day" @selected($tr === 'next_month_day')>Next Month Day</option>
               </select>
             </td>
             <td>
-              <input type="text" name="payment_terms[{{ $i }}][offset_days]" class="form-control text-end" value="{{ $term['offset_days'] ?? '' }}">
+              <input type="text" name="payment_terms[{{ $i }}][offset_days]" class="form-control text-end js-term-offset" value="{{ $term['offset_days'] ?? '' }}">
             </td>
             <td>
-              <input type="text" name="payment_terms[{{ $i }}][day_of_month]" class="form-control text-end" value="{{ $term['day_of_month'] ?? '' }}">
+              <input type="text" name="payment_terms[{{ $i }}][day_of_month]" class="form-control text-end js-term-day" value="{{ $term['day_of_month'] ?? '' }}">
             </td>
             <td>
               <input type="text" name="payment_terms[{{ $i }}][trigger_note]" class="form-control" value="{{ $term['trigger_note'] ?? '' }}">
@@ -1188,17 +1201,18 @@
         <td><input type="text" name="payment_terms[${idx}][label]" class="form-control"></td>
         <td><input type="text" name="payment_terms[${idx}][percent]" class="form-control text-end" value="0"></td>
         <td>
-          <select name="payment_terms[${idx}][due_trigger]" class="form-select">
+          <select name="payment_terms[${idx}][due_trigger]" class="form-select js-term-trigger">
             <option value="">--</option>
-            <option value="on_so">On SO</option>
-            <option value="on_delivery">On Delivery</option>
             <option value="on_invoice">On Invoice</option>
             <option value="after_invoice_days">After Invoice Days</option>
-            <option value="end_of_month">End of Month</option>
+            <option value="on_delivery">On Delivery</option>
+            <option value="after_delivery_days">After Delivery Days</option>
+            <option value="eom_day">EOM Day</option>
+            <option value="next_month_day">Next Month Day</option>
           </select>
         </td>
-        <td><input type="text" name="payment_terms[${idx}][offset_days]" class="form-control text-end" value=""></td>
-        <td><input type="text" name="payment_terms[${idx}][day_of_month]" class="form-control text-end" value=""></td>
+        <td><input type="text" name="payment_terms[${idx}][offset_days]" class="form-control text-end js-term-offset" value=""></td>
+        <td><input type="text" name="payment_terms[${idx}][day_of_month]" class="form-control text-end js-term-day" value=""></td>
         <td><input type="text" name="payment_terms[${idx}][trigger_note]" class="form-control"></td>
         <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-term">Remove</button></td>
       </tr>
@@ -1220,8 +1234,26 @@
       const body = termTable.querySelector('tbody');
       const idx = body.querySelectorAll('.term-row').length;
       body.insertAdjacentHTML('beforeend', makeTerm(idx));
+      applyTermScheduleVisibility();
     });
   }
+
+  const updateTermScheduleVisibility = (row) => {
+    if (!row) return;
+    const trigger = row.querySelector('.js-term-trigger')?.value || '';
+    const offsetTd = row.querySelector('.js-term-offset')?.closest('td');
+    const dayTd = row.querySelector('.js-term-day')?.closest('td');
+
+    const showOffset = ['after_invoice_days', 'after_delivery_days'].includes(trigger);
+    const showDay = ['eom_day', 'next_month_day'].includes(trigger);
+
+    if (offsetTd) offsetTd.style.display = showOffset ? '' : 'none';
+    if (dayTd) dayTd.style.display = showDay ? '' : 'none';
+  };
+
+  const applyTermScheduleVisibility = () => {
+    termTable?.querySelectorAll('.term-row').forEach(updateTermScheduleVisibility);
+  };
 
   sectionsEl.addEventListener('click', (e) => {
     if (e.target.classList.contains('btn-move-section-up')) {
@@ -1271,6 +1303,12 @@
     termTable.addEventListener('click', (e) => {
       if (e.target.classList.contains('btn-remove-term')) {
         e.target.closest('.term-row')?.remove();
+      }
+    });
+
+    termTable.addEventListener('change', (e) => {
+      if (e.target.classList.contains('js-term-trigger')) {
+        updateTermScheduleVisibility(e.target.closest('.term-row'));
       }
     });
   }
@@ -1448,6 +1486,8 @@
       ts.open();
     });
   };
+
+  applyTermScheduleVisibility();
 
   const syncSourceRow = (row) => {
     const sourceSel = row.querySelector('.bq-line-source');

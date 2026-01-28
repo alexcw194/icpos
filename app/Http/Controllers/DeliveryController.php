@@ -15,7 +15,6 @@ use App\Models\QuotationLine;
 use App\Models\Warehouse;
 use App\Models\StockLedger;
 use App\Services\StockService;
-use App\Services\PaymentTermEngine;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Request;
@@ -332,15 +331,6 @@ class DeliveryController extends Controller
 
         // === EXECUTION: aman, lanjut posting ===
         StockService::postDelivery($delivery, auth()->id());
-
-        $delivery->load('salesOrder.company');
-        $salesOrder = $delivery->salesOrder;
-        if ($salesOrder && $salesOrder->payment_term_snapshot) {
-            app(PaymentTermEngine::class)->handle($salesOrder, 'delivery_posted', [
-                'delivery_date' => $delivery->date ?? now()->toDateString(),
-                'so_date' => $salesOrder->order_date ?? now()->toDateString(),
-            ]);
-        }
 
         return redirect()
             ->route('deliveries.show', $delivery)

@@ -115,7 +115,7 @@
 
       <div class="row g-3 mt-2">
         <div class="col-md-6">
-          <label class="form-label">Payment Term (TOP)</label>
+          <label class="form-label">Payment Term Template</label>
           <select name="payment_term_id" id="payment_term_id" class="form-select">
             <option value="">-- pilih --</option>
             @foreach($paymentTerms as $pt)
@@ -130,30 +130,11 @@
               </option>
             @endforeach
           </select>
-        </div>
-        <div class="col-12">
-          <div class="border rounded p-2">
-            <div class="text-muted mb-1">Payment Schedule Preview</div>
-            <div class="table-responsive">
-              <table class="table table-sm mb-0">
-                <thead>
-                  <tr>
-                    <th style="width:60px;">Seq</th>
-                    <th style="width:160px;">Portion</th>
-                    <th style="width:220px;">Trigger</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody id="payment-schedule-preview">
-                  <tr id="payment-schedule-empty"><td colspan="4" class="text-muted">Pilih Payment Term untuk melihat schedule.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <small class="form-hint">Memilih template akan mengisi baris Billing Terms. Setelah itu bebas diedit.</small>
         </div>
       </div>
 
-      <div class="mb-3 mt-3"">
+      <div class="mb-3 mt-3">
         <label class="form-label">Notes (Terms)</label>
         <textarea name="notes" class="form-control" rows="3">{{ old('notes') }}</textarea>
       </div>
@@ -171,6 +152,13 @@
 
       @php
         $billingTermsData = old('billing_terms', []);
+        $billingTermsData = array_map(function ($term) {
+          $value = (string) ($term['due_trigger'] ?? '');
+          if ($value === 'on_so') $value = 'on_invoice';
+          if ($value === 'end_of_month') $value = 'next_month_day';
+          $term['due_trigger'] = $value;
+          return $term;
+        }, $billingTermsData);
       @endphp
       @include('sales_orders._billing_terms_form', ['billingTermsData' => $billingTermsData, 'topOptions' => $topOptions])
 
@@ -428,7 +416,6 @@
   const stageWrap = document.getElementById('stageWrap');
   const scopeActions = document.getElementById('scopeLineActions');
   const paymentTermSelect = document.getElementById('payment_term_id');
-  const scheduleBody = document.getElementById('payment-schedule-preview');
   const paymentTerms = Array.isArray(window.SO_PAYMENT_TERMS) ? window.SO_PAYMENT_TERMS : [];
   const paymentTermMap = new Map(paymentTerms.map((t) => [String(t.id), t]));
 
@@ -483,7 +470,6 @@
 
     recalc();
     filterPaymentTermOptions();
-    updateSchedulePreview();
   }
 
   poTypeSelect?.addEventListener('change', () => {
@@ -511,35 +497,50 @@
     });
   }
 
-  function formatTrigger(tr, row) {
-    switch (tr) {
-      case 'on_so': return 'On SO';
-      case 'on_delivery': return 'On Delivery';
-      case 'on_invoice': return 'On Invoice';
-      case 'after_invoice_days': return `After Invoice +${row.offset_days ?? 0} days`;
-      case 'end_of_month': return `End of Month day ${row.specific_day ?? 1}`;
-      default: return tr || '-';
-    }
-  }
-
-  function updateSchedulePreview() {
-    if (!scheduleBody) return;
-    const id = paymentTermSelect?.value || '';
+  function applyTemplateToBillingTerms() {
+    if (!paymentTermSelect) return;
+    const id = paymentTermSelect.value || '';
     const term = paymentTermMap.get(String(id));
-    const rows = Array.isArray(term?.schedules) ? term.schedules : [];
-    if (!id || rows.length === 0) {
-      scheduleBody.innerHTML = '<tr id=\"payment-schedule-empty\"><td colspan=\"4\" class=\"text-muted\">Pilih Payment Term untuk melihat schedule.</td></tr>';
-      return;
+    const schedules = Array.isArray(term?.schedules) ? term.schedules : [];
+    if (!id || schedules.length === 0) return;
+    const availableCodes = new Set(
+      Array.from(document.querySelectorAll('#billing-terms-table select[name*="[top_code]"] option'))
+        .map((opt) => opt.value)
+        .filter(Boolean)
+    );
+    const guessCodes = (count) => {
+      if (count <= 0) return [];
+      if (count === 1) return ['FINISH'];
+      if (count === 2) return ['DP', 'FINISH'];
+      const mids = ['T1', 'T2', 'T3', 'T4', 'T5'];
+      const codes = ['DP'];
+      for (let i = 0; i < count - 2; i++) {
+        codes.push(mids[i] || '');
+      }
+      codes.push('FINISH');
+      return codes;
+    };
+    const defaultCodes = guessCodes(schedules.length);
+    const rows = schedules.map((row, idx) => {
+      const rawTrigger = row.due_trigger || '';
+      const normalizedTrigger = rawTrigger === 'on_so'
+        ? 'on_invoice'
+        : (rawTrigger === 'end_of_month' ? 'next_month_day' : rawTrigger);
+      return {
+        top_code: availableCodes.has(defaultCodes[idx]) ? defaultCodes[idx] : '',
+        percent: row.portion_type === 'percent' ? row.portion_value : 0,
+        due_trigger: normalizedTrigger,
+        offset_days: row.offset_days ?? '',
+        day_of_month: row.specific_day ?? '',
+        note: row.notes ?? '',
+      };
+    });
+    if (typeof window.setBillingTermsRows === 'function') {
+      window.setBillingTermsRows(rows);
     }
-    scheduleBody.innerHTML = rows.map((row, idx) => {
-      const portion = row.portion_type === 'percent'
-        ? `${row.portion_value}%`
-        : rupiah(Number(row.portion_value || 0));
-      return `<tr>\n        <td>${row.sequence ?? (idx + 1)}</td>\n        <td>${portion}</td>\n        <td>${formatTrigger(row.due_trigger, row)}</td>\n        <td>${row.notes ?? ''}</td>\n      </tr>`;
-    }).join('');
   }
 
-  paymentTermSelect?.addEventListener('change', updateSchedulePreview);
+  paymentTermSelect?.addEventListener('change', applyTemplateToBillingTerms);
 
   /* Helpers */
   const toNum = (v)=>{ if(v==null) return 0; v=String(v).trim(); if(!v) return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; };
@@ -850,6 +851,18 @@
   initStagePicker();
   applyMode(@json($discMode === 'per_item' ? 'per_item' : 'total'));
   applyPoTypeRules();
+  if (paymentTermSelect?.value && typeof window.setBillingTermsRows === 'function') {
+    const rows = Array.from(document.querySelectorAll('#billing-terms-table tbody tr[data-term-row]'));
+    const hasMeaningful = rows.some((row) => {
+      const code = row.querySelector('select[name*="[top_code]"]')?.value || '';
+      const pct = row.querySelector('input[name*="[percent]"]')?.value || '0';
+      const note = row.querySelector('input[name*="[note]"]')?.value || '';
+      return code !== '' || parseFloat(pct) > 0 || note.trim() !== '';
+    });
+    if (!hasMeaningful) {
+      applyTemplateToBillingTerms();
+    }
+  }
   recalc();
   refreshList();
 })();

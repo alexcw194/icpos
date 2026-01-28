@@ -22,9 +22,9 @@ class PaymentTermEngine
         }
 
         $eventTriggers = [
-            'so_confirmed' => ['on_so'],
-            'delivery_posted' => ['on_delivery'],
-            'invoice_issued' => ['on_invoice', 'after_invoice_days', 'end_of_month'],
+            'so_confirmed' => ['on_invoice'],
+            'delivery_posted' => ['on_delivery', 'after_delivery_days'],
+            'invoice_issued' => ['on_invoice', 'after_invoice_days', 'eom_day', 'next_month_day'],
         ];
 
         if (!isset($eventTriggers[$eventType])) {
@@ -151,8 +151,6 @@ class PaymentTermEngine
     private function resolveDueDate(string $trigger, array $row, $soDate, $deliveryDate, $invoiceDate): string
     {
         switch ($trigger) {
-            case 'on_so':
-                return Carbon::parse($soDate)->toDateString();
             case 'on_delivery':
                 return Carbon::parse($deliveryDate ?: now())->toDateString();
             case 'on_invoice':
@@ -160,7 +158,14 @@ class PaymentTermEngine
             case 'after_invoice_days':
                 $days = (int) ($row['offset_days'] ?? 0);
                 return Carbon::parse($invoiceDate)->addDays($days)->toDateString();
-            case 'end_of_month':
+            case 'after_delivery_days':
+                $days = (int) ($row['offset_days'] ?? 0);
+                return Carbon::parse($deliveryDate ?: now())->addDays($days)->toDateString();
+            case 'eom_day':
+                $day = (int) ($row['specific_day'] ?? 1);
+                $base = Carbon::parse($invoiceDate)->startOfMonth();
+                return $base->addDays(max($day, 1) - 1)->toDateString();
+            case 'next_month_day':
                 $day = (int) ($row['specific_day'] ?? 1);
                 $base = Carbon::parse($invoiceDate)->addMonthNoOverflow()->startOfMonth();
                 return $base->addDays(max($day, 1) - 1)->toDateString();

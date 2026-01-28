@@ -18,7 +18,7 @@
         <tr>
           <th style="width:160px;">TOP Code</th>
           <th style="width:140px;" class="text-end">Percent</th>
-          <th style="width:170px;">Trigger</th>
+          <th style="width:170px;">Schedule</th>
           <th style="width:120px;" class="text-end">Offset Days</th>
           <th style="width:120px;" class="text-end">Day of Month</th>
           <th>Note (Milestone)</th>
@@ -61,28 +61,29 @@
               @endif
             </td>
             <td>
-              <select name="billing_terms[{{ $i }}][due_trigger]" class="form-select form-select-sm" @disabled($locked)>
+              <select name="billing_terms[{{ $i }}][due_trigger]" class="form-select form-select-sm js-term-trigger" @disabled($locked)>
                 @php $tr = $term['due_trigger'] ?? ''; @endphp
                 <option value="">--</option>
-                <option value="on_so" @selected($tr === 'on_so')>On SO</option>
-                <option value="on_delivery" @selected($tr === 'on_delivery')>On Delivery</option>
                 <option value="on_invoice" @selected($tr === 'on_invoice')>On Invoice</option>
                 <option value="after_invoice_days" @selected($tr === 'after_invoice_days')>After Invoice Days</option>
-                <option value="end_of_month" @selected($tr === 'end_of_month')>End of Month</option>
+                <option value="on_delivery" @selected($tr === 'on_delivery')>On Delivery</option>
+                <option value="after_delivery_days" @selected($tr === 'after_delivery_days')>After Delivery Days</option>
+                <option value="eom_day" @selected($tr === 'eom_day')>EOM Day</option>
+                <option value="next_month_day" @selected($tr === 'next_month_day')>Next Month Day</option>
               </select>
               @if($locked)
                 <input type="hidden" name="billing_terms[{{ $i }}][due_trigger]" value="{{ $term['due_trigger'] ?? '' }}">
               @endif
             </td>
             <td>
-              <input type="text" name="billing_terms[{{ $i }}][offset_days]" class="form-control form-control-sm text-end"
+              <input type="text" name="billing_terms[{{ $i }}][offset_days]" class="form-control form-control-sm text-end js-term-offset"
                      value="{{ $term['offset_days'] ?? '' }}" @disabled($locked)>
               @if($locked)
                 <input type="hidden" name="billing_terms[{{ $i }}][offset_days]" value="{{ $term['offset_days'] ?? '' }}">
               @endif
             </td>
             <td>
-              <input type="text" name="billing_terms[{{ $i }}][day_of_month]" class="form-control form-control-sm text-end"
+              <input type="text" name="billing_terms[{{ $i }}][day_of_month]" class="form-control form-control-sm text-end js-term-day"
                      value="{{ $term['day_of_month'] ?? '' }}" @disabled($locked)>
               @if($locked)
                 <input type="hidden" name="billing_terms[{{ $i }}][day_of_month]" value="{{ $term['day_of_month'] ?? '' }}">
@@ -133,20 +134,21 @@
       <input type="text" name="billing_terms[__IDX__][percent]" class="form-control form-control-sm text-end" value="0">
     </td>
     <td>
-      <select name="billing_terms[__IDX__][due_trigger]" class="form-select form-select-sm">
+      <select name="billing_terms[__IDX__][due_trigger]" class="form-select form-select-sm js-term-trigger">
         <option value="">--</option>
-        <option value="on_so">On SO</option>
-        <option value="on_delivery">On Delivery</option>
         <option value="on_invoice">On Invoice</option>
         <option value="after_invoice_days">After Invoice Days</option>
-        <option value="end_of_month">End of Month</option>
+        <option value="on_delivery">On Delivery</option>
+        <option value="after_delivery_days">After Delivery Days</option>
+        <option value="eom_day">EOM Day</option>
+        <option value="next_month_day">Next Month Day</option>
       </select>
     </td>
     <td>
-      <input type="text" name="billing_terms[__IDX__][offset_days]" class="form-control form-control-sm text-end" value="">
+      <input type="text" name="billing_terms[__IDX__][offset_days]" class="form-control form-control-sm text-end js-term-offset" value="">
     </td>
     <td>
-      <input type="text" name="billing_terms[__IDX__][day_of_month]" class="form-control form-control-sm text-end" value="">
+      <input type="text" name="billing_terms[__IDX__][day_of_month]" class="form-control form-control-sm text-end js-term-day" value="">
     </td>
     <td>
       <input type="text" name="billing_terms[__IDX__][note]" class="form-control form-control-sm" value="">
@@ -202,9 +204,31 @@
     updateTotal();
   };
 
+  const updateScheduleVisibility = (row) => {
+    if (!row) return;
+    const trigger = row.querySelector('.js-term-trigger')?.value || '';
+    const offsetTd = row.querySelector('.js-term-offset')?.closest('td');
+    const dayTd = row.querySelector('.js-term-day')?.closest('td');
+
+    const showOffset = ['after_invoice_days', 'after_delivery_days'].includes(trigger);
+    const showDay = ['eom_day', 'next_month_day'].includes(trigger);
+
+    if (offsetTd) offsetTd.style.display = showOffset ? '' : 'none';
+    if (dayTd) dayTd.style.display = showDay ? '' : 'none';
+  };
+
+  const applyScheduleVisibility = () => {
+    table.querySelectorAll('tbody tr[data-term-row]').forEach(updateScheduleVisibility);
+  };
+
   table.addEventListener('input', (e) => {
     if (e.target && e.target.name && e.target.name.includes('[percent]')) {
       updateTotal();
+    }
+  });
+  table.addEventListener('change', (e) => {
+    if (e.target && e.target.classList.contains('js-term-trigger')) {
+      updateScheduleVisibility(e.target.closest('tr'));
     }
   });
 
@@ -226,6 +250,7 @@
     table.querySelector('tbody')?.appendChild(row);
     updateTotal();
     applyTopFilter();
+    applyScheduleVisibility();
   });
 
   function applyTopFilter() {
@@ -255,6 +280,30 @@
 
   updateTotal();
   applyTopFilter();
+  applyScheduleVisibility();
+
+  window.setBillingTermsRows = function(rows) {
+    const body = table.querySelector('tbody');
+    if (!body) return;
+    body.innerHTML = '';
+    (rows || []).forEach((row, idx) => {
+      const html = tpl.innerHTML.replace(/__IDX__/g, String(idx));
+      const temp = document.createElement('tbody');
+      temp.innerHTML = html.trim();
+      const tr = temp.firstElementChild;
+      if (!tr) return;
+      tr.querySelector('select[name*="[top_code]"]')?.value = row.top_code || '';
+      tr.querySelector('input[name*="[percent]"]')?.value = row.percent ?? 0;
+      tr.querySelector('select[name*="[due_trigger]"]')?.value = row.due_trigger || '';
+      tr.querySelector('input[name*="[offset_days]"]')?.value = row.offset_days ?? '';
+      tr.querySelector('input[name*="[day_of_month]"]')?.value = row.day_of_month ?? '';
+      tr.querySelector('input[name*="[note]"]')?.value = row.note ?? '';
+      body.appendChild(tr);
+    });
+    reindex();
+    applyTopFilter();
+    applyScheduleVisibility();
+  };
 })();
 </script>
 @endpush
