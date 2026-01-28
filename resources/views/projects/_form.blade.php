@@ -4,6 +4,9 @@
   $selectedSales = old('sales_owner_user_id', $project->sales_owner_user_id ?? auth()->id());
   $selectedSystems = old('systems', old('systems_json', $project->systems_json ?? []));
   $selectedSystems = is_array($selectedSystems) ? $selectedSystems : [];
+  if (count($selectedSystems) > 1) {
+    $selectedSystems = [reset($selectedSystems)];
+  }
   $systemsOptions = $systemsOptions ?? \App\Support\ProjectSystems::all();
 @endphp
 
@@ -54,27 +57,28 @@
 
       <div class="col-md-6">
         <label class="form-label">Systems</label>
-        <select name="systems[]" class="form-select" multiple required>
+        <select name="systems[]" class="form-select" required>
+          <option value="">-- pilih --</option>
           @foreach($systemsOptions as $key => $label)
             <option value="{{ $key }}" @selected(in_array($key, $selectedSystems, true))>{{ $label }}</option>
           @endforeach
         </select>
+        <div class="mt-3">
+          <label class="form-label">Start Date</label>
+          <input type="date" name="start_date" class="form-control" value="{{ old('start_date', optional($project->start_date ?? null)->format('Y-m-d')) }}">
+        </div>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-6">
         <label class="form-label">Status</label>
         <select name="status" class="form-select">
           @foreach(['draft' => 'Draft', 'active' => 'Active', 'closed' => 'Closed', 'cancelled' => 'Cancelled'] as $val => $label)
             <option value="{{ $val }}" @selected(old('status', $project->status ?? 'draft') === $val)>{{ $label }}</option>
           @endforeach
         </select>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Start Date</label>
-        <input type="date" name="start_date" class="form-control" value="{{ old('start_date', optional($project->start_date ?? null)->format('Y-m-d')) }}">
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Target Finish</label>
-        <input type="date" name="target_finish_date" class="form-control" value="{{ old('target_finish_date', optional($project->target_finish_date ?? null)->format('Y-m-d')) }}">
+        <div class="mt-3">
+          <label class="form-label">Target Finish</label>
+          <input type="date" name="target_finish_date" class="form-control" value="{{ old('target_finish_date', optional($project->target_finish_date ?? null)->format('Y-m-d')) }}">
+        </div>
       </div>
     </div>
   </div>
