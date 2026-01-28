@@ -1675,6 +1675,30 @@
     signerSelect.addEventListener('change', () => syncSigner({ force: true }));
     syncSigner();
   }
+
+  const formEl = sectionsEl.closest('form');
+  if (formEl) {
+    formEl.addEventListener('submit', () => {
+      const numericInputs = formEl.querySelectorAll(
+        'input[name$="[qty]"],' +
+        'input[name$="[unit_price]"],' +
+        'input[name$="[material_total]"],' +
+        'input[name$="[labor_total]"],' +
+        'input[name$="[percent_value]"],' +
+        'input[name$="[computed_amount]"],' +
+        'input[name$="[labor_unit_cost_snapshot]"],' +
+        'input[name$="[labor_cost_amount]"],' +
+        'input[name$="[labor_margin_amount]"],' +
+        'input[name^="payment_terms["][name$="[percent]"],' +
+        'input[name="tax_percent"]'
+      );
+      numericInputs.forEach((input) => {
+        if (input.disabled) return;
+        const raw = parseNumber(input.value);
+        input.value = Number.isNaN(raw) ? '' : String(raw);
+      });
+    });
+  }
 })();
 </script>
 @endpush
