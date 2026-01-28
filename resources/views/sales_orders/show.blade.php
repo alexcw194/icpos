@@ -96,6 +96,18 @@
       <div class="card"><div class="card-body">
         <div class="mb-2"><strong>Order Date:</strong> {{ $o->order_date }}</div>
         <div class="mb-2"><strong>Customer PO:</strong> {{ $o->customer_po_number }}@if($o->customer_po_date) ({{ $o->customer_po_date }})@endif</div>
+        <div class="mb-2"><strong>PO Type:</strong> {{ ucfirst($o->po_type ?? 'goods') }}</div>
+        @php
+          $projectLabel = null;
+          if ($o->project) {
+            $projectLabel = ($o->project->code ? $o->project->code.' — ' : '').$o->project->name;
+          } elseif (!empty($o->project_name)) {
+            $projectLabel = $o->project_name;
+          }
+        @endphp
+        @if($projectLabel)
+          <div class="mb-2"><strong>Project:</strong> {{ $projectLabel }}</div>
+        @endif
         <div class="mb-2"><strong>Deadline:</strong> {{ $o->deadline ?? '—' }}</div>
         <div class="mb-2"><strong>Salesperson:</strong> {{ $o->salesUser->name ?? '-' }}</div>
         <div class="bg-white border rounded p-2" style="white-space: pre-wrap;">

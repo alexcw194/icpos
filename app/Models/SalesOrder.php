@@ -14,6 +14,7 @@ class SalesOrder extends Model
         'so_number','order_date',
         'customer_po_number','customer_po_date','deadline',
         'po_type',
+        'project_id','project_name',
         'ship_to','bill_to','notes',
         'private_notes','under_amount',
         'discount_mode',
@@ -101,6 +102,7 @@ class SalesOrder extends Model
     public function customer(): BelongsTo  { return $this->belongsTo(Customer::class); }
     public function quotation(): BelongsTo { return $this->belongsTo(Quotation::class); }
     public function salesUser(): BelongsTo { return $this->belongsTo(User::class, 'sales_user_id'); }
+    public function project(): BelongsTo   { return $this->belongsTo(Project::class); }
 
     public function lines(): HasMany
     {

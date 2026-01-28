@@ -96,6 +96,30 @@
           <input type="date" name="deadline" class="form-control" value="{{ old('deadline') }}">
         </div>
 
+        {{-- PROJECT INFO (conditional) --}}
+        <div class="col-12" id="projectSection" data-project-section>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Project (optional)</label>
+              <select name="project_id" class="form-select">
+                <option value="">— Pilih Project —</option>
+                @foreach($projects as $p)
+                  <option value="{{ $p->id }}" {{ (string)old('project_id') === (string)$p->id ? 'selected' : '' }}>
+                    {{ $p->code ? $p->code.' — ' : '' }}{{ $p->name }}{{ $p->customer ? ' · '.$p->customer->name : '' }}
+                  </option>
+                @endforeach
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Project Name <span class="text-danger">*</span></label>
+              <input type="text" name="project_name" class="form-control"
+                     value="{{ old('project_name') }}"
+                     placeholder="Isi jika project belum ada">
+              <small class="form-hint">Wajib jika PO Type = Project dan tidak memilih Project.</small>
+            </div>
+          </div>
+        </div>
+
         {{-- SHIP TO --}}
         <div class="col-md-6">
           <label class="form-label">Ship To</label>
@@ -389,6 +413,16 @@
   const emptyEl  = document.getElementById('soFilesEmpty');
   const draftToken  = (document.getElementById('draft_token')||{}).value || '';
   const csrf        = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const poTypeSelect = document.querySelector('select[name="po_type"]');
+  const projectSection = document.querySelector('[data-project-section]');
+
+  function toggleProjectSection() {
+    if (!projectSection) return;
+    projectSection.style.display = poTypeSelect?.value === 'project' ? '' : 'none';
+  }
+
+  poTypeSelect?.addEventListener('change', toggleProjectSection);
+  toggleProjectSection();
 
   function rowFile(f){
     return `<div class="list-group-item d-flex align-items-center gap-2" data-id="${f.id}">

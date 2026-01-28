@@ -10,6 +10,7 @@ use App\Models\{
     Company,
     Customer,
     Item,
+    Project,
     User
 };
 use Illuminate\Http\Request;
@@ -30,6 +31,10 @@ class SalesOrderController extends Controller
         $items = Item::with('unit:id,code')
             ->orderBy('name')
             ->get(['id','name','price','unit_id']);
+        $projects = Project::visibleTo(auth()->user())
+            ->with('customer:id,name')
+            ->orderBy('name')
+            ->get(['id','name','code','customer_id']);
 
         $npwpRequired = (bool) ($quotation->company->require_npwp_on_so ?? false);
         $cust = $quotation->customer;
@@ -44,7 +49,7 @@ class SalesOrderController extends Controller
 
         // ⚠️ TIDAK ADA SalesOrder::create DI SINI
         return view('sales_orders.create_from_quotation', compact(
-            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items'
+            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items', 'projects'
         ));
     }
 
@@ -53,6 +58,10 @@ class SalesOrderController extends Controller
     {
         $customers = Customer::orderBy('name')->get(['id','name']);
         $items     = Item::with('unit:id,code')->orderBy('name')->get(['id','name','price','unit_id']);
+        $projects  = Project::visibleTo(auth()->user())
+            ->with('customer:id,name')
+            ->orderBy('name')
+            ->get(['id','name','code','customer_id']);
         // tambahkan is_default ke select
         $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent','is_default']);
         $sales     = User::orderBy('name')->get(['id','name']);
@@ -75,6 +84,7 @@ class SalesOrderController extends Controller
         return view('sales_orders.create', [
             'customers'          => $customers,
             'items'              => $items,
+            'projects'           => $projects,
             'companies'          => $companies,
             'sales'              => $sales,
             'selectedCompanyId'  => $selectedCompanyId, // dipakai di <select name="company_id">
@@ -93,6 +103,8 @@ class SalesOrderController extends Controller
             'customer_po_number'   => ['required','string','max:100'],
             'customer_po_date'     => ['nullable','date'],
             'po_type'              => ['required','in:goods,project,maintenance'],
+            'project_id'           => ['nullable','integer','exists:projects,id'],
+            'project_name'         => ['nullable','string','max:255'],
             'deadline'             => ['nullable','date'],
             'ship_to'              => ['nullable','string'],
             'bill_to'              => ['nullable','string'],
@@ -140,6 +152,15 @@ class SalesOrderController extends Controller
         $tdVal        = $toNum($data['total_discount_value'] ?? 0);
         $taxPct       = $toNum($data['tax_percent'] ?? 0);
         $salesUserId  = $request->input('sales_user_id') ?: auth()->id();
+        $projectId    = !empty($data['project_id']) ? (int) $data['project_id'] : null;
+        $projectName  = trim((string) ($data['project_name'] ?? ''));
+        $projectName  = $projectName !== '' ? $projectName : null;
+
+        if (($data['po_type'] ?? 'goods') === 'project' && !$projectId && !$projectName) {
+            return back()
+                ->withErrors(['project_name' => 'Project wajib diisi (pilih Project atau isi Project Name).'])
+                ->withInput();
+        }
 
         // 3) Hitung per-baris
         $computedLines = [];
@@ -208,7 +229,7 @@ class SalesOrderController extends Controller
 
         /** @var \App\Models\SalesOrder $so */
         $so = null;
-        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, &$so) {
+        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, &$so) {
             $so = SalesOrder::create([
                 'company_id'          => $company->id,
                 'customer_id'         => $data['customer_id'],
@@ -219,6 +240,8 @@ class SalesOrderController extends Controller
                 'customer_po_number'  => $data['customer_po_number'],
                 'customer_po_date'    => $data['customer_po_date'] ?? null,
                 'po_type'             => $data['po_type'],
+                'project_id'          => $projectId,
+                'project_name'        => $projectName,
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
                 'notes'               => $data['notes'] ?? null,
@@ -294,7 +317,7 @@ class SalesOrderController extends Controller
     {
         $this->authorize('view', $salesOrder);
 
-        $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation']);
+        $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation','project']);
         return view('sales_orders.show', compact('salesOrder'));
     }
 
@@ -317,6 +340,10 @@ class SalesOrderController extends Controller
             ->with('unit:id,code')
             ->orderBy('name')
             ->get(['id','name','unit_id','price']);
+        $projects = Project::visibleTo(auth()->user())
+            ->with('customer:id,name')
+            ->orderBy('name')
+            ->get(['id','name','code','customer_id']);
         
          // Seed baris untuk view/JS (INI YANG PENTING)
         $lineSeed = ($salesOrder->lines ?? collect())->map(function ($l) {
@@ -340,6 +367,7 @@ class SalesOrderController extends Controller
         return view('sales_orders.edit', compact(
             'salesOrder',
             'items',
+            'projects',
             'lineSeed',
             'ppnDefault',
             'defaultDiscountMode',
@@ -374,6 +402,8 @@ class SalesOrderController extends Controller
             'customer_po_number' => ['required','string','max:100'],
             'customer_po_date'   => ['nullable','date'],
             'po_type'            => ['required','in:goods,project,maintenance'],
+            'project_id'         => ['nullable','integer','exists:projects,id'],
+            'project_name'       => ['nullable','string','max:255'],
             'deadline'           => ['nullable','date'],
             'ship_to'            => ['nullable','string'],
             'bill_to'            => ['nullable','string'],
@@ -408,6 +438,15 @@ class SalesOrderController extends Controller
         $mode        = $data['discount_mode'];
         $taxPctInput = $parse($data['tax_percent'] ?? 0);
         $taxPct      = ($company->is_taxable ?? false) ? $clamp($taxPctInput, 0, 100) : 0.0;
+        $projectId   = !empty($data['project_id']) ? (int) $data['project_id'] : null;
+        $projectName = trim((string) ($data['project_name'] ?? ''));
+        $projectName = $projectName !== '' ? $projectName : null;
+
+        if (($data['po_type'] ?? 'goods') === 'project' && !$projectId && !$projectName) {
+            return back()
+                ->withErrors(['project_name' => 'Project wajib diisi (pilih Project atau isi Project Name).'])
+                ->withInput();
+        }
 
         $sub = 0; $perLineDc = 0;
         $cleanLines = [];
@@ -476,11 +515,13 @@ class SalesOrderController extends Controller
         $grand = $dpp + $ppn;
 
         // Simpan header + sinkronisasi lines
-        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines) {
+        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName) {
             $salesOrder->update([
                 'customer_po_number'    => $data['customer_po_number'],
                 'customer_po_date'      => $data['customer_po_date'] ?? null,
                 'po_type'               => $data['po_type'],
+                'project_id'            => $projectId,
+                'project_name'          => $projectName,
                 'deadline'              => $data['deadline'] ?? null,
                 'ship_to'               => $data['ship_to'] ?? null,
                 'bill_to'               => $data['bill_to'] ?? null,
@@ -625,6 +666,8 @@ class SalesOrderController extends Controller
             'po_number'      => ['required','string','max:100'],
             'po_date'        => ['nullable','date'],
             'po_type'        => ['required','in:goods,project,maintenance'],
+            'project_id'     => ['nullable','integer','exists:projects,id'],
+            'project_name'   => ['nullable','string','max:255'],
             'deadline'       => ['nullable','date'],
             'ship_to'        => ['nullable','string'],
             'bill_to'        => ['nullable','string'],
@@ -647,13 +690,22 @@ class SalesOrderController extends Controller
         $company      = $quotation->company()->firstOrFail();
         $isTaxable    = (bool)($company->is_taxable ?? false);
         $taxPct       = $isTaxable ? max(min($taxPctInput,100),0) : 0.0;
+        $projectId    = !empty($data['project_id']) ? (int) $data['project_id'] : null;
+        $projectName  = trim((string) ($data['project_name'] ?? ''));
+        $projectName  = $projectName !== '' ? $projectName : null;
+
+        if (($data['po_type'] ?? 'goods') === 'project' && !$projectId && !$projectName) {
+            return back()
+                ->withErrors(['project_name' => 'Project wajib diisi (pilih Project atau isi Project Name).'])
+                ->withInput();
+        }
 
         // Sales agent: pilih urutan prioritas
         $salesUserId = $request->input('sales_user_id')
             ?: ($quotation->sales_user_id ?: auth()->id());
 
         /** @var SalesOrder $so */
-        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable, $salesUserId) {
+        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName) {
 
             // Nomor SO
             $number = app(DocNumberService::class)->next('sales_order', $company, now());
@@ -671,6 +723,8 @@ class SalesOrderController extends Controller
                 'customer_po_number'  => $data['po_number'],
                 'customer_po_date'    => $data['po_date'] ?? null,
                 'po_type'             => $data['po_type'],
+                'project_id'          => $projectId,
+                'project_name'        => $projectName,
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
 
