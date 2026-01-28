@@ -54,11 +54,7 @@ class SalesOrderController extends Controller
             ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
             ->get(['code','description','is_active','applicable_to']);
-        $paymentTerms = TermOfPayment::query()
-            ->with('schedules')
-            ->orderBy('code')
-            ->get(['id','code','description','is_active','applicable_to']);
-        $defaultPaymentTermId = $this->defaultPaymentTermIdFor(old('po_type', 'goods'));
+        
 
         $npwpRequired = (bool) ($quotation->company->require_npwp_on_so ?? false);
         $cust = $quotation->customer;
@@ -73,7 +69,7 @@ class SalesOrderController extends Controller
 
         // ⚠️ TIDAK ADA SalesOrder::create DI SINI
         return view('sales_orders.create_from_quotation', compact(
-            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items', 'projects', 'topOptions', 'paymentTerms', 'defaultPaymentTermId'
+            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items', 'projects', 'topOptions'
         ));
     }
 
@@ -90,11 +86,7 @@ class SalesOrderController extends Controller
             ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
             ->get(['code','description','is_active','applicable_to']);
-        $paymentTerms = TermOfPayment::query()
-            ->with('schedules')
-            ->orderBy('code')
-            ->get(['id','code','description','is_active','applicable_to']);
-        $defaultPaymentTermId = $this->defaultPaymentTermIdFor(old('po_type', 'goods'));
+        
         // tambahkan is_default ke select
         $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent','is_default']);
         $sales     = User::orderBy('name')->get(['id','name']);
@@ -119,8 +111,6 @@ class SalesOrderController extends Controller
             'items'              => $items,
             'projects'           => $projects,
             'topOptions'         => $topOptions,
-            'paymentTerms'       => $paymentTerms,
-            'defaultPaymentTermId' => $defaultPaymentTermId,
             'companies'          => $companies,
             'sales'              => $sales,
             'selectedCompanyId'  => $selectedCompanyId, // dipakai di <select name="company_id">
@@ -139,7 +129,6 @@ class SalesOrderController extends Controller
             'customer_po_number'   => ['required','string','max:100'],
             'customer_po_date'     => ['nullable','date'],
             'po_type'              => ['required','in:goods,project,maintenance'],
-            'payment_term_id'      => ['nullable','integer','exists:term_of_payments,id'],
             'project_id'           => ['nullable','integer','exists:projects,id'],
             'project_name'         => ['nullable','string','max:255'],
             'deadline'             => ['nullable','date'],
@@ -201,44 +190,16 @@ class SalesOrderController extends Controller
         $projectId    = !empty($data['project_id']) ? (int) $data['project_id'] : null;
         $projectName  = trim((string) ($data['project_name'] ?? ''));
         $projectName  = $projectName !== '' ? $projectName : null;
-        $paymentTermId = !empty($data['payment_term_id']) ? (int) $data['payment_term_id'] : null;
-        $paymentTermSnapshot = null;
 
         if (($data['po_type'] ?? 'goods') === 'project' && !$projectId && !$projectName) {
             return back()
                 ->withErrors(['project_name' => 'Project wajib diisi (pilih Project atau isi Project Name).'])
                 ->withInput();
         }
-        if (($data['po_type'] ?? 'goods') === 'goods' && !$paymentTermId) {
-            return back()
-                ->withErrors(['payment_term_id' => 'Payment Term wajib untuk Goods.'])
-                ->withInput();
-        }
-        if (($data['po_type'] ?? 'goods') === 'goods' && !$paymentTermId) {
-            return back()
-                ->withErrors(['payment_term_id' => 'Payment Term wajib untuk Goods.'])
-                ->withInput();
-        }
-        if (($data['po_type'] ?? 'goods') === 'goods' && !$paymentTermId) {
-            return back()
-                ->withErrors(['payment_term_id' => 'Payment Term wajib untuk Goods.'])
-                ->withInput();
-        }
 
         if ($isScope) {
             $mode = 'total';
             $data['discount_mode'] = 'total';
-        }
-
-        if ($paymentTermId) {
-            $term = TermOfPayment::with('schedules')->find($paymentTermId);
-            if (!$term) {
-                return back()->withErrors(['payment_term_id' => 'Payment Term tidak ditemukan.'])->withInput();
-            }
-            if (!$this->termMatchesPoType($term, $data['po_type'] ?? 'goods')) {
-                return back()->withErrors(['payment_term_id' => 'Payment Term tidak sesuai PO Type.'])->withInput();
-            }
-            $paymentTermSnapshot = null;
         }
 
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
@@ -314,7 +275,7 @@ class SalesOrderController extends Controller
 
         /** @var \App\Models\SalesOrder $so */
         $so = null;
-        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, $paymentTermId, $paymentTermSnapshot, &$so) {
+        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, &$so) {
             $so = SalesOrder::create([
                 'company_id'          => $company->id,
                 'customer_id'         => $data['customer_id'],
@@ -325,8 +286,8 @@ class SalesOrderController extends Controller
                 'customer_po_number'  => $data['customer_po_number'],
                 'customer_po_date'    => $data['customer_po_date'] ?? null,
                 'po_type'             => $data['po_type'],
-                'payment_term_id'     => $paymentTermId,
-                'payment_term_snapshot' => $paymentTermSnapshot,
+                'payment_term_id'     => null,
+                'payment_term_snapshot' => null,
                 'project_id'          => $projectId,
                 'project_name'        => $projectName,
                 'ship_to'             => $data['ship_to'] ?? null,
@@ -452,10 +413,7 @@ class SalesOrderController extends Controller
             ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
             ->get(['code','description','is_active','applicable_to']);
-        $paymentTerms = TermOfPayment::query()
-            ->with('schedules')
-            ->orderBy('code')
-            ->get(['id','code','description','is_active','applicable_to']);
+        
         
          // Seed baris untuk view/JS (INI YANG PENTING)
         $lineSeed = ($salesOrder->lines ?? collect())->map(function ($l) {
@@ -481,7 +439,6 @@ class SalesOrderController extends Controller
             'items',
             'projects',
             'topOptions',
-            'paymentTerms',
             'lineSeed',
             'ppnDefault',
             'defaultDiscountMode',
@@ -516,7 +473,6 @@ class SalesOrderController extends Controller
             'customer_po_number' => ['required','string','max:100'],
             'customer_po_date'   => ['nullable','date'],
             'po_type'            => ['required','in:goods,project,maintenance'],
-            'payment_term_id'    => ['nullable','integer','exists:term_of_payments,id'],
             'project_id'         => ['nullable','integer','exists:projects,id'],
             'project_name'       => ['nullable','string','max:255'],
             'deadline'           => ['nullable','date'],
@@ -565,8 +521,6 @@ class SalesOrderController extends Controller
         $projectId   = !empty($data['project_id']) ? (int) $data['project_id'] : null;
         $projectName = trim((string) ($data['project_name'] ?? ''));
         $projectName = $projectName !== '' ? $projectName : null;
-        $paymentTermId = !empty($data['payment_term_id']) ? (int) $data['payment_term_id'] : null;
-        $paymentTermSnapshot = null;
 
         if (($data['po_type'] ?? 'goods') === 'project' && !$projectId && !$projectName) {
             return back()
@@ -577,17 +531,6 @@ class SalesOrderController extends Controller
         if ($isScope) {
             $mode = 'total';
             $data['discount_mode'] = 'total';
-        }
-
-        if ($paymentTermId) {
-            $term = TermOfPayment::with('schedules')->find($paymentTermId);
-            if (!$term) {
-                return back()->withErrors(['payment_term_id' => 'Payment Term tidak ditemukan.'])->withInput();
-            }
-            if (!$this->termMatchesPoType($term, $data['po_type'] ?? 'goods')) {
-                return back()->withErrors(['payment_term_id' => 'Payment Term tidak sesuai PO Type.'])->withInput();
-            }
-            $paymentTermSnapshot = null;
         }
 
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
@@ -698,13 +641,13 @@ class SalesOrderController extends Controller
             }
         }
 
-        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$billingTerms,$existingTerms,$paymentTermId,$paymentTermSnapshot) {
+        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$billingTerms,$existingTerms) {
             $salesOrder->update([
                 'customer_po_number'    => $data['customer_po_number'],
                 'customer_po_date'      => $data['customer_po_date'] ?? null,
                 'po_type'               => $data['po_type'],
-                'payment_term_id'       => $paymentTermId,
-                'payment_term_snapshot' => $paymentTermSnapshot,
+                'payment_term_id'       => null,
+                'payment_term_snapshot' => null,
                 'project_id'            => $projectId,
                 'project_name'          => $projectName,
                 'deadline'              => $data['deadline'] ?? null,
@@ -901,7 +844,6 @@ class SalesOrderController extends Controller
             'po_number'      => ['required','string','max:100'],
             'po_date'        => ['nullable','date'],
             'po_type'        => ['required','in:goods,project,maintenance'],
-            'payment_term_id' => ['nullable','integer','exists:term_of_payments,id'],
             'project_id'     => ['nullable','integer','exists:projects,id'],
             'project_name'   => ['nullable','string','max:255'],
             'deadline'       => ['nullable','date'],
@@ -938,8 +880,6 @@ class SalesOrderController extends Controller
         $projectName  = trim((string) ($data['project_name'] ?? ''));
         $projectName  = $projectName !== '' ? $projectName : null;
         $isScope      = in_array(($data['po_type'] ?? 'goods'), ['project', 'maintenance'], true);
-        $paymentTermId = !empty($data['payment_term_id']) ? (int) $data['payment_term_id'] : null;
-        $paymentTermSnapshot = null;
 
         if (($data['po_type'] ?? 'goods') === 'project' && !$projectId && !$projectName) {
             return back()
@@ -951,17 +891,6 @@ class SalesOrderController extends Controller
             $discountMode = 'total';
         }
 
-        if ($paymentTermId) {
-            $term = TermOfPayment::with('schedules')->find($paymentTermId);
-            if (!$term) {
-                return back()->withErrors(['payment_term_id' => 'Payment Term tidak ditemukan.'])->withInput();
-            }
-            if (!$this->termMatchesPoType($term, $data['po_type'] ?? 'goods')) {
-                return back()->withErrors(['payment_term_id' => 'Payment Term tidak sesuai PO Type.'])->withInput();
-            }
-            $paymentTermSnapshot = null;
-        }
-
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
 
         // Sales agent: pilih urutan prioritas
@@ -969,7 +898,7 @@ class SalesOrderController extends Controller
             ?: ($quotation->sales_user_id ?: auth()->id());
 
         /** @var SalesOrder $so */
-        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms, $isScope, $paymentTermId, $paymentTermSnapshot) {
+        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms, $isScope) {
 
             // Nomor SO
             $number = app(DocNumberService::class)->next('sales_order', $company, now());
@@ -987,8 +916,8 @@ class SalesOrderController extends Controller
                 'customer_po_number'  => $data['po_number'],
                 'customer_po_date'    => $data['po_date'] ?? null,
                 'po_type'             => $data['po_type'],
-                'payment_term_id'     => $paymentTermId,
-                'payment_term_snapshot' => $paymentTermSnapshot,
+                'payment_term_id'     => null,
+                'payment_term_snapshot' => null,
                 'project_id'          => $projectId,
                 'project_name'        => $projectName,
                 'ship_to'             => $data['ship_to'] ?? null,

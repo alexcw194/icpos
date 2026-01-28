@@ -74,24 +74,6 @@
                  value="{{ old('deadline', optional($so->deadline)->format('Y-m-d')) }}">
         </div>
 
-        <div class="col-md-6">
-          <label class="form-label">Payment Term Template</label>
-          <select name="payment_term_id" id="payment_term_id" class="form-select">
-            <option value="">-- pilih --</option>
-            @foreach($paymentTerms as $pt)
-              @php
-                $label = $pt->code;
-                if (!empty($pt->description)) { $label .= ' — '.$pt->description; }
-                $applies = is_array($pt->applicable_to ?? null) ? implode(',', $pt->applicable_to) : '';
-              @endphp
-              <option value="{{ $pt->id }}" data-applicable="{{ $applies }}"
-                @selected((string)old('payment_term_id', $so->payment_term_id) === (string)$pt->id)>
-                {{ $label }}
-              </option>
-            @endforeach
-          </select>
-          <small class="form-hint">Memilih template akan mengisi baris Billing Terms. Setelah itu bebas diedit.</small>
-        </div>
 
         {{-- PROJECT INFO (conditional) --}}
         <div class="col-12" id="projectSection" data-project-section>
@@ -494,7 +476,6 @@
   window.SO_ITEM_OPTIONS = @json($ITEM_OPTIONS);
   // ⬇️ Tambahan: kirim map id→label ke JS
   window.SO_ITEM_LABELS  = @json($ITEM_LABELS);
-  window.SO_PAYMENT_TERMS = @json($paymentTerms);
   const soId       = @json($so->id);   // <— ini penting
   const draftToken = (document.getElementById('draft_token')||{}).value || ''; // boleh tidak ada
   const csrf       = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -509,9 +490,6 @@
   const stageWrap = document.getElementById('stageWrap');
   const scopeActions = document.getElementById('scopeLineActions');
   const scopeAddBtn = document.getElementById('scope_add_btn');
-  const paymentTermSelect = document.getElementById('payment_term_id');
-  const paymentTerms = Array.isArray(window.SO_PAYMENT_TERMS) ? window.SO_PAYMENT_TERMS : [];
-  const paymentTermMap = new Map(paymentTerms.map((t) => [String(t.id), t]));
 
   function toggleProjectSection() {
     if (!projectSection) return;
@@ -563,7 +541,6 @@
     });
 
     recalc();
-    filterPaymentTermOptions();
   }
 
   poTypeSelect?.addEventListener('change', () => {
@@ -572,69 +549,6 @@
   });
   toggleProjectSection();
 
-  function filterPaymentTermOptions() {
-    if (!paymentTermSelect) return;
-    const type = poTypeSelect?.value || 'goods';
-    Array.from(paymentTermSelect.options).forEach((opt) => {
-      if (!opt.value) return;
-      const raw = (opt.dataset.applicable || '').trim();
-      if (!raw) {
-        opt.disabled = false;
-        opt.hidden = false;
-        return;
-      }
-      const allowed = raw.split(',').map((v) => v.trim()).filter(Boolean);
-      const ok = allowed.includes(type);
-      opt.disabled = !ok;
-      opt.hidden = !ok;
-      if (!ok && opt.selected) opt.selected = false;
-    });
-  }
-
-  function applyTemplateToBillingTerms() {
-    if (!paymentTermSelect) return;
-    const id = paymentTermSelect.value || '';
-    const term = paymentTermMap.get(String(id));
-    const schedules = Array.isArray(term?.schedules) ? term.schedules : [];
-    if (!id || schedules.length === 0) return;
-    const availableCodes = new Set(
-      Array.from(document.querySelectorAll('#billing-terms-table select[name*="[top_code]"] option'))
-        .map((opt) => opt.value)
-        .filter(Boolean)
-    );
-    const guessCodes = (count) => {
-      if (count <= 0) return [];
-      if (count === 1) return ['FINISH'];
-      if (count === 2) return ['DP', 'FINISH'];
-      const mids = ['T1', 'T2', 'T3', 'T4', 'T5'];
-      const codes = ['DP'];
-      for (let i = 0; i < count - 2; i++) {
-        codes.push(mids[i] || '');
-      }
-      codes.push('FINISH');
-      return codes;
-    };
-    const defaultCodes = guessCodes(schedules.length);
-    const rows = schedules.map((row, idx) => {
-      const rawTrigger = row.due_trigger || '';
-      const normalizedTrigger = rawTrigger === 'on_so'
-        ? 'on_invoice'
-        : (rawTrigger === 'end_of_month' ? 'next_month_day' : rawTrigger);
-      return {
-        top_code: availableCodes.has(defaultCodes[idx]) ? defaultCodes[idx] : '',
-        percent: row.portion_type === 'percent' ? row.portion_value : 0,
-        due_trigger: normalizedTrigger,
-        offset_days: row.offset_days ?? '',
-        day_of_month: row.specific_day ?? '',
-        note: row.notes ?? '',
-      };
-    });
-    if (typeof window.setBillingTermsRows === 'function') {
-      window.setBillingTermsRows(rows);
-    }
-  }
-
-  paymentTermSelect?.addEventListener('change', applyTemplateToBillingTerms);
 
   function listUrl(){
     const base = @json(route('sales-orders.attachments.index'));
