@@ -34,6 +34,11 @@
 @endphp
 
 <div class="container-xl">
+  @if(session('success') || session('ok'))
+    <div class="alert alert-success mb-3">
+      {{ session('success') ?? session('ok') }}
+    </div>
+  @endif
   <div class="d-flex align-items-start justify-content-between">
     <div>
       <h2 class="page-title mb-1">

@@ -162,6 +162,7 @@ class SalesOrderController extends Controller
         };
 
         // 2) Normalisasi input header
+        $isScope      = in_array(($data['po_type'] ?? 'goods'), ['project', 'maintenance'], true);
         $mode         = $data['discount_mode'] ?? 'total';
         $tdType       = $data['total_discount_type'] ?? 'amount';
         $tdVal        = $toNum($data['total_discount_value'] ?? 0);
@@ -175,6 +176,11 @@ class SalesOrderController extends Controller
             return back()
                 ->withErrors(['project_name' => 'Project wajib diisi (pilih Project atau isi Project Name).'])
                 ->withInput();
+        }
+
+        if ($isScope) {
+            $mode = 'total';
+            $data['discount_mode'] = 'total';
         }
 
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? []);
@@ -193,6 +199,10 @@ class SalesOrderController extends Controller
 
             $dType = $mode === 'per_item' ? ($ln['discount_type'] ?? 'amount') : 'amount';
             $dVal  = $mode === 'per_item' ? $toNum($ln['discount_value'] ?? 0) : 0.0;
+            if ($isScope) {
+                $dType = 'amount';
+                $dVal = 0.0;
+            }
 
             if ($dType === 'percent') {
                 $discAmt = min(max($dVal, 0), 100) / 100 * $lineSubtotal;
@@ -204,8 +214,8 @@ class SalesOrderController extends Controller
 
             $computedLines[] = [
                 'position'        => $idx + 1,
-                'item_id'         => $ln['item_id'] ?? null,
-                'item_variant_id' => $ln['item_variant_id'] ?? null,
+                'item_id'         => $isScope ? null : ($ln['item_id'] ?? null),
+                'item_variant_id' => $isScope ? null : ($ln['item_variant_id'] ?? null),
                 'name'            => $ln['name'] ?? null,
                 'description'     => $ln['description'] ?? null,
                 'unit'            => $ln['unit'] ?? null,
@@ -264,7 +274,7 @@ class SalesOrderController extends Controller
                 'notes'               => $data['notes'] ?? null,
                 'private_notes'       => $data['private_notes'] ?? null,
                 'under_amount'        => (float) ($data['under_amount'] ?? 0),
-                'discount_mode'       => $data['discount_mode'],
+                'discount_mode'       => $mode,
                 'tax_percent'         => $taxPct, // simpan numeric
                 'status'              => 'open',
                 'contract_value'      => $grand,
@@ -475,6 +485,7 @@ class SalesOrderController extends Controller
         ]);
 
         // Hitung ulang totals
+        $isScope     = in_array(($data['po_type'] ?? 'goods'), ['project', 'maintenance'], true);
         $mode        = $data['discount_mode'];
         $taxPctInput = $parse($data['tax_percent'] ?? 0);
         $taxPct      = ($company->is_taxable ?? false) ? $clamp($taxPctInput, 0, 100) : 0.0;
@@ -486,6 +497,11 @@ class SalesOrderController extends Controller
             return back()
                 ->withErrors(['project_name' => 'Project wajib diisi (pilih Project atau isi Project Name).'])
                 ->withInput();
+        }
+
+        if ($isScope) {
+            $mode = 'total';
+            $data['discount_mode'] = 'total';
         }
 
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? []);
@@ -513,6 +529,9 @@ class SalesOrderController extends Controller
             } else {
                 $dt = 'amount'; $dv = 0; $dcAmt = 0;
             }
+            if ($isScope) {
+                $dt = 'amount'; $dv = 0; $dcAmt = 0;
+            }
 
             $lineTotal = max($lineSub - $dcAmt, 0);
             $sub += $lineSub; $perLineDc += $dcAmt;
@@ -531,8 +550,8 @@ class SalesOrderController extends Controller
                 'line_subtotal'   => $lineSub,
                 'line_total'      => $lineTotal,
 
-                'item_id'         => $ln['item_id'] ?? null,
-                'item_variant_id' => $ln['item_variant_id'] ?? null,
+                'item_id'         => $isScope ? null : ($ln['item_id'] ?? null),
+                'item_variant_id' => $isScope ? null : ($ln['item_variant_id'] ?? null),
             ];
         }
 
@@ -802,11 +821,16 @@ class SalesOrderController extends Controller
         $projectId    = !empty($data['project_id']) ? (int) $data['project_id'] : null;
         $projectName  = trim((string) ($data['project_name'] ?? ''));
         $projectName  = $projectName !== '' ? $projectName : null;
+        $isScope      = in_array(($data['po_type'] ?? 'goods'), ['project', 'maintenance'], true);
 
         if (($data['po_type'] ?? 'goods') === 'project' && !$projectId && !$projectName) {
             return back()
                 ->withErrors(['project_name' => 'Project wajib diisi (pilih Project atau isi Project Name).'])
                 ->withInput();
+        }
+
+        if ($isScope) {
+            $discountMode = 'total';
         }
 
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? []);
@@ -816,7 +840,7 @@ class SalesOrderController extends Controller
             ?: ($quotation->sales_user_id ?: auth()->id());
 
         /** @var SalesOrder $so */
-        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms) {
+        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms, $isScope) {
 
             // Nomor SO
             $number = app(DocNumberService::class)->next('sales_order', $company, now());
@@ -857,6 +881,10 @@ class SalesOrderController extends Controller
 
                 $discType  = $discountMode === 'per_item' ? ($ql->discount_type ?? 'amount') : 'amount';
                 $discValue = $discountMode === 'per_item' ? (float)($ql->discount_value ?? 0) : 0.0;
+                if ($isScope) {
+                    $discType = 'amount';
+                    $discValue = 0.0;
+                }
 
                 $lineSub   = $qty * $unitPrice;
                 $lineDcAmt = 0.0;
@@ -881,8 +909,8 @@ class SalesOrderController extends Controller
                     'discount_amount'  => $lineDcAmt,
                     'line_subtotal'    => $lineSub,
                     'line_total'       => $lineTotal,
-                    'item_id'          => $ql->item_id ?? null,
-                    'item_variant_id'  => $ql->item_variant_id ?? $ql->variant_id ?? null,
+                    'item_id'          => $isScope ? null : ($ql->item_id ?? null),
+                    'item_variant_id'  => $isScope ? null : ($ql->item_variant_id ?? $ql->variant_id ?? null),
                 ]);
 
                 $linesSubtotal += $lineTotal;

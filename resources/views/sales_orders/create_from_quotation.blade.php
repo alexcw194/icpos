@@ -34,12 +34,23 @@
       </div>
     </div>
 
+    @if ($errors->any())
+      <div class="alert alert-danger m-3">
+        <div class="text-danger fw-bold mb-1">Periksa kembali input Anda:</div>
+        <ul class="mb-0">
+          @foreach ($errors->all() as $error)
+            <li>{{ $error }}</li>
+          @endforeach
+        </ul>
+      </div>
+    @endif
+
     <div class="card-body">
       {{-- Row 1: PO No, PO Date, PO Type, Deadline --}}
       <div class="row g-3">
         <div class="col-md-3">
           <label class="form-label required">Customer PO No</label>
-          <input type="text" name="po_number" class="form-control" required>
+          <input type="text" name="po_number" class="form-control" value="{{ old('po_number') }}" required>
         </div>
         <div class="col-md-3">
           <label class="form-label">Customer PO Date</label>
@@ -172,6 +183,10 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <div id="scopeLineActions" class="mb-2 d-none">
+            <button type="button" id="scope_add_btn" class="btn btn-sm btn-primary">+ Add Line</button>
           </div>
 
           {{-- ITEMS TABLE --}}
@@ -336,6 +351,9 @@
   #linesTable .disc-cell .input-group-text.disc-unit{ min-width:46px; justify-content:center; }
   #linesTable .line_total_view{ font-weight:700; font-size:1.06rem; }
   #linesTable .line_subtotal_view{ font-size:.92rem; }
+  #soForm.scope-mode .col-disc,
+  #soForm.scope-mode .col-disc-amount,
+  #soForm.scope-mode th[data-col="disc-input"] { display:none; }
 
   /* Sembunyikan kontrol diskon total saat mode per-item */
   .mode-per [data-section="discount-total-controls"]{ display:none!important; }
@@ -367,13 +385,65 @@
   const csrf        = document.querySelector('meta[name="csrf-token"]')?.content || '';
   const poTypeSelect = document.querySelector('select[name="po_type"]');
   const projectSection = document.querySelector('[data-project-section]');
+  const stageWrap = document.getElementById('stageWrap');
+  const scopeActions = document.getElementById('scopeLineActions');
 
   function toggleProjectSection() {
     if (!projectSection) return;
     projectSection.style.display = poTypeSelect?.value === 'project' ? '' : 'none';
   }
 
-  poTypeSelect?.addEventListener('change', toggleProjectSection);
+  function setRowScopeState(row, isScope) {
+    const nameInput = row.querySelector('.q-item-name');
+    const unitInput = row.querySelector('.q-item-unit');
+    if (nameInput) {
+      nameInput.readOnly = !isScope;
+      nameInput.placeholder = isScope ? 'Nama pekerjaan' : 'pilih dari kotak atas';
+    }
+    if (unitInput) {
+      unitInput.readOnly = !isScope;
+      if (isScope && !unitInput.value) unitInput.value = 'lot';
+    }
+  }
+
+  function applyPoTypeRules() {
+    const isScope = ['project', 'maintenance'].includes(poTypeSelect?.value || '');
+    const form = document.getElementById('soForm');
+    form?.classList.toggle('scope-mode', isScope);
+    if (stageWrap) stageWrap.style.display = isScope ? 'none' : '';
+    if (scopeActions) scopeActions.classList.toggle('d-none', !isScope);
+
+    const hiddenMode = document.getElementById('discount_mode_hidden');
+    const dmTotal = document.getElementById('dm-total');
+    const dmPer = document.getElementById('dm-per');
+    if (isScope) {
+      if (hiddenMode) hiddenMode.value = 'total';
+      if (dmTotal) dmTotal.checked = true;
+      if (dmPer) dmPer.disabled = true;
+      if (typeof applyMode === 'function') applyMode('total');
+    } else if (dmPer) {
+      dmPer.disabled = false;
+    }
+
+    document.querySelectorAll('#linesBody tr[data-line-row]').forEach((row) => {
+      setRowScopeState(row, isScope);
+      if (isScope) {
+        const discType = row.querySelector('.disc-type');
+        const discValue = row.querySelector('.disc-value');
+        const discUnit = row.querySelector('.disc-unit');
+        if (discType) discType.value = 'amount';
+        if (discValue) discValue.value = '0';
+        if (discUnit) discUnit.textContent = 'IDR';
+      }
+    });
+
+    recalc();
+  }
+
+  poTypeSelect?.addEventListener('change', () => {
+    toggleProjectSection();
+    applyPoTypeRules();
+  });
   toggleProjectSection();
 
   /* Helpers */
@@ -486,6 +556,7 @@
   const form           = document.getElementById('soForm');
   const body           = document.getElementById('linesBody');
   const rowTpl         = document.getElementById('rowTpl');
+  const scopeAddBtn    = document.getElementById('scope_add_btn');
   const totalTypeSel   = document.getElementById('total_discount_type');
   const totalValInp    = document.getElementById('total_discount_value');
   const vSub           = document.getElementById('v_lines_subtotal');
@@ -557,12 +628,15 @@
     const rm = tr.querySelector('.removeRowBtn');
     if (rm) rm.addEventListener('click', ()=>{ tr.remove(); recalc(); });
 
-    body.appendChild(tr); idx++; recalc();
+    body.appendChild(tr);
+    setRowScopeState(tr, ['project','maintenance'].includes(poTypeSelect?.value || ''));
+    idx++;
+    recalc();
   }
 
   function addFromStage(){
     const ts = document.getElementById('stage_name').__ts;
-    const label = ts ? (ts.getItem(ts.items[0])?.innerText || '') : (document.getElementById('stage_name')?.value || '').trim();
+    const label = ts ? (ts.getItem(ts.items[0])?.innerText || ts.getTextboxValue?.() || '') : (document.getElementById('stage_name')?.value || '').trim();
     const itemId = (document.getElementById('stage_item_id')||{}).value || '';
 
     if (!itemId || !label){ alert('Pilih item terlebih dahulu.'); return; }
@@ -596,6 +670,29 @@
     const ts=document.getElementById('stage_name').__ts; if(ts){ ts.clear(); ts.setTextboxValue(''); }
   });
 
+  function addScopeLine() {
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-line-row','');
+    tr.className='qline';
+    tr.innerHTML = rowTpl.innerHTML.replace(/__IDX__/g, idx);
+    tr.querySelector('.q-item-id').value = '';
+    tr.querySelector('.q-item-variant-id').value = '';
+    tr.querySelector('.q-item-name').value = '';
+    tr.querySelector('.q-item-desc').value = '';
+    tr.querySelector('.q-item-qty').value = '1';
+    tr.querySelector('.q-item-unit').value = 'lot';
+    tr.querySelector('.q-item-rate').value = '';
+    tr.querySelector('.disc-type').value = 'amount';
+    tr.querySelector('.disc-value').value = '0';
+    tr.querySelector('.removeRowBtn').addEventListener('click', ()=>{ tr.remove(); recalc(); });
+    body.appendChild(tr);
+    setRowScopeState(tr, true);
+    idx++;
+    recalc();
+  }
+
+  scopeAddBtn?.addEventListener('click', addScopeLine);
+
   // Delegasi event tabel
   body.addEventListener('input', e=>{
     if (e.target.classList.contains('qty') || e.target.classList.contains('price') || e.target.classList.contains('disc-value')) recalc();
@@ -612,6 +709,8 @@
   function applyMode(mode){
     if (mode==='per_item'){ form.classList.add('mode-per'); form.classList.remove('mode-total'); }
     else { form.classList.add('mode-total'); form.classList.remove('mode-per'); }
+    const hiddenMode = document.getElementById('discount_mode_hidden');
+    if (hiddenMode) hiddenMode.value = mode;
     recalc();
   }
   document.getElementById('dm-total')?.addEventListener('change', ()=>applyMode('total'));
@@ -655,6 +754,7 @@
   // Init
   initStagePicker();
   applyMode(@json($discMode === 'per_item' ? 'per_item' : 'total'));
+  applyPoTypeRules();
   recalc();
   refreshList();
 })();

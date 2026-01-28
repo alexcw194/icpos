@@ -219,6 +219,10 @@
             </div>
           </div>
 
+          <div id="scopeLineActions" class="mb-2 d-none">
+            <button type="button" id="scope_add_btn" class="btn btn-sm btn-primary">+ Add Line</button>
+          </div>
+
           {{-- ITEMS TABLE --}}
           <div class="fw-bold mb-2">Items</div>
           <div id="quotation-lines" class="table-responsive">
@@ -370,6 +374,9 @@
   #linesTable .disc-cell .input-group-text.disc-unit{ min-width:46px; justify-content:center; }
   #linesTable .line_total_view{ font-weight:700; font-size:1.06rem; }
   #linesTable .line_subtotal_view{ font-size:.92rem; }
+  #soForm.scope-mode .col-disc,
+  #soForm.scope-mode .col-disc-amount,
+  #soForm.scope-mode th[data-col="disc-input"] { display:none; }
   .nav-tabs .nav-link { cursor: pointer; }
 
   /* TomSelect solid putih & di atas elemen lain */
@@ -420,13 +427,60 @@
   const csrf        = document.querySelector('meta[name="csrf-token"]')?.content || '';
   const poTypeSelect = document.querySelector('select[name="po_type"]');
   const projectSection = document.querySelector('[data-project-section]');
+  const stageWrap = document.getElementById('stageWrap');
+  const scopeActions = document.getElementById('scopeLineActions');
 
   function toggleProjectSection() {
     if (!projectSection) return;
     projectSection.style.display = poTypeSelect?.value === 'project' ? '' : 'none';
   }
 
-  poTypeSelect?.addEventListener('change', toggleProjectSection);
+  function setRowScopeState(row, isScope) {
+    const nameInput = row.querySelector('.q-item-name');
+    const unitInput = row.querySelector('.q-item-unit');
+    if (nameInput) {
+      nameInput.readOnly = !isScope;
+      nameInput.placeholder = isScope ? 'Nama pekerjaan' : 'pilih dari kotak atas';
+    }
+    if (unitInput) {
+      unitInput.readOnly = !isScope;
+      if (isScope && !unitInput.value) unitInput.value = 'lot';
+    }
+  }
+
+  function applyPoTypeRules() {
+    const isScope = ['project', 'maintenance'].includes(poTypeSelect?.value || '');
+    const form = document.getElementById('soForm');
+    form?.classList.toggle('scope-mode', isScope);
+    if (stageWrap) stageWrap.style.display = isScope ? 'none' : '';
+    if (scopeActions) scopeActions.classList.toggle('d-none', !isScope);
+
+    const totalRadio = document.querySelector('input[name="discount_mode"][value="total"]');
+    const perItemRadio = document.querySelector('input[name="discount_mode"][value="per_item"]');
+    if (isScope) {
+      if (totalRadio) totalRadio.checked = true;
+      if (perItemRadio) perItemRadio.disabled = true;
+    } else if (perItemRadio) {
+      perItemRadio.disabled = false;
+    }
+
+    document.querySelectorAll('#linesBody tr[data-line-row]').forEach((row) => {
+      setRowScopeState(row, isScope);
+      if (isScope) {
+        const discType = row.querySelector('.disc-type');
+        const discValue = row.querySelector('.disc-value');
+        if (discType) discType.value = 'amount';
+        if (discValue) discValue.value = '0';
+      }
+    });
+
+    recalc();
+  }
+
+  poTypeSelect?.addEventListener('change', () => {
+    toggleProjectSection();
+    applyPoTypeRules();
+  });
   toggleProjectSection();
 
   function rowFile(f){
@@ -670,6 +724,7 @@
   const body   = document.getElementById('linesBody');
   const rowTpl = document.getElementById('rowTpl');
   let   lineIdx = 0;
+  const scopeAddBtn = document.getElementById('scope_add_btn');
 
   function recalc(){
     const vLinesSubtotal   = document.getElementById('v_lines_subtotal');
@@ -736,7 +791,7 @@
     const id    = (document.getElementById('stage_item_id')||{}).value || '';
     const vid   = (document.getElementById('stage_item_variant_id')||{}).value || '';
     const ts    = document.getElementById('stage_name').__ts;
-    const name  = ts ? (ts.getItem(ts.items[0])?.innerText || '') 
+    const name  = ts ? (ts.getItem(ts.items[0])?.innerText || ts.getTextboxValue?.() || '') 
                      : (document.getElementById('stage_name')?.value || '').trim();
     const desc  = (document.getElementById('stage_desc')||{}).value || '';
     const qty   = toNum((document.getElementById('stage_qty')||{}).value || '1');
@@ -762,6 +817,7 @@
     tr.querySelector('.removeRowBtn').addEventListener('click', ()=>{ tr.remove(); recalc(); });
 
     body.appendChild(tr);
+    setRowScopeState(tr, false);
     lineIdx++;
 
     // reset stage
@@ -787,6 +843,29 @@
     (document.getElementById('stage_price')||{}).value = '';
     if (ts){ ts.clear(); ts.setTextboxValue(''); }
   });
+
+  function addScopeLine() {
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-line-row','');
+    tr.className='qline';
+    tr.innerHTML = rowTpl.innerHTML.replace(/__IDX__/g, lineIdx);
+    tr.querySelector('.q-item-id').value = '';
+    tr.querySelector('.q-item-variant-id').value = '';
+    tr.querySelector('.q-item-name').value = '';
+    tr.querySelector('.q-item-desc').value = '';
+    tr.querySelector('.q-item-qty').value = '1';
+    tr.querySelector('.q-item-unit').value = 'lot';
+    tr.querySelector('.q-item-rate').value = '';
+    tr.querySelector('.disc-type').value = 'amount';
+    tr.querySelector('.disc-value').value = '0';
+    tr.querySelector('.removeRowBtn').addEventListener('click', ()=>{ tr.remove(); recalc(); });
+    body.appendChild(tr);
+    setRowScopeState(tr, true);
+    lineIdx++;
+    recalc();
+  }
+
+  scopeAddBtn?.addEventListener('click', addScopeLine);
 
   // Delegasi event pada baris
   const bodyEl = document.getElementById('linesBody');
@@ -840,6 +919,7 @@
   // Init
   Promise.all([initCustomerPicker(), initStagePicker()]).then(()=>{
     syncTax();
+    applyPoTypeRules();
     toggleTotalControls();
     recalc();
   });
