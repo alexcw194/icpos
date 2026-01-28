@@ -19,8 +19,8 @@
           <th style="width:160px;">TOP Code</th>
           <th style="width:140px;" class="text-end">Percent</th>
           <th style="width:170px;">Schedule</th>
-          <th style="width:120px;" class="text-end">Offset Days</th>
-          <th style="width:120px;" class="text-end">Day of Month</th>
+          <th style="width:120px;" class="text-end" data-col="offset">Offset Days</th>
+          <th style="width:120px;" class="text-end" data-col="day">Day of Month</th>
           <th>Note (Milestone)</th>
           <th style="width:140px;">Status</th>
           <th style="width:1%"></th>
@@ -234,10 +234,37 @@
         dayInput.disabled = true;
       }
     }
+
+    row.dataset.showOffset = showOffset ? '1' : '0';
+    row.dataset.showDay = showDay ? '1' : '0';
   };
 
   const applyScheduleVisibility = () => {
     table.querySelectorAll('tbody tr[data-term-row]').forEach(updateScheduleVisibility);
+    updateScheduleColumns();
+  };
+
+  const updateScheduleColumns = () => {
+    const rows = Array.from(table.querySelectorAll('tbody tr[data-term-row]'));
+    const anyOffset = rows.some((row) => row.dataset.showOffset === '1');
+    const anyDay = rows.some((row) => row.dataset.showDay === '1');
+    const offsetTh = table.querySelector('th[data-col="offset"]');
+    const dayTh = table.querySelector('th[data-col="day"]');
+    if (offsetTh) offsetTh.style.display = anyOffset ? '' : 'none';
+    if (dayTh) dayTh.style.display = anyDay ? '' : 'none';
+
+    if (!anyOffset) {
+      rows.forEach((row) => {
+        const offsetTd = row.querySelector('.js-term-offset')?.closest('td');
+        if (offsetTd) offsetTd.style.display = 'none';
+      });
+    }
+    if (!anyDay) {
+      rows.forEach((row) => {
+        const dayTd = row.querySelector('.js-term-day')?.closest('td');
+        if (dayTd) dayTd.style.display = 'none';
+      });
+    }
   };
 
   table.addEventListener('input', (e) => {
