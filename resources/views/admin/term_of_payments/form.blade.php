@@ -57,7 +57,129 @@
                 <span class="form-check-label">Active</span>
               </label>
             </div>
+            <div class="col-12">
+              <label class="form-label">Applicable To</label>
+              @php $applies = old('applicable_to', $row->applicable_to ?? ['goods','project','maintenance']); @endphp
+              <div class="d-flex flex-wrap gap-3">
+                <label class="form-check">
+                  <input class="form-check-input" type="checkbox" name="applicable_to[]" value="goods" @checked(in_array('goods', $applies, true))>
+                  <span class="form-check-label">Goods</span>
+                </label>
+                <label class="form-check">
+                  <input class="form-check-input" type="checkbox" name="applicable_to[]" value="project" @checked(in_array('project', $applies, true))>
+                  <span class="form-check-label">Project</span>
+                </label>
+                <label class="form-check">
+                  <input class="form-check-input" type="checkbox" name="applicable_to[]" value="maintenance" @checked(in_array('maintenance', $applies, true))>
+                  <span class="form-check-label">Maintenance</span>
+                </label>
+              </div>
+              <div class="form-hint">Kosong = berlaku untuk semua.</div>
+            </div>
           </div>
+        </div>
+        <div class="card-body border-top">
+          <div class="d-flex align-items-center mb-2">
+            <h3 class="card-title mb-0">Schedule Rows</h3>
+            <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="btn-add-schedule">+ Add Row</button>
+          </div>
+          @php
+            $schedulesData = old('schedules');
+            if ($schedulesData === null) {
+              $schedulesData = ($row->schedules ?? collect())->map(function ($s) {
+                return [
+                  'portion_type' => $s->portion_type,
+                  'portion_value' => $s->portion_value,
+                  'due_trigger' => $s->due_trigger,
+                  'offset_days' => $s->offset_days,
+                  'specific_day' => $s->specific_day,
+                  'notes' => $s->notes,
+                ];
+              })->toArray();
+            }
+          @endphp
+          <div class="table-responsive">
+            <table class="table table-sm table-vcenter" id="schedule-table">
+              <thead>
+                <tr>
+                  <th style="width:120px;">Type</th>
+                  <th style="width:160px;" class="text-end">Value</th>
+                  <th style="width:180px;">Trigger</th>
+                  <th style="width:120px;" class="text-end">Offset Days</th>
+                  <th style="width:120px;" class="text-end">EOM Day</th>
+                  <th>Notes</th>
+                  <th style="width:1%"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @forelse($schedulesData as $i => $sch)
+                  <tr data-schedule-row>
+                    <td>
+                      <select name="schedules[{{ $i }}][portion_type]" class="form-select form-select-sm portion-type">
+                        <option value="percent" @selected(($sch['portion_type'] ?? '') === 'percent')>Percent</option>
+                        <option value="fixed" @selected(($sch['portion_type'] ?? '') === 'fixed')>Fixed</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="text" name="schedules[{{ $i }}][portion_value]" class="form-control form-control-sm text-end portion-value"
+                             value="{{ $sch['portion_value'] ?? 0 }}">
+                    </td>
+                    <td>
+                      <select name="schedules[{{ $i }}][due_trigger]" class="form-select form-select-sm due-trigger">
+                        @php $tr = $sch['due_trigger'] ?? 'on_so'; @endphp
+                        <option value="on_so" @selected($tr === 'on_so')>On SO</option>
+                        <option value="on_delivery" @selected($tr === 'on_delivery')>On Delivery</option>
+                        <option value="on_invoice" @selected($tr === 'on_invoice')>On Invoice</option>
+                        <option value="after_invoice_days" @selected($tr === 'after_invoice_days')>After Invoice Days</option>
+                        <option value="end_of_month" @selected($tr === 'end_of_month')>End of Month</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="text" name="schedules[{{ $i }}][offset_days]" class="form-control form-control-sm text-end offset-days"
+                             value="{{ $sch['offset_days'] ?? '' }}">
+                    </td>
+                    <td>
+                      <input type="text" name="schedules[{{ $i }}][specific_day]" class="form-control form-control-sm text-end specific-day"
+                             value="{{ $sch['specific_day'] ?? '' }}">
+                    </td>
+                    <td>
+                      <input type="text" name="schedules[{{ $i }}][notes]" class="form-control form-control-sm"
+                             value="{{ $sch['notes'] ?? '' }}">
+                    </td>
+                    <td>
+                      <button type="button" class="btn btn-sm btn-outline-danger btn-remove-schedule">Remove</button>
+                    </td>
+                  </tr>
+                @empty
+                  <tr data-schedule-row>
+                    <td>
+                      <select name="schedules[0][portion_type]" class="form-select form-select-sm portion-type">
+                        <option value="percent">Percent</option>
+                        <option value="fixed">Fixed</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="text" name="schedules[0][portion_value]" class="form-control form-control-sm text-end portion-value" value="100">
+                    </td>
+                    <td>
+                      <select name="schedules[0][due_trigger]" class="form-select form-select-sm due-trigger">
+                        <option value="on_so">On SO</option>
+                        <option value="on_delivery">On Delivery</option>
+                        <option value="on_invoice">On Invoice</option>
+                        <option value="after_invoice_days">After Invoice Days</option>
+                        <option value="end_of_month">End of Month</option>
+                      </select>
+                    </td>
+                    <td><input type="text" name="schedules[0][offset_days]" class="form-control form-control-sm text-end offset-days" value=""></td>
+                    <td><input type="text" name="schedules[0][specific_day]" class="form-control form-control-sm text-end specific-day" value=""></td>
+                    <td><input type="text" name="schedules[0][notes]" class="form-control form-control-sm" value=""></td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-schedule">Remove</button></td>
+                  </tr>
+                @endforelse
+              </tbody>
+            </table>
+          </div>
+          <div class="text-muted">Total percent (jika semua baris percent) harus 100%.</div>
         </div>
         <div class="card-footer text-end">
           <button type="submit" class="btn btn-primary">{{ $row->exists ? 'Update' : 'Create' }}</button>
@@ -66,4 +188,60 @@
     </div>
   </div>
 </div>
+
+@push('scripts')
+<script>
+(function(){
+  const table = document.getElementById('schedule-table');
+  const addBtn = document.getElementById('btn-add-schedule');
+  if (!table || !addBtn) return;
+
+  const reindex = () => {
+    table.querySelectorAll('tbody tr[data-schedule-row]').forEach((row, idx) => {
+      row.querySelectorAll('select,input').forEach((el) => {
+        const name = el.getAttribute('name');
+        if (!name) return;
+        el.setAttribute('name', name.replace(/schedules\[\d+\]/, 'schedules[' + idx + ']'));
+      });
+    });
+  };
+
+  addBtn.addEventListener('click', () => {
+    const idx = table.querySelectorAll('tbody tr[data-schedule-row]').length;
+    const row = document.createElement('tr');
+    row.setAttribute('data-schedule-row','');
+    row.innerHTML = `
+      <td>
+        <select name="schedules[${idx}][portion_type]" class="form-select form-select-sm portion-type">
+          <option value="percent">Percent</option>
+          <option value="fixed">Fixed</option>
+        </select>
+      </td>
+      <td><input type="text" name="schedules[${idx}][portion_value]" class="form-control form-control-sm text-end portion-value" value="0"></td>
+      <td>
+        <select name="schedules[${idx}][due_trigger]" class="form-select form-select-sm due-trigger">
+          <option value="on_so">On SO</option>
+          <option value="on_delivery">On Delivery</option>
+          <option value="on_invoice">On Invoice</option>
+          <option value="after_invoice_days">After Invoice Days</option>
+          <option value="end_of_month">End of Month</option>
+        </select>
+      </td>
+      <td><input type="text" name="schedules[${idx}][offset_days]" class="form-control form-control-sm text-end offset-days" value=""></td>
+      <td><input type="text" name="schedules[${idx}][specific_day]" class="form-control form-control-sm text-end specific-day" value=""></td>
+      <td><input type="text" name="schedules[${idx}][notes]" class="form-control form-control-sm" value=""></td>
+      <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-schedule">Remove</button></td>
+    `;
+    table.querySelector('tbody')?.appendChild(row);
+  });
+
+  table.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('btn-remove-schedule')) return;
+    e.preventDefault();
+    e.target.closest('tr')?.remove();
+    reindex();
+  });
+})();
+</script>
+@endpush
 @endsection

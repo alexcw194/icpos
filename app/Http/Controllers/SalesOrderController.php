@@ -40,7 +40,7 @@ class SalesOrderController extends Controller
             ->get(['id','name','code','customer_id']);
         $topOptions = TermOfPayment::query()
             ->orderBy('code')
-            ->get(['code','description','is_active']);
+            ->get(['code','description','is_active','applicable_to']);
 
         $npwpRequired = (bool) ($quotation->company->require_npwp_on_so ?? false);
         $cust = $quotation->customer;
@@ -70,7 +70,7 @@ class SalesOrderController extends Controller
             ->get(['id','name','code','customer_id']);
         $topOptions = TermOfPayment::query()
             ->orderBy('code')
-            ->get(['code','description','is_active']);
+            ->get(['code','description','is_active','applicable_to']);
         // tambahkan is_default ke select
         $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent','is_default']);
         $sales     = User::orderBy('name')->get(['id','name']);
@@ -183,7 +183,7 @@ class SalesOrderController extends Controller
             $data['discount_mode'] = 'total';
         }
 
-        $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? []);
+        $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
 
         // 3) Hitung per-baris
         $computedLines = [];
@@ -387,7 +387,7 @@ class SalesOrderController extends Controller
             ->get(['id','name','code','customer_id']);
         $topOptions = TermOfPayment::query()
             ->orderBy('code')
-            ->get(['code','description','is_active']);
+            ->get(['code','description','is_active','applicable_to']);
         
          // Seed baris untuk view/JS (INI YANG PENTING)
         $lineSeed = ($salesOrder->lines ?? collect())->map(function ($l) {
@@ -504,7 +504,7 @@ class SalesOrderController extends Controller
             $data['discount_mode'] = 'total';
         }
 
-        $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? []);
+        $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
 
         $sub = 0; $perLineDc = 0;
         $cleanLines = [];
@@ -833,7 +833,7 @@ class SalesOrderController extends Controller
             $discountMode = 'total';
         }
 
-        $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? []);
+        $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
 
         // Sales agent: pilih urutan prioritas
         $salesUserId = $request->input('sales_user_id')
@@ -1019,14 +1019,17 @@ class SalesOrderController extends Controller
         return (float) $s;
     }
 
-    private function normalizeBillingTerms(array $terms): array
+    private function normalizeBillingTerms(array $terms, ?string $poType = null): array
     {
-        $allowed = TermOfPayment::query()
-            ->pluck('code')
-            ->map(fn ($c) => strtoupper((string) $c))
-            ->values()
-            ->all();
-        $allowedMap = array_flip($allowed);
+        $tops = TermOfPayment::query()
+            ->get(['code','applicable_to']);
+        $allowedMap = [];
+        $applyMap = [];
+        foreach ($tops as $top) {
+            $code = strtoupper((string) $top->code);
+            $allowedMap[$code] = true;
+            $applyMap[$code] = is_array($top->applicable_to) ? $top->applicable_to : [];
+        }
 
         $clean = [];
         $sum = 0.0;
@@ -1041,6 +1044,11 @@ class SalesOrderController extends Controller
             if (!isset($allowedMap[$code])) {
                 throw ValidationException::withMessages([
                     "billing_terms.$idx.top_code" => 'Kode TOP tidak valid.',
+                ]);
+            }
+            if ($poType && !empty($applyMap[$code]) && !in_array($poType, $applyMap[$code], true)) {
+                throw ValidationException::withMessages([
+                    "billing_terms.$idx.top_code" => 'Kode TOP tidak sesuai dengan PO Type.',
                 ]);
             }
 

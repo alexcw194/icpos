@@ -43,6 +43,7 @@
               <th class="w-1">#</th>
               <th>Code</th>
               <th>Description</th>
+              <th>Applicable</th>
               <th class="w-1">Active</th>
               <th>Updated</th>
               <th class="w-1"></th>
@@ -56,6 +57,15 @@
                   <a href="{{ route('term-of-payments.edit', $row) }}" class="fw-semibold">{{ $row->code }}</a>
                 </td>
                 <td>{{ $row->description ?? '-' }}</td>
+                <td>
+                  @php
+                    $applies = $row->applicable_to;
+                    $appliesLabel = is_array($applies) && count($applies)
+                      ? implode(', ', array_map('ucfirst', $applies))
+                      : 'All';
+                  @endphp
+                  <span class="text-muted">{{ $appliesLabel }}</span>
+                </td>
                 <td>
                   @if($row->is_active)
                     <span class="badge bg-green">Active</span>

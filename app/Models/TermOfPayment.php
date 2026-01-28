@@ -14,9 +14,17 @@ class TermOfPayment extends Model
         'code',
         'description',
         'is_active',
+        'applicable_to',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'applicable_to' => 'array',
     ];
+
+    public function schedules()
+    {
+        return $this->hasMany(PaymentTermSchedule::class, 'payment_term_id')
+            ->orderBy('sequence');
+    }
 }

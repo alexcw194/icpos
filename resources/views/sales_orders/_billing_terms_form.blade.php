@@ -43,7 +43,7 @@
                       $label .= ' (inactive)';
                     }
                   @endphp
-                  <option value="{{ $opt->code }}" @selected(($term['top_code'] ?? '') === $opt->code)>{{ $label }}</option>
+                  <option value="{{ $opt->code }}" data-applicable="{{ is_array($opt->applicable_to ?? null) ? implode(',', $opt->applicable_to) : '' }}" @selected(($term['top_code'] ?? '') === $opt->code)>{{ $label }}</option>
                 @endforeach
               </select>
               @if($locked)
@@ -94,7 +94,7 @@
               $label .= ' (inactive)';
             }
           @endphp
-          <option value="{{ $opt->code }}">{{ $label }}</option>
+          <option value="{{ $opt->code }}" data-applicable="{{ is_array($opt->applicable_to ?? null) ? implode(',', $opt->applicable_to) : '' }}">{{ $label }}</option>
         @endforeach
       </select>
     </td>
@@ -178,9 +178,36 @@
     const row = temp.firstElementChild;
     table.querySelector('tbody')?.appendChild(row);
     updateTotal();
+    applyTopFilter();
   });
 
+  function applyTopFilter() {
+    const poTypeSelect = document.querySelector('select[name="po_type"]');
+    const type = poTypeSelect?.value || 'goods';
+    table.querySelectorAll('select[name*="[top_code]"]').forEach((sel) => {
+      Array.from(sel.options).forEach((opt) => {
+        if (!opt.value) return;
+        const raw = (opt.dataset.applicable || '').trim();
+        if (!raw) {
+          opt.disabled = false;
+          opt.hidden = false;
+          return;
+        }
+        const allowed = raw.split(',').map((v) => v.trim()).filter(Boolean);
+        const ok = allowed.includes(type);
+        opt.disabled = !ok;
+        opt.hidden = !ok;
+        if (!ok && opt.selected) {
+          opt.selected = false;
+        }
+      });
+    });
+  }
+
+  document.querySelector('select[name="po_type"]')?.addEventListener('change', applyTopFilter);
+
   updateTotal();
+  applyTopFilter();
 })();
 </script>
 @endpush
