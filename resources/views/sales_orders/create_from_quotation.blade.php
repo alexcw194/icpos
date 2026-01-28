@@ -42,8 +42,8 @@
           <input type="text" name="po_number" class="form-control" required>
         </div>
         <div class="col-md-4">
-          <label class="form-label required">Customer PO Date</label>
-          <input type="date" name="po_date" class="form-control" value="{{ now()->format('Y-m-d') }}" required>
+          <label class="form-label">Customer PO Date</label>
+          <input type="date" name="po_date" class="form-control" value="{{ old('po_date', now()->format('Y-m-d')) }}">
         </div>
         <div class="col-md-4">
           <label class="form-label">Deadline</label>

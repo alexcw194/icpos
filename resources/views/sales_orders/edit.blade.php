@@ -55,9 +55,9 @@
                  value="{{ old('customer_po_number', $so->customer_po_number) }}" required>
         </div>
         <div class="col-md-4">
-          <label class="form-label required">Customer PO Date</label>
+          <label class="form-label">Customer PO Date</label>
           <input type="date" name="customer_po_date" class="form-control"
-                 value="{{ old('customer_po_date', optional($so->customer_po_date ?? $so->po_date)->format('Y-m-d')) }}" required>
+                 value="{{ old('customer_po_date', optional($so->customer_po_date ?? $so->po_date)->format('Y-m-d')) }}">
         </div>
         <div class="col-md-4">
           <label class="form-label">Deadline</label>

@@ -141,8 +141,6 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
     Route::get ('quotations/{quotation}/print',         [QuotationController::class, 'print'])->name('quotations.print'); // tampilan cetak
     Route::get ('quotations/{quotation}/pdf',           [QuotationController::class, 'pdf'])->name('quotations.pdf');            // view inline
     Route::get ('quotations/{quotation}/pdf/download',  [QuotationController::class, 'pdfDownload'])->name('quotations.pdf-download'); // download
-    Route::post('quotations/{quotation}/create-invoice',[InvoiceController::class, 'storeFromQuotation'])
-        ->name('quotations.create-invoice');
     Route::post('quotations/{quotation}/sent',  [QuotationController::class, 'markSent'])->name('quotations.sent');
     Route::post('quotations/{quotation}/draft', [QuotationController::class, 'markDraft'])->name('quotations.draft');
     Route::post('quotations/{quotation}/po',    [QuotationController::class, 'markPo'])->name('quotations.po');

@@ -75,8 +75,8 @@
 
         {{-- PO DATE --}}
         <div class="col-md-4">
-          <label class="form-label">Customer PO Date <span class="text-danger">*</span></label>
-          <input type="date" name="customer_po_date" class="form-control" value="{{ old('customer_po_date', now()->toDateString()) }}" required>
+          <label class="form-label">Customer PO Date</label>
+          <input type="date" name="customer_po_date" class="form-control" value="{{ old('customer_po_date', now()->toDateString()) }}">
         </div>
 
         {{-- DEADLINE --}}

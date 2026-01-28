@@ -78,7 +78,7 @@
               {{-- SO number + PO (aksi muncul saat hover DI BAWAH PO) --}}
               <td class="align-middle">
                 <a href="{{ route('sales-orders.show',$o) }}" class="fw-bold">{{ $o->so_number }}</a>
-                <div class="text-muted small">PO: {{ $o->customer_po_number }} ({{ $o->customer_po_date }})</div>
+                <div class="text-muted small">PO: {{ $o->customer_po_number }}@if($o->customer_po_date) ({{ $o->customer_po_date }})@endif</div>
 
                 {{-- ACTIONS (hidden by default, visible on row hover) --}}
                 <div class="so-actions small mt-1">

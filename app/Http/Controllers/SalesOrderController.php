@@ -91,7 +91,7 @@ class SalesOrderController extends Controller
             'company_id'           => ['required','exists:companies,id'],
             'customer_id'          => ['required','exists:customers,id'],
             'customer_po_number'   => ['required','string','max:100'],
-            'customer_po_date'     => ['required','date'],
+            'customer_po_date'     => ['nullable','date'],
             'deadline'             => ['nullable','date'],
             'ship_to'              => ['nullable','string'],
             'bill_to'              => ['nullable','string'],
@@ -216,7 +216,7 @@ class SalesOrderController extends Controller
                 'deadline'            => $data['deadline'] ?? null,
                 'sales_user_id'       => $salesUserId, // ✅ JANGAN pakai $request di sini
                 'customer_po_number'  => $data['customer_po_number'],
-                'customer_po_date'    => $data['customer_po_date'],
+                'customer_po_date'    => $data['customer_po_date'] ?? null,
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
                 'notes'               => $data['notes'] ?? null,
@@ -370,7 +370,7 @@ class SalesOrderController extends Controller
         // Validasi header + lines (+ attachments input)
         $data = $request->validate([
             'customer_po_number' => ['required','string','max:100'],
-            'customer_po_date'   => ['required','date'],
+            'customer_po_date'   => ['nullable','date'],
             'deadline'           => ['nullable','date'],
             'ship_to'            => ['nullable','string'],
             'bill_to'            => ['nullable','string'],
@@ -476,7 +476,7 @@ class SalesOrderController extends Controller
         DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines) {
             $salesOrder->update([
                 'customer_po_number'    => $data['customer_po_number'],
-                'customer_po_date'      => $data['customer_po_date'],
+                'customer_po_date'      => $data['customer_po_date'] ?? null,
                 'deadline'              => $data['deadline'] ?? null,
                 'ship_to'               => $data['ship_to'] ?? null,
                 'bill_to'               => $data['bill_to'] ?? null,
@@ -618,7 +618,7 @@ class SalesOrderController extends Controller
     {
         // 1) Validasi (rules murni, tanpa angka)
         $data = $request->validate([
-            'po_number'      => ['nullable','string','max:100'],
+            'po_number'      => ['required','string','max:100'],
             'po_date'        => ['nullable','date'],
             'deadline'       => ['nullable','date'],
             'ship_to'        => ['nullable','string'],
@@ -663,8 +663,8 @@ class SalesOrderController extends Controller
                 'order_date'          => now()->toDateString(),
                 'deadline'            => $data['deadline'] ?? null,
 
-                'customer_po_number'  => $data['po_number'] ?? null,
-                'customer_po_date'    => $data['po_date']   ?? now()->toDateString(),
+                'customer_po_number'  => $data['po_number'],
+                'customer_po_date'    => $data['po_date'] ?? null,
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
 

@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Invoice, Quotation, Company, InvoiceLine, SalesOrder, Bank};
-use App\Services\DocNumberService;
+use App\Models\{Invoice, Quotation, Company, SalesOrder, Bank};
 use App\Services\InvoiceBuilderFromSO;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,62 +50,7 @@ class InvoiceController extends Controller
      */
     public function storeFromQuotation(Request $request, Quotation $quotation)
     {
-        $request->validate(['date' => 'nullable|date']);
-        $company = $quotation->company;
-        $invDate = $request->filled('date') ? Carbon::parse($request->date) : now();
-
-
-        if (Invoice::where('quotation_id', $quotation->id)->exists()) {
-        return redirect()->route('invoices.index')->with('warning', 'Quotation ini sudah pernah dibuatkan invoice.');
-        }
-
-
-        $invoice = null;
-        DB::transaction(function () use ($quotation, $company, $invDate, &$invoice) {
-            $invoice = Invoice::create([
-            'company_id' => $company->id,
-            'customer_id' => $quotation->customer_id,
-            'quotation_id' => $quotation->id,
-            'number' => 'TEMP',
-            'date' => $invDate,
-            'status' => 'draft',
-            'subtotal' => $quotation->lines_subtotal ?? $quotation->subtotal ?? 0,
-            'discount' => $quotation->total_discount_amount ?? $quotation->discount ?? 0,
-            'tax_percent' => $quotation->tax_percent,
-            'tax_amount' => $quotation->tax_amount,
-            'total' => $quotation->total,
-            'currency' => $quotation->currency ?? 'IDR',
-            'brand_snapshot' => $quotation->brand_snapshot,
-        ]);
-
-
-        $invoice->update(['number' => DocNumberService::next('invoice', $company, $invDate)]);
-
-
-        // === Materialize lines from Quotation ===
-        foreach ($quotation->lines as $ql) {
-            $lineSubtotal = ($ql->qty ?? 0) * ($ql->unit_price ?? 0);
-            $lineTotal = $lineSubtotal - ($ql->discount_amount ?? 0);
-            InvoiceLine::create([
-            'invoice_id' => $invoice->id,
-            'quotation_id' => $quotation->id,
-            'quotation_line_id' => $ql->id,
-            'item_id' => $ql->item_id,
-            'item_variant_id' => $ql->item_variant_id,
-            'description' => trim(($ql->name ?? 'Item').' '.($ql->description ?? '')),
-            'unit' => $ql->unit ?? 'pcs',
-            'qty' => $ql->qty ?? 0,
-            'unit_price' => $ql->unit_price ?? 0,
-            'discount_amount' => $ql->discount_amount ?? 0,
-            'line_subtotal' => $lineSubtotal,
-            'line_total' => $lineTotal,
-            'snapshot_json' => null,
-            ]);
-        }
-        });
-
-
-        return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice created!');
+        abort(403, 'Invoice must be created from Sales Order.');
     }
 
     public function destroy(Invoice $invoice)

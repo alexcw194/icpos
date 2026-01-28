@@ -88,7 +88,7 @@
     <div class="col-md-6">
       <div class="card"><div class="card-body">
         <div class="mb-2"><strong>Order Date:</strong> {{ $o->order_date }}</div>
-        <div class="mb-2"><strong>Customer PO:</strong> {{ $o->customer_po_number }} ({{ $o->customer_po_date }})</div>
+        <div class="mb-2"><strong>Customer PO:</strong> {{ $o->customer_po_number }}@if($o->customer_po_date) ({{ $o->customer_po_date }})@endif</div>
         <div class="mb-2"><strong>Deadline:</strong> {{ $o->deadline ?? '—' }}</div>
         <div class="mb-2"><strong>Salesperson:</strong> {{ $o->salesUser->name ?? '-' }}</div>
         <div class="bg-white border rounded p-2" style="white-space: pre-wrap;">
