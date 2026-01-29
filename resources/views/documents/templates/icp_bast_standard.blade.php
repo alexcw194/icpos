@@ -195,11 +195,18 @@
       display: flex;
       flex-wrap: wrap;
       gap: 10px 12px;
+      justify-content: center;
     }
     .customer-cell {
       width: 33.33%;
       min-height: 70px;
       text-align: center;
+    }
+    .customer-grid-left {
+      justify-content: flex-start;
+    }
+    .customer-grid-left .customer-cell {
+      text-align: left;
     }
   </style>
 </head>
@@ -340,7 +347,7 @@
           </div>
           <div class="signer-col">
             <div class="signer-title">PIHAK CUSTOMER</div>
-            <div class="customer-grid">
+            <div class="customer-grid {{ $customerCount > 2 ? 'customer-grid-left' : '' }}">
               @foreach($customerSigners as $signer)
                 <div class="customer-cell">
                   <div class="sign-space sign-space-customer"></div>
