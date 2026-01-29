@@ -173,7 +173,7 @@
     }
     .signer-col:last-child {
       padding-right: 0;
-      padding-left: 18px;
+      padding-left: 0;
     }
     .signer-list {
       width: 100%;
