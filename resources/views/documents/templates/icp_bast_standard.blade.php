@@ -97,7 +97,7 @@
       border-collapse: collapse;
     }
     .info-table td {
-      padding: 2px 0;
+      padding: 1px 0;
       vertical-align: top;
     }
     .info-table td.label {
@@ -124,8 +124,14 @@
       padding-bottom: 6px;
     }
     .sign-space {
-      height: 95px;
+      height: 55px;
       position: relative;
+    }
+    .sign-space-icp {
+      height: 55px;
+    }
+    .sign-space-customer {
+      height: 35px;
     }
     .sign-name {
       font-weight: 700;
@@ -184,6 +190,16 @@
       font-weight: 700;
       margin-bottom: 6px;
       text-align: left;
+    }
+    .customer-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 12px;
+    }
+    .customer-cell {
+      width: 31%;
+      min-height: 70px;
+      text-align: center;
     }
   </style>
 </head>
@@ -273,7 +289,7 @@
             <th>PIHAK CUSTOMER</th>
           </tr>
           <tr>
-            <td class="sign-space">
+            <td class="sign-space sign-space-icp">
               @if($document->approved_at && $autoSignature)
                 @if($stampPath)
                   <img src="{{ $stampPath }}" class="sign-stamp" alt="ICP Stamp">
@@ -283,7 +299,7 @@
                 @endif
               @endif
             </td>
-            <td class="sign-space"></td>
+            <td class="sign-space sign-space-customer"></td>
           </tr>
           <tr>
             <td class="sign-name">{{ $icpSignerName }}</td>
@@ -302,7 +318,7 @@
             <table class="signer-list">
               <tr>
                 <td>
-                  <div class="sign-space">
+                  <div class="sign-space sign-space-icp">
                     @if($document->approved_at && $autoSignature)
                       @if($stampPath)
                         <img src="{{ $stampPath }}" class="sign-stamp" alt="ICP Stamp">
@@ -324,16 +340,15 @@
           </div>
           <div class="signer-col">
             <div class="signer-title">PIHAK CUSTOMER</div>
-            <table class="signer-list">
+            <div class="customer-grid">
               @foreach($customerSigners as $signer)
-                <tr>
-                  <td>{{ $signer['name'] ?? '' }}</td>
-                </tr>
-                <tr>
-                  <td class="text-muted">{{ $signer['title'] ?? '' }}</td>
-                </tr>
+                <div class="customer-cell">
+                  <div class="sign-space sign-space-customer"></div>
+                  <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
+                  <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
+                </div>
               @endforeach
-            </table>
+            </div>
           </div>
         </div>
       @endif
