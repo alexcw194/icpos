@@ -42,8 +42,10 @@ class CustomerController extends Controller
 
         $jenisList = Jenis::query()->active()->ordered()->get();
 
-        // hanya list Sales untuk assignment owner
-        $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
+        $user = auth()->user();
+        $salesUsers = ($user && $user->hasAnyRole(['Admin', 'SuperAdmin']))
+            ? User::query()->orderBy('name')->get(['id', 'name'])
+            : User::role('Sales')->orderBy('name')->get(['id', 'name']);
 
         return view('customers.create', compact('customer', 'jenisList', 'salesUsers'));
     }
@@ -189,7 +191,10 @@ class CustomerController extends Controller
         $this->authorize('update', $customer);
 
         $jenisList = Jenis::query()->active()->ordered()->get();
-        $salesUsers = User::role('Sales')->orderBy('name')->get(['id', 'name']);
+        $user = auth()->user();
+        $salesUsers = ($user && $user->hasAnyRole(['Admin', 'SuperAdmin']))
+            ? User::query()->orderBy('name')->get(['id', 'name'])
+            : User::role('Sales')->orderBy('name')->get(['id', 'name']);
 
         return view('customers.edit', compact('customer', 'jenisList', 'salesUsers'));
     }
