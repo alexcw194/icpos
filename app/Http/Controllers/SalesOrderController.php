@@ -275,7 +275,7 @@ class SalesOrderController extends Controller
 
         /** @var \App\Models\SalesOrder $so */
         $so = null;
-        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, &$so) {
+        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, $mode, &$so) {
             $so = SalesOrder::create([
                 'company_id'          => $company->id,
                 'customer_id'         => $data['customer_id'],
