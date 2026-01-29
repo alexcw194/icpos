@@ -202,11 +202,16 @@
       min-height: 70px;
       text-align: center;
     }
-    .customer-grid-left {
-      justify-content: flex-start;
+    .customer-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
     }
-    .customer-grid-left .customer-cell {
+    .customer-table td {
+      width: 33.33%;
+      vertical-align: top;
       text-align: left;
+      padding: 4px 8px 6px 0;
     }
   </style>
 </head>
@@ -347,15 +352,34 @@
           </div>
           <div class="signer-col">
             <div class="signer-title">PIHAK CUSTOMER</div>
-            <div class="customer-grid {{ $customerCount > 2 ? 'customer-grid-left' : '' }}">
-              @foreach($customerSigners as $signer)
-                <div class="customer-cell">
-                  <div class="sign-space sign-space-customer"></div>
-                  <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
-                  <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
-                </div>
-              @endforeach
-            </div>
+            @if($customerCount > 2)
+              <table class="customer-table">
+                @foreach(array_chunk($customerSigners, 3) as $row)
+                  <tr>
+                    @foreach($row as $signer)
+                      <td>
+                        <div class="sign-space sign-space-customer"></div>
+                        <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
+                        <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
+                      </td>
+                    @endforeach
+                    @for($i = count($row); $i < 3; $i++)
+                      <td></td>
+                    @endfor
+                  </tr>
+                @endforeach
+              </table>
+            @else
+              <div class="customer-grid">
+                @foreach($customerSigners as $signer)
+                  <div class="customer-cell">
+                    <div class="sign-space sign-space-customer"></div>
+                    <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
+                    <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
+                  </div>
+                @endforeach
+              </div>
+            @endif
           </div>
         </div>
       @endif
