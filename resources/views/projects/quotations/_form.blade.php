@@ -603,7 +603,6 @@
     const qtyEl = row.querySelector('input[name$="[qty]"]');
     const unitEl = row.querySelector('input[name$="[unit]"]');
     const unitPriceEl = row.querySelector('.js-line-unit-price');
-    const unitPriceEl = row.querySelector('input[name$="[unit_price]"]');
     const materialEl = row.querySelector('.js-line-material');
     const laborUnitEl = row.querySelector('.js-line-labor-unit');
     const laborEl = row.querySelector('.js-line-labor');
