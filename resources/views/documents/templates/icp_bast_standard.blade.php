@@ -331,64 +331,47 @@
         </table>
       @else
         <div class="sign-date">Tanggal : ____________________</div>
-        <div class="signers-grid">
-          <div class="signer-col">
-            <div class="signer-title">PIHAK ICP</div>
-            <table class="signer-list">
-              <tr>
-                <td>
-                  <div class="sign-space sign-space-icp">
-                    @if($document->approved_at && $autoSignature)
-                      @if($stampPath)
-                        <img src="{{ $stampPath }}" class="sign-stamp" alt="ICP Stamp">
-                      @endif
-                      @if($signaturePath)
-                        <img src="{{ $makeSrc($signaturePath) }}" class="sign-signature" alt="ICP Signature">
-                      @endif
-                    @endif
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td>{{ $icpSignerName }}</td>
-              </tr>
-              <tr>
-                <td class="text-muted">{{ $icpSignerTitle }}</td>
-              </tr>
-            </table>
-          </div>
-          <div class="signer-col">
-            <div class="signer-title">PIHAK CUSTOMER</div>
-            @if($customerCount > 2)
-              <table class="customer-table">
-                @foreach(array_chunk($customerSigners, 3) as $row)
-                  <tr>
-                    @foreach($row as $signer)
-                      <td>
-                        <div class="sign-space sign-space-customer"></div>
-                        <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
-                        <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
-                      </td>
-                    @endforeach
-                    @for($i = count($row); $i < 3; $i++)
-                      <td></td>
-                    @endfor
-                  </tr>
-                @endforeach
-              </table>
-            @else
-              <div class="customer-grid">
-                @foreach($customerSigners as $signer)
-                  <div class="customer-cell">
-                    <div class="sign-space sign-space-customer"></div>
-                    <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
-                    <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
-                  </div>
-                @endforeach
+        <div class="signer-title">PIHAK ICP</div>
+        <table class="signer-list">
+          <tr>
+            <td>
+              <div class="sign-space sign-space-icp">
+                @if($document->approved_at && $autoSignature)
+                  @if($stampPath)
+                    <img src="{{ $stampPath }}" class="sign-stamp" alt="ICP Stamp">
+                  @endif
+                  @if($signaturePath)
+                    <img src="{{ $makeSrc($signaturePath) }}" class="sign-signature" alt="ICP Signature">
+                  @endif
+                @endif
               </div>
-            @endif
-          </div>
-        </div>
+            </td>
+          </tr>
+          <tr>
+            <td>{{ $icpSignerName }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted">{{ $icpSignerTitle }}</td>
+          </tr>
+        </table>
+
+        <div class="signer-title" style="margin-top:12px;">PIHAK CUSTOMER</div>
+        <table class="customer-table">
+          @foreach(array_chunk($customerSigners, 3) as $row)
+            <tr>
+              @foreach($row as $signer)
+                <td>
+                  <div class="sign-space sign-space-customer"></div>
+                  <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
+                  <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
+                </td>
+              @endforeach
+              @for($i = count($row); $i < 3; $i++)
+                <td></td>
+              @endfor
+            </tr>
+          @endforeach
+        </table>
       @endif
     </div>
   </div>
