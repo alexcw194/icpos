@@ -128,8 +128,10 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->whereNumber('item')
         ->name('projects.labor.update');
     Route::resource('projects.quotations', ProjectQuotationController::class);
-    Route::post('projects/{project}/quotations/{quotation}/issue', [ProjectQuotationController::class, 'issue'])
-        ->name('projects.quotations.issue');
+    Route::get('projects/{project}/quotations/{quotation}/pdf', [ProjectQuotationController::class, 'pdf'])
+        ->name('projects.quotations.pdf');
+    Route::get('projects/{project}/quotations/{quotation}/pdf/download', [ProjectQuotationController::class, 'pdfDownload'])
+        ->name('projects.quotations.pdf-download');
     Route::post('projects/{project}/quotations/{quotation}/reprice-labor', [ProjectQuotationController::class, 'repriceLabor'])
         ->name('projects.quotations.reprice-labor');
     Route::post('projects/{project}/quotations/{quotation}/won', [ProjectQuotationController::class, 'markWon'])

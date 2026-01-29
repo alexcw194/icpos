@@ -15,6 +15,8 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\ProjectQuotationTotalsService;
 use App\Support\Number;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -240,6 +242,70 @@ class ProjectQuotationController extends Controller
         ]);
 
         return view('projects.quotations.show', compact('project', 'quotation'));
+    }
+
+    public function pdf(Project $project, ProjectQuotation $quotation)
+    {
+        $this->authorize('view', $quotation);
+        $this->ensureProjectMatch($project, $quotation);
+
+        $quotation->load([
+            'project',
+            'customer',
+            'company',
+            'salesOwner',
+            'sections.lines',
+            'paymentTerms',
+        ]);
+
+        $html = view('projects.quotations.pdf', compact('quotation'))->render();
+
+        $opt = new Options();
+        $opt->set('isRemoteEnabled', true);
+        $opt->set('isHtml5ParserEnabled', true);
+
+        $pdf = new Dompdf($opt);
+        $pdf->loadHtml($html);
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->render();
+
+        $filename = $this->safePdfFilename($quotation->number ?? 'bq');
+
+        return response($pdf->output(), 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'inline; filename="'.$filename.'"');
+    }
+
+    public function pdfDownload(Project $project, ProjectQuotation $quotation)
+    {
+        $this->authorize('view', $quotation);
+        $this->ensureProjectMatch($project, $quotation);
+
+        $quotation->load([
+            'project',
+            'customer',
+            'company',
+            'salesOwner',
+            'sections.lines',
+            'paymentTerms',
+        ]);
+
+        $html = view('projects.quotations.pdf', compact('quotation'))->render();
+
+        $opt = new Options();
+        $opt->set('isRemoteEnabled', true);
+        $opt->set('isHtml5ParserEnabled', true);
+
+        $pdf = new Dompdf($opt);
+        $pdf->loadHtml($html);
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->render();
+
+        $filename = $this->safePdfFilename($quotation->number ?? 'bq');
+
+        return response($pdf->output(), 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
     }
 
     public function edit(Project $project, ProjectQuotation $quotation)
@@ -519,21 +585,15 @@ class ProjectQuotationController extends Controller
             ->with('success', 'BQ dihapus.');
     }
 
-    public function issue(Project $project, ProjectQuotation $quotation)
+    private function safePdfFilename(?string $raw): string
     {
-        $this->authorize('issue', $quotation);
-        $this->ensureProjectMatch($project, $quotation);
+        $safe = trim((string) $raw);
+        $safe = str_replace(['/', '\\'], '-', $safe);
+        $safe = preg_replace('/[^A-Za-z0-9._-]+/', '-', $safe);
+        $safe = preg_replace('/-+/', '-', $safe);
+        $safe = trim($safe, '-');
 
-        if ($quotation->status !== ProjectQuotation::STATUS_DRAFT) {
-            return back()->with('warning', 'Hanya BQ draft yang bisa di-issue.');
-        }
-
-        $quotation->update([
-            'status' => ProjectQuotation::STATUS_ISSUED,
-            'issued_at' => now(),
-        ]);
-
-        return back()->with('success', 'BQ ditandai sebagai issued.');
+        return ($safe !== '' ? $safe : 'bq') . '.pdf';
     }
 
     public function markWon(Project $project, ProjectQuotation $quotation)

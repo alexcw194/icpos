@@ -16,20 +16,37 @@
           <span class="ms-2">{{ optional($quotation->quotation_date)->format('d M Y') }}</span>
         </div>
       </div>
+      @php
+        $pdfViewUrl = route('projects.quotations.pdf', [$project, $quotation]);
+        $pdfDownloadUrl = route('projects.quotations.pdf-download', [$project, $quotation]);
+      @endphp
+
       <div class="col-auto ms-auto btn-list">
         @can('update', $quotation)
           @if(!$quotation->isLocked())
             <a href="{{ route('projects.quotations.edit', [$project, $quotation]) }}" class="btn btn-warning">Edit</a>
           @endif
         @endcan
-        @can('issue', $quotation)
-          @if($quotation->status === \App\Models\ProjectQuotation::STATUS_DRAFT)
-            <form method="POST" action="{{ route('projects.quotations.issue', [$project, $quotation]) }}" class="d-inline">
-              @csrf
-              <button class="btn btn-outline-primary" onclick="return confirm('Issue BQ ini?')">Issue</button>
-            </form>
-          @endif
-        @endcan
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+            PDF
+          </button>
+          <div class="dropdown-menu dropdown-menu-end">
+            <a class="dropdown-item" target="_blank" href="{{ $pdfViewUrl }}">
+              Lihat PDF
+            </a>
+            <a class="dropdown-item" href="{{ $pdfDownloadUrl }}">
+              Simpan PDF
+            </a>
+            <button type="button"
+              class="dropdown-item"
+              data-share-url="{{ $pdfViewUrl }}"
+              data-share-title="{{ $quotation->number }}"
+              onclick="return icposSharePdfFile(this)">
+              Bagikan PDF…
+            </button>
+          </div>
+        </div>
         @can('markWon', $quotation)
           @if(!in_array($quotation->status, [\App\Models\ProjectQuotation::STATUS_WON, \App\Models\ProjectQuotation::STATUS_LOST], true))
             <form method="POST" action="{{ route('projects.quotations.won', [$project, $quotation]) }}" class="d-inline">
@@ -216,3 +233,53 @@
   </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+window.icposSharePdfFile = window.icposSharePdfFile || async function (btn) {
+  const url = btn.getAttribute('data-share-url');
+  const title = btn.getAttribute('data-share-title') || 'BQ';
+  const safe = (title || 'BQ')
+    .trim()
+    .replaceAll('/', '-')
+    .replaceAll('\\', '-')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const filename = `${safe}.pdf`;
+
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error('PDF download failed: ' + res.status);
+
+    const blob = await res.blob();
+    const file = new File([blob], filename, { type: 'application/pdf' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share({ title, files: [file] });
+      return false;
+    }
+
+    if (navigator.share) {
+      await navigator.share({ title, url });
+      return false;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+
+    alert('Browser tidak mendukung share. PDF sudah diunduh.');
+    return false;
+  } catch (e) {
+    return false;
+  }
+};
+</script>
+@endpush
