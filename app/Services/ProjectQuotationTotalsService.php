@@ -87,7 +87,7 @@ class ProjectQuotationTotalsService
                     'percent_value' => $percentValue,
                     'percent_basis' => $percentBasis,
                     'computed_amount' => $computedAmount,
-                    'cost_bucket' => $line['cost_bucket'] ?? 'overhead',
+                    'cost_bucket' => $line['cost_bucket'] ?? 'material',
                     'qty' => $qty,
                     'unit' => $line['unit'] ?? 'PCS',
                     'unit_price' => $unitPrice,

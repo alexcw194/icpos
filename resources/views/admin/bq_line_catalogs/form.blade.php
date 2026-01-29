@@ -40,12 +40,10 @@
           </div>
           <div class="col-md-3">
             <label class="form-label">Cost Bucket</label>
-            <select name="cost_bucket" class="form-select">
-              <option value="material" @selected(old('cost_bucket', $row->cost_bucket) === 'material')>Material</option>
-              <option value="labor" @selected(old('cost_bucket', $row->cost_bucket) === 'labor')>Labor</option>
-              <option value="overhead" @selected(old('cost_bucket', $row->cost_bucket) === 'overhead')>Overhead</option>
-              <option value="other" @selected(old('cost_bucket', $row->cost_bucket) === 'other')>Other</option>
-            </select>
+          <select name="cost_bucket" class="form-select">
+            <option value="material" @selected(old('cost_bucket', $row->cost_bucket) === 'material')>Material</option>
+            <option value="labor" @selected(old('cost_bucket', $row->cost_bucket) === 'labor')>Labor</option>
+          </select>
           </div>
         </div>
 

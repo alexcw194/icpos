@@ -19,7 +19,7 @@
           'percent_value' => data_get($line, 'percent_value', 0),
           'percent_basis' => data_get($line, 'percent_basis', 'product_subtotal'),
           'computed_amount' => data_get($line, 'computed_amount', data_get($line, 'material_total', 0)),
-          'cost_bucket' => data_get($line, 'cost_bucket', 'overhead'),
+          'cost_bucket' => data_get($line, 'cost_bucket', 'material'),
           'labor_source' => data_get($line, 'labor_source', 'manual'),
           'labor_unit_cost_snapshot' => data_get($line, 'labor_unit_cost_snapshot', 0),
           'labor_cost_amount' => data_get($line, 'labor_cost_amount'),
@@ -321,7 +321,7 @@
                       <option value="percent" @selected($lineType === 'percent')>Percent</option>
                     </select>
                     <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][catalog_id]" class="bq-line-catalog-id" value="{{ $line['catalog_id'] ?? '' }}">
-                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][cost_bucket]" class="bq-line-cost-bucket" value="{{ $line['cost_bucket'] ?? 'overhead' }}">
+                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][cost_bucket]" class="bq-line-cost-bucket" value="{{ $line['cost_bucket'] ?? 'material' }}">
                   </td>
                   <td>
                     <div class="bq-item-controls">
@@ -609,7 +609,7 @@
     if (catalogIdEl) catalogIdEl.value = data.id || '';
 
     const costBucketEl = row.querySelector('.bq-line-cost-bucket');
-    if (costBucketEl) costBucketEl.value = data.cost_bucket || 'overhead';
+    if (costBucketEl) costBucketEl.value = data.cost_bucket || 'material';
 
     const qtyEl = row.querySelector('input[name$="[qty]"]');
     const unitEl = row.querySelector('input[name$="[unit]"]');
@@ -1096,7 +1096,7 @@
     const computedAmount = data.computed_amount ?? 0;
     const catalogId = data.catalog_id || '';
     const catalogLabel = catalogId ? description : '';
-    const costBucket = data.cost_bucket || 'overhead';
+    const costBucket = data.cost_bucket || 'material';
 
     return `
       <tr class="bq-line" data-line-index="${lIndex}">

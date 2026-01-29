@@ -614,7 +614,7 @@ class ProjectQuotationController extends Controller
             'sections.*.lines.*.percent_value' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'sections.*.lines.*.percent_basis' => ['nullable', 'in:product_subtotal,section_product_subtotal'],
             'sections.*.lines.*.computed_amount' => ['nullable', 'numeric', 'min:0'],
-            'sections.*.lines.*.cost_bucket' => ['nullable', 'in:material,labor,overhead,other'],
+            'sections.*.lines.*.cost_bucket' => ['nullable', 'in:material,labor'],
             'sections.*.lines.*.qty' => ['required', 'numeric', 'min:0'],
             'sections.*.lines.*.unit' => ['required', 'string', 'max:16'],
             'sections.*.lines.*.unit_price' => ['nullable', 'numeric', 'min:0'],

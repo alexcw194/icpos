@@ -36,7 +36,7 @@ class BqLineCatalogController extends Controller
             'default_qty' => 1,
             'default_unit' => 'LS',
             'percent_basis' => 'product_subtotal',
-            'cost_bucket' => 'overhead',
+            'cost_bucket' => 'material',
             'is_active' => true,
         ]);
 
@@ -127,14 +127,14 @@ class BqLineCatalogController extends Controller
             'default_unit_price' => ['nullable', 'numeric', 'min:0'],
             'default_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'percent_basis' => ['nullable', Rule::in(['product_subtotal', 'section_product_subtotal'])],
-            'cost_bucket' => ['nullable', Rule::in(['material', 'labor', 'overhead', 'other'])],
+            'cost_bucket' => ['nullable', Rule::in(['material', 'labor'])],
             'is_active' => ['nullable', 'boolean'],
             'description' => ['nullable', 'string'],
         ]);
 
         $data['is_active'] = $request->boolean('is_active');
         $data['percent_basis'] = $data['percent_basis'] ?? 'product_subtotal';
-        $data['cost_bucket'] = $data['cost_bucket'] ?? 'overhead';
+        $data['cost_bucket'] = $data['cost_bucket'] ?? 'material';
 
         $type = $data['type'] ?? 'charge';
         if ($type === 'charge') {
