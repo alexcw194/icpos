@@ -602,6 +602,7 @@
 
     const qtyEl = row.querySelector('input[name$="[qty]"]');
     const unitEl = row.querySelector('input[name$="[unit]"]');
+    const unitPriceEl = row.querySelector('.js-line-unit-price');
     const unitPriceEl = row.querySelector('input[name$="[unit_price]"]');
     const materialEl = row.querySelector('.js-line-material');
     const laborUnitEl = row.querySelector('.js-line-labor-unit');
@@ -617,7 +618,7 @@
 
       if (qtyEl) qtyEl.value = String(qty);
       if (unitEl) unitEl.value = unit;
-      if (unitPriceEl) unitPriceEl.value = formatNumber(price);
+      if (unitPriceEl) unitPriceEl.value = formatNumber(bucket === 'labor' ? 0 : price);
       if (bucket === 'labor') {
         if (materialEl) materialEl.value = formatNumber(0);
         if (laborUnitEl) laborUnitEl.value = formatNumber(price);
@@ -786,11 +787,13 @@
       if (basisEl && !basisEl.value) basisEl.value = 'product_subtotal';
       if (qtyEl) qtyEl.value = '1';
       if (unitEl) unitEl.value = 'LS';
+      if (unitPriceEl) unitPriceEl.value = formatNumber(0);
       if (laborUnitEl) laborUnitEl.value = formatNumber(0);
       if (laborEl) laborEl.value = formatNumber(0);
       if (materialEl) setReadOnly(materialEl, true);
       if (laborUnitEl) setReadOnly(laborUnitEl, true);
       if (laborEl) setReadOnly(laborEl, true);
+      if (unitPriceEl) setReadOnly(unitPriceEl, true);
       if (qtyEl) setReadOnly(qtyEl, true);
       if (unitEl) setReadOnly(unitEl, true);
     } else if (lineType === 'charge') {
@@ -803,11 +806,16 @@
       if (qtyEl) setReadOnly(qtyEl, false);
       if (unitEl) setReadOnly(unitEl, false);
       if (laborUnitEl) setReadOnly(laborUnitEl, !isLaborBucket);
+      if (unitPriceEl) {
+        setReadOnly(unitPriceEl, isLaborBucket);
+        if (isLaborBucket) unitPriceEl.value = formatNumber(0);
+      }
       if (isLaborBucket) updateLaborTotalFromUnit(row);
     } else {
       if (laborUnitEl) setReadOnly(laborUnitEl, false);
       if (laborEl) setReadOnly(laborEl, true);
       if (materialEl) setReadOnly(materialEl, false);
+      if (unitPriceEl) setReadOnly(unitPriceEl, false);
       if (qtyEl) setReadOnly(qtyEl, false);
       if (unitEl) setReadOnly(unitEl, false);
       maybeLoadLaborFromMaster(row);
@@ -944,10 +952,11 @@
       const mat = parseNumber(row.querySelector('.js-line-material')?.value);
       const lab = parseNumber(laborEl?.value);
       const total = mat + lab;
+
+      const section = row.closest('.bq-section');
       subMat += mat;
       subLab += lab;
 
-      const section = row.closest('.bq-section');
       if (section) {
         const current = sectionTotals.get(section) || { mat: 0, lab: 0 };
         current.mat += mat;
@@ -1025,6 +1034,15 @@
       } else if (lineType === 'charge') {
         total = mat + lab;
         chargeTotal += total;
+        subMat += mat;
+        subLab += lab;
+        const section = row.closest('.bq-section');
+        if (section) {
+          const current = sectionTotals.get(section) || { mat: 0, lab: 0 };
+          current.mat += mat;
+          current.lab += lab;
+          sectionTotals.set(section, current);
+        }
       } else {
         total = mat + lab;
       }
@@ -1549,8 +1567,8 @@
       const laborEl = row.querySelector('.js-line-labor');
       if (getLineType(row) === 'charge' && getCostBucket(row) === 'labor') {
         if (materialEl) materialEl.value = formatNumber(0);
-        if (laborUnitEl) laborUnitEl.value = formatNumber(val);
-        if (laborEl) laborEl.value = formatNumber(qty * val);
+        if (target) target.value = formatNumber(0);
+        updateLaborTotalFromUnit(row);
       } else {
         if (materialEl) materialEl.value = formatNumber(qty * val);
       }
