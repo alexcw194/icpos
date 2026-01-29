@@ -619,10 +619,10 @@
     const percentEl = row.querySelector('.js-line-percent');
     const basisEl = row.querySelector('.bq-line-percent-basis');
 
-    if (lineType === 'charge') {
-      const qty = data.default_qty != null ? Number(data.default_qty) : 1;
-      const unit = data.default_unit || 'LS';
-      const price = data.default_unit_price != null ? Number(data.default_unit_price) : 0;
+      if (lineType === 'charge') {
+        const qty = data.default_qty != null ? Number(data.default_qty) : 1;
+        const unit = data.default_unit || 'LS';
+        const price = data.default_unit_price != null ? Number(data.default_unit_price) : 0;
 
       if (qtyEl) qtyEl.value = String(qty);
       if (unitEl) unitEl.value = unit;
@@ -638,7 +638,7 @@
       if (percentEl) percentEl.value = formatPercent(pct);
       if (basisEl) basisEl.value = basis;
       if (qtyEl) qtyEl.value = '1';
-      if (unitEl) unitEl.value = '%';
+      if (unitEl) unitEl.value = 'LS';
       if (unitPriceEl) unitPriceEl.value = formatNumber(0);
       if (materialEl) materialEl.value = formatNumber(0);
       if (laborEl) laborEl.value = formatNumber(0);
@@ -782,7 +782,7 @@
     if (lineType === 'percent') {
       if (basisEl && !basisEl.value) basisEl.value = 'product_subtotal';
       if (qtyEl) qtyEl.value = '1';
-      if (unitEl) unitEl.value = '%';
+      if (unitEl) unitEl.value = 'LS';
       if (laborEl) laborEl.value = formatNumber(0);
       if (materialEl) setReadOnly(materialEl, true);
       if (laborEl) setReadOnly(laborEl, true);
@@ -962,10 +962,20 @@
         const basisType = row.querySelector('.bq-line-percent-basis')?.value || 'product_subtotal';
         const pct = parseNumber(percentEl?.value);
         const section = row.closest('.bq-section');
-        let basis = basisType === 'section_product_subtotal'
-          ? (section ? (sectionProductTotals.get(section) || 0) : 0)
-          : productSubtotal;
-        if (basis <= 0 && basisType === 'section_product_subtotal' && productSubtotal > 0) {
+        let basis = 0;
+        if (basisType === 'section_product_subtotal') {
+          basis = section ? (sectionProductTotals.get(section) || 0) : 0;
+          if (basis <= 0 && productSubtotal > 0) {
+            basis = productSubtotal;
+          }
+        } else if (basisType === 'material_subtotal') {
+          basis = subMat;
+        } else if (basisType === 'section_material_subtotal') {
+          basis = section ? ((sectionTotals.get(section) || {}).mat || 0) : 0;
+          if (basis <= 0 && subMat > 0) {
+            basis = subMat;
+          }
+        } else {
           basis = productSubtotal;
         }
         const computed = roundMoney(basis * (pct / 100));
@@ -1080,8 +1090,8 @@
     const sourceType = data.source_type === 'project' ? 'project' : 'item';
     const itemLabel = escapeHtml(data.item_label || '');
     const itemId = escapeHtml(data.item_id || '');
-    const qty = data.qty ?? 1;
-    const unit = escapeHtml(data.unit || 'LS');
+    let qty = data.qty ?? 1;
+    let unit = escapeHtml(data.unit || 'LS');
     const unitPrice = data.unit_price ?? 0;
     const materialTotal = data.material_total ?? 0;
     const laborTotal = data.labor_total ?? 0;
@@ -1097,6 +1107,11 @@
     const catalogId = data.catalog_id || '';
     const catalogLabel = catalogId ? description : '';
     const costBucket = data.cost_bucket || 'material';
+
+    if (lineType === 'percent') {
+      qty = 1;
+      unit = 'LS';
+    }
 
     return `
       <tr class="bq-line" data-line-index="${lIndex}">

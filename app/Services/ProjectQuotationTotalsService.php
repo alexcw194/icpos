@@ -22,6 +22,7 @@ class ProjectQuotationTotalsService
 
         $normalizedSections = [];
         $sectionProductTotals = [];
+        $sectionMaterialTotals = [];
         $laborCostMap = $this->buildLaborCostMap($sections, $data);
 
         foreach ($sections as $sIndex => $section) {
@@ -71,6 +72,7 @@ class ProjectQuotationTotalsService
                     $subtotalLabor += $laborTotal;
                     $productSubtotal += $lineTotal;
                     $sectionProductTotal += $lineTotal;
+                    $sectionMaterialTotals[$sIndex] = ($sectionMaterialTotals[$sIndex] ?? 0) + $materialTotal;
                 } elseif ($lineType === 'charge') {
                     $lineTotal = $materialTotal + $laborTotal;
                     $chargeTotal += $lineTotal;
@@ -117,11 +119,20 @@ class ProjectQuotationTotalsService
                     continue;
                 }
 
-                $basis = ($line['percent_basis'] ?? 'product_subtotal') === 'section_product_subtotal'
-                    ? ($sectionProductTotals[$sIndex] ?? 0.0)
-                    : $productSubtotal;
-
-                if ($basis <= 0 && ($line['percent_basis'] ?? '') === 'section_product_subtotal' && $productSubtotal > 0) {
+                $basisType = $line['percent_basis'] ?? 'product_subtotal';
+                if ($basisType === 'section_product_subtotal') {
+                    $basis = $sectionProductTotals[$sIndex] ?? 0.0;
+                    if ($basis <= 0 && $productSubtotal > 0) {
+                        $basis = $productSubtotal;
+                    }
+                } elseif ($basisType === 'material_subtotal') {
+                    $basis = $subtotalMaterial;
+                } elseif ($basisType === 'section_material_subtotal') {
+                    $basis = $sectionMaterialTotals[$sIndex] ?? 0.0;
+                    if ($basis <= 0 && $subtotalMaterial > 0) {
+                        $basis = $subtotalMaterial;
+                    }
+                } else {
                     $basis = $productSubtotal;
                 }
 
@@ -129,6 +140,8 @@ class ProjectQuotationTotalsService
                 $line['computed_amount'] = $computedAmount;
                 $line['material_total'] = $computedAmount;
                 $line['labor_total'] = 0.0;
+                $line['qty'] = 1.0;
+                $line['unit'] = 'LS';
                 $line['line_total'] = $computedAmount;
                 $percentTotal += $computedAmount;
             }

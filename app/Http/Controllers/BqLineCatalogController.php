@@ -126,7 +126,7 @@ class BqLineCatalogController extends Controller
             'default_unit' => ['nullable', 'string', 'max:20'],
             'default_unit_price' => ['nullable', 'numeric', 'min:0'],
             'default_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'percent_basis' => ['nullable', Rule::in(['product_subtotal', 'section_product_subtotal'])],
+            'percent_basis' => ['nullable', Rule::in(['product_subtotal', 'section_product_subtotal', 'material_subtotal', 'section_material_subtotal'])],
             'cost_bucket' => ['nullable', Rule::in(['material', 'labor'])],
             'is_active' => ['nullable', 'boolean'],
             'description' => ['nullable', 'string'],

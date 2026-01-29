@@ -72,6 +72,8 @@
             <select name="percent_basis" class="form-select">
               <option value="product_subtotal" @selected(old('percent_basis', $row->percent_basis) === 'product_subtotal')>Product Subtotal</option>
               <option value="section_product_subtotal" @selected(old('percent_basis', $row->percent_basis) === 'section_product_subtotal')>Section Product Subtotal</option>
+              <option value="material_subtotal" @selected(old('percent_basis', $row->percent_basis) === 'material_subtotal')>Material Subtotal</option>
+              <option value="section_material_subtotal" @selected(old('percent_basis', $row->percent_basis) === 'section_material_subtotal')>Section Material Subtotal</option>
             </select>
           </div>
         </div>
