@@ -24,8 +24,10 @@
     .quo-row{ margin-top:2px; }
 
     .grid { width:100%; border-collapse: collapse; }
-    .grid th, .grid td { border:1px solid #999; padding:6px; }
+    .grid th, .grid td { border:1px solid #999; padding:6px; font-size:11px; }
     .section-row td { background:#f3f3f3; font-weight:700; }
+    .terms th, .terms td { padding:4px; font-size:11px; }
+    .notes-box { font-size:11px; line-height:1.4; }
     h2.block { font-size:13px; margin:0 0 6px; text-transform:uppercase; letter-spacing:.4px; }
   </style>
 </head>
@@ -70,6 +72,37 @@
   $validUntil = $quotation->quotation_date
     ? \Illuminate\Support\Carbon::parse($quotation->quotation_date)->addDays((int) ($quotation->validity_days ?? 0))
     : null;
+  $workingTime = ($quotation->working_time_days ? $quotation->working_time_days.' hari' : '-')
+    .' @ '.($quotation->working_time_hours_per_day ?? '-').' jam/hari';
+
+  $directorName = 'Christian Widargo';
+  $isDirector = $quotation->signatory_name
+    && strcasecmp($quotation->signatory_name, $directorName) === 0;
+
+  $stampPath = \App\Models\Setting::get('documents.stamp_path');
+  $directorSignaturePath = \App\Models\Setting::get('documents.director_signature_path');
+
+  $resolveImage = function (?string $path): ?string {
+    if (!$path) return null;
+    if (preg_match('~^https?://~', $path)) return $path;
+    $rel = ltrim($path, '/');
+    $candidates = [
+      public_path($rel),
+      substr($rel,0,8)==='storage/' ? storage_path('app/public/'.substr($rel,8)) : storage_path('app/public/'.$rel),
+      base_path($rel),
+    ];
+    foreach ($candidates as $p) {
+      if (is_file($p)) {
+        $ext  = strtolower(pathinfo($p, PATHINFO_EXTENSION) ?: 'png');
+        $mime = 'image/'.($ext === 'svg' ? 'svg+xml' : $ext);
+        return 'data:'.$mime.';base64,'.base64_encode(@file_get_contents($p));
+      }
+    }
+    return null;
+  };
+
+  $stampSrc = $resolveImage($stampPath);
+  $directorSignatureSrc = $resolveImage($directorSignaturePath);
 @endphp
 
 <table class="hdr">
@@ -103,6 +136,7 @@
       <div class="quo-row"><span class="small">BQ Date:</span> {{ $fmtDate($quotation->quotation_date) }}</div>
       <div class="quo-row"><span class="small">Expiry Date:</span> {{ $fmtDate($validUntil) }}</div>
       <div class="quo-row"><span class="small">Sales Owner:</span> {{ $salesAgent }}</div>
+      <div class="quo-row"><span class="small">Working Time:</span> {{ $workingTime }}</div>
     </td>
   </tr>
 </table>
@@ -135,9 +169,6 @@
         <tr>
           <td>
             <strong>{{ $ln->description }}</strong>
-            @if($ln->line_type === 'percent')
-              <div class="small">{{ number_format((float)($ln->percent_value ?? 0), 4, ',', '.') }}% ({{ $ln->percent_basis ?? 'product_subtotal' }})</div>
-            @endif
           </td>
           <td class="right">{{ rtrim(rtrim(number_format((float)$ln->qty, 2, '.', ''), '0'), '.') }}</td>
           <td>{{ $ln->unit }}</td>
@@ -174,37 +205,55 @@
   </tr>
 </table>
 
-@if($quotation->paymentTerms->isNotEmpty())
-  <h2 class="block" style="margin-top:12px;">Payment Terms</h2>
-  <table class="grid">
-    <thead>
-      <tr>
-        <th style="width:20%">Code</th>
-        <th style="width:15%" class="right">Percent</th>
-        <th>Schedule</th>
-      </tr>
-    </thead>
-    <tbody>
-      @foreach($quotation->paymentTerms as $term)
-        <tr>
-          <td>{{ $term->code }}</td>
-          <td class="right">{{ number_format((float)$term->percent, 2, ',', '.') }}%</td>
-          <td>{{ $term->trigger_note ?: ($term->due_trigger ?? '-') }}</td>
-        </tr>
-      @endforeach
-    </tbody>
-  </table>
-@endif
+<table style="width:100%; margin-top:12px;">
+  <tr>
+    <td style="width:55%; vertical-align:top;">
+      <h2 class="block">Notes</h2>
+      <div class="notes-box">{{ $quotation->notes ?: '-' }}</div>
+    </td>
+    <td style="width:45%; vertical-align:top;">
+      @if($quotation->paymentTerms->isNotEmpty())
+        <h2 class="block">Payment Terms</h2>
+        <table class="grid terms">
+          <thead>
+            <tr>
+              <th style="width:20%">Code</th>
+              <th style="width:15%" class="right">Percent</th>
+              <th>Schedule</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach($quotation->paymentTerms as $term)
+              <tr>
+                <td>{{ $term->code }}</td>
+                <td class="right">{{ number_format((float)$term->percent, 2, ',', '.') }}%</td>
+                <td>{{ $term->trigger_note ?: ($term->due_trigger ?? '-') }}</td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+      @endif
 
-@if($quotation->notes)
-  <p class="small" style="margin-top:12px"><strong>Notes:</strong><br>{{ $quotation->notes }}</p>
-@endif
+      <div style="margin-top:16px;">Hormat Kami,</div>
+      @if($isDirector)
+        <div style="margin-top:8px;">
+          @if($stampSrc)
+            <img src="{{ $stampSrc }}" alt="" style="height:60px; margin-right:6px;">
+          @endif
+          @if($directorSignatureSrc)
+            <img src="{{ $directorSignatureSrc }}" alt="" style="height:60px;">
+          @endif
+        </div>
+      @endif
 
-@if($quotation->signatory_name)
-  <div style="margin-top:24px;">
-    <div>{{ $quotation->signatory_name }}</div>
-    <div class="small">{{ $quotation->signatory_title }}</div>
-  </div>
-@endif
+      @if($quotation->signatory_name)
+        <div style="margin-top:10px;">
+          <div>{{ $quotation->signatory_name }}</div>
+          <div class="small">{{ $quotation->signatory_title }}</div>
+        </div>
+      @endif
+    </td>
+  </tr>
+</table>
 </body>
 </html>
