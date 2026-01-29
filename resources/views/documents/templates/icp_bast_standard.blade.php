@@ -213,6 +213,13 @@
       text-align: left;
       padding: 4px 8px 6px 0;
     }
+    .customer-table .sign-name,
+    .customer-table .sign-title {
+      text-align: left;
+    }
+    .customer-table .sign-space {
+      margin-left: 0;
+    }
   </style>
 </head>
 <body>
