@@ -109,12 +109,12 @@
       @php
         $selectedSigner = old(
           'sales_signer_user_id',
-          $document->sales_signer_user_id ?? ($isEdit ? 'director' : '')
+          $document->sales_signer_user_id ?? 'director'
         );
       @endphp
 
       <div class="row g-3 mt-3">
-        <div class="col-12 col-md-6">
+        <div class="col-12 col-md-6 d-flex flex-column">
           <label class="form-label">Signature</label>
           <select name="sales_signer_user_id" id="sales_signer_user_id" class="form-select" required>
             <option value="">Pilih Signature</option>
@@ -127,10 +127,10 @@
               </option>
             @endforeach
           </select>
-          <div class="text-muted small">Pilih Direktur Utama atau user signer.</div>
+          <div class="form-hint mt-1">Pilih Direktur Utama atau user signer.</div>
           @error('sales_signer_user_id')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
-        <div class="col-12 col-md-6" id="sales-position-wrap" style="{{ ($selectedSigner && $selectedSigner !== 'director') ? '' : 'display:none' }}">
+        <div class="col-12 col-md-6 d-flex flex-column" id="sales-position-wrap" style="{{ ($selectedSigner && $selectedSigner !== 'director') ? '' : 'display:none' }}">
           <label class="form-label">Signature Position</label>
           @php
             $salesPosValue = old('sales_signature_position', $document->sales_signature_position);
@@ -140,7 +140,7 @@
           @endphp
           <input type="text" name="sales_signature_position" id="sales_signature_position" class="form-control"
                  value="{{ $salesPosValue ?? '' }}">
-          <div class="text-muted small">Contoh: Sales Executive</div>
+          <div class="form-hint mt-1">Contoh: Sales Executive</div>
           @error('sales_signature_position')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
       </div>
