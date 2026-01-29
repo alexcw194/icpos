@@ -39,6 +39,8 @@ class DashboardController extends Controller
             $today = Carbon::now()->startOfDay();
             $mtdStart = Carbon::now()->startOfMonth()->startOfDay();
             $mtdEnd = Carbon::now();
+            $ytdStart = Carbon::now()->startOfYear()->startOfDay();
+            $ytdEnd = Carbon::now();
             $companyId = $request->filled('company_id') ? (int) $request->company_id : null;
 
             $companies = Company::query()
@@ -47,6 +49,8 @@ class DashboardController extends Controller
 
             $hasCompanyQuotation = Schema::hasColumn('quotations', 'company_id');
             $hasCompanySo = Schema::hasColumn('sales_orders', 'company_id');
+            $hasSoCancelledAt = Schema::hasColumn('sales_orders', 'cancelled_at');
+            $hasSoStatus = Schema::hasColumn('sales_orders', 'status');
             $hasCompanyInvoice = Schema::hasColumn('invoices', 'company_id');
             $hasCompanySummary = Schema::hasColumn('stock_summaries', 'company_id');
 
@@ -117,6 +121,13 @@ class DashboardController extends Controller
                     ->limit(20)
                     ->get();
             }
+
+            $soRevenueYtd = SalesOrder::query()
+                ->when($companyId && $hasCompanySo, fn($q) => $q->where('company_id', $companyId))
+                ->whereBetween('created_at', [$ytdStart, $ytdEnd])
+                ->when($hasSoCancelledAt, fn($q) => $q->whereNull('cancelled_at'))
+                ->when($hasSoStatus, fn($q) => $q->where('status', '!=', 'cancelled'))
+                ->sum('total');
 
             $invBase = Invoice::query()
                 ->with(['customer:id,name', 'company:id,alias,name'])
@@ -245,6 +256,7 @@ class DashboardController extends Controller
                 'qSentAging7dCount',
                 'soOpenCount',
                 'soDue7Count',
+                'soRevenueYtd',
                 'arOutstandingAmount',
                 'overdueInvoiceCount',
                 'ttPendingCount',

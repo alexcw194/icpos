@@ -66,6 +66,17 @@
         </div>
       </div>
     </div>
+    @hasanyrole('Admin|SuperAdmin')
+      <div class="col-6 col-md-2">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="subheader">SO Revenue (YTD)</div>
+            <div class="h2 m-0">{{ $money($soRevenueYtd ?? 0) }}</div>
+            <div class="text-muted small">Booked Sales Orders</div>
+          </div>
+        </div>
+      </div>
+    @endhasanyrole
     <div class="col-6 col-md-2">
       <div class="card card-sm">
         <div class="card-body">
