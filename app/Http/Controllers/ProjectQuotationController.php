@@ -433,7 +433,13 @@ class ProjectQuotationController extends Controller
             'sub_contractor_id' => $data['sub_contractor_id'],
         ]);
 
-        $lines = $quotation->lines()->get(['id', 'item_id', 'source_type', 'line_type', 'labor_total']);
+        $lines = $quotation->lines()->select([
+            'project_quotation_lines.id',
+            'project_quotation_lines.item_id',
+            'project_quotation_lines.source_type',
+            'project_quotation_lines.line_type',
+            'project_quotation_lines.labor_total',
+        ])->get();
         $itemIds = $lines->where('line_type', 'product')
             ->pluck('item_id')
             ->filter()
