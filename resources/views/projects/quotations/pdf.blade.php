@@ -27,11 +27,12 @@
     .grid th, .grid td { border:1px solid #999; padding:6px; font-size:11px; }
     .section-row td { background:#f3f3f3; font-weight:700; }
     .terms th, .terms td { padding:4px; font-size:11px; }
-    .notes-box { font-size:11px; line-height:1.35; white-space:pre-line; }
+    .notes-box { font-size:11px; line-height:1.2; white-space:pre-line; }
     .notes-box ol { margin:0; padding-left:16px; }
-    .notes-box li { margin:0 0 2px; }
+    .notes-box li { margin:0; padding:0; }
     .sign-wrap { position:relative; height:90px; margin:8px 0 6px; text-align:left; }
     .sign-layer { position:absolute; left:0; top:50%; transform:translateY(-50%); }
+    .sign-layer.stamp { left:24px; }
     .sign-layer.signature { z-index:1; }
     .sign-layer.stamp { z-index:2; }
     h2.block { font-size:13px; margin:0 0 6px; text-transform:uppercase; letter-spacing:.4px; }
