@@ -56,10 +56,11 @@ class ProjectQuotationTotalsService
                 $context = ($line['source_type'] ?? 'item') === 'project' ? 'project' : 'retail';
                 if ($itemId) {
                     $key = $itemId.'|'.$context;
-                    $laborCostAmount = $laborCostMap[$key] ?? null;
-                    if ($laborCostAmount === null) {
+                    $unitCost = $laborCostMap[$key] ?? null;
+                    if ($unitCost === null) {
                         $laborCostMissing = true;
                     } else {
+                        $laborCostAmount = $qty * $unitCost;
                         $laborMarginAmount = $laborTotal - $laborCostAmount;
                     }
                 }

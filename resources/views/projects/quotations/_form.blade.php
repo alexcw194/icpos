@@ -848,6 +848,44 @@
     recalcTotals();
   };
 
+  const formatLineNumbers = (scope) => {
+    const root = scope || document;
+    root.querySelectorAll(
+      'input[name$="[qty]"],' +
+      '.js-line-unit-price,' +
+      '.js-line-material,' +
+      '.js-line-labor,' +
+      '.js-line-labor-cost,' +
+      '.js-line-labor-margin'
+    ).forEach((input) => {
+      if (input && !input.readOnly) {
+        input.value = formatNumber(parseNumber(input.value));
+      } else if (input) {
+        input.value = formatNumber(parseNumber(input.value));
+      }
+    });
+  };
+
+  const syncLaborCostUnit = (row) => {
+    const costEl = row.querySelector('.js-line-labor-cost');
+    if (!costEl) return;
+    const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
+    const cost = parseNumber(costEl.value);
+    if (qty > 0 && cost > 0) {
+      costEl.dataset.unitCost = String(cost / qty);
+    }
+  };
+
+  const updateLaborCostByQty = (row) => {
+    const costEl = row.querySelector('.js-line-labor-cost');
+    if (!costEl) return;
+    const unitCost = parseNumber(costEl.dataset.unitCost);
+    if (unitCost <= 0) return;
+    const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
+    const totalCost = qty * unitCost;
+    costEl.value = formatNumber(totalCost);
+  };
+
   const maybeLoadLaborFromMaster = (row) => {
     if (!row) return;
     if (getLineType(row) !== 'product') return;
@@ -1398,6 +1436,7 @@
           const materialEl = row.querySelector('.js-line-material');
           if (materialEl) materialEl.value = formatNumber(parseNumber(target.value) * price);
         }
+        updateLaborCostByQty(row);
         const source = getLaborSource(row);
         const unitSnapshot = parseNumber(row.querySelector('.bq-line-labor-unit')?.value);
         if (source !== 'manual' && unitSnapshot > 0) {
@@ -1671,6 +1710,8 @@
   }
 
   initItemPickers();
+  formatLineNumbers(sectionsEl);
+  sectionsEl.querySelectorAll('.bq-line').forEach((row) => syncLaborCostUnit(row));
   recalcTotals();
   updateSectionSortOrder();
 

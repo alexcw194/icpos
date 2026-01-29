@@ -439,6 +439,7 @@ class ProjectQuotationController extends Controller
             'project_quotation_lines.source_type',
             'project_quotation_lines.line_type',
             'project_quotation_lines.labor_total',
+            'project_quotation_lines.qty',
         ])->get();
         $itemIds = $lines->where('line_type', 'product')
             ->pluck('item_id')
@@ -477,7 +478,9 @@ class ProjectQuotationController extends Controller
                 continue;
             }
 
-            $costAmount = (float) $cost->cost_amount;
+            $unitCost = (float) $cost->cost_amount;
+            $qty = (float) ($line->qty ?? 0);
+            $costAmount = $unitCost * $qty;
             $line->labor_cost_amount = $costAmount;
             $line->labor_margin_amount = (float) $line->labor_total - $costAmount;
             $line->labor_cost_missing = false;
