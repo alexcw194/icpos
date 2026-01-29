@@ -750,6 +750,7 @@
     const itemIdEl = row.querySelector('.bq-line-item-id');
     const qtyEl = row.querySelector('input[name$="[qty]"]');
     const unitEl = row.querySelector('input[name$="[unit]"]');
+    const laborUnitEl = row.querySelector('.js-line-labor-unit');
     const laborEl = row.querySelector('.js-line-labor');
     const materialEl = row.querySelector('.js-line-material');
     const basisEl = row.querySelector('.bq-line-percent-basis');
