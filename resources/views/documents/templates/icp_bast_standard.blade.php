@@ -139,6 +139,21 @@
     }
     .sign-title {
       text-align: center;
+      color: #111827;
+      font-weight: 400;
+    }
+    .sign-name {
+      font-weight: 700;
+      text-align: center;
+    }
+    .sign-name-icp {
+      font-weight: 700;
+      text-align: left;
+    }
+    .sign-title-icp {
+      text-align: left;
+      color: #111827;
+      font-weight: 400;
     }
     .sign-date {
       margin-top: 14px;
@@ -367,18 +382,36 @@
                     </div>
                   </td>
                 </tr>
-                <tr>
-                  <td>{{ $icpSignerName }}</td>
-                </tr>
-                <tr>
-                  <td class="text-muted">{{ $icpSignerTitle }}</td>
-                </tr>
+              <tr>
+                <td class="sign-name-icp">{{ $icpSignerName }}</td>
+              </tr>
+              <tr>
+                <td class="sign-title-icp">{{ $icpSignerTitle }}</td>
+              </tr>
               </table>
             </div>
             <div class="signer-col-4">
               <div class="signer-title">PIHAK CUSTOMER</div>
+              <div class="sign-space sign-space-customer"></div>
+            </div>
+            <div class="signer-col-4">
+              <div class="signer-title">&nbsp;</div>
+              <div class="sign-space sign-space-customer"></div>
+            </div>
+            <div class="signer-col-4">
+              <div class="signer-title">&nbsp;</div>
+              <div class="sign-space sign-space-customer"></div>
+            </div>
+          </div>
+          <div class="signers-grid-4">
+            <div class="signer-col-4">
+              <div class="signer-title">&nbsp;</div>
+              <div class="sign-name-icp">{{ $icpSignerName }}</div>
+              <div class="sign-title-icp">{{ $icpSignerTitle }}</div>
+            </div>
+            <div class="signer-col-4">
+              <div class="signer-title">&nbsp;</div>
               @if(isset($customerSigners[0]))
-                <div class="sign-space sign-space-customer"></div>
                 <div class="sign-name">{{ $customerSigners[0]['name'] ?? '' }}</div>
                 <div class="sign-title">{{ $customerSigners[0]['title'] ?? '' }}</div>
               @endif
@@ -386,7 +419,6 @@
             <div class="signer-col-4">
               <div class="signer-title">&nbsp;</div>
               @if(isset($customerSigners[1]))
-                <div class="sign-space sign-space-customer"></div>
                 <div class="sign-name">{{ $customerSigners[1]['name'] ?? '' }}</div>
                 <div class="sign-title">{{ $customerSigners[1]['title'] ?? '' }}</div>
               @endif
@@ -394,7 +426,6 @@
             <div class="signer-col-4">
               <div class="signer-title">&nbsp;</div>
               @if(isset($customerSigners[2]))
-                <div class="sign-space sign-space-customer"></div>
                 <div class="sign-name">{{ $customerSigners[2]['name'] ?? '' }}</div>
                 <div class="sign-title">{{ $customerSigners[2]['title'] ?? '' }}</div>
               @endif
@@ -407,8 +438,8 @@
                   @foreach($row as $signer)
                     <td>
                       <div class="sign-space sign-space-customer"></div>
-                      <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
-                      <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
+                  <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
+                  <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
                     </td>
                   @endforeach
                   @for($i = count($row); $i < 4; $i++)
@@ -438,10 +469,10 @@
                   </td>
                 </tr>
                 <tr>
-                  <td>{{ $icpSignerName }}</td>
+                  <td class="sign-name-icp">{{ $icpSignerName }}</td>
                 </tr>
                 <tr>
-                  <td class="text-muted">{{ $icpSignerTitle }}</td>
+                  <td class="sign-title-icp">{{ $icpSignerTitle }}</td>
                 </tr>
               </table>
             </div>
