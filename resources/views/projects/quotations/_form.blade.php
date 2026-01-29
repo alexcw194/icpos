@@ -306,6 +306,7 @@
                 @php
                   $laborSource = $line['labor_source'] ?? 'manual';
                   $lineType = $line['line_type'] ?? 'product';
+                  $isPercent = $lineType === 'percent';
                   $laborCostMissing = !empty($line['labor_cost_missing']);
                 @endphp
                 <tr class="bq-line" data-line-index="{{ $lIndex }}">
@@ -357,10 +358,10 @@
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][qty]" class="form-control text-end" value="{{ $line['qty'] ?? 0 }}" required></td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit]" class="form-control" value="{{ $line['unit'] ?? 'LS' }}" required></td>
                   <td>
-                    <div class="bq-price-wrap">
+                    <div class="bq-price-wrap {{ $isPercent ? 'd-none' : '' }}">
                       <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][unit_price]" class="form-control text-end js-line-unit-price" value="{{ $line['unit_price'] ?? 0 }}">
                     </div>
-                    <div class="bq-percent-wrap d-none">
+                    <div class="bq-percent-wrap {{ $isPercent ? '' : 'd-none' }}">
                       <div class="input-group input-group-sm">
                         <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][percent_value]" class="form-control text-end js-line-percent" value="{{ $line['percent_value'] ?? 0 }}">
                         <span class="input-group-text">%</span>
@@ -587,7 +588,6 @@
     const typeSel = row.querySelector('.bq-line-type');
     const lineType = data.type === 'percent' ? 'percent' : 'charge';
     if (typeSel) typeSel.value = lineType;
-    syncLineTypeRow(row);
 
     const descEl = row.querySelector('.bq-line-desc');
     if (descEl) descEl.value = data.name || '';
@@ -597,6 +597,8 @@
 
     const costBucketEl = row.querySelector('.bq-line-cost-bucket');
     if (costBucketEl) costBucketEl.value = data.cost_bucket || 'material';
+
+    syncLineTypeRow(row);
 
     const qtyEl = row.querySelector('input[name$="[qty]"]');
     const unitEl = row.querySelector('input[name$="[unit]"]');
@@ -641,6 +643,7 @@
       if (laborEl) laborEl.value = formatNumber(0);
     }
 
+    formatLineNumbers(row);
     recalcTotals();
   };
 
@@ -1146,6 +1149,8 @@
       unit = 'LS';
     }
 
+    const isPercent = lineType === 'percent';
+
     return `
       <tr class="bq-line" data-line-index="${lIndex}">
         <td>
@@ -1196,10 +1201,10 @@
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][qty]" class="form-control text-end" value="${qty}" required></td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][unit]" class="form-control" value="${unit}" required></td>
         <td>
-          <div class="bq-price-wrap">
+          <div class="bq-price-wrap ${isPercent ? 'd-none' : ''}">
             <input type="text" name="sections[${sIndex}][lines][${lIndex}][unit_price]" class="form-control text-end js-line-unit-price" value="${unitPrice}">
           </div>
-          <div class="bq-percent-wrap d-none">
+          <div class="bq-percent-wrap ${isPercent ? '' : 'd-none'}">
             <div class="input-group input-group-sm">
               <input type="text" name="sections[${sIndex}][lines][${lIndex}][percent_value]" class="form-control text-end js-line-percent" value="${percentValue}">
               <span class="input-group-text">%</span>
@@ -1429,6 +1434,8 @@
       const lIndex = nextLineIndex(section);
       body.insertAdjacentHTML('beforeend', makeLine(sIndex, lIndex));
       initItemPickers(body.lastElementChild);
+      renumberLines(section);
+      formatLineNumbers(section);
       recalcTotals();
     }
 
