@@ -160,7 +160,6 @@ class ProjectQuotationTotalsService
         }
 
         $itemIds = [];
-        $contexts = [];
         foreach ($sections as $section) {
             foreach (($section['lines'] ?? []) as $line) {
                 if (($line['line_type'] ?? 'product') !== 'product') {
@@ -171,7 +170,6 @@ class ProjectQuotationTotalsService
                     continue;
                 }
                 $itemIds[] = (int) $itemId;
-                $contexts[] = (($line['source_type'] ?? 'item') === 'project') ? 'project' : 'retail';
             }
         }
 
@@ -185,15 +183,9 @@ class ProjectQuotationTotalsService
             return [];
         }
 
-        $contexts = array_values(array_unique(array_filter($contexts)));
-        if (!$contexts) {
-            $contexts = ['retail'];
-        }
-
         $costs = LaborCost::query()
             ->where('sub_contractor_id', $subId)
             ->whereIn('item_id', $itemIds)
-            ->whereIn('context', $contexts)
             ->get(['item_id', 'context', 'cost_amount'])
             ->keyBy(fn ($row) => $row->item_id.'|'.$row->context);
 

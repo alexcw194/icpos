@@ -447,18 +447,11 @@ class ProjectQuotationController extends Controller
             ->values()
             ->all();
 
-        $contexts = $lines->where('line_type', 'product')
-            ->map(fn ($line) => ($line->source_type === 'project') ? 'project' : 'retail')
-            ->unique()
-            ->values()
-            ->all();
-
         $costs = [];
         if ($itemIds) {
             $costs = LaborCost::query()
                 ->where('sub_contractor_id', $data['sub_contractor_id'])
                 ->whereIn('item_id', $itemIds)
-                ->when($contexts, fn ($q) => $q->whereIn('context', $contexts))
                 ->get(['item_id', 'context', 'cost_amount'])
                 ->keyBy(fn ($row) => $row->item_id.'|'.$row->context);
         }
