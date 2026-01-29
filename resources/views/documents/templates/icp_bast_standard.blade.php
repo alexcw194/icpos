@@ -20,6 +20,21 @@
   $icpSignerTitle = $document->sales_signer_user_id
       ? ($document->sales_signature_position ?? '')
       : 'Direktur Utama';
+  $autoSignature = $payload['icp_auto_signature'] ?? true;
+
+  $signatures = $document->signatures ?? [];
+  $salesSig = $signatures['sales'] ?? null;
+  $directorSig = $signatures['director'] ?? null;
+  $signaturePath = null;
+  if ($document->approved_at && $autoSignature) {
+      $signaturePath = $document->sales_signer_user_id
+          ? ($salesSig['image_path'] ?? null)
+          : ($directorSig['image_path'] ?? null);
+  }
+  $makeSrc = function ($path) {
+      if (!$path) return null;
+      return str_starts_with($path, 'http') ? $path : asset('storage/'.$path);
+  };
 @endphp
 <!doctype html>
 <html lang="en">
@@ -108,7 +123,8 @@
       padding-bottom: 6px;
     }
     .sign-space {
-      height: 80px;
+      height: 95px;
+      position: relative;
     }
     .sign-name {
       font-weight: 700;
@@ -116,6 +132,26 @@
     }
     .sign-title {
       text-align: center;
+    }
+    .sign-date {
+      margin-top: 14px;
+      margin-bottom: 6px;
+    }
+    .sign-stamp {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      max-height: 70px;
+      z-index: 1;
+    }
+    .sign-signature {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      max-height: 70px;
+      z-index: 2;
     }
     .signers-grid {
       display: table;
@@ -214,17 +250,32 @@
       </ul>
 
       <div class="closing">
-        Demikian Berita Acara ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestinya.
+        Dengan ditandatanganinya Berita Acara ini, Pihak Customer menyatakan telah menerima hasil pekerjaan tersebut dari
+        Pihak ICP dalam kondisi baik, sesuai dengan ruang lingkup pekerjaan, dan dapat digunakan sebagaimana mestinya.
+      </div>
+      <div class="closing">
+        Dengan demikian, tanggung jawab pelaksanaan pekerjaan dinyatakan telah diserahterimakan sesuai dengan ketentuan
+        yang berlaku.
       </div>
 
       @if($customerCount <= 1)
+        <div class="sign-date">Tanggal : ____________________</div>
         <table class="sign-table">
           <tr>
             <th>PIHAK ICP</th>
             <th>PIHAK CUSTOMER</th>
           </tr>
           <tr>
-            <td class="sign-space"></td>
+            <td class="sign-space">
+              @if($document->approved_at && $autoSignature)
+                @if($stampPath)
+                  <img src="{{ $stampPath }}" class="sign-stamp" alt="ICP Stamp">
+                @endif
+                @if($signaturePath)
+                  <img src="{{ $makeSrc($signaturePath) }}" class="sign-signature" alt="ICP Signature">
+                @endif
+              @endif
+            </td>
             <td class="sign-space"></td>
           </tr>
           <tr>
@@ -237,10 +288,25 @@
           </tr>
         </table>
       @else
+        <div class="sign-date">Tanggal : ____________________</div>
         <div class="signers-grid">
           <div class="signer-col">
             <div class="signer-title">PIHAK ICP</div>
             <table class="signer-list">
+              <tr>
+                <td>
+                  <div class="sign-space">
+                    @if($document->approved_at && $autoSignature)
+                      @if($stampPath)
+                        <img src="{{ $stampPath }}" class="sign-stamp" alt="ICP Stamp">
+                      @endif
+                      @if($signaturePath)
+                        <img src="{{ $makeSrc($signaturePath) }}" class="sign-signature" alt="ICP Signature">
+                      @endif
+                    @endif
+                  </div>
+                </td>
+              </tr>
               <tr>
                 <td>{{ $icpSignerName }}</td>
               </tr>

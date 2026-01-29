@@ -262,6 +262,16 @@
             </div>
             <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-customer-signer">+ Add Customer Signer</button>
           </div>
+          <div class="col-md-6">
+            <label class="form-label">ICP Auto Signature</label>
+            <div class="form-check form-switch mt-1">
+              <input type="hidden" name="template_payload[icp_auto_signature]" value="0">
+              <input class="form-check-input" type="checkbox" role="switch" id="icp_auto_signature"
+                     name="template_payload[icp_auto_signature]" value="1"
+                     @checked(($payload['icp_auto_signature'] ?? true))>
+              <label class="form-check-label" for="icp_auto_signature">Tampilkan stempel & tanda tangan ICP otomatis</label>
+            </div>
+          </div>
         </div>
       </div>
 
