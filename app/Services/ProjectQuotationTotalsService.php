@@ -36,7 +36,7 @@ class ProjectQuotationTotalsService
                 $materialTotal = Number::idToFloat($line['material_total'] ?? 0);
                 $laborTotal = Number::idToFloat($line['labor_total'] ?? 0);
                 $percentValue = $lineType === 'percent'
-                    ? Number::idToFloat($line['percent_value'] ?? 0)
+                    ? $this->parsePercent($line['percent_value'] ?? 0)
                     : null;
                 $percentBasis = $lineType === 'percent'
                     ? ($line['percent_basis'] ?? 'product_subtotal')
@@ -148,6 +148,21 @@ class ProjectQuotationTotalsService
             'tax_amount' => $taxAmount,
             'grand_total' => $grandTotal,
         ];
+    }
+
+    private function parsePercent($val): float
+    {
+        if ($val === null || $val === '') {
+            return 0.0;
+        }
+
+        $s = preg_replace('/[^\d,.\-]/', '', (string) $val);
+        if (str_contains($s, ',')) {
+            $s = str_replace('.', '', $s);
+            $s = str_replace(',', '.', $s);
+        }
+
+        return (float) $s;
     }
 
     private function buildLaborCostMap(array $sections, array $data): array
