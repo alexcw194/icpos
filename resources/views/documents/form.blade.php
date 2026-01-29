@@ -271,6 +271,14 @@
                      @checked(($payload['icp_auto_signature'] ?? true))>
               <label class="form-check-label" for="icp_auto_signature">Tampilkan stempel & tanda tangan ICP otomatis</label>
             </div>
+            <label class="form-label mt-3">Masa Pemeliharaan</label>
+            <div class="form-check form-switch mt-1">
+              <input type="hidden" name="template_payload[maintenance_notice]" value="0">
+              <input class="form-check-input" type="checkbox" role="switch" id="maintenance_notice"
+                     name="template_payload[maintenance_notice]" value="1"
+                     @checked(($payload['maintenance_notice'] ?? false))>
+              <label class="form-check-label" for="maintenance_notice">Tampilkan klausul masa pemeliharaan</label>
+            </div>
           </div>
         </div>
       </div>

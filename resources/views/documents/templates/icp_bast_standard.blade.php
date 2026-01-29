@@ -21,6 +21,7 @@
       ? ($document->sales_signature_position ?? '')
       : 'Direktur Utama';
   $autoSignature = $payload['icp_auto_signature'] ?? true;
+  $maintenanceNotice = $payload['maintenance_notice'] ?? false;
 
   $signatures = $document->signatures ?? [];
   $salesSig = $signatures['sales'] ?? null;
@@ -257,6 +258,12 @@
         Dengan demikian, tanggung jawab pelaksanaan pekerjaan dinyatakan telah diserahterimakan sesuai dengan ketentuan
         yang berlaku.
       </div>
+      @if($maintenanceNotice)
+        <div class="closing">
+          Masa pemeliharaan pekerjaan dimulai sejak tanggal ditandatanganinya Berita Acara Serah Terima ini, sesuai dengan
+          ketentuan yang tercantum dalam perjanjian/kontrak yang berlaku.
+        </div>
+      @endif
 
       @if($customerCount <= 1)
         <div class="sign-date">Tanggal : ____________________</div>

@@ -499,6 +499,7 @@ class DocumentController extends Controller
                 'template_payload.work_points' => ['required', 'array', 'min:1'],
                 'template_payload.work_points.*' => ['required', 'string', 'max:500'],
                 'template_payload.icp_auto_signature' => ['nullable', 'boolean'],
+                'template_payload.maintenance_notice' => ['nullable', 'boolean'],
                 'template_payload.customer_signers' => ['required', 'array', 'min:1'],
                 'template_payload.customer_signers.*.name' => ['required', 'string', 'max:190'],
                 'template_payload.customer_signers.*.title' => ['required', 'string', 'max:190'],
@@ -807,6 +808,14 @@ class DocumentController extends Controller
         );
         if ($payload['icp_auto_signature'] === null) {
             $payload['icp_auto_signature'] = true;
+        }
+        $payload['maintenance_notice'] = filter_var(
+            $payload['maintenance_notice'] ?? false,
+            FILTER_VALIDATE_BOOLEAN,
+            FILTER_NULL_ON_FAILURE
+        );
+        if ($payload['maintenance_notice'] === null) {
+            $payload['maintenance_notice'] = false;
         }
         $payload['customer_signers'] = $this->filterSigners($payload['customer_signers'] ?? []);
 
