@@ -28,8 +28,10 @@
     .section-row td { background:#f3f3f3; font-weight:700; }
     .terms th, .terms td { padding:4px; font-size:11px; }
     .notes-box { font-size:11px; line-height:1.2; white-space:pre-line; }
-    .notes-box ol { margin:-3px 0 0; padding:0 0 0 16px; white-space:normal; }
-    .notes-box li { margin:0; padding:0; line-height:1.2; }
+    .notes-table { width:100%; border-collapse:collapse; margin:-2px 0 0; }
+    .notes-table td { padding:0; vertical-align:top; }
+    .notes-num { width:18px; }
+    .notes-row { line-height:1.2; }
     .sign-wrap { position:relative; height:90px; margin:8px 0 6px; text-align:left; }
     .sign-layer { position:absolute; left:0; top:50%; transform:translateY(-50%); }
     .sign-layer.stamp { left:24px; }
@@ -229,12 +231,23 @@
           });
         @endphp
         @if($isList)
-          <ol class="notes-box">
+          <table class="notes-table">
             @foreach($noteLines as $line)
-              @php $clean = preg_replace('/^\\s*\\d+[\\).]\\s*/', '', $line); @endphp
-              <li>{{ $clean }}</li>
+              @php
+                $num = '';
+                $text = $line;
+                if (preg_match('/^\\s*(\\d+)[\\).]\\s*(.*)$/', $line, $m)) {
+                  $num = $m[1].'.';
+                  $text = $m[2];
+                }
+                $text = trim((string) $text);
+              @endphp
+              <tr class="notes-row">
+                <td class="notes-num">{{ $num }}</td>
+                <td>{{ $text }}</td>
+              </tr>
             @endforeach
-          </ol>
+          </table>
         @else
           <div class="notes-box">{!! nl2br(e($noteText)) !!}</div>
         @endif
