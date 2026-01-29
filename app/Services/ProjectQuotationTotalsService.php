@@ -49,6 +49,9 @@ class ProjectQuotationTotalsService
                 if ($laborUnitSnapshot <= 0 && $qty > 0 && $laborTotal > 0) {
                     $laborUnitSnapshot = $laborTotal / $qty;
                 }
+                if ($lineType !== 'percent' && $laborUnitSnapshot > 0) {
+                    $laborTotal = $qty * $laborUnitSnapshot;
+                }
                 $lineTotal = 0.0;
                 $laborCostAmount = null;
                 $laborMarginAmount = null;

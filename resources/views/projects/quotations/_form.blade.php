@@ -67,7 +67,6 @@
   $customerId = old('customer_id', $quotation->customer_id ?? $project->customer_id ?? null);
   $salesOwnerId = old('sales_owner_user_id', $quotation->sales_owner_user_id ?? $project->sales_owner_user_id ?? auth()->id());
   $contacts = $contacts ?? collect();
-  $showLaborCost = !empty($canManageCost);
   $repriceLaborUrl = (!empty($quotation) && !empty($quotation->exists))
     ? route('projects.quotations.reprice-labor', [$project, $quotation], false)
     : null;
@@ -296,11 +295,8 @@
                 <th style="width:90px;">Unit</th>
                 <th style="width:120px;" class="text-end">Unit Price</th>
                 <th style="width:140px;" class="text-end">Material</th>
-                <th style="width:180px;" class="text-end">Labor</th>
-                @if(!empty($canManageCost))
-                  <th style="width:140px;" class="text-end">Labor Cost</th>
-                  <th style="width:140px;" class="text-end">Margin</th>
-                @endif
+                <th style="width:140px;" class="text-end">Labor Unit</th>
+                <th style="width:160px;" class="text-end">Labor</th>
                 <th style="width:140px;" class="text-end">Line Total</th>
                 <th style="width:1%"></th>
               </tr>
@@ -340,7 +336,6 @@
                                  value="{{ $line['item_label'] ?? '' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_id]" class="bq-line-item-id" value="{{ $line['item_id'] ?? '' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_source]" class="bq-line-labor-source" value="{{ $line['labor_source'] ?? 'manual' }}">
-                          <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="{{ $line['labor_unit_cost_snapshot'] ?? 0 }}">
                         </div>
                       </div>
                     </div>
@@ -376,28 +371,17 @@
                   </td>
                   <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][material_total]" class="form-control text-end js-line-material" value="{{ $line['material_total'] ?? 0 }}" required></td>
                   <td>
-                    <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required>
+                    <input type="text"
+                           name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_unit_cost_snapshot]"
+                           class="form-control text-end js-line-labor-unit bq-line-labor-unit"
+                           value="{{ $line['labor_unit_cost_snapshot'] ?? 0 }}">
                   </td>
-                  @if(!empty($canManageCost))
-                    <td>
-                      <input type="text"
-                             name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_cost_amount]"
-                             class="form-control text-end js-line-labor-cost"
-                             value="{{ $line['labor_cost_amount'] ?? '' }}"
-                             readonly>
-                      <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_cost_missing]" class="js-line-labor-cost-missing" value="{{ $laborCostMissing ? 1 : 0 }}">
-                      @if($laborCostMissing)
-                        <span class="badge bg-yellow-lt text-dark mt-1">Cost Missing</span>
-                      @endif
-                    </td>
-                    <td>
-                      <input type="text"
-                             name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_margin_amount]"
-                             class="form-control text-end js-line-labor-margin"
-                             value="{{ $line['labor_margin_amount'] ?? '' }}"
-                             readonly>
-                    </td>
-                  @endif
+                  <td>
+                    <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required readonly>
+                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_cost_amount]" class="js-line-labor-cost" value="{{ $line['labor_cost_amount'] ?? '' }}">
+                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_cost_missing]" class="js-line-labor-cost-missing" value="{{ $laborCostMissing ? 1 : 0 }}">
+                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_margin_amount]" class="js-line-labor-margin" value="{{ $line['labor_margin_amount'] ?? '' }}">
+                  </td>
                   <td class="text-end"><span class="js-line-total">0</span></td>
                   <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line">Remove</button></td>
                 </tr>
@@ -527,7 +511,6 @@
   const ITEM_SEARCH_URL = {!! json_encode(route('items.search', [], false)) !!};
   const LABOR_RATE_URL = {!! json_encode(route('labor-rates.show', [], false)) !!};
   const CATALOG_SEARCH_URL = {!! json_encode(route('bq-line-catalogs.search', [], false)) !!};
-  const SHOW_LABOR_COST = {!! json_encode($showLaborCost) !!};
   const REPRICE_LABOR_URL = {!! json_encode($repriceLaborUrl) !!};
 
   const termTable = document.getElementById('terms-table');
@@ -619,6 +602,7 @@
     const unitEl = row.querySelector('input[name$="[unit]"]');
     const unitPriceEl = row.querySelector('input[name$="[unit_price]"]');
     const materialEl = row.querySelector('.js-line-material');
+    const laborUnitEl = row.querySelector('.js-line-labor-unit');
     const laborEl = row.querySelector('.js-line-labor');
     const percentEl = row.querySelector('.js-line-percent');
     const basisEl = row.querySelector('.bq-line-percent-basis');
@@ -634,9 +618,11 @@
       if (unitPriceEl) unitPriceEl.value = formatNumber(price);
       if (bucket === 'labor') {
         if (materialEl) materialEl.value = formatNumber(0);
+        if (laborUnitEl) laborUnitEl.value = formatNumber(price);
         if (laborEl) laborEl.value = formatNumber(qty * price);
       } else {
         if (materialEl) materialEl.value = formatNumber(qty * price);
+        if (laborUnitEl) laborUnitEl.value = formatNumber(0);
         if (laborEl) laborEl.value = formatNumber(0);
       }
       if (percentEl) percentEl.value = formatPercent(0);
@@ -651,6 +637,7 @@
       if (unitEl) unitEl.value = 'LS';
       if (unitPriceEl) unitPriceEl.value = formatNumber(0);
       if (materialEl) materialEl.value = formatNumber(0);
+      if (laborUnitEl) laborUnitEl.value = formatNumber(0);
       if (laborEl) laborEl.value = formatNumber(0);
     }
 
@@ -789,37 +776,49 @@
 
     syncCatalogRow(row);
 
+    const isLaborBucket = lineType === 'charge' && getCostBucket(row) === 'labor';
+
     if (lineType === 'percent') {
       if (basisEl && !basisEl.value) basisEl.value = 'product_subtotal';
       if (qtyEl) qtyEl.value = '1';
       if (unitEl) unitEl.value = 'LS';
+      if (laborUnitEl) laborUnitEl.value = formatNumber(0);
       if (laborEl) laborEl.value = formatNumber(0);
       if (materialEl) setReadOnly(materialEl, true);
+      if (laborUnitEl) setReadOnly(laborUnitEl, true);
       if (laborEl) setReadOnly(laborEl, true);
       if (qtyEl) setReadOnly(qtyEl, true);
       if (unitEl) setReadOnly(unitEl, true);
     } else if (lineType === 'charge') {
-      if (laborEl) laborEl.value = formatNumber(0);
+      if (!isLaborBucket) {
+        if (laborUnitEl) laborUnitEl.value = formatNumber(0);
+        if (laborEl) laborEl.value = formatNumber(0);
+      }
       if (laborEl) setReadOnly(laborEl, true);
       if (materialEl) setReadOnly(materialEl, false);
       if (qtyEl) setReadOnly(qtyEl, false);
       if (unitEl) setReadOnly(unitEl, false);
+      if (laborUnitEl) setReadOnly(laborUnitEl, !isLaborBucket);
+      if (isLaborBucket) updateLaborTotalFromUnit(row);
     } else {
-      if (laborEl) setReadOnly(laborEl, false);
+      if (laborUnitEl) setReadOnly(laborUnitEl, false);
+      if (laborEl) setReadOnly(laborEl, true);
       if (materialEl) setReadOnly(materialEl, false);
       if (qtyEl) setReadOnly(qtyEl, false);
       if (unitEl) setReadOnly(unitEl, false);
       maybeLoadLaborFromMaster(row);
+      updateLaborTotalFromUnit(row);
     }
 
   };
 
 
-  const updateLaborSnapshot = (row, laborTotal) => {
+  const updateLaborTotalFromUnit = (row) => {
     const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
-    const unitCost = qty > 0 ? (laborTotal / qty) : laborTotal;
-    const unitEl = row.querySelector('.bq-line-labor-unit');
-    if (unitEl) unitEl.value = unitCost.toFixed(2);
+    const unitCost = parseNumber(row.querySelector('.js-line-labor-unit')?.value);
+    const laborEl = row.querySelector('.js-line-labor');
+    const total = qty * unitCost;
+    if (laborEl) laborEl.value = formatNumber(total);
   };
 
   const fetchLaborRate = (sourceType, itemId) => {
@@ -836,24 +835,25 @@
   };
 
   const applyLaborRate = (row, sourceType, rateData) => {
+    const laborUnitInput = row.querySelector('.js-line-labor-unit');
     const laborInput = row.querySelector('.js-line-labor');
     const unitCost = parseNumber(rateData?.unit_cost);
     const hasMaster = rateData?.unit_cost != null;
     const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
 
-    if (!laborInput) return;
+    if (!laborInput || !laborUnitInput) return;
 
     if (!hasMaster) {
+      laborUnitInput.value = formatNumber(0);
       laborInput.value = formatNumber(0);
-      updateLaborSnapshot(row, 0);
       setLaborSource(row, 'manual');
       recalcTotals();
       return;
     }
 
+    laborUnitInput.value = formatNumber(unitCost);
     const laborTotal = qty * unitCost;
     laborInput.value = formatNumber(laborTotal);
-    updateLaborSnapshot(row, laborTotal);
     setLaborSource(row, sourceType === 'project' ? 'master_project' : 'master_item');
     recalcTotals();
   };
@@ -864,9 +864,8 @@
       'input[name$="[qty]"],' +
       '.js-line-unit-price,' +
       '.js-line-material,' +
-      '.js-line-labor,' +
-      '.js-line-labor-cost,' +
-      '.js-line-labor-margin'
+      '.js-line-labor-unit,' +
+      '.js-line-labor'
     ).forEach((input) => {
       if (input && !input.readOnly) {
         input.value = formatNumber(parseNumber(input.value));
@@ -903,11 +902,11 @@
     const itemId = row.querySelector('.bq-line-item-id')?.value;
     if (!itemId) return;
 
-    const laborEl = row.querySelector('.js-line-labor');
+    const laborUnitEl = row.querySelector('.js-line-labor-unit');
     const laborSource = getLaborSource(row);
-    const currentLabor = parseNumber(laborEl?.value);
+    const currentUnit = parseNumber(laborUnitEl?.value);
 
-    if (laborSource === 'manual' && currentLabor > 0) {
+    if (laborSource === 'manual' && currentUnit > 0) {
       return;
     }
 
@@ -934,8 +933,12 @@
     document.querySelectorAll('.bq-line').forEach((row) => {
       const lineType = getLineType(row);
       if (lineType !== 'product') return;
+      const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
+      const unitLab = parseNumber(row.querySelector('.js-line-labor-unit')?.value);
+      const laborEl = row.querySelector('.js-line-labor');
+      if (laborEl) laborEl.value = formatNumber(qty * unitLab);
       const mat = parseNumber(row.querySelector('.js-line-material')?.value);
-      const lab = parseNumber(row.querySelector('.js-line-labor')?.value);
+      const lab = parseNumber(laborEl?.value);
       const total = mat + lab;
       subMat += mat;
       subLab += lab;
@@ -963,6 +966,7 @@
     document.querySelectorAll('.bq-line').forEach((row) => {
       const lineType = getLineType(row);
       const matEl = row.querySelector('.js-line-material');
+      const laborUnitEl = row.querySelector('.js-line-labor-unit');
       const labEl = row.querySelector('.js-line-labor');
       const costEl = row.querySelector('.js-line-labor-cost');
       const marginEl = row.querySelector('.js-line-labor-margin');
@@ -970,6 +974,11 @@
       const totalEl = row.querySelector('.js-line-total');
 
       let mat = parseNumber(matEl?.value);
+      if (lineType !== 'percent') {
+        const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
+        const unitLab = parseNumber(laborUnitEl?.value);
+        if (labEl) labEl.value = formatNumber(qty * unitLab);
+      }
       let lab = parseNumber(labEl?.value);
       let total = 0;
 
@@ -998,6 +1007,7 @@
         total = computed;
         percentTotal += computed;
         if (matEl) matEl.value = formatNumber(computed);
+        if (laborUnitEl) laborUnitEl.value = formatNumber(0);
         if (labEl) labEl.value = formatNumber(0);
         const computedEl = row.querySelector('.bq-line-computed');
         if (computedEl) computedEl.value = computed.toFixed(2);
@@ -1165,7 +1175,6 @@
                        value="${itemLabel}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][item_id]" class="bq-line-item-id" value="${itemId}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_source]" class="bq-line-labor-source" value="${laborSource}">
-                <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_unit_cost_snapshot]" class="bq-line-labor-unit" value="${laborUnit}">
               </div>
             </div>
           </div>
@@ -1201,25 +1210,14 @@
         </td>
         <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][material_total]" class="form-control text-end js-line-material" value="${materialTotal}" required></td>
         <td>
-          <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" required>
+          <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_unit_cost_snapshot]" class="form-control text-end js-line-labor-unit bq-line-labor-unit" value="${laborUnit}">
         </td>
-        ${SHOW_LABOR_COST ? `
         <td>
-          <input type="text"
-                 name="sections[${sIndex}][lines][${lIndex}][labor_cost_amount]"
-                 class="form-control text-end js-line-labor-cost"
-                 value="${laborCostAmount}"
-                 readonly>
+          <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" required readonly>
+          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_cost_amount]" class="js-line-labor-cost" value="${laborCostAmount}">
           <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_cost_missing]" class="js-line-labor-cost-missing" value="${laborCostMissing ? 1 : 0}">
-          ${laborCostMissing ? '<span class="badge bg-yellow-lt text-dark mt-1">Cost Missing</span>' : ''}
+          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_margin_amount]" class="js-line-labor-margin" value="${laborMarginAmount}">
         </td>
-        <td>
-          <input type="text"
-                 name="sections[${sIndex}][lines][${lIndex}][labor_margin_amount]"
-                 class="form-control text-end js-line-labor-margin"
-                 value="${laborMarginAmount}"
-                 readonly>
-        </td>` : ''}
         <td class="text-end"><span class="js-line-total">0</span></td>
         <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line">Remove</button></td>
       </tr>
@@ -1258,8 +1256,8 @@
                 <th style="width:90px;">Unit</th>
                 <th style="width:120px;" class="text-end">Unit Price</th>
                 <th style="width:140px;" class="text-end">Material</th>
-                <th style="width:180px;" class="text-end">Labor</th>
-                ${SHOW_LABOR_COST ? '<th style="width:140px;" class="text-end">Labor Cost</th><th style="width:140px;" class="text-end">Margin</th>' : ''}
+                <th style="width:140px;" class="text-end">Labor Unit</th>
+                <th style="width:160px;" class="text-end">Labor</th>
                 <th style="width:140px;" class="text-end">Line Total</th>
                 <th style="width:1%"></th>
               </tr>
@@ -1472,22 +1470,14 @@
         if (lineType !== 'percent') {
           const price = parseNumber(row.querySelector('.js-line-unit-price')?.value);
           const materialEl = row.querySelector('.js-line-material');
-          const laborEl = row.querySelector('.js-line-labor');
           if (lineType === 'charge' && getCostBucket(row) === 'labor') {
             if (materialEl) materialEl.value = formatNumber(0);
-            if (laborEl) laborEl.value = formatNumber(parseNumber(target.value) * price);
           } else {
             if (materialEl) materialEl.value = formatNumber(parseNumber(target.value) * price);
           }
+          updateLaborTotalFromUnit(row);
         }
         updateLaborCostByQty(row);
-        const source = getLaborSource(row);
-        const unitSnapshot = parseNumber(row.querySelector('.bq-line-labor-unit')?.value);
-        if (source !== 'manual' && unitSnapshot > 0) {
-          const laborTotal = parseNumber(target.value) * unitSnapshot;
-          const laborEl = row.querySelector('.js-line-labor');
-          if (laborEl) laborEl.value = formatNumber(laborTotal);
-        }
       }
       recalcTotals();
       return;
@@ -1495,10 +1485,19 @@
 
     if (
       target.classList.contains('js-line-material') ||
-      target.classList.contains('js-line-labor') ||
+      target.classList.contains('js-line-labor-unit') ||
       target.classList.contains('js-line-percent') ||
       target.id === 'tax_percent'
     ) {
+      if (target.classList.contains('js-line-labor-unit')) {
+        const row = target.closest('.bq-line');
+        if (row) {
+          if (getLaborSource(row) !== 'manual') {
+            setLaborSource(row, 'manual');
+          }
+          updateLaborTotalFromUnit(row);
+        }
+      }
       recalcTotals();
     }
   });
@@ -1511,7 +1510,7 @@
   document.addEventListener('focusin', (e) => {
     const target = e.target;
     if (!(target instanceof HTMLInputElement)) return;
-    if (target.classList.contains('js-line-unit-price') || target.classList.contains('js-line-labor')) {
+    if (target.classList.contains('js-line-unit-price') || target.classList.contains('js-line-labor-unit')) {
       target.dataset.prevValue = target.value;
     }
   });
@@ -1521,7 +1520,7 @@
     if (!(target instanceof HTMLInputElement)) return;
     if (
       !target.classList.contains('js-line-unit-price') &&
-      !target.classList.contains('js-line-labor') &&
+      !target.classList.contains('js-line-labor-unit') &&
       !target.classList.contains('js-line-percent')
     ) return;
 
@@ -1538,23 +1537,25 @@
     if (row && target.classList.contains('js-line-unit-price')) {
       const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
       const materialEl = row.querySelector('.js-line-material');
+      const laborUnitEl = row.querySelector('.js-line-labor-unit');
       const laborEl = row.querySelector('.js-line-labor');
       if (getLineType(row) === 'charge' && getCostBucket(row) === 'labor') {
         if (materialEl) materialEl.value = formatNumber(0);
+        if (laborUnitEl) laborUnitEl.value = formatNumber(val);
         if (laborEl) laborEl.value = formatNumber(qty * val);
       } else {
         if (materialEl) materialEl.value = formatNumber(qty * val);
       }
     }
 
-    if (row && target.classList.contains('js-line-labor')) {
+    if (row && target.classList.contains('js-line-labor-unit')) {
       const prevVal = parseNumber(target.dataset.prevValue || 0);
       if (prevVal !== val) {
         const source = getLaborSource(row);
         if (source !== 'manual') {
           setLaborSource(row, 'manual');
         }
-        updateLaborSnapshot(row, val);
+        updateLaborTotalFromUnit(row);
       }
     }
     recalcTotals();
@@ -1625,6 +1626,7 @@
         const unitEl = row.querySelector('input[name$="[unit]"]');
         const unitPriceEl = row.querySelector('input[name$="[unit_price]"]');
         const materialEl = row.querySelector('.js-line-material');
+        const laborUnitEl = row.querySelector('.js-line-labor-unit');
         const laborEl = row.querySelector('.js-line-labor');
         const itemIdEl = row.querySelector('.bq-line-item-id');
 
@@ -1632,6 +1634,7 @@
         if (unitEl) unitEl.value = (data.unit_code || 'LS').toString().toLowerCase();
         const price = parseNumber(data.price);
         if (unitPriceEl) unitPriceEl.value = formatNumber(price);
+        if (laborUnitEl && !laborUnitEl.value) laborUnitEl.value = 0;
         if (laborEl && !laborEl.value) laborEl.value = 0;
         if (itemIdEl) itemIdEl.value = data.item_id || '';
 
