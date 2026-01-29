@@ -27,7 +27,11 @@
     .grid th, .grid td { border:1px solid #999; padding:6px; font-size:11px; }
     .section-row td { background:#f3f3f3; font-weight:700; }
     .terms th, .terms td { padding:4px; font-size:11px; }
-    .notes-box { font-size:11px; line-height:1.4; }
+    .notes-box { font-size:11px; line-height:1.5; white-space:pre-line; }
+    .sign-wrap { position:relative; height:90px; margin:8px 0 6px; text-align:center; }
+    .sign-layer { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); }
+    .sign-layer.signature { z-index:1; }
+    .sign-layer.stamp { z-index:2; }
     h2.block { font-size:13px; margin:0 0 6px; text-transform:uppercase; letter-spacing:.4px; }
   </style>
 </head>
@@ -209,7 +213,7 @@
   <tr>
     <td style="width:55%; vertical-align:top;">
       <h2 class="block">Notes</h2>
-      <div class="notes-box">{{ $quotation->notes ?: '-' }}</div>
+      <div class="notes-box">{!! nl2br(e($quotation->notes ?: '-')) !!}</div>
     </td>
     <td style="width:45%; vertical-align:top;">
       @if($quotation->paymentTerms->isNotEmpty())
@@ -236,12 +240,12 @@
 
       <div style="margin-top:16px;">Hormat Kami,</div>
       @if($isDirector)
-        <div style="margin-top:8px;">
-          @if($stampSrc)
-            <img src="{{ $stampSrc }}" alt="" style="height:60px; margin-right:6px;">
-          @endif
+        <div class="sign-wrap">
           @if($directorSignatureSrc)
-            <img src="{{ $directorSignatureSrc }}" alt="" style="height:60px;">
+            <img src="{{ $directorSignatureSrc }}" alt="" class="sign-layer signature" style="height:60px;">
+          @endif
+          @if($stampSrc)
+            <img src="{{ $stampSrc }}" alt="" class="sign-layer stamp" style="height:60px;">
           @endif
         </div>
       @endif
