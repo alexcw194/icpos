@@ -579,6 +579,10 @@
     return sourceSel?.value === 'project' ? 'project' : 'item';
   };
 
+  const getCostBucket = (row) => {
+    return row.querySelector('.bq-line-cost-bucket')?.value || 'material';
+  };
+
   const getLaborSource = (row) => {
     return row.querySelector('.bq-line-labor-source')?.value || 'manual';
   };
@@ -623,12 +627,18 @@
         const qty = data.default_qty != null ? Number(data.default_qty) : 1;
         const unit = data.default_unit || 'LS';
         const price = data.default_unit_price != null ? Number(data.default_unit_price) : 0;
+        const bucket = data.cost_bucket || 'material';
 
       if (qtyEl) qtyEl.value = String(qty);
       if (unitEl) unitEl.value = unit;
       if (unitPriceEl) unitPriceEl.value = formatNumber(price);
-      if (materialEl) materialEl.value = formatNumber(qty * price);
-      if (laborEl) laborEl.value = formatNumber(0);
+      if (bucket === 'labor') {
+        if (materialEl) materialEl.value = formatNumber(0);
+        if (laborEl) laborEl.value = formatNumber(qty * price);
+      } else {
+        if (materialEl) materialEl.value = formatNumber(qty * price);
+        if (laborEl) laborEl.value = formatNumber(0);
+      }
       if (percentEl) percentEl.value = formatPercent(0);
       if (basisEl) basisEl.value = 'product_subtotal';
     } else {
@@ -1449,7 +1459,13 @@
         if (lineType !== 'percent') {
           const price = parseNumber(row.querySelector('.js-line-unit-price')?.value);
           const materialEl = row.querySelector('.js-line-material');
-          if (materialEl) materialEl.value = formatNumber(parseNumber(target.value) * price);
+          const laborEl = row.querySelector('.js-line-labor');
+          if (lineType === 'charge' && getCostBucket(row) === 'labor') {
+            if (materialEl) materialEl.value = formatNumber(0);
+            if (laborEl) laborEl.value = formatNumber(parseNumber(target.value) * price);
+          } else {
+            if (materialEl) materialEl.value = formatNumber(parseNumber(target.value) * price);
+          }
         }
         updateLaborCostByQty(row);
         const source = getLaborSource(row);
@@ -1509,7 +1525,13 @@
     if (row && target.classList.contains('js-line-unit-price')) {
       const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
       const materialEl = row.querySelector('.js-line-material');
-      if (materialEl) materialEl.value = formatNumber(qty * val);
+      const laborEl = row.querySelector('.js-line-labor');
+      if (getLineType(row) === 'charge' && getCostBucket(row) === 'labor') {
+        if (materialEl) materialEl.value = formatNumber(0);
+        if (laborEl) laborEl.value = formatNumber(qty * val);
+      } else {
+        if (materialEl) materialEl.value = formatNumber(qty * val);
+      }
     }
 
     if (row && target.classList.contains('js-line-labor')) {
