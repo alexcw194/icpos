@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 
@@ -270,6 +271,12 @@ class ProjectQuotationController extends Controller
 
         $paymentTerms = $quotation->paymentTerms;
         $sections = $quotation->sections;
+
+        $sections->each(function ($section) {
+            $section->lines->each(function ($line) {
+                $line->cost_bucket = $this->normalizeCostBucketValue($line->cost_bucket ?? null);
+            });
+        });
 
         if ($paymentTerms->isEmpty()) {
             $paymentTerms = collect([
@@ -572,7 +579,15 @@ class ProjectQuotationController extends Controller
 
     private function validateQuotation(Request $request): array
     {
-        $data = $request->validate([
+        $input = $request->all();
+        foreach (($input['sections'] ?? []) as $sIndex => $section) {
+            foreach (($section['lines'] ?? []) as $lIndex => $line) {
+                $input['sections'][$sIndex]['lines'][$lIndex]['cost_bucket']
+                    = $this->normalizeCostBucketValue($line['cost_bucket'] ?? null);
+            }
+        }
+
+        $data = Validator::make($input, [
             'company_id' => ['required', 'exists:companies,id'],
             'customer_id' => ['required', 'exists:customers,id'],
             'sub_contractor_id' => $this->subContractorRule(),
@@ -622,7 +637,7 @@ class ProjectQuotationController extends Controller
             'sections.*.lines.*.labor_total' => ['required', 'numeric', 'min:0'],
             'sections.*.lines.*.labor_source' => ['nullable', 'in:master_item,master_project,manual'],
             'sections.*.lines.*.labor_unit_cost_snapshot' => ['nullable', 'numeric', 'min:0'],
-        ]);
+        ])->validate();
 
         $this->validatePaymentTermSchedules($data['payment_terms'] ?? []);
 
@@ -656,6 +671,11 @@ class ProjectQuotationController extends Controller
         }
 
         return $data;
+    }
+
+    private function normalizeCostBucketValue(?string $value): string
+    {
+        return $value === 'labor' ? 'labor' : 'material';
     }
 
     private function canManageLaborCost(?User $user = null): bool
