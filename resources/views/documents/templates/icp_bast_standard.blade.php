@@ -197,7 +197,7 @@
       gap: 10px 12px;
     }
     .customer-cell {
-      width: 31%;
+      width: 33.33%;
       min-height: 70px;
       text-align: center;
     }
