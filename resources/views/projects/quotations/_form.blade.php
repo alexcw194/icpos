@@ -952,6 +952,12 @@
       }
     });
 
+    const baseSubMat = subMat;
+    const baseSectionMaterialTotals = new Map();
+    sectionTotals.forEach((val, section) => {
+      baseSectionMaterialTotals.set(section, val.mat || 0);
+    });
+
     const productSubtotal = subMat + subLab;
 
     document.querySelectorAll('.bq-line').forEach((row) => {
@@ -979,11 +985,11 @@
             basis = productSubtotal;
           }
         } else if (basisType === 'material_subtotal') {
-          basis = subMat;
+          basis = baseSubMat;
         } else if (basisType === 'section_material_subtotal') {
-          basis = section ? ((sectionTotals.get(section) || {}).mat || 0) : 0;
-          if (basis <= 0 && subMat > 0) {
-            basis = subMat;
+          basis = section ? (baseSectionMaterialTotals.get(section) || 0) : 0;
+          if (basis <= 0 && baseSubMat > 0) {
+            basis = baseSubMat;
           }
         } else {
           basis = productSubtotal;
@@ -995,6 +1001,13 @@
         if (labEl) labEl.value = formatNumber(0);
         const computedEl = row.querySelector('.bq-line-computed');
         if (computedEl) computedEl.value = computed.toFixed(2);
+
+        subMat += computed;
+        if (section) {
+          const current = sectionTotals.get(section) || { mat: 0, lab: 0 };
+          current.mat += computed;
+          sectionTotals.set(section, current);
+        }
       } else if (lineType === 'charge') {
         total = mat + lab;
         chargeTotal += total;

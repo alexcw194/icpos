@@ -113,6 +113,9 @@ class ProjectQuotationTotalsService
             $sectionProductTotals[$sIndex] = $sectionProductTotal;
         }
 
+        $baseSubtotalMaterial = $subtotalMaterial;
+        $baseSectionMaterialTotals = $sectionMaterialTotals;
+
         foreach ($normalizedSections as $sIndex => &$section) {
             foreach ($section['lines'] as &$line) {
                 if (($line['line_type'] ?? 'product') !== 'percent') {
@@ -126,11 +129,11 @@ class ProjectQuotationTotalsService
                         $basis = $productSubtotal;
                     }
                 } elseif ($basisType === 'material_subtotal') {
-                    $basis = $subtotalMaterial;
+                    $basis = $baseSubtotalMaterial;
                 } elseif ($basisType === 'section_material_subtotal') {
-                    $basis = $sectionMaterialTotals[$sIndex] ?? 0.0;
-                    if ($basis <= 0 && $subtotalMaterial > 0) {
-                        $basis = $subtotalMaterial;
+                    $basis = $baseSectionMaterialTotals[$sIndex] ?? 0.0;
+                    if ($basis <= 0 && $baseSubtotalMaterial > 0) {
+                        $basis = $baseSubtotalMaterial;
                     }
                 } else {
                     $basis = $productSubtotal;
@@ -144,6 +147,7 @@ class ProjectQuotationTotalsService
                 $line['unit'] = 'LS';
                 $line['line_total'] = $computedAmount;
                 $percentTotal += $computedAmount;
+                $subtotalMaterial += $computedAmount;
             }
         }
         unset($section, $line);
