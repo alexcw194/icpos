@@ -63,6 +63,9 @@ class ProjectQuotationController extends Controller
         $subContractors = $this->loadSubContractors($canManageCost);
         $defaultSubContractorId = $this->defaultSubContractorId($canManageCost);
         $selectedSubContractorId = old('sub_contractor_id') ?: ($defaultSubContractorId ?: null);
+        if (!$selectedSubContractorId && $subContractors->isNotEmpty()) {
+            $selectedSubContractorId = (int) $subContractors->first()->id;
+        }
         $topOptions = TermOfPayment::query()
             ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
@@ -257,6 +260,9 @@ class ProjectQuotationController extends Controller
         $canManageCost = $this->canManageLaborCost();
         $subContractors = $this->loadSubContractors($canManageCost);
         $selectedSubContractorId = old('sub_contractor_id', $quotation->sub_contractor_id);
+        if (!$selectedSubContractorId && $subContractors->isNotEmpty()) {
+            $selectedSubContractorId = (int) $subContractors->first()->id;
+        }
         $topOptions = TermOfPayment::query()
             ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
@@ -690,6 +696,21 @@ class ProjectQuotationController extends Controller
         return $id > 0 ? $id : null;
     }
 
+    private function firstActiveSubContractorId(): ?int
+    {
+        if (!Schema::hasTable('sub_contractors')) {
+            return null;
+        }
+
+        $query = SubContractor::query();
+        if (Schema::hasColumn('sub_contractors', 'is_active')) {
+            $query->where('is_active', true);
+        }
+
+        $id = (int) $query->orderBy('name')->value('id');
+        return $id > 0 ? $id : null;
+    }
+
     private function normalizeSubContractorInput(array &$data, bool $canManageCost, ?ProjectQuotation $quotation): void
     {
         if (!$this->supportsSubContractor()) {
@@ -698,6 +719,16 @@ class ProjectQuotationController extends Controller
         }
 
         if ($canManageCost) {
+            $subId = (int) ($data['sub_contractor_id'] ?? 0);
+            if ($subId > 0) {
+                return;
+            }
+
+            $fallback = $this->defaultSubContractorId(true);
+            if (!$fallback) {
+                $fallback = $this->firstActiveSubContractorId();
+            }
+            $data['sub_contractor_id'] = $fallback ?: null;
             return;
         }
 
