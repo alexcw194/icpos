@@ -382,12 +382,6 @@
                     </div>
                   </td>
                 </tr>
-              <tr>
-                <td class="sign-name-icp">{{ $icpSignerName }}</td>
-              </tr>
-              <tr>
-                <td class="sign-title-icp">{{ $icpSignerTitle }}</td>
-              </tr>
               </table>
             </div>
             <div class="signer-col-4">
