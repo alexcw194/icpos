@@ -27,9 +27,11 @@
     .grid th, .grid td { border:1px solid #999; padding:6px; font-size:11px; }
     .section-row td { background:#f3f3f3; font-weight:700; }
     .terms th, .terms td { padding:4px; font-size:11px; }
-    .notes-box { font-size:11px; line-height:1.5; white-space:pre-line; }
-    .sign-wrap { position:relative; height:90px; margin:8px 0 6px; text-align:center; }
-    .sign-layer { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); }
+    .notes-box { font-size:11px; line-height:1.35; white-space:pre-line; }
+    .notes-box ol { margin:0; padding-left:16px; }
+    .notes-box li { margin:0 0 2px; }
+    .sign-wrap { position:relative; height:90px; margin:8px 0 6px; text-align:left; }
+    .sign-layer { position:absolute; left:0; top:50%; transform:translateY(-50%); }
     .sign-layer.signature { z-index:1; }
     .sign-layer.stamp { z-index:2; }
     h2.block { font-size:13px; margin:0 0 6px; text-transform:uppercase; letter-spacing:.4px; }
@@ -213,7 +215,27 @@
   <tr>
     <td style="width:55%; vertical-align:top;">
       <h2 class="block">Notes</h2>
-      <div class="notes-box">{!! nl2br(e($quotation->notes ?: '-')) !!}</div>
+      @if($quotation->notes)
+        @php
+          $noteText = trim((string) $quotation->notes);
+          $noteLines = preg_split("/\\r\\n|\\r|\\n/", $noteText);
+          $isList = count($noteLines) > 0 && collect($noteLines)->every(function ($line) {
+            return preg_match('/^\\s*\\d+[\\).]/', $line) === 1;
+          });
+        @endphp
+        @if($isList)
+          <ol class="notes-box">
+            @foreach($noteLines as $line)
+              @php $clean = preg_replace('/^\\s*\\d+[\\).]\\s*/', '', $line); @endphp
+              <li>{{ $clean }}</li>
+            @endforeach
+          </ol>
+        @else
+          <div class="notes-box">{!! nl2br(e($quotation->notes)) !!}</div>
+        @endif
+      @else
+        <div class="notes-box">-</div>
+      @endif
     </td>
     <td style="width:45%; vertical-align:top;">
       @if($quotation->paymentTerms->isNotEmpty())
