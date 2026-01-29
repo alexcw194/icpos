@@ -799,6 +799,7 @@
       if (materialEl) setReadOnly(materialEl, false);
       if (qtyEl) setReadOnly(qtyEl, false);
       if (unitEl) setReadOnly(unitEl, false);
+      maybeLoadLaborFromMaster(row);
     }
 
   };
@@ -845,6 +846,25 @@
     updateLaborSnapshot(row, laborTotal);
     setLaborSource(row, sourceType === 'project' ? 'master_project' : 'master_item');
     recalcTotals();
+  };
+
+  const maybeLoadLaborFromMaster = (row) => {
+    if (!row) return;
+    if (getLineType(row) !== 'product') return;
+
+    const itemId = row.querySelector('.bq-line-item-id')?.value;
+    if (!itemId) return;
+
+    const laborEl = row.querySelector('.js-line-labor');
+    const laborSource = getLaborSource(row);
+    const currentLabor = parseNumber(laborEl?.value);
+
+    if (laborSource === 'manual' && currentLabor > 0) {
+      return;
+    }
+
+    const sourceType = getSourceType(row);
+    fetchLaborRate(sourceType, itemId).then((rateData) => applyLaborRate(row, sourceType, rateData));
   };
 
   const renumberLines = (section) => {
@@ -1567,6 +1587,7 @@
     searchInput.disabled = false;
     searchInput.placeholder = sourceType === 'item' ? 'Cari item...' : 'Cari project item...';
     initItemPicker(searchInput, sourceType);
+    maybeLoadLaborFromMaster(row);
   };
 
   const initItemPickers = (scope) => {
