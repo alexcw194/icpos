@@ -162,11 +162,6 @@
 
         <div class="row g-3">
           <div class="col-md-4">
-            <label class="form-label">Nomor BA</label>
-            <input type="text" name="template_payload[nomor_ba]" class="form-control"
-                   value="{{ $payload['nomor_ba'] ?? '' }}" placeholder="Auto" readonly>
-          </div>
-          <div class="col-md-4">
             <label class="form-label">Tanggal BA</label>
             <input type="date" name="template_payload[tanggal_ba]" class="form-control"
                    value="{{ $payload['tanggal_ba'] ?? now()->toDateString() }}">

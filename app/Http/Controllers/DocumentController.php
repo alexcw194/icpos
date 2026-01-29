@@ -450,9 +450,6 @@ class DocumentController extends Controller
                     $payload['nama_customer'] = $customer->name;
                 }
             }
-            if (empty($payload['nomor_ba'])) {
-                $payload['nomor_ba'] = $this->nextBastNumber($payload['tanggal_ba'] ?? null);
-            }
             $input['template_payload'] = $payload;
         }
 
@@ -485,7 +482,6 @@ class DocumentController extends Controller
         if ($template && $template->code === 'ICP_BAST_STANDARD') {
             $rules = array_merge($rules, [
                 'template_payload' => ['required', 'array'],
-                'template_payload.nomor_ba' => ['required', 'string', 'max:64'],
                 'template_payload.tanggal_ba' => ['required', 'date'],
                 'template_payload.kota' => ['required', 'string', 'max:80'],
                 'template_payload.nama_customer' => ['required', 'string', 'max:190'],
@@ -834,87 +830,6 @@ class DocumentController extends Controller
             $clean[] = ['name' => $name, 'title' => $title];
         }
         return $clean;
-    }
-
-    private function nextBastNumber($date = null): string
-    {
-        $docDate = $date ? \Illuminate\Support\Carbon::parse($date) : now();
-        $year = (int) $docDate->format('Y');
-        $month = (int) $docDate->format('n');
-        $roman = $this->romanMonth($month);
-
-        $companyId = \App\Models\Company::where('is_default', true)->value('id')
-            ?: \App\Models\Company::query()->value('id');
-
-        $seq = DB::transaction(function () use ($year, $companyId) {
-            if ($companyId) {
-                DB::table('document_counters')->insertOrIgnore([
-                    'company_id' => $companyId,
-                    'doc_type' => 'bast',
-                    'year' => $year,
-                    'last_seq' => 0,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                $row = DB::table('document_counters')
-                    ->where([
-                        'company_id' => $companyId,
-                        'doc_type' => 'bast',
-                        'year' => $year,
-                    ])
-                    ->lockForUpdate()
-                    ->first();
-            } else {
-                DB::table('document_sequences')->insertOrIgnore([
-                    'year' => $year,
-                    'last_seq' => 0,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                $row = DB::table('document_sequences')
-                    ->where('year', $year)
-                    ->lockForUpdate()
-                    ->first();
-            }
-
-            $last = (int) ($row->last_seq ?? 0);
-            $next = $last + 1;
-
-            if ($companyId) {
-                DB::table('document_counters')
-                    ->where([
-                        'company_id' => $companyId,
-                        'doc_type' => 'bast',
-                        'year' => $year,
-                    ])
-                    ->update([
-                        'last_seq' => $next,
-                        'updated_at' => now(),
-                    ]);
-            } else {
-                DB::table('document_sequences')
-                    ->where('year', $year)
-                    ->update([
-                        'last_seq' => $next,
-                        'updated_at' => now(),
-                    ]);
-            }
-
-            return $next;
-        });
-
-        return sprintf('BA/ICP/%s/%d/%d', $roman, $year, $seq);
-    }
-
-    private function romanMonth(int $month): string
-    {
-        $map = [
-            1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI',
-            7 => 'VII', 8 => 'VIII', 9 => 'IX', 10 => 'X', 11 => 'XI', 12 => 'XII',
-        ];
-        return $map[$month] ?? 'I';
     }
 
     private function letterheadPath(): ?string

@@ -41,7 +41,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{{ $payload['nomor_ba'] ?? ($document->number ?: 'BAST') }}</title>
+  <title>{{ $document->number ?: 'BAST' }}</title>
   <style>
     @page { margin: 0; }
     body {
@@ -266,7 +266,7 @@
       <table class="meta">
         <tr>
           <td class="label">Nomor</td>
-          <td>: {{ $payload['nomor_ba'] ?? '-' }}</td>
+          <td>: {{ $document->number ?? '' }}</td>
           <td class="label">Tanggal</td>
           <td>: {{ $dateBaText }}</td>
         </tr>
