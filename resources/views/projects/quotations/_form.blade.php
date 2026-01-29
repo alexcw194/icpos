@@ -72,6 +72,17 @@
     : null;
 @endphp
 
+@if ($errors->any())
+  <div class="alert alert-danger">
+    <div class="fw-semibold mb-1">Form belum bisa disimpan:</div>
+    <ul class="mb-0">
+      @foreach ($errors->all() as $error)
+        <li>{{ $error }}</li>
+      @endforeach
+    </ul>
+  </div>
+@endif
+
 <div class="card mb-3">
   <div class="card-header">
     <h3 class="card-title">BQ Header</h3>
@@ -370,7 +381,7 @@
                       <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][computed_amount]" class="bq-line-computed" value="{{ $line['computed_amount'] ?? 0 }}">
                     </div>
                   </td>
-                  <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][material_total]" class="form-control text-end js-line-material" value="{{ $line['material_total'] ?? 0 }}" required></td>
+                  <td><input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][material_total]" class="form-control text-end js-line-material" value="{{ $line['material_total'] ?? 0 }}"></td>
                   <td>
                     <input type="text"
                            name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_unit_cost_snapshot]"
@@ -378,7 +389,7 @@
                            value="{{ $line['labor_unit_cost_snapshot'] ?? 0 }}">
                   </td>
                   <td>
-                    <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" required readonly>
+                    <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" readonly>
                     <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_cost_amount]" class="js-line-labor-cost" value="{{ $line['labor_cost_amount'] ?? '' }}">
                     <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_cost_missing]" class="js-line-labor-cost-missing" value="{{ $laborCostMissing ? 1 : 0 }}">
                     <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_margin_amount]" class="js-line-labor-margin" value="{{ $line['labor_margin_amount'] ?? '' }}">
@@ -1232,12 +1243,12 @@
             <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][computed_amount]" class="bq-line-computed" value="${computedAmount}">
           </div>
         </td>
-        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][material_total]" class="form-control text-end js-line-material" value="${materialTotal}" required></td>
+        <td><input type="text" name="sections[${sIndex}][lines][${lIndex}][material_total]" class="form-control text-end js-line-material" value="${materialTotal}"></td>
         <td>
           <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_unit_cost_snapshot]" class="form-control text-end js-line-labor-unit bq-line-labor-unit" value="${laborUnit}">
         </td>
         <td>
-          <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" required readonly>
+          <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" readonly>
           <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_cost_amount]" class="js-line-labor-cost" value="${laborCostAmount}">
           <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_cost_missing]" class="js-line-labor-cost-missing" value="${laborCostMissing ? 1 : 0}">
           <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_margin_amount]" class="js-line-labor-margin" value="${laborMarginAmount}">
