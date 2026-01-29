@@ -2,7 +2,6 @@
 @php
   $payload = $document->payload_json ?? [];
   $workPoints = $payload['work_points'] ?? [];
-  $icpSigners = $payload['icp_signers'] ?? [];
   $customerSigners = $payload['customer_signers'] ?? [];
 
   $dateBa = $payload['tanggal_ba'] ?? $document->created_at?->toDateString();
@@ -12,8 +11,15 @@
   $dateProgress = $payload['tanggal_progress'] ?? null;
   $dateProgressText = $dateProgress ? \Illuminate\Support\Carbon::parse($dateProgress)->format('d M Y') : '';
 
-  $icpCount = count($icpSigners);
   $customerCount = count($customerSigners);
+
+  $salesUser = $document->salesSigner;
+  $icpSignerName = $document->sales_signer_user_id
+      ? ($salesUser?->name ?? ($document->creator?->name ?? ''))
+      : 'Christian Widargo';
+  $icpSignerTitle = $document->sales_signer_user_id
+      ? ($document->sales_signature_position ?? '')
+      : 'Direktur Utama';
 @endphp
 <!doctype html>
 <html lang="en">
@@ -211,7 +217,7 @@
         Demikian Berita Acara ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestinya.
       </div>
 
-      @if($icpCount === 1 && $customerCount === 1)
+      @if($customerCount <= 1)
         <table class="sign-table">
           <tr>
             <th>PIHAK ICP</th>
@@ -222,11 +228,11 @@
             <td class="sign-space"></td>
           </tr>
           <tr>
-            <td class="sign-name">{{ $icpSigners[0]['name'] ?? '' }}</td>
+            <td class="sign-name">{{ $icpSignerName }}</td>
             <td class="sign-name">{{ $customerSigners[0]['name'] ?? '' }}</td>
           </tr>
           <tr>
-            <td class="sign-title">{{ $icpSigners[0]['title'] ?? '' }}</td>
+            <td class="sign-title">{{ $icpSignerTitle }}</td>
             <td class="sign-title">{{ $customerSigners[0]['title'] ?? '' }}</td>
           </tr>
         </table>
@@ -235,14 +241,12 @@
           <div class="signer-col">
             <div class="signer-title">PIHAK ICP</div>
             <table class="signer-list">
-              @foreach($icpSigners as $signer)
-                <tr>
-                  <td>{{ $signer['name'] ?? '' }}</td>
-                </tr>
-                <tr>
-                  <td class="text-muted">{{ $signer['title'] ?? '' }}</td>
-                </tr>
-              @endforeach
+              <tr>
+                <td>{{ $icpSignerName }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">{{ $icpSignerTitle }}</td>
+              </tr>
             </table>
           </div>
           <div class="signer-col">

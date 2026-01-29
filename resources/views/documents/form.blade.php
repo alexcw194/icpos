@@ -114,7 +114,7 @@
       @endphp
 
       <div class="row g-3 mt-3">
-        <div class="col-12 col-md-8 col-lg-6">
+        <div class="col-12 col-md-6">
           <label class="form-label">Signature</label>
           <select name="sales_signer_user_id" id="sales_signer_user_id" class="form-select" required>
             <option value="">Pilih Signature</option>
@@ -130,6 +130,19 @@
           <div class="text-muted small">Pilih Direktur Utama atau user signer.</div>
           @error('sales_signer_user_id')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
+        <div class="col-12 col-md-6" id="sales-position-wrap" style="{{ ($selectedSigner && $selectedSigner !== 'director') ? '' : 'display:none' }}">
+          <label class="form-label">Signature Position</label>
+          @php
+            $salesPosValue = old('sales_signature_position', $document->sales_signature_position);
+            if ($salesPosValue === null && auth()->user()->hasRole('Sales')) {
+                $salesPosValue = $signature?->default_position;
+            }
+          @endphp
+          <input type="text" name="sales_signature_position" id="sales_signature_position" class="form-control"
+                 value="{{ $salesPosValue ?? '' }}">
+          <div class="text-muted small">Contoh: Sales Executive</div>
+          @error('sales_signature_position')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
       </div>
 
       @php
@@ -137,10 +150,6 @@
         $workPoints = $payload['work_points'] ?? [''];
         if (!is_array($workPoints) || count($workPoints) === 0) {
           $workPoints = [''];
-        }
-        $icpSigners = $payload['icp_signers'] ?? [['name' => '', 'title' => '']];
-        if (!is_array($icpSigners) || count($icpSigners) === 0) {
-          $icpSigners = [['name' => '', 'title' => '']];
         }
         $customerSigners = $payload['customer_signers'] ?? [['name' => '', 'title' => '']];
         if (!is_array($customerSigners) || count($customerSigners) === 0) {
@@ -235,25 +244,6 @@
 
         <div class="row g-3 mt-3">
           <div class="col-md-6">
-            <label class="form-label">ICP Signers</label>
-            <div id="bast-icp-signers">
-              @foreach($icpSigners as $idx => $row)
-                <div class="row g-2 align-items-end mb-2 bast-signer-row">
-                  <div class="col-6">
-                    <input type="text" name="template_payload[icp_signers][{{ $idx }}][name]" class="form-control" placeholder="Nama" value="{{ $row['name'] ?? '' }}">
-                  </div>
-                  <div class="col-5">
-                    <input type="text" name="template_payload[icp_signers][{{ $idx }}][title]" class="form-control" placeholder="Jabatan" value="{{ $row['title'] ?? '' }}">
-                  </div>
-                  <div class="col-1">
-                    <button type="button" class="btn btn-outline-danger btn-remove-signer">x</button>
-                  </div>
-                </div>
-              @endforeach
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-icp-signer">+ Add ICP Signer</button>
-          </div>
-          <div class="col-md-6">
             <label class="form-label">Customer Signers</label>
             <div id="bast-customer-signers">
               @foreach($customerSigners as $idx => $row)
@@ -285,21 +275,6 @@
         @error('body')<div class="text-danger small">{{ $message }}</div>@enderror
       </div>
 
-      <div class="row g-3 mt-3" id="sales-position-wrap" style="{{ ($selectedSigner && $selectedSigner !== 'director') ? '' : 'display:none' }}">
-        <div class="col-md-6">
-          <label class="form-label">Signature Position</label>
-          @php
-            $salesPosValue = old('sales_signature_position', $document->sales_signature_position);
-            if ($salesPosValue === null && auth()->user()->hasRole('Sales')) {
-                $salesPosValue = $signature?->default_position;
-            }
-          @endphp
-          <input type="text" name="sales_signature_position" id="sales_signature_position" class="form-control"
-                 value="{{ $salesPosValue ?? '' }}">
-          <div class="text-muted small">Contoh: Sales Executive</div>
-          @error('sales_signature_position')<div class="text-danger small">{{ $message }}</div>@enderror
-        </div>
-      </div>
     </div>
 
     <div class="card-footer text-end">
@@ -373,8 +348,6 @@
     const bodySection = document.getElementById('doc-body-section');
     const workPointsWrap = document.getElementById('bast-work-points');
     const addPointBtn = document.getElementById('btn-add-point');
-    const icpSignersWrap = document.getElementById('bast-icp-signers');
-    const addIcpSignerBtn = document.getElementById('btn-add-icp-signer');
     const customerSignersWrap = document.getElementById('bast-customer-signers');
     const addCustomerSignerBtn = document.getElementById('btn-add-customer-signer');
 
@@ -509,9 +482,7 @@
       btn.closest('.bast-signer-row')?.remove();
     };
 
-    addIcpSignerBtn?.addEventListener('click', () => addSignerRow(icpSignersWrap, 'icp_signers'));
     addCustomerSignerBtn?.addEventListener('click', () => addSignerRow(customerSignersWrap, 'customer_signers'));
-    icpSignersWrap?.addEventListener('click', (e) => handleSignerRemove(icpSignersWrap, e));
     customerSignersWrap?.addEventListener('click', (e) => handleSignerRemove(customerSignersWrap, e));
   });
 </script>

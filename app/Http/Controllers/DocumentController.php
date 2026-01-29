@@ -498,9 +498,6 @@ class DocumentController extends Controller
                 'template_payload.tanggal_progress' => ['required', 'date'],
                 'template_payload.work_points' => ['required', 'array', 'min:1'],
                 'template_payload.work_points.*' => ['required', 'string', 'max:500'],
-                'template_payload.icp_signers' => ['required', 'array', 'min:1'],
-                'template_payload.icp_signers.*.name' => ['required', 'string', 'max:190'],
-                'template_payload.icp_signers.*.title' => ['required', 'string', 'max:190'],
                 'template_payload.customer_signers' => ['required', 'array', 'min:1'],
                 'template_payload.customer_signers.*.name' => ['required', 'string', 'max:190'],
                 'template_payload.customer_signers.*.title' => ['required', 'string', 'max:190'],
@@ -801,7 +798,7 @@ class DocumentController extends Controller
             fn($v) => $v !== ''
         ));
 
-        $payload['icp_signers'] = $this->filterSigners($payload['icp_signers'] ?? []);
+        unset($payload['icp_signers']);
         $payload['customer_signers'] = $this->filterSigners($payload['customer_signers'] ?? []);
 
         return $payload;
