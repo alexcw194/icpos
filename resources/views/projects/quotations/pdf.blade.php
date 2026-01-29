@@ -28,8 +28,8 @@
     .section-row td { background:#f3f3f3; font-weight:700; }
     .terms th, .terms td { padding:4px; font-size:11px; }
     .notes-box { font-size:11px; line-height:1.2; white-space:pre-line; }
-    .notes-box ol { margin:0; padding:0 0 0 16px; }
-    .notes-box li { margin:0; padding:0; }
+    .notes-box ol { margin:-3px 0 0; padding:0 0 0 16px; white-space:normal; }
+    .notes-box li { margin:0; padding:0; line-height:1.2; }
     .sign-wrap { position:relative; height:90px; margin:8px 0 6px; text-align:left; }
     .sign-layer { position:absolute; left:0; top:50%; transform:translateY(-50%); }
     .sign-layer.stamp { left:24px; }
