@@ -1,0 +1,266 @@
+{{-- resources/views/documents/templates/icp_bast_standard.blade.php --}}
+@php
+  $payload = $document->payload_json ?? [];
+  $workPoints = $payload['work_points'] ?? [];
+  $icpSigners = $payload['icp_signers'] ?? [];
+  $customerSigners = $payload['customer_signers'] ?? [];
+
+  $dateBa = $payload['tanggal_ba'] ?? $document->created_at?->toDateString();
+  $dateBaText = $dateBa ? \Illuminate\Support\Carbon::parse($dateBa)->format('d M Y') : '';
+  $dateStart = $payload['tanggal_mulai'] ?? null;
+  $dateStartText = $dateStart ? \Illuminate\Support\Carbon::parse($dateStart)->format('d M Y') : '';
+  $dateProgress = $payload['tanggal_progress'] ?? null;
+  $dateProgressText = $dateProgress ? \Illuminate\Support\Carbon::parse($dateProgress)->format('d M Y') : '';
+
+  $icpCount = count($icpSigners);
+  $customerCount = count($customerSigners);
+@endphp
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ $payload['nomor_ba'] ?? ($document->number ?: 'BAST') }}</title>
+  <style>
+    @page { margin: 0; }
+    body {
+      margin: 0;
+      font-family: DejaVu Sans, Arial, sans-serif;
+      color: #1f2937;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .page {
+      position: relative;
+      padding: 110px 60px 70px 70px;
+      min-height: 100vh;
+    }
+    .letterhead {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: auto;
+      z-index: 0;
+    }
+    .content {
+      position: relative;
+      z-index: 1;
+    }
+    .title {
+      text-align: center;
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    .meta {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 14px;
+    }
+    .meta td {
+      padding: 2px 0;
+      vertical-align: top;
+    }
+    .meta td.label {
+      width: 120px;
+    }
+    .section-title {
+      font-weight: 700;
+      margin: 12px 0 6px;
+      text-transform: uppercase;
+      font-size: 11.5px;
+    }
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .info-table td {
+      padding: 2px 0;
+      vertical-align: top;
+    }
+    .info-table td.label {
+      width: 150px;
+    }
+    .work-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+    .work-list li {
+      margin: 0 0 4px;
+    }
+    .closing {
+      margin-top: 14px;
+    }
+    .sign-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 18px;
+    }
+    .sign-table th {
+      text-align: center;
+      font-weight: 700;
+      padding-bottom: 6px;
+    }
+    .sign-space {
+      height: 80px;
+    }
+    .sign-name {
+      font-weight: 700;
+      text-align: center;
+    }
+    .sign-title {
+      text-align: center;
+    }
+    .signers-grid {
+      display: table;
+      width: 100%;
+      margin-top: 14px;
+    }
+    .signer-col {
+      display: table-cell;
+      width: 50%;
+      vertical-align: top;
+      padding-right: 18px;
+    }
+    .signer-col:last-child {
+      padding-right: 0;
+      padding-left: 18px;
+    }
+    .signer-list {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .signer-list td {
+      padding: 2px 0;
+    }
+    .text-muted {
+      color: #6b7280;
+      font-size: 11px;
+    }
+    .signer-title {
+      font-weight: 700;
+      margin-bottom: 6px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  @if($letterheadPath)
+    <img src="{{ $letterheadPath }}" class="letterhead" alt="Letterhead">
+  @endif
+
+  <div class="page">
+    <div class="content">
+      <div class="title">BERITA ACARA SERAH TERIMA PEKERJAAN</div>
+
+      <table class="meta">
+        <tr>
+          <td class="label">Nomor</td>
+          <td>: {{ $payload['nomor_ba'] ?? '-' }}</td>
+          <td class="label">Tanggal</td>
+          <td>: {{ $dateBaText }}</td>
+        </tr>
+        <tr>
+          <td class="label">Tempat</td>
+          <td>: {{ $payload['kota'] ?? 'Surabaya' }}</td>
+          <td></td>
+          <td></td>
+        </tr>
+      </table>
+
+      <div class="section-title">Identitas Pekerjaan</div>
+      <table class="info-table">
+        <tr>
+          <td class="label">Nama Customer</td>
+          <td>: {{ $payload['nama_customer'] ?? data_get($document->customer_snapshot, 'name') }}</td>
+        </tr>
+        <tr>
+          <td class="label">Lokasi Pekerjaan</td>
+          <td>: {{ $payload['lokasi_pekerjaan'] ?? '-' }}</td>
+        </tr>
+        <tr>
+          <td class="label">Nama Pekerjaan</td>
+          <td>: {{ $payload['nama_pekerjaan'] ?? '-' }}</td>
+        </tr>
+        <tr>
+          <td class="label">Referensi Kontrak</td>
+          <td>: {{ $payload['jenis_kontrak'] ?? '-' }} {{ $payload['nomor_kontrak'] ?? '' }}</td>
+        </tr>
+        <tr>
+          <td class="label">Tanggal Mulai</td>
+          <td>: {{ $dateStartText }}</td>
+        </tr>
+        <tr>
+          <td class="label">Status Pekerjaan</td>
+          <td>: {{ $payload['status_pekerjaan'] ?? '-' }}</td>
+        </tr>
+        <tr>
+          <td class="label">Tanggal Progress</td>
+          <td>: {{ $dateProgressText }}</td>
+        </tr>
+      </table>
+
+      <div class="section-title">Ruang Lingkup & Catatan</div>
+      <ul class="work-list">
+        @foreach($workPoints as $point)
+          <li>{{ $point }}</li>
+        @endforeach
+      </ul>
+
+      <div class="closing">
+        Demikian Berita Acara ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestinya.
+      </div>
+
+      @if($icpCount === 1 && $customerCount === 1)
+        <table class="sign-table">
+          <tr>
+            <th>PIHAK ICP</th>
+            <th>PIHAK CUSTOMER</th>
+          </tr>
+          <tr>
+            <td class="sign-space"></td>
+            <td class="sign-space"></td>
+          </tr>
+          <tr>
+            <td class="sign-name">{{ $icpSigners[0]['name'] ?? '' }}</td>
+            <td class="sign-name">{{ $customerSigners[0]['name'] ?? '' }}</td>
+          </tr>
+          <tr>
+            <td class="sign-title">{{ $icpSigners[0]['title'] ?? '' }}</td>
+            <td class="sign-title">{{ $customerSigners[0]['title'] ?? '' }}</td>
+          </tr>
+        </table>
+      @else
+        <div class="signers-grid">
+          <div class="signer-col">
+            <div class="signer-title">PIHAK ICP</div>
+            <table class="signer-list">
+              @foreach($icpSigners as $signer)
+                <tr>
+                  <td>{{ $signer['name'] ?? '' }}</td>
+                </tr>
+                <tr>
+                  <td class="text-muted">{{ $signer['title'] ?? '' }}</td>
+                </tr>
+              @endforeach
+            </table>
+          </div>
+          <div class="signer-col">
+            <div class="signer-title">PIHAK CUSTOMER</div>
+            <table class="signer-list">
+              @foreach($customerSigners as $signer)
+                <tr>
+                  <td>{{ $signer['name'] ?? '' }}</td>
+                </tr>
+                <tr>
+                  <td class="text-muted">{{ $signer['title'] ?? '' }}</td>
+                </tr>
+              @endforeach
+            </table>
+          </div>
+        </div>
+      @endif
+    </div>
+  </div>
+</body>
+</html>

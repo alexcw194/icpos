@@ -17,8 +17,10 @@ class Document extends Model
         'number',
         'year',
         'sequence',
+        'document_template_id',
         'title',
         'body_html',
+        'payload_json',
         'customer_id',
         'contact_id',
         'customer_snapshot',
@@ -43,6 +45,7 @@ class Document extends Model
         'customer_snapshot' => 'array',
         'contact_snapshot' => 'array',
         'signatures' => 'array',
+        'payload_json' => 'array',
         'submitted_at' => 'datetime',
         'admin_approved_at' => 'datetime',
         'approved_at' => 'datetime',
@@ -54,6 +57,11 @@ class Document extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(DocumentTemplate::class, 'document_template_id');
     }
 
     public function contact(): BelongsTo

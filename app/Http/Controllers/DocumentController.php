@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Contact;
 use App\Models\Customer;
 use App\Models\Document;
+use App\Models\DocumentTemplate;
 use App\Models\Signature;
 use App\Models\User;
 use App\Services\DocumentNumberService;
@@ -13,6 +14,7 @@ use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class DocumentController extends Controller
@@ -102,6 +104,10 @@ class DocumentController extends Controller
 
         $salesUsers = $this->salesSignerOptions();
         $owners = $this->ownerOptions();
+        $templates = DocumentTemplate::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
 
         return view('documents.form', [
             'document' => $document,
@@ -110,6 +116,8 @@ class DocumentController extends Controller
             'salesUsers' => $salesUsers,
             'draftToken' => $draftToken,
             'owners' => $owners,
+            'templates' => $templates,
+            'templatePayload' => [],
             'mode' => 'create',
         ]);
     }
@@ -144,9 +152,14 @@ class DocumentController extends Controller
             ? ($positionInput ?? $this->toUpper($salesSignature?->default_position))
             : null;
 
+        $templateId = $data['document_template_id'] ?? null;
+        $payload = $templateId ? $this->normalizeTemplatePayload($data['template_payload'] ?? [], $customer) : null;
+
         $document = Document::create([
             'title' => $titleUpper ?? $data['title'],
-            'body_html' => '',
+            'body_html' => $templateId ? '' : '',
+            'document_template_id' => $templateId,
+            'payload_json' => $payload,
             'customer_id' => $customer->id,
             'contact_id' => $contact?->id,
             'customer_snapshot' => $this->customerSnapshot($customer),
@@ -158,9 +171,11 @@ class DocumentController extends Controller
         ]);
 
         $draftToken = $request->input('draft_token');
-        $bodyHtml = $this->sanitizeHtml($this->resolveBodyHtml($data), $document->id, $draftToken);
-        $bodyHtml = $this->migrateDraftImages($bodyHtml, $draftToken, $document->id);
-        $document->update(['body_html' => $bodyHtml]);
+        if (!$templateId) {
+            $bodyHtml = $this->sanitizeHtml($this->resolveBodyHtml($data), $document->id, $draftToken);
+            $bodyHtml = $this->migrateDraftImages($bodyHtml, $draftToken, $document->id);
+            $document->update(['body_html' => $bodyHtml]);
+        }
 
         if ($draftToken) {
             $request->session()->forget('doc_draft_token');
@@ -186,7 +201,7 @@ class DocumentController extends Controller
         abort_unless($document->isEditable(), 403, 'Dokumen terkunci.');
 
         $user = auth()->user();
-        $document->load('contact');
+        $document->load('contact', 'template');
         $customers = Customer::query()
             ->visibleTo($user)
             ->ordered()
@@ -198,6 +213,11 @@ class DocumentController extends Controller
 
         $salesUsers = $this->salesSignerOptions();
         $owners = $this->ownerOptions();
+        $templates = DocumentTemplate::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
+        $templatePayload = $document->payload_json ?? [];
 
         return view('documents.form', [
             'document' => $document,
@@ -206,6 +226,8 @@ class DocumentController extends Controller
             'salesUsers' => $salesUsers,
             'draftToken' => null,
             'owners' => $owners,
+            'templates' => $templates,
+            'templatePayload' => $templatePayload,
             'mode' => 'edit',
         ]);
     }
@@ -241,9 +263,14 @@ class DocumentController extends Controller
             ? ($positionInput ?? $this->toUpper($salesSignature?->default_position))
             : null;
 
+        $templateId = $data['document_template_id'] ?? null;
+        $payload = $templateId ? $this->normalizeTemplatePayload($data['template_payload'] ?? [], $customer) : null;
+
         $document->update([
             'title' => $titleUpper ?? $data['title'],
-            'body_html' => $this->sanitizeHtml($this->resolveBodyHtml($data), $document->id),
+            'body_html' => $templateId ? '' : $this->sanitizeHtml($this->resolveBodyHtml($data), $document->id),
+            'document_template_id' => $templateId,
+            'payload_json' => $payload,
             'customer_id' => $customer->id,
             'contact_id' => $contact?->id,
             'customer_snapshot' => $this->customerSnapshot($customer),
@@ -406,9 +433,33 @@ class DocumentController extends Controller
 
     private function validateDocument(Request $request): array
     {
-        return $request->validate([
+        $input = $request->all();
+        $template = null;
+        if (!empty($input['document_template_id'])) {
+            $template = DocumentTemplate::query()
+                ->whereKey($input['document_template_id'])
+                ->first();
+        }
+
+        if ($template && $template->code === 'ICP_BAST_STANDARD') {
+            $payload = $input['template_payload'] ?? [];
+            $payload['kota'] = $payload['kota'] ?? 'Surabaya';
+            if (empty($payload['nama_customer']) && !empty($input['customer_id'])) {
+                $customer = Customer::query()->find($input['customer_id']);
+                if ($customer) {
+                    $payload['nama_customer'] = $customer->name;
+                }
+            }
+            if (empty($payload['nomor_ba'])) {
+                $payload['nomor_ba'] = $this->nextBastNumber($payload['tanggal_ba'] ?? null);
+            }
+            $input['template_payload'] = $payload;
+        }
+
+        $rules = [
+            'document_template_id' => ['nullable', 'exists:document_templates,id'],
             'title' => ['required', 'string', 'max:190'],
-            'body' => ['required', 'string'],
+            'body' => [$template ? 'nullable' : 'required', 'string'],
             'body_html' => ['nullable', 'string'],
             'created_by_user_id' => ['nullable', 'exists:users,id', function ($attribute, $value, $fail) use ($request) {
                 if ($request->user()->hasRole('Sales') && $value && (int) $value !== (int) $request->user()->id) {
@@ -429,7 +480,34 @@ class DocumentController extends Controller
                 }
             }],
             'sales_signature_position' => ['nullable', 'string', 'max:120'],
-        ]);
+        ];
+
+        if ($template && $template->code === 'ICP_BAST_STANDARD') {
+            $rules = array_merge($rules, [
+                'template_payload' => ['required', 'array'],
+                'template_payload.nomor_ba' => ['required', 'string', 'max:64'],
+                'template_payload.tanggal_ba' => ['required', 'date'],
+                'template_payload.kota' => ['required', 'string', 'max:80'],
+                'template_payload.nama_customer' => ['required', 'string', 'max:190'],
+                'template_payload.lokasi_pekerjaan' => ['required', 'string', 'max:500'],
+                'template_payload.nama_pekerjaan' => ['required', 'string', 'max:190'],
+                'template_payload.jenis_kontrak' => ['required', 'in:SPK,PO,SO,BQ,Lainnya'],
+                'template_payload.nomor_kontrak' => ['required', 'string', 'max:120'],
+                'template_payload.tanggal_mulai' => ['required', 'date'],
+                'template_payload.status_pekerjaan' => ['required', 'string', 'max:120'],
+                'template_payload.tanggal_progress' => ['required', 'date'],
+                'template_payload.work_points' => ['required', 'array', 'min:1'],
+                'template_payload.work_points.*' => ['required', 'string', 'max:500'],
+                'template_payload.icp_signers' => ['required', 'array', 'min:1'],
+                'template_payload.icp_signers.*.name' => ['required', 'string', 'max:190'],
+                'template_payload.icp_signers.*.title' => ['required', 'string', 'max:190'],
+                'template_payload.customer_signers' => ['required', 'array', 'min:1'],
+                'template_payload.customer_signers.*.name' => ['required', 'string', 'max:190'],
+                'template_payload.customer_signers.*.title' => ['required', 'string', 'max:190'],
+            ]);
+        }
+
+        return Validator::make($input, $rules)->validate();
     }
 
     private function customerSnapshot(Customer $customer): array
@@ -677,12 +755,18 @@ class DocumentController extends Controller
 
     private function renderPdf(Document $document, string $disposition)
     {
-        $document->load(['customer', 'contact', 'creator', 'adminApprover', 'approver', 'salesSigner']);
+        $document->load(['customer', 'contact', 'creator', 'adminApprover', 'approver', 'salesSigner', 'template']);
+        $templateCode = $document->template?->code;
 
-        $html = view('documents.pdf', [
+        $view = $templateCode === 'ICP_BAST_STANDARD'
+            ? 'documents.templates.icp_bast_standard'
+            : 'documents.pdf';
+
+        $html = view($view, [
             'document' => $document,
             'letterheadPath' => $this->letterheadPath(),
             'stampPath' => $this->stampPath(),
+            'directorSignaturePath' => $this->directorSignaturePath(),
         ])->render();
 
         $opt = new Options();
@@ -705,6 +789,117 @@ class DocumentController extends Controller
         return response($pdf->output(), 200)
             ->header('Content-Type', 'application/pdf')
             ->header('Content-Disposition', $disposition.'; filename="'.$filename.'"');
+    }
+
+    private function normalizeTemplatePayload(array $payload, Customer $customer): array
+    {
+        $payload['nama_customer'] = $payload['nama_customer'] ?? $customer->name;
+        $payload['kota'] = $payload['kota'] ?? 'Surabaya';
+
+        $payload['work_points'] = array_values(array_filter(
+            array_map(fn($v) => trim((string) $v), $payload['work_points'] ?? []),
+            fn($v) => $v !== ''
+        ));
+
+        $payload['icp_signers'] = $this->filterSigners($payload['icp_signers'] ?? []);
+        $payload['customer_signers'] = $this->filterSigners($payload['customer_signers'] ?? []);
+
+        return $payload;
+    }
+
+    private function filterSigners(array $rows): array
+    {
+        $clean = [];
+        foreach ($rows as $row) {
+            $name = trim((string) ($row['name'] ?? ''));
+            $title = trim((string) ($row['title'] ?? ''));
+            if ($name === '' && $title === '') {
+                continue;
+            }
+            $clean[] = ['name' => $name, 'title' => $title];
+        }
+        return $clean;
+    }
+
+    private function nextBastNumber($date = null): string
+    {
+        $docDate = $date ? \Illuminate\Support\Carbon::parse($date) : now();
+        $year = (int) $docDate->format('Y');
+        $month = (int) $docDate->format('n');
+        $roman = $this->romanMonth($month);
+
+        $companyId = \App\Models\Company::where('is_default', true)->value('id')
+            ?: \App\Models\Company::query()->value('id');
+
+        $seq = DB::transaction(function () use ($year, $companyId) {
+            if ($companyId) {
+                DB::table('document_counters')->insertOrIgnore([
+                    'company_id' => $companyId,
+                    'doc_type' => 'bast',
+                    'year' => $year,
+                    'last_seq' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $row = DB::table('document_counters')
+                    ->where([
+                        'company_id' => $companyId,
+                        'doc_type' => 'bast',
+                        'year' => $year,
+                    ])
+                    ->lockForUpdate()
+                    ->first();
+            } else {
+                DB::table('document_sequences')->insertOrIgnore([
+                    'year' => $year,
+                    'last_seq' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $row = DB::table('document_sequences')
+                    ->where('year', $year)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            $last = (int) ($row->last_seq ?? 0);
+            $next = $last + 1;
+
+            if ($companyId) {
+                DB::table('document_counters')
+                    ->where([
+                        'company_id' => $companyId,
+                        'doc_type' => 'bast',
+                        'year' => $year,
+                    ])
+                    ->update([
+                        'last_seq' => $next,
+                        'updated_at' => now(),
+                    ]);
+            } else {
+                DB::table('document_sequences')
+                    ->where('year', $year)
+                    ->update([
+                        'last_seq' => $next,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            return $next;
+        });
+
+        return sprintf('BA/ICP/%s/%d/%d', $roman, $year, $seq);
+    }
+
+    private function romanMonth(int $month): string
+    {
+        $map = [
+            1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI',
+            7 => 'VII', 8 => 'VIII', 9 => 'IX', 10 => 'X', 11 => 'XI', 12 => 'XII',
+        ];
+        return $map[$month] ?? 'I';
     }
 
     private function letterheadPath(): ?string
