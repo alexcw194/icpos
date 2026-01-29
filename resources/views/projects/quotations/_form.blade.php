@@ -1614,7 +1614,8 @@
       const selected = subContractorSelect.value;
       if (!selected) return;
       subContractorSelect.disabled = true;
-      const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+      const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        || document.querySelector('input[name="_token"]')?.value;
       fetch(REPRICE_LABOR_URL, {
         method: 'POST',
         credentials: 'same-origin',
@@ -1626,10 +1627,23 @@
         },
         body: JSON.stringify({ sub_contractor_id: selected }),
       })
-        .then(r => r.ok ? r.json() : Promise.reject(r))
+        .then(async (r) => {
+          if (!r.ok) {
+            let message = 'Gagal memperbarui labor cost.';
+            try {
+              const data = await r.json();
+              if (data?.message) message = data.message;
+            } catch {}
+            throw new Error(message);
+          }
+          const ct = r.headers.get('content-type') || '';
+          if (ct.includes('application/json')) {
+            await r.json().catch(() => null);
+          }
+        })
         .then(() => window.location.reload())
-        .catch(() => {
-          alert('Gagal memperbarui labor cost.');
+        .catch((err) => {
+          alert(err?.message || 'Gagal memperbarui labor cost.');
           subContractorSelect.disabled = false;
         });
     });
