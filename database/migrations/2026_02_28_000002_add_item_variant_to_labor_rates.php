@@ -60,14 +60,14 @@ return new class extends Migration {
             }
         };
 
+        $dropForeignByColumn('item_labor_rates', 'item_id');
+        $dropForeignByColumn('project_item_labor_rates', 'project_item_id');
         $dropIndexIfExists('item_labor_rates', 'item_labor_rates_item_id_unique');
         $dropIndexIfExists('item_labor_rates', 'item_labor_rates_item_id_item_variant_id_unique');
         $dropIndexIfExists('project_item_labor_rates', 'project_item_labor_rates_project_item_id_unique');
         $dropIndexIfExists('project_item_labor_rates', 'project_item_labor_rates_project_item_id_item_variant_id_unique');
         $dropIndexIfExists('labor_costs', 'labor_costs_sub_contractor_id_item_id_context_unique');
         $dropIndexIfExists('labor_costs', 'labor_costs_sub_contractor_id_item_id_item_variant_id_context_unique');
-        $dropForeignByColumn('item_labor_rates', 'item_id');
-        $dropForeignByColumn('project_item_labor_rates', 'project_item_id');
 
         Schema::table('item_labor_rates', function (Blueprint $t) {
             if (!Schema::hasColumn('item_labor_rates', 'item_variant_id')) {
