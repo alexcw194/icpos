@@ -11,6 +11,7 @@ use App\Models\ProjectQuotationSection;
 use App\Models\TermOfPayment;
 use App\Models\SubContractor;
 use App\Models\LaborCost;
+use App\Models\ItemVariant;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\ProjectQuotationTotalsService;
@@ -506,14 +507,19 @@ class ProjectQuotationController extends Controller
             'sub_contractor_id' => $data['sub_contractor_id'],
         ]);
 
-        $lines = $quotation->lines()->select([
+        $hasVariantColumn = Schema::hasColumn('project_quotation_lines', 'item_variant_id');
+        $select = [
             'project_quotation_lines.id',
             'project_quotation_lines.item_id',
             'project_quotation_lines.source_type',
             'project_quotation_lines.line_type',
             'project_quotation_lines.labor_total',
             'project_quotation_lines.qty',
-        ])->get();
+        ];
+        if ($hasVariantColumn) {
+            $select[] = 'project_quotation_lines.item_variant_id';
+        }
+        $lines = $quotation->lines()->select($select)->get();
         $itemIds = $lines->where('line_type', 'product')
             ->pluck('item_id')
             ->filter()
@@ -523,11 +529,18 @@ class ProjectQuotationController extends Controller
 
         $costs = [];
         if ($itemIds) {
+            $costSelect = ['item_id', 'context', 'cost_amount'];
+            if (Schema::hasColumn('labor_costs', 'item_variant_id')) {
+                $costSelect[] = 'item_variant_id';
+            }
             $costs = LaborCost::query()
                 ->where('sub_contractor_id', $data['sub_contractor_id'])
                 ->whereIn('item_id', $itemIds)
-                ->get(['item_id', 'context', 'cost_amount'])
-                ->keyBy(fn ($row) => $row->item_id.'|'.$row->context);
+                ->get($costSelect)
+                ->keyBy(function ($row) {
+                    $variantId = $row->item_variant_id ?? 0;
+                    return $row->item_id.'|'.$variantId.'|'.$row->context;
+                });
         }
 
         foreach ($lines as $line) {
@@ -541,7 +554,8 @@ class ProjectQuotationController extends Controller
             }
 
             $context = $line->source_type === 'project' ? 'project' : 'retail';
-            $key = $line->item_id.'|'.$context;
+            $variantId = $hasVariantColumn ? ($line->item_variant_id ?? 0) : 0;
+            $key = $line->item_id.'|'.$variantId.'|'.$context;
             $cost = $costs[$key] ?? null;
             if (!$cost) {
                 $line->labor_cost_amount = null;
@@ -683,6 +697,7 @@ class ProjectQuotationController extends Controller
             'sections.*.lines.*.description' => ['required', 'string'],
             'sections.*.lines.*.source_type' => ['nullable', 'in:item,project'],
             'sections.*.lines.*.item_id' => ['nullable', 'exists:items,id'],
+            'sections.*.lines.*.item_variant_id' => ['nullable', 'exists:item_variants,id'],
             'sections.*.lines.*.item_label' => ['nullable', 'string', 'max:255'],
             'sections.*.lines.*.line_type' => ['nullable', 'in:product,charge,percent'],
             'sections.*.lines.*.catalog_id' => ['nullable', 'exists:bq_line_catalogs,id'],
@@ -705,11 +720,28 @@ class ProjectQuotationController extends Controller
             foreach (($section['lines'] ?? []) as $lIndex => $line) {
                 $lineType = $line['line_type'] ?? 'product';
                 $itemId = $line['item_id'] ?? null;
+                $variantId = $line['item_variant_id'] ?? null;
 
-                if ($lineType !== 'product' && !empty($itemId)) {
+                if ($lineType !== 'product' && (!empty($itemId) || !empty($variantId))) {
                     throw ValidationException::withMessages([
                         "sections.$sIndex.lines.$lIndex.item_id" => 'Charge/percent lines tidak boleh punya item.',
                     ]);
+                }
+                if (!empty($variantId) && empty($itemId)) {
+                    throw ValidationException::withMessages([
+                        "sections.$sIndex.lines.$lIndex.item_variant_id" => 'Variant wajib terkait item.',
+                    ]);
+                }
+                if (!empty($variantId) && !empty($itemId)) {
+                    $variantOk = ItemVariant::query()
+                        ->where('id', $variantId)
+                        ->where('item_id', $itemId)
+                        ->exists();
+                    if (!$variantOk) {
+                        throw ValidationException::withMessages([
+                            "sections.$sIndex.lines.$lIndex.item_variant_id" => 'Variant tidak sesuai dengan item.',
+                        ]);
+                    }
                 }
 
                 if ($lineType === 'percent') {

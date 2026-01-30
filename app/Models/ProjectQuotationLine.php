@@ -13,6 +13,7 @@ class ProjectQuotationLine extends Model
         'description',
         'source_type',
         'item_id',
+        'item_variant_id',
         'item_label',
         'line_type',
         'catalog_id',
@@ -46,6 +47,7 @@ class ProjectQuotationLine extends Model
         'line_total' => 'decimal:2',
         'percent_value' => 'decimal:4',
         'computed_amount' => 'decimal:2',
+        'item_variant_id' => 'integer',
     ];
 
     public function section(): BelongsTo

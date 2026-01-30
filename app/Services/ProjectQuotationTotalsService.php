@@ -57,9 +57,10 @@ class ProjectQuotationTotalsService
                 $laborMarginAmount = null;
                 $laborCostMissing = false;
                 $itemId = $lineType === 'product' ? ($line['item_id'] ?? null) : null;
+                $itemVariantId = $lineType === 'product' ? ($line['item_variant_id'] ?? null) : null;
                 $context = ($line['source_type'] ?? 'item') === 'project' ? 'project' : 'retail';
                 if ($itemId) {
-                    $key = $itemId.'|'.$context;
+                    $key = $itemId.'|'.($itemVariantId ?: 0).'|'.$context;
                     $unitCost = $laborCostMap[$key] ?? null;
                     if ($unitCost === null) {
                         $laborCostMissing = true;
@@ -86,6 +87,7 @@ class ProjectQuotationTotalsService
                     'description' => $line['description'] ?? '',
                     'source_type' => $line['source_type'] ?? 'item',
                     'item_id' => $line['item_id'] ?? null,
+                    'item_variant_id' => $line['item_variant_id'] ?? null,
                     'item_label' => $line['item_label'] ?? null,
                     'line_type' => $lineType,
                     'catalog_id' => $line['catalog_id'] ?? null,
@@ -219,11 +221,18 @@ class ProjectQuotationTotalsService
             return [];
         }
 
+        $hasVariantColumn = Schema::hasColumn('labor_costs', 'item_variant_id');
+        $select = $hasVariantColumn
+            ? ['item_id', 'item_variant_id', 'context', 'cost_amount']
+            : ['item_id', 'context', 'cost_amount'];
         $costs = LaborCost::query()
             ->where('sub_contractor_id', $subId)
             ->whereIn('item_id', $itemIds)
-            ->get(['item_id', 'context', 'cost_amount'])
-            ->keyBy(fn ($row) => $row->item_id.'|'.$row->context);
+            ->get($select)
+            ->keyBy(function ($row) use ($hasVariantColumn) {
+                $variantId = $hasVariantColumn ? ($row->item_variant_id ?? 0) : 0;
+                return $row->item_id.'|'.$variantId.'|'.$row->context;
+            });
 
         $map = [];
         foreach ($costs as $key => $row) {

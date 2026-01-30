@@ -13,6 +13,7 @@
           'labor_total' => data_get($line, 'labor_total', 0),
           'source_type' => data_get($line, 'source_type', 'item'),
           'item_id' => data_get($line, 'item_id'),
+          'item_variant_id' => data_get($line, 'item_variant_id'),
           'item_label' => data_get($line, 'item_label', ''),
           'line_type' => data_get($line, 'line_type', 'product'),
           'catalog_id' => data_get($line, 'catalog_id'),
@@ -347,6 +348,7 @@
                                  placeholder="Cari item..."
                                  value="{{ $line['item_label'] ?? '' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_id]" class="bq-line-item-id" value="{{ $line['item_id'] ?? '' }}">
+                          <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][item_variant_id]" class="bq-line-variant-id" value="{{ $line['item_variant_id'] ?? '' }}">
                           <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_source]" class="bq-line-labor-source" value="{{ $line['labor_source'] ?? 'manual' }}">
                         </div>
                       </div>
@@ -787,6 +789,8 @@
         searchInput.disabled = true;
       }
       if (itemIdEl) itemIdEl.value = '';
+      const variantIdEl = row.querySelector('.bq-line-variant-id');
+      if (variantIdEl) variantIdEl.value = '';
       setLaborSource(row, 'manual');
     }
 
@@ -844,10 +848,13 @@
     if (laborEl) laborEl.value = formatNumber(total);
   };
 
-  const fetchLaborRate = (sourceType, itemId) => {
+  const fetchLaborRate = (sourceType, itemId, variantId) => {
     const params = new URLSearchParams();
     params.set('source', sourceType);
     params.set('item_id', itemId);
+    if (variantId) {
+      params.set('variant_id', variantId);
+    }
     return fetch(`${LABOR_RATE_URL}?${params.toString()}`, {
       credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
@@ -923,6 +930,7 @@
     if (getLineType(row) !== 'product') return;
 
     const itemId = row.querySelector('.bq-line-item-id')?.value;
+    const variantId = row.querySelector('.bq-line-variant-id')?.value;
     if (!itemId) return;
 
     const laborUnitEl = row.querySelector('.js-line-labor-unit');
@@ -934,7 +942,7 @@
     }
 
     const sourceType = getSourceType(row);
-    fetchLaborRate(sourceType, itemId).then((rateData) => applyLaborRate(row, sourceType, rateData));
+    fetchLaborRate(sourceType, itemId, variantId).then((rateData) => applyLaborRate(row, sourceType, rateData));
   };
 
   const renumberLines = (section) => {
@@ -1156,6 +1164,7 @@
     const sourceType = data.source_type === 'project' ? 'project' : 'item';
     const itemLabel = escapeHtml(data.item_label || '');
     const itemId = escapeHtml(data.item_id || '');
+    const variantId = escapeHtml(data.item_variant_id || '');
     let qty = data.qty ?? 1;
     let unit = escapeHtml(data.unit || 'LS');
     const unitPrice = data.unit_price ?? 0;
@@ -1209,6 +1218,7 @@
                        placeholder="Cari item..."
                        value="${itemLabel}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][item_id]" class="bq-line-item-id" value="${itemId}">
+                <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][item_variant_id]" class="bq-line-variant-id" value="${variantId}">
                 <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_source]" class="bq-line-labor-source" value="${laborSource}">
               </div>
             </div>
@@ -1666,6 +1676,7 @@
         const laborUnitEl = row.querySelector('.js-line-labor-unit');
         const laborEl = row.querySelector('.js-line-labor');
         const itemIdEl = row.querySelector('.bq-line-item-id');
+        const variantIdEl = row.querySelector('.bq-line-variant-id');
 
         if (descEl && !descEl.value) descEl.value = data.name || '';
         if (unitEl) unitEl.value = (data.unit_code || 'LS').toString().toLowerCase();
@@ -1674,12 +1685,13 @@
         if (laborUnitEl && !laborUnitEl.value) laborUnitEl.value = 0;
         if (laborEl && !laborEl.value) laborEl.value = 0;
         if (itemIdEl) itemIdEl.value = data.item_id || '';
+        if (variantIdEl) variantIdEl.value = data.variant_id || '';
 
         const qty = parseNumber(qtyEl?.value);
         if (materialEl) materialEl.value = formatNumber(qty * price);
         const sourceType = getSourceType(row);
         if (data.item_id) {
-          fetchLaborRate(sourceType, data.item_id).then((rateData) => applyLaborRate(row, sourceType, rateData));
+          fetchLaborRate(sourceType, data.item_id, data.variant_id).then((rateData) => applyLaborRate(row, sourceType, rateData));
         }
         recalcTotals();
 
