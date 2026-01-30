@@ -104,7 +104,7 @@ class ProjectQuotationController extends Controller
                     (object) [
                         'line_no' => '1',
                         'description' => '',
-                        'source_type' => 'item',
+                        'source_type' => 'project',
                         'item_id' => null,
                         'item_label' => null,
                         'qty' => 1,
@@ -362,7 +362,7 @@ class ProjectQuotationController extends Controller
                         (object) [
                             'line_no' => '1',
                             'description' => '',
-                            'source_type' => 'item',
+                            'source_type' => 'project',
                             'item_id' => null,
                             'item_label' => null,
                             'qty' => 1,
