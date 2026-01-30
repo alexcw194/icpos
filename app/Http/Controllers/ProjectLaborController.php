@@ -296,6 +296,7 @@ class ProjectLaborController extends Controller
                 'type' => $type,
                 'q' => $request->input('q'),
                 'sub_contractor_id' => $request->input('sub_contractor_id'),
+                'page' => $request->input('page'),
             ])
             ->with('success', 'Labor master tersimpan.');
 

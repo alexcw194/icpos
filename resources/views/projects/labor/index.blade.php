@@ -82,6 +82,7 @@
                     @csrf
                     <input type="hidden" name="type" value="{{ $type }}">
                     <input type="hidden" name="q" value="{{ $q }}">
+                    <input type="hidden" name="page" value="{{ request('page') }}">
                     @if(!empty($selectedSubContractorId))
                       <input type="hidden" name="sub_contractor_id" value="{{ $selectedSubContractorId }}">
                     @endif
