@@ -22,6 +22,7 @@
     .quo-title{ margin:0; font-size:20px; font-weight:900; letter-spacing:.3px; }
     .quo-number{ margin:2px 0 6px; font-weight:700; }
     .quo-row{ margin-top:2px; }
+    .worktime-row{ white-space:nowrap; }
 
     .grid { width:100%; border-collapse: collapse; }
     .grid th, .grid td { border:1px solid #999; padding:6px; font-size:11px; }
@@ -154,7 +155,7 @@
           {{ trim(($salesOwnerPhone ?: '-').' - '.($salesOwnerEmail ?: '-')) }}
         </div>
       @endif
-      <div class="quo-row"><span class="small">WorkTime:</span> {{ $workingTime }}</div>
+      <div class="quo-row worktime-row"><span class="small">WorkTime {{ $workingTime }}</span></div>
     </td>
   </tr>
 </table>
