@@ -17,6 +17,11 @@ return new class extends Migration {
             }
             if (Schema::hasColumn('item_labor_rates', 'item_id')) {
                 try {
+                    $t->dropForeign(['item_id']);
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+                try {
                     $t->dropUnique(['item_id']);
                 } catch (\Throwable $e) {
                     // ignore
@@ -27,6 +32,11 @@ return new class extends Migration {
         Schema::table('item_labor_rates', function (Blueprint $t) {
             if (Schema::hasColumn('item_labor_rates', 'item_variant_id')) {
                 $t->unique(['item_id', 'item_variant_id']);
+                try {
+                    $t->foreign('item_id')->references('id')->on('items')->cascadeOnDelete();
+                } catch (\Throwable $e) {
+                    // ignore
+                }
             }
         });
 
@@ -40,6 +50,11 @@ return new class extends Migration {
             }
             if (Schema::hasColumn('project_item_labor_rates', 'project_item_id')) {
                 try {
+                    $t->dropForeign(['project_item_id']);
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+                try {
                     $t->dropUnique(['project_item_id']);
                 } catch (\Throwable $e) {
                     // ignore
@@ -50,6 +65,11 @@ return new class extends Migration {
         Schema::table('project_item_labor_rates', function (Blueprint $t) {
             if (Schema::hasColumn('project_item_labor_rates', 'item_variant_id')) {
                 $t->unique(['project_item_id', 'item_variant_id']);
+                try {
+                    $t->foreign('project_item_id')->references('id')->on('items')->cascadeOnDelete();
+                } catch (\Throwable $e) {
+                    // ignore
+                }
             }
         });
 
@@ -104,6 +124,7 @@ return new class extends Migration {
             }
             try {
                 $t->unique(['project_item_id']);
+                $t->foreign('project_item_id')->references('id')->on('items')->cascadeOnDelete();
             } catch (\Throwable $e) {
                 // ignore
             }
@@ -120,6 +141,7 @@ return new class extends Migration {
             }
             try {
                 $t->unique(['item_id']);
+                $t->foreign('item_id')->references('id')->on('items')->cascadeOnDelete();
             } catch (\Throwable $e) {
                 // ignore
             }
