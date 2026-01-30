@@ -11,7 +11,7 @@
           'unit_price' => data_get($line, 'unit_price', 0),
           'material_total' => data_get($line, 'material_total', 0),
           'labor_total' => data_get($line, 'labor_total', 0),
-          'source_type' => data_get($line, 'source_type', 'item'),
+          'source_type' => data_get($line, 'source_type', 'project'),
           'item_id' => data_get($line, 'item_id'),
           'item_variant_id' => data_get($line, 'item_variant_id'),
           'item_label' => data_get($line, 'item_label', ''),
@@ -337,8 +337,8 @@
                       <div class="row g-2 align-items-center mb-1">
                         <div class="col-3">
                           <select name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][source_type]" class="form-select form-select-sm bq-line-source">
-                            <option value="item" @selected(($line['source_type'] ?? 'item') === 'item')>Item</option>
-                            <option value="project" @selected(($line['source_type'] ?? 'item') === 'project')>Project</option>
+                            <option value="item" @selected(($line['source_type'] ?? 'project') === 'item')>Item</option>
+                            <option value="project" @selected(($line['source_type'] ?? 'project') === 'project')>Project</option>
                           </select>
                         </div>
                         <div class="col-9">
@@ -1161,7 +1161,7 @@
   const makeLine = (sIndex, lIndex, data = {}) => {
     const lineNo = escapeHtml(data.line_no || '');
     const description = escapeHtml(data.description || '');
-    const sourceType = data.source_type === 'project' ? 'project' : 'item';
+    const sourceType = data.source_type === 'item' ? 'item' : 'project';
     const itemLabel = escapeHtml(data.item_label || '');
     const itemId = escapeHtml(data.item_id || '');
     const variantId = escapeHtml(data.item_variant_id || '');
