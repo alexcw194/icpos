@@ -156,7 +156,7 @@
         </div>
       @endif
       <div class="quo-row worktime-row">
-        <span class="small">Working Time:</span>
+        <span class="small">Work Time:</span>
         <span>{{ $workingTime }}</span>
       </div>
     </td>
