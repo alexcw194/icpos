@@ -85,7 +85,7 @@
     ? \Illuminate\Support\Carbon::parse($quotation->quotation_date)->addDays((int) ($quotation->validity_days ?? 0))
     : null;
   $workingTime = ($quotation->working_time_days ? $quotation->working_time_days.' hari' : '-')
-    .' @ '.($quotation->working_time_hours_per_day ?? '-').' jam/hari';
+    .'@'.($quotation->working_time_hours_per_day ?? '-').' jam/hari';
 
   $directorName = 'Christian Widargo';
   $isDirector = $quotation->signatory_name
@@ -154,7 +154,7 @@
           {{ trim(($salesOwnerPhone ?: '-').' - '.($salesOwnerEmail ?: '-')) }}
         </div>
       @endif
-      <div class="quo-row"><span class="small">Working Time:</span> {{ $workingTime }}</div>
+      <div class="quo-row"><span class="small">WorkTime:</span> {{ $workingTime }}</div>
     </td>
   </tr>
 </table>
