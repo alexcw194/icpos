@@ -22,6 +22,26 @@ return new class extends Migration {
                 }
             }
         };
+        $addUniqueIfMissing = function (string $table, array $columns, string $name) use ($schema) {
+            $row = DB::selectOne(
+                'SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ? LIMIT 1',
+                [$schema, $table, $name]
+            );
+            if (!$row) {
+                $cols = implode('`,`', $columns);
+                DB::statement("ALTER TABLE `$table` ADD UNIQUE `$name`(`$cols`)");
+            }
+        };
+        $addUniqueIfMissing = function (string $table, array $columns, string $name) use ($schema) {
+            $row = DB::selectOne(
+                'SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ? LIMIT 1',
+                [$schema, $table, $name]
+            );
+            if (!$row) {
+                $cols = implode('`,`', $columns);
+                DB::statement("ALTER TABLE `$table` ADD UNIQUE `$name`(`$cols`)");
+            }
+        };
         $dropForeignByColumn = function (string $table, string $column) use ($schema) {
             $row = DB::selectOne(
                 'SELECT constraint_name FROM information_schema.key_column_usage WHERE table_schema = ? AND table_name = ? AND column_name = ? AND referenced_table_name IS NOT NULL LIMIT 1',
@@ -50,10 +70,10 @@ return new class extends Migration {
 
         Schema::table('item_labor_rates', function (Blueprint $t) {
             if (Schema::hasColumn('item_labor_rates', 'item_variant_id')) {
-                $t->unique(['item_id', 'item_variant_id']);
                 $t->foreign('item_id')->references('id')->on('items')->cascadeOnDelete();
             }
         });
+        $addUniqueIfMissing('item_labor_rates', ['item_id', 'item_variant_id'], 'item_labor_rates_item_id_item_variant_id_unique');
 
         Schema::table('project_item_labor_rates', function (Blueprint $t) {
             if (!Schema::hasColumn('project_item_labor_rates', 'item_variant_id')) {
@@ -67,10 +87,10 @@ return new class extends Migration {
 
         Schema::table('project_item_labor_rates', function (Blueprint $t) {
             if (Schema::hasColumn('project_item_labor_rates', 'item_variant_id')) {
-                $t->unique(['project_item_id', 'item_variant_id']);
                 $t->foreign('project_item_id')->references('id')->on('items')->cascadeOnDelete();
             }
         });
+        $addUniqueIfMissing('project_item_labor_rates', ['project_item_id', 'item_variant_id'], 'project_item_labor_rates_project_item_id_item_variant_id_unique');
 
         Schema::table('labor_costs', function (Blueprint $t) {
             if (!Schema::hasColumn('labor_costs', 'item_variant_id')) {
@@ -89,9 +109,10 @@ return new class extends Migration {
 
         Schema::table('labor_costs', function (Blueprint $t) {
             if (Schema::hasColumn('labor_costs', 'item_variant_id')) {
-                $t->unique(['sub_contractor_id', 'item_id', 'item_variant_id', 'context']);
+                // unique added below (guarded)
             }
         });
+        $addUniqueIfMissing('labor_costs', ['sub_contractor_id', 'item_id', 'item_variant_id', 'context'], 'labor_costs_sub_contractor_id_item_id_item_variant_id_context_unique');
     }
 
     public function down(): void
@@ -141,6 +162,7 @@ return new class extends Migration {
                 // ignore
             }
         });
+        $addUniqueIfMissing('labor_costs', ['sub_contractor_id', 'item_id', 'context'], 'labor_costs_sub_contractor_id_item_id_context_unique');
 
         Schema::table('project_item_labor_rates', function (Blueprint $t) {
             try {
@@ -157,6 +179,7 @@ return new class extends Migration {
                 // ignore
             }
         });
+        $addUniqueIfMissing('project_item_labor_rates', ['project_item_id'], 'project_item_labor_rates_project_item_id_unique');
 
         Schema::table('item_labor_rates', function (Blueprint $t) {
             try {
@@ -173,5 +196,6 @@ return new class extends Migration {
                 // ignore
             }
         });
+        $addUniqueIfMissing('item_labor_rates', ['item_id'], 'item_labor_rates_item_id_unique');
     }
 };
