@@ -9,6 +9,7 @@ use App\Models\ProjectItemLaborRate;
 use App\Models\Setting;
 use App\Support\Number;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Schema;
 
 class ProjectLaborController extends Controller
@@ -25,7 +26,13 @@ class ProjectLaborController extends Controller
         $type = in_array($type, ['item', 'project'], true) ? $type : 'item';
         $q = trim((string) $request->input('q', ''));
 
-        $itemsQuery = Item::query()->select('id', 'name', 'sku', 'item_type', 'list_type');
+        $itemsQuery = Item::query()
+            ->select('id', 'name', 'sku', 'item_type', 'list_type')
+            ->with(['variants' => function ($query) {
+                if (Schema::hasColumn('item_variants', 'is_active')) {
+                    $query->where('is_active', true);
+                }
+            }]);
         if ($type === 'project') {
             $itemsQuery->where('list_type', 'project');
         } else {
@@ -40,15 +47,51 @@ class ProjectLaborController extends Controller
         if ($q !== '') {
             $like = '%' . $q . '%';
             $itemsQuery->where(function ($query) use ($like) {
-                $query->where('name', 'like', $like)->orWhere('sku', 'like', $like);
+                $query->where('name', 'like', $like)
+                    ->orWhere('sku', 'like', $like)
+                    ->orWhereHas('variants', function ($v) use ($like) {
+                        $v->where('sku', 'like', $like);
+                    });
             });
         }
 
-        $items = $itemsQuery->orderBy('name')->paginate(25)->withQueryString();
+        $baseItems = $itemsQuery->orderBy('name')->get();
+        $rows = collect();
+        foreach ($baseItems as $item) {
+            $variants = $item->variants ?? collect();
+            if ($variants->isNotEmpty()) {
+                foreach ($variants as $variant) {
+                    $rows->push((object) [
+                        'item_id' => $item->id,
+                        'id' => $item->id,
+                        'variant_id' => $variant->id,
+                        'name' => $variant->label ?? $item->renderVariantLabel($variant->attributes ?? []),
+                        'sku' => $variant->sku ?: $item->sku,
+                    ]);
+                }
+            } else {
+                $rows->push($item);
+            }
+        }
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 25;
+        $items = new LengthAwarePaginator(
+            $rows->forPage($page, $perPage)->values(),
+            $rows->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        $rateIds = $items->getCollection()->pluck('item_id')->filter()->unique()->values();
+        if ($rateIds->isEmpty()) {
+            $rateIds = $items->getCollection()->pluck('id')->filter()->unique()->values();
+        }
 
         $rates = $type === 'project'
-            ? ProjectItemLaborRate::whereIn('project_item_id', $items->pluck('id'))->get()->keyBy('project_item_id')
-            : ItemLaborRate::whereIn('item_id', $items->pluck('id'))->get()->keyBy('item_id');
+            ? ProjectItemLaborRate::whereIn('project_item_id', $rateIds)->get()->keyBy('project_item_id')
+            : ItemLaborRate::whereIn('item_id', $rateIds)->get()->keyBy('item_id');
 
         $canUpdateItem = $user?->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']) ?? false;
         $canUpdateProject = $user?->hasAnyRole(['Admin', 'SuperAdmin', 'PM']) ?? false;
@@ -92,7 +135,7 @@ class ProjectLaborController extends Controller
                 $laborCosts = LaborCost::query()
                     ->where('sub_contractor_id', $selectedSubContractorId)
                     ->where('context', $context)
-                    ->whereIn('item_id', $items->pluck('id'))
+                    ->whereIn('item_id', $rateIds)
                     ->get(['item_id', 'cost_amount'])
                     ->keyBy('item_id');
             }

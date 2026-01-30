@@ -66,17 +66,19 @@
           @php $canUpdate = $type === 'project' ? $canUpdateProject : $canUpdateItem; @endphp
           @forelse($items as $item)
             @php
-              $rate = $rates[$item->id] ?? null;
+              $rateKey = $item->item_id ?? $item->id;
+              $rate = $rates[$rateKey] ?? null;
               $laborValue = $rate?->labor_unit_cost ?? 0;
-              $costRow = $laborCosts[$item->id] ?? null;
+              $costRow = $laborCosts[$rateKey] ?? null;
               $laborCostValue = $costRow?->cost_amount ?? 0;
-              $formId = 'labor-form-'.$item->id;
+              $formItemId = $rateKey;
+              $formId = 'labor-form-'.$formItemId.($item->variant_id ? '-v'.$item->variant_id : '');
             @endphp
             <tr>
               <td class="text-wrap">
                 {{ $item->name }}
                 @if($canUpdate)
-                  <form id="{{ $formId }}" method="post" action="{{ route('projects.labor.update', $item) }}" class="d-none">
+                  <form id="{{ $formId }}" method="post" action="{{ route('projects.labor.update', $formItemId) }}" class="d-none">
                     @csrf
                     <input type="hidden" name="type" value="{{ $type }}">
                     <input type="hidden" name="q" value="{{ $q }}">
