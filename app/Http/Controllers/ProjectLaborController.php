@@ -33,6 +33,18 @@ class ProjectLaborController extends Controller
                 $query->whereNull('list_type')->orWhere('list_type', '!=', 'project');
             });
         }
+        if ($type === 'project') {
+            $itemsQuery->where(function ($query) {
+                $query->whereNotNull('parent_id')
+                    ->orWhere(function ($qq) {
+                        $qq->whereNull('parent_id')
+                            ->where(function ($vv) {
+                                $vv->whereNull('variant_type')->orWhere('variant_type', 'none');
+                            })
+                            ->whereDoesntHave('variants');
+                    });
+            });
+        }
 
         if ($q !== '') {
             $like = '%' . $q . '%';
