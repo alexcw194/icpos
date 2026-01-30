@@ -88,10 +88,11 @@ class ProjectLaborController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        $rateIds = $items->getCollection()->pluck('item_id')->filter()->unique()->values();
-        if ($rateIds->isEmpty()) {
-            $rateIds = $items->getCollection()->pluck('id')->filter()->unique()->values();
-        }
+        $rateIds = $items->getCollection()->pluck('item_id')->filter();
+        $rateIds = $rateIds
+            ->merge($items->getCollection()->pluck('id')->filter())
+            ->unique()
+            ->values();
 
         $rates = $type === 'project'
             ? ProjectItemLaborRate::whereIn('project_item_id', $rateIds)->get()
