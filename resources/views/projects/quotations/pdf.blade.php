@@ -176,9 +176,7 @@
           $lineTotal = $ln->line_total ?? ((float) $ln->material_total + (float) $ln->labor_total);
         @endphp
         <tr>
-          <td>
-            <strong>{{ $ln->description }}</strong>
-          </td>
+          <td>{{ $ln->description }}</td>
           <td class="right">{{ rtrim(rtrim(number_format((float)$ln->qty, 2, '.', ''), '0'), '.') }}</td>
           <td>{{ $ln->unit }}</td>
           <td class="right">{{ number_format((float)$ln->unit_price, 2, ',', '.') }}</td>
