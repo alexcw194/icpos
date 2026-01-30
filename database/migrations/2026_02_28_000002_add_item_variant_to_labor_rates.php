@@ -79,11 +79,17 @@ return new class extends Migration {
             }
         });
 
-        Schema::table('item_labor_rates', function (Blueprint $t) {
-            if (Schema::hasColumn('item_labor_rates', 'item_variant_id')) {
-                $t->foreign('item_id')->references('id')->on('items')->cascadeOnDelete();
-            }
-        });
+        $itemLaborItemIdFk = DB::selectOne(
+            'SELECT 1 FROM information_schema.key_column_usage WHERE table_schema = ? AND table_name = ? AND column_name = ? AND referenced_table_name IS NOT NULL LIMIT 1',
+            [$schema, 'item_labor_rates', 'item_id']
+        );
+        if (!$itemLaborItemIdFk) {
+            Schema::table('item_labor_rates', function (Blueprint $t) {
+                if (Schema::hasColumn('item_labor_rates', 'item_variant_id')) {
+                    $t->foreign('item_id')->references('id')->on('items')->cascadeOnDelete();
+                }
+            });
+        }
         try {
             $addUniqueIfMissing('item_labor_rates', ['item_id', 'item_variant_id'], 'item_labor_rates_item_id_item_variant_id_unique');
         } catch (\Throwable $e) {
@@ -100,11 +106,17 @@ return new class extends Migration {
             }
         });
 
-        Schema::table('project_item_labor_rates', function (Blueprint $t) {
-            if (Schema::hasColumn('project_item_labor_rates', 'item_variant_id')) {
-                $t->foreign('project_item_id')->references('id')->on('items')->cascadeOnDelete();
-            }
-        });
+        $projectItemLaborItemIdFk = DB::selectOne(
+            'SELECT 1 FROM information_schema.key_column_usage WHERE table_schema = ? AND table_name = ? AND column_name = ? AND referenced_table_name IS NOT NULL LIMIT 1',
+            [$schema, 'project_item_labor_rates', 'project_item_id']
+        );
+        if (!$projectItemLaborItemIdFk) {
+            Schema::table('project_item_labor_rates', function (Blueprint $t) {
+                if (Schema::hasColumn('project_item_labor_rates', 'item_variant_id')) {
+                    $t->foreign('project_item_id')->references('id')->on('items')->cascadeOnDelete();
+                }
+            });
+        }
         try {
             $addUniqueIfMissing('project_item_labor_rates', ['project_item_id', 'item_variant_id'], 'project_item_labor_rates_project_item_id_item_variant_id_unique');
         } catch (\Throwable $e) {
