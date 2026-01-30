@@ -40,9 +40,7 @@ class ProjectLaborController extends Controller
                 $query->whereNull('list_type')->orWhere('list_type', '!=', 'project');
             });
         }
-        if ($type === 'project') {
-            $itemsQuery->whereDoesntHave('variants');
-        }
+        // keep parent items so variants can be expanded in the list
 
         if ($q !== '') {
             $like = '%' . $q . '%';
