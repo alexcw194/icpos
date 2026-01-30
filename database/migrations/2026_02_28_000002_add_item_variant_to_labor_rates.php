@@ -131,11 +131,6 @@ return new class extends Migration {
                     ->constrained('item_variants')
                     ->nullOnDelete();
             }
-            try {
-                $t->dropUnique(['sub_contractor_id', 'item_id', 'context']);
-            } catch (\Throwable $e) {
-                // ignore
-            }
         });
 
         Schema::table('labor_costs', function (Blueprint $t) {
