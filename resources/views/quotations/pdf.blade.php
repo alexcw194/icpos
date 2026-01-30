@@ -69,13 +69,19 @@
   }
 
   // ===== Sales Agent (sales_user_id / sales_name / fallback user) =====
+  $salesUser =
+      $quotation->salesUser
+   ?? (isset($quotation->sales_user_id) ? \App\Models\User::find($quotation->sales_user_id) : null)
+   ?? $quotation->sales
+   ?? $quotation->user;
+
   $salesAgent =
       ($quotation->sales_name ?? null)
-   ?? optional($quotation->salesUser ?? null)->name
-   ?? (isset($quotation->sales_user_id) ? optional(\App\Models\User::find($quotation->sales_user_id))->name : null)
-   ?? optional($quotation->sales ?? null)->name
-   ?? optional($quotation->user ?? null)->name
+   ?? optional($salesUser)->name
    ?? '-';
+
+  $salesAgentPhone = optional($salesUser)->phone ?? '';
+  $salesAgentEmail = optional($salesUser)->email ?? '';
 
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
 @endphp
@@ -110,7 +116,13 @@
       <div class="quo-number"># {{ $quotation->number }}</div>
       <div class="quo-row"><span class="small">Quotation Date:</span> {{ $fmtDate($quotation->date) }}</div>
       <div class="quo-row"><span class="small">Expiry Date:</span> {{ $fmtDate($quotation->valid_until) }}</div>
-      <div class="quo-row"><span class="small">Sales Agent:</span> {{ $salesAgent }}</div>
+      <div class="quo-row"><span class="small">Agent:</span> {{ $salesAgent }}</div>
+      @if($salesAgentPhone !== '' || $salesAgentEmail !== '')
+        <div class="quo-row">
+          <span class="small">HP / Email:</span>
+          {{ trim(($salesAgentPhone ?: '-').' - '.($salesAgentEmail ?: '-')) }}
+        </div>
+      @endif
     </td>
   </tr>
 </table>
