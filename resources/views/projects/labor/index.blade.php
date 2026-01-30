@@ -85,10 +85,10 @@
                     @if(!empty($selectedSubContractorId))
                       <input type="hidden" name="sub_contractor_id" value="{{ $selectedSubContractorId }}">
                     @endif
-                    @if(!empty($item->variant_id))
-                      <input type="hidden" name="variant_id" value="{{ $item->variant_id }}">
-                    @endif
                   </form>
+                  @if(!empty($item->variant_id))
+                    <input type="hidden" name="variant_id" form="{{ $formId }}" value="{{ $item->variant_id }}">
+                  @endif
                 @endif
               </td>
               <td class="text-muted">{{ $item->sku ?? '-' }}</td>
