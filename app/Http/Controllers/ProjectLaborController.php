@@ -34,16 +34,7 @@ class ProjectLaborController extends Controller
             });
         }
         if ($type === 'project') {
-            $itemsQuery->where(function ($query) {
-                $query->whereNotNull('parent_id')
-                    ->orWhere(function ($qq) {
-                        $qq->whereNull('parent_id')
-                            ->where(function ($vv) {
-                                $vv->whereNull('variant_type')->orWhere('variant_type', 'none');
-                            })
-                            ->whereDoesntHave('variants');
-                    });
-            });
+            $itemsQuery->whereDoesntHave('variants');
         }
 
         if ($q !== '') {
