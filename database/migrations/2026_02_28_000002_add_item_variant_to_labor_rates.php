@@ -2,11 +2,38 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up(): void
     {
+        $schema = DB::getDatabaseName();
+        $dropIndexIfExists = function (string $table, string $index) use ($schema) {
+            $row = DB::selectOne(
+                'SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ? LIMIT 1',
+                [$schema, $table, $index]
+            );
+            if ($row) {
+                DB::statement("ALTER TABLE `$table` DROP INDEX `$index`");
+            }
+        };
+        $dropForeignByColumn = function (string $table, string $column) use ($schema) {
+            $row = DB::selectOne(
+                'SELECT constraint_name FROM information_schema.key_column_usage WHERE table_schema = ? AND table_name = ? AND column_name = ? AND referenced_table_name IS NOT NULL LIMIT 1',
+                [$schema, $table, $column]
+            );
+            if ($row && !empty($row->constraint_name)) {
+                DB::statement("ALTER TABLE `$table` DROP FOREIGN KEY `{$row->constraint_name}`");
+            }
+        };
+
+        $dropIndexIfExists('item_labor_rates', 'item_labor_rates_item_id_unique');
+        $dropIndexIfExists('project_item_labor_rates', 'project_item_labor_rates_project_item_id_unique');
+        $dropIndexIfExists('labor_costs', 'labor_costs_sub_contractor_id_item_id_context_unique');
+        $dropForeignByColumn('item_labor_rates', 'item_id');
+        $dropForeignByColumn('project_item_labor_rates', 'project_item_id');
+
         Schema::table('item_labor_rates', function (Blueprint $t) {
             if (!Schema::hasColumn('item_labor_rates', 'item_variant_id')) {
                 $t->foreignId('item_variant_id')
@@ -15,28 +42,12 @@ return new class extends Migration {
                     ->constrained('item_variants')
                     ->nullOnDelete();
             }
-            if (Schema::hasColumn('item_labor_rates', 'item_id')) {
-                try {
-                    $t->dropForeign(['item_id']);
-                } catch (\Throwable $e) {
-                    // ignore
-                }
-                try {
-                    $t->dropUnique(['item_id']);
-                } catch (\Throwable $e) {
-                    // ignore
-                }
-            }
         });
 
         Schema::table('item_labor_rates', function (Blueprint $t) {
             if (Schema::hasColumn('item_labor_rates', 'item_variant_id')) {
                 $t->unique(['item_id', 'item_variant_id']);
-                try {
-                    $t->foreign('item_id')->references('id')->on('items')->cascadeOnDelete();
-                } catch (\Throwable $e) {
-                    // ignore
-                }
+                $t->foreign('item_id')->references('id')->on('items')->cascadeOnDelete();
             }
         });
 
@@ -48,28 +59,12 @@ return new class extends Migration {
                     ->constrained('item_variants')
                     ->nullOnDelete();
             }
-            if (Schema::hasColumn('project_item_labor_rates', 'project_item_id')) {
-                try {
-                    $t->dropForeign(['project_item_id']);
-                } catch (\Throwable $e) {
-                    // ignore
-                }
-                try {
-                    $t->dropUnique(['project_item_id']);
-                } catch (\Throwable $e) {
-                    // ignore
-                }
-            }
         });
 
         Schema::table('project_item_labor_rates', function (Blueprint $t) {
             if (Schema::hasColumn('project_item_labor_rates', 'item_variant_id')) {
                 $t->unique(['project_item_id', 'item_variant_id']);
-                try {
-                    $t->foreign('project_item_id')->references('id')->on('items')->cascadeOnDelete();
-                } catch (\Throwable $e) {
-                    // ignore
-                }
+                $t->foreign('project_item_id')->references('id')->on('items')->cascadeOnDelete();
             }
         });
 
@@ -97,6 +92,32 @@ return new class extends Migration {
 
     public function down(): void
     {
+        $schema = DB::getDatabaseName();
+        $dropIndexIfExists = function (string $table, string $index) use ($schema) {
+            $row = DB::selectOne(
+                'SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ? LIMIT 1',
+                [$schema, $table, $index]
+            );
+            if ($row) {
+                DB::statement("ALTER TABLE `$table` DROP INDEX `$index`");
+            }
+        };
+        $dropForeignByColumn = function (string $table, string $column) use ($schema) {
+            $row = DB::selectOne(
+                'SELECT constraint_name FROM information_schema.key_column_usage WHERE table_schema = ? AND table_name = ? AND column_name = ? AND referenced_table_name IS NOT NULL LIMIT 1',
+                [$schema, $table, $column]
+            );
+            if ($row && !empty($row->constraint_name)) {
+                DB::statement("ALTER TABLE `$table` DROP FOREIGN KEY `{$row->constraint_name}`");
+            }
+        };
+
+        $dropIndexIfExists('labor_costs', 'labor_costs_sub_contractor_id_item_id_item_variant_id_context_unique');
+        $dropIndexIfExists('project_item_labor_rates', 'project_item_labor_rates_project_item_id_item_variant_id_unique');
+        $dropIndexIfExists('item_labor_rates', 'item_labor_rates_item_id_item_variant_id_unique');
+        $dropForeignByColumn('project_item_labor_rates', 'project_item_id');
+        $dropForeignByColumn('item_labor_rates', 'item_id');
+
         Schema::table('labor_costs', function (Blueprint $t) {
             try {
                 $t->dropUnique(['sub_contractor_id', 'item_id', 'item_variant_id', 'context']);
@@ -124,7 +145,6 @@ return new class extends Migration {
             }
             try {
                 $t->unique(['project_item_id']);
-                $t->foreign('project_item_id')->references('id')->on('items')->cascadeOnDelete();
             } catch (\Throwable $e) {
                 // ignore
             }
@@ -141,7 +161,6 @@ return new class extends Migration {
             }
             try {
                 $t->unique(['item_id']);
-                $t->foreign('item_id')->references('id')->on('items')->cascadeOnDelete();
             } catch (\Throwable $e) {
                 // ignore
             }
