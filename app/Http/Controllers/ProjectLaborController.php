@@ -28,11 +28,7 @@ class ProjectLaborController extends Controller
 
         $itemsQuery = Item::query()
             ->select('id', 'name', 'sku', 'item_type', 'list_type')
-            ->with(['variants' => function ($query) {
-                if (Schema::hasColumn('item_variants', 'is_active')) {
-                    $query->where('is_active', true);
-                }
-            }]);
+            ->with(['variants' => fn($query) => $query->orderBy('id')]);
         if ($type === 'project') {
             $itemsQuery->where('list_type', 'project');
         } else {
@@ -56,9 +52,19 @@ class ProjectLaborController extends Controller
         $baseItems = $itemsQuery->orderBy('name')->get();
         $rows = collect();
         foreach ($baseItems as $item) {
-            $variants = $item->variants ?? collect();
-            if ($variants->isNotEmpty()) {
-                foreach ($variants as $variant) {
+            $variants = collect($item->variants ?? []);
+            $activeVariants = $variants;
+            if (Schema::hasColumn('item_variants', 'is_active')) {
+                $activeVariants = $variants->filter(function ($variant) {
+                    return $variant->is_active === null
+                        || (int) $variant->is_active === 1
+                        || $variant->is_active === true;
+                });
+            }
+            $displayVariants = $activeVariants->isNotEmpty() ? $activeVariants : $variants;
+
+            if ($displayVariants->isNotEmpty()) {
+                foreach ($displayVariants as $variant) {
                     $rows->push((object) [
                         'item_id' => $item->id,
                         'id' => $item->id,
@@ -88,8 +94,13 @@ class ProjectLaborController extends Controller
         }
 
         $rates = $type === 'project'
-            ? ProjectItemLaborRate::whereIn('project_item_id', $rateIds)->get()->keyBy('project_item_id')
-            : ItemLaborRate::whereIn('item_id', $rateIds)->get()->keyBy('item_id');
+            ? ProjectItemLaborRate::whereIn('project_item_id', $rateIds)->get()
+            : ItemLaborRate::whereIn('item_id', $rateIds)->get();
+        $rates = $rates->keyBy(function ($row) use ($type) {
+            $baseId = $type === 'project' ? $row->project_item_id : $row->item_id;
+            $variantId = $row->item_variant_id ?? 0;
+            return $baseId . ':' . $variantId;
+        });
 
         $canUpdateItem = $user?->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']) ?? false;
         $canUpdateProject = $user?->hasAnyRole(['Admin', 'SuperAdmin', 'PM']) ?? false;
@@ -134,8 +145,10 @@ class ProjectLaborController extends Controller
                     ->where('sub_contractor_id', $selectedSubContractorId)
                     ->where('context', $context)
                     ->whereIn('item_id', $rateIds)
-                    ->get(['item_id', 'cost_amount'])
-                    ->keyBy('item_id');
+                    ->get(['item_id', 'item_variant_id', 'cost_amount'])
+                    ->keyBy(function ($row) {
+                        return $row->item_id . ':' . ($row->item_variant_id ?? 0);
+                    });
             }
         }
 
@@ -181,6 +194,7 @@ class ProjectLaborController extends Controller
             'labor_unit_cost' => ['required', 'string'],
             'notes' => ['nullable', 'string', 'max:255'],
             'sub_contractor_id' => ['nullable', 'integer'],
+            'variant_id' => ['nullable', 'integer', 'exists:item_variants,id'],
         ];
         if ($canManageCost && Schema::hasTable('sub_contractors')) {
             $rules['sub_contractor_id'][] = 'exists:sub_contractors,id';
@@ -206,14 +220,28 @@ class ProjectLaborController extends Controller
             }
         }
 
+        $variantId = !empty($data['variant_id']) ? (int) $data['variant_id'] : null;
+        if ($variantId) {
+            $variant = \App\Models\ItemVariant::query()->find($variantId);
+            if (!$variant || (int) $variant->item_id !== (int) $item->id) {
+                return back()->withErrors(['variant_id' => 'Variant tidak sesuai dengan item.']);
+            }
+        }
+
         if ($type === 'project') {
-            $rate = ProjectItemLaborRate::firstOrNew(['project_item_id' => $item->id]);
+            $rate = ProjectItemLaborRate::firstOrNew([
+                'project_item_id' => $item->id,
+                'item_variant_id' => $variantId,
+            ]);
             $rate->labor_unit_cost = $data['labor_unit_cost'];
             $rate->notes = $data['notes'] ?? null;
             $rate->updated_by = $user?->id;
             $rate->save();
         } else {
-            $rate = ItemLaborRate::firstOrNew(['item_id' => $item->id]);
+            $rate = ItemLaborRate::firstOrNew([
+                'item_id' => $item->id,
+                'item_variant_id' => $variantId,
+            ]);
             $rate->labor_unit_cost = $data['labor_unit_cost'];
             $rate->notes = $data['notes'] ?? null;
             $rate->updated_by = $user?->id;
@@ -233,6 +261,7 @@ class ProjectLaborController extends Controller
             $cost = LaborCost::firstOrNew([
                 'sub_contractor_id' => (int) $data['sub_contractor_id'],
                 'item_id' => $item->id,
+                'item_variant_id' => $variantId,
                 'context' => $context,
             ]);
             $cost->cost_amount = (float) ($data['labor_cost_amount'] ?? 0);

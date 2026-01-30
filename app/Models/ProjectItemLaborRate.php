@@ -9,6 +9,7 @@ class ProjectItemLaborRate extends Model
 {
     protected $fillable = [
         'project_item_id',
+        'item_variant_id',
         'labor_unit_cost',
         'notes',
         'updated_by',

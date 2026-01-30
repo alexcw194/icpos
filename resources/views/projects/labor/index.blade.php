@@ -66,12 +66,12 @@
           @php $canUpdate = $type === 'project' ? $canUpdateProject : $canUpdateItem; @endphp
           @forelse($items as $item)
             @php
-              $rateKey = $item->item_id ?? $item->id;
+              $rateKey = ($item->item_id ?? $item->id) . ':' . ($item->variant_id ?? 0);
               $rate = $rates[$rateKey] ?? null;
               $laborValue = $rate?->labor_unit_cost ?? 0;
               $costRow = $laborCosts[$rateKey] ?? null;
               $laborCostValue = $costRow?->cost_amount ?? 0;
-              $formItemId = $rateKey;
+              $formItemId = $item->item_id ?? $item->id;
               $formId = 'labor-form-'.$formItemId.($item->variant_id ? '-v'.$item->variant_id : '');
             @endphp
             <tr>
@@ -84,6 +84,9 @@
                     <input type="hidden" name="q" value="{{ $q }}">
                     @if(!empty($selectedSubContractorId))
                       <input type="hidden" name="sub_contractor_id" value="{{ $selectedSubContractorId }}">
+                    @endif
+                    @if(!empty($item->variant_id))
+                      <input type="hidden" name="variant_id" value="{{ $item->variant_id }}">
                     @endif
                   </form>
                 @endif

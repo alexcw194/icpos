@@ -9,6 +9,7 @@ class ItemLaborRate extends Model
 {
     protected $fillable = [
         'item_id',
+        'item_variant_id',
         'labor_unit_cost',
         'notes',
         'updated_by',

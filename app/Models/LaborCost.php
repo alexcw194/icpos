@@ -10,6 +10,7 @@ class LaborCost extends Model
     protected $fillable = [
         'sub_contractor_id',
         'item_id',
+        'item_variant_id',
         'context',
         'cost_amount',
     ];
