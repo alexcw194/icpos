@@ -141,13 +141,17 @@ class ProjectLaborController extends Controller
                 && Schema::hasColumn('labor_costs', 'context')
             ) {
                 $context = $type === 'project' ? 'project' : 'retail';
+                $hasVariantColumn = Schema::hasColumn('labor_costs', 'item_variant_id');
                 $laborCosts = LaborCost::query()
                     ->where('sub_contractor_id', $selectedSubContractorId)
                     ->where('context', $context)
                     ->whereIn('item_id', $rateIds)
-                    ->get(['item_id', 'item_variant_id', 'cost_amount'])
-                    ->keyBy(function ($row) {
-                        return $row->item_id . ':' . ($row->item_variant_id ?? 0);
+                    ->get($hasVariantColumn ? ['item_id', 'item_variant_id', 'cost_amount'] : ['item_id', 'cost_amount'])
+                    ->keyBy(function ($row) use ($hasVariantColumn) {
+                        if ($hasVariantColumn) {
+                            return $row->item_id . ':' . ($row->item_variant_id ?? 0);
+                        }
+                        return $row->item_id . ':0';
                     });
             }
         }
@@ -221,6 +225,11 @@ class ProjectLaborController extends Controller
         }
 
         $variantId = !empty($data['variant_id']) ? (int) $data['variant_id'] : null;
+        $rateTable = $type === 'project' ? 'project_item_labor_rates' : 'item_labor_rates';
+        $hasRateVariantColumn = Schema::hasColumn($rateTable, 'item_variant_id');
+        if ($variantId && !$hasRateVariantColumn) {
+            return back()->with('warning', 'Labor varian belum bisa disimpan. Jalankan migration terlebih dahulu.');
+        }
         if ($variantId) {
             $variant = \App\Models\ItemVariant::query()->find($variantId);
             if (!$variant || (int) $variant->item_id !== (int) $item->id) {
@@ -248,12 +257,18 @@ class ProjectLaborController extends Controller
             $rate->save();
         }
 
+        $hasLaborCostVariantColumn = Schema::hasColumn('labor_costs', 'item_variant_id');
+        if ($variantId && $canManageCost && !$hasLaborCostVariantColumn) {
+            return back()->with('warning', 'Labor cost varian belum bisa disimpan. Jalankan migration terlebih dahulu.');
+        }
+
         $canSaveCost = $canManageCost
             && !empty($data['sub_contractor_id'])
             && Schema::hasTable('labor_costs')
             && Schema::hasColumn('labor_costs', 'item_id')
             && Schema::hasColumn('labor_costs', 'context')
-            && Schema::hasColumn('labor_costs', 'cost_amount');
+            && Schema::hasColumn('labor_costs', 'cost_amount')
+            && (!$variantId || $hasLaborCostVariantColumn);
 
         $laborCostNotice = null;
         if ($canSaveCost) {
