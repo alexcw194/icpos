@@ -15,7 +15,11 @@ return new class extends Migration {
                 [$schema, $table, $index]
             );
             if ($row) {
-                DB::statement("ALTER TABLE `$table` DROP INDEX `$index`");
+                try {
+                    DB::statement("ALTER TABLE `$table` DROP INDEX `$index`");
+                } catch (\Throwable $e) {
+                    // ignore
+                }
             }
         };
         $dropForeignByColumn = function (string $table, string $column) use ($schema) {
@@ -99,7 +103,11 @@ return new class extends Migration {
                 [$schema, $table, $index]
             );
             if ($row) {
-                DB::statement("ALTER TABLE `$table` DROP INDEX `$index`");
+                try {
+                    DB::statement("ALTER TABLE `$table` DROP INDEX `$index`");
+                } catch (\Throwable $e) {
+                    // ignore
+                }
             }
         };
         $dropForeignByColumn = function (string $table, string $column) use ($schema) {
