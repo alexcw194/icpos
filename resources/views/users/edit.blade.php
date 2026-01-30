@@ -39,6 +39,12 @@
           @error('email')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
 
+        <div class="col-md-6">
+          <label class="form-label">No. HP (opsional)</label>
+          <input type="text" name="phone" value="{{ old('phone',$user->phone) }}" class="form-control" maxlength="30">
+          @error('phone')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+
         <div class="col-md-4">
           <label class="form-label">Role</label>
           <select name="role" class="form-select" required>

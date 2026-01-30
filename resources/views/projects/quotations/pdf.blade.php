@@ -76,7 +76,10 @@
     }
   }
 
-  $salesAgent = $quotation->salesOwner->name ?? '-';
+  $salesOwner = $quotation->salesOwner;
+  $salesAgent = $salesOwner->name ?? '-';
+  $salesOwnerPhone = $salesOwner->phone ?? '';
+  $salesOwnerEmail = $salesOwner->email ?? '';
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
   $validUntil = $quotation->quotation_date
     ? \Illuminate\Support\Carbon::parse($quotation->quotation_date)->addDays((int) ($quotation->validity_days ?? 0))
@@ -145,6 +148,12 @@
       <div class="quo-row"><span class="small">BQ Date:</span> {{ $fmtDate($quotation->quotation_date) }}</div>
       <div class="quo-row"><span class="small">Expiry Date:</span> {{ $fmtDate($validUntil) }}</div>
       <div class="quo-row"><span class="small">Sales Owner:</span> {{ $salesAgent }}</div>
+      @if($salesOwnerPhone !== '' || $salesOwnerEmail !== '')
+        <div class="quo-row">
+          <span class="small">HP / Email:</span>
+          {{ trim(($salesOwnerPhone ?: '-').' - '.($salesOwnerEmail ?: '-')) }}
+        </div>
+      @endif
       <div class="quo-row"><span class="small">Working Time:</span> {{ $workingTime }}</div>
     </td>
   </tr>

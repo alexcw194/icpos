@@ -31,6 +31,11 @@
           <input type="email" name="email" value="{{ old('email') }}" class="form-control" required>
         </div>
 
+        <div class="mb-3">
+          <label class="form-label">No. HP (opsional)</label>
+          <input type="text" name="phone" value="{{ old('phone') }}" class="form-control" maxlength="30">
+        </div>
+
         <div class="row g-3">
           <div class="col-md-8">
             <div class="mb-3">

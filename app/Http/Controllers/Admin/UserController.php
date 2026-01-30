@@ -43,6 +43,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name'   => ['required','string','max:120'],
             'email'  => ['required','email','max:190','unique:users,email'],
+            'phone'  => ['nullable','string','max:30'],
             'is_active' => ['nullable','boolean'],
             'role' => [
                 'required',
@@ -67,6 +68,7 @@ class UserController extends Controller
         $u = new User();
         $u->name = $data['name'];
         $u->email = $data['email'];
+        $u->phone = $data['phone'] ?? null;
         $u->is_active = array_key_exists('is_active', $data) ? (bool)$data['is_active'] : true;
         $u->email_signature = $data['email_signature'] ?? null;
 
@@ -108,6 +110,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name'   => ['required','string','max:120'],
             'email'  => ['required','email','max:190','unique:users,email,'.$user->id],
+            'phone'  => ['nullable','string','max:30'],
             'is_active' => ['nullable','boolean'],
             'role'   => ['required', Rule::in(['Admin','Sales','Finance'])],
             'email_signature' => ['nullable','string'],
@@ -121,6 +124,7 @@ class UserController extends Controller
 
         $user->name = $data['name'];
         $user->email = $data['email'];
+        $user->phone = $data['phone'] ?? null;
         $user->is_active = array_key_exists('is_active', $data) ? (bool)$data['is_active'] : $user->is_active;
         $user->email_signature = $data['email_signature'] ?? null;
 
