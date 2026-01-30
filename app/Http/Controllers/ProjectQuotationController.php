@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Company;
+use App\Models\BqSystemNote;
 use App\Models\Project;
 use App\Models\ProjectQuotation;
 use App\Models\ProjectQuotationLine;
@@ -16,6 +17,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\ProjectQuotationTotalsService;
 use App\Support\Number;
+use App\Support\ProjectSystems;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Request;
@@ -89,6 +91,9 @@ class ProjectQuotationController extends Controller
                 ? $selectedSubContractorId
                 : null,
         ]);
+        if (empty($quotation->notes)) {
+            $quotation->notes = $this->buildDefaultBqNotes($project);
+        }
 
         $paymentTerms = collect([
             ['code' => 'DP', 'label' => 'DP', 'percent' => 30, 'sequence' => 1],
@@ -338,6 +343,9 @@ class ProjectQuotationController extends Controller
 
         $paymentTerms = $quotation->paymentTerms;
         $sections = $quotation->sections;
+        if (empty($quotation->notes)) {
+            $quotation->notes = $this->buildDefaultBqNotes($project);
+        }
 
         $sections->each(function ($section) {
             $section->lines->each(function ($line) {
@@ -483,6 +491,44 @@ class ProjectQuotationController extends Controller
         return redirect()
             ->route('projects.quotations.show', [$project, $quotation])
             ->with('success', 'BQ berhasil diperbarui.');
+    }
+
+    private function buildDefaultBqNotes(Project $project): ?string
+    {
+        $systems = $project->systems_json ?? [];
+        if (!is_array($systems) || $systems === []) {
+            return null;
+        }
+
+        $systems = array_values(array_filter($systems, fn ($key) => is_string($key) && $key !== ''));
+        if ($systems === []) {
+            return null;
+        }
+
+        if (array_intersect($systems, ProjectSystems::atomicKeys())) {
+            $systems = array_values(array_diff($systems, ['fire_protection_system']));
+        }
+
+        if ($systems === []) {
+            return null;
+        }
+
+        $notesMap = BqSystemNote::query()
+            ->whereIn('system_key', $systems)
+            ->where('is_active', true)
+            ->get(['system_key', 'notes_template'])
+            ->keyBy('system_key');
+
+        $chunks = [];
+        foreach ($systems as $key) {
+            $text = trim((string) ($notesMap[$key]->notes_template ?? ''));
+            if ($text !== '') {
+                $chunks[] = $text;
+            }
+        }
+
+        $notes = trim(implode("\n", $chunks));
+        return $notes !== '' ? $notes : null;
     }
 
     public function repriceLabor(Request $request, Project $project, ProjectQuotation $quotation)

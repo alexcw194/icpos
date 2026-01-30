@@ -259,6 +259,7 @@
                         <li><a href="{{ route('warehouses.index') }}" class="dropdown-item {{ request()->routeIs('warehouses.*') ? 'active' : '' }}">Warehouses</a></li>
                         <li><a href="{{ route('banks.index') }}" class="dropdown-item {{ request()->routeIs('banks.*') ? 'active' : '' }}">Banks</a></li>
                         <li><a href="{{ route('bq-line-catalogs.index') }}" class="dropdown-item {{ request()->routeIs('bq-line-catalogs.*') ? 'active' : '' }}">BQ Line Catalog</a></li>
+                        <li><a href="{{ route('bq-system-notes.index') }}" class="dropdown-item {{ request()->routeIs('bq-system-notes.*') ? 'active' : '' }}">BQ Systems Notes</a></li>
                         <li><a href="{{ route('sub-contractors.index') }}" class="dropdown-item {{ request()->routeIs('sub-contractors.*') ? 'active' : '' }}">Sub-Contractors</a></li>
                         <li><a href="{{ route('term-of-payments.index') }}" class="dropdown-item {{ request()->routeIs('term-of-payments.*') ? 'active' : '' }}">Term of Payment (TOP)</a></li>
                         @role('SuperAdmin')

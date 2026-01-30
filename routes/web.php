@@ -370,6 +370,9 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::resource('warehouses', WarehouseController::class)->except(['show']);
     Route::resource('banks', \App\Http\Controllers\BankController::class)->except(['show']);
     Route::resource('bq-line-catalogs', BqLineCatalogController::class)->except(['show']);
+    Route::resource('bq-system-notes', \App\Http\Controllers\BqSystemNoteController::class)
+        ->parameters(['bq-system-notes' => 'bqSystemNote'])
+        ->except(['show']);
     Route::resource('sub-contractors', SubContractorController::class)
         ->parameters(['sub-contractors' => 'subContractor'])
         ->except(['show']);
