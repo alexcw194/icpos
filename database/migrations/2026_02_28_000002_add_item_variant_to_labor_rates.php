@@ -29,17 +29,11 @@ return new class extends Migration {
             );
             if (!$row) {
                 $cols = implode('`,`', $columns);
-                DB::statement("ALTER TABLE `$table` ADD UNIQUE `$name`(`$cols`)");
-            }
-        };
-        $addUniqueIfMissing = function (string $table, array $columns, string $name) use ($schema) {
-            $row = DB::selectOne(
-                'SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ? LIMIT 1',
-                [$schema, $table, $name]
-            );
-            if (!$row) {
-                $cols = implode('`,`', $columns);
-                DB::statement("ALTER TABLE `$table` ADD UNIQUE `$name`(`$cols`)");
+                try {
+                    DB::statement("ALTER TABLE `$table` ADD UNIQUE `$name`(`$cols`)");
+                } catch (\Throwable $e) {
+                    // ignore
+                }
             }
         };
         $dropForeignByColumn = function (string $table, string $column) use ($schema) {
