@@ -148,7 +148,7 @@
       <div class="quo-number"># {{ $quotation->number }}</div>
       <div class="quo-row"><span class="small">BQ Date:</span> {{ $fmtDate($quotation->quotation_date) }}</div>
       <div class="quo-row"><span class="small">Expiry Date:</span> {{ $fmtDate($validUntil) }}</div>
-      <div class="quo-row"><span class="small">Sales Owner:</span> {{ $salesAgent }}</div>
+      <div class="quo-row"><span class="small">Agent:</span> {{ $salesAgent }}</div>
       @if($salesOwnerPhone !== '' || $salesOwnerEmail !== '')
         <div class="quo-row">
           <span class="small">HP / Email:</span>
