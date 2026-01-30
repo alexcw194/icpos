@@ -45,10 +45,27 @@ return new class extends Migration {
                 DB::statement("ALTER TABLE `$table` DROP FOREIGN KEY `{$row->constraint_name}`");
             }
         };
+        $addUniqueIfMissing = function (string $table, array $columns, string $name) use ($schema) {
+            $row = DB::selectOne(
+                'SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ? LIMIT 1',
+                [$schema, $table, $name]
+            );
+            if (!$row) {
+                $cols = implode('`,`', $columns);
+                try {
+                    DB::statement("ALTER TABLE `$table` ADD UNIQUE `$name`(`$cols`)");
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+            }
+        };
 
         $dropIndexIfExists('item_labor_rates', 'item_labor_rates_item_id_unique');
+        $dropIndexIfExists('item_labor_rates', 'item_labor_rates_item_id_item_variant_id_unique');
         $dropIndexIfExists('project_item_labor_rates', 'project_item_labor_rates_project_item_id_unique');
+        $dropIndexIfExists('project_item_labor_rates', 'project_item_labor_rates_project_item_id_item_variant_id_unique');
         $dropIndexIfExists('labor_costs', 'labor_costs_sub_contractor_id_item_id_context_unique');
+        $dropIndexIfExists('labor_costs', 'labor_costs_sub_contractor_id_item_id_item_variant_id_context_unique');
         $dropForeignByColumn('item_labor_rates', 'item_id');
         $dropForeignByColumn('project_item_labor_rates', 'project_item_id');
 
