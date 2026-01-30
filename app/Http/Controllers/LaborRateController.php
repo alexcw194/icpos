@@ -33,6 +33,12 @@ class LaborRateController extends Controller
                 }
             }
             $rate = $rateQuery->first();
+            if (!$rate && $hasVariantColumn && $variantId > 0) {
+                $rate = ProjectItemLaborRate::query()
+                    ->where('project_item_id', $itemId)
+                    ->whereNull('item_variant_id')
+                    ->first();
+            }
             return response()->json([
                 'ok' => true,
                 'unit_cost' => $rate?->labor_unit_cost ?? null,
@@ -51,6 +57,12 @@ class LaborRateController extends Controller
             }
         }
         $rate = $rateQuery->first();
+        if (!$rate && $hasVariantColumn && $variantId > 0) {
+            $rate = ItemLaborRate::query()
+                ->where('item_id', $itemId)
+                ->whereNull('item_variant_id')
+                ->first();
+        }
         return response()->json([
             'ok' => true,
             'unit_cost' => $rate?->labor_unit_cost ?? null,
