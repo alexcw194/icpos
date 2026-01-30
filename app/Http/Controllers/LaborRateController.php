@@ -7,6 +7,7 @@ use App\Models\ItemLaborRate;
 use App\Models\ItemVariant;
 use App\Models\ProjectItemLaborRate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class LaborRateController extends Controller
 {
@@ -22,10 +23,16 @@ class LaborRateController extends Controller
         }
 
         if ($source === 'project') {
-            $rate = ProjectItemLaborRate::query()
-                ->where('project_item_id', $itemId)
-                ->when($variantId > 0, fn($q) => $q->where('item_variant_id', $variantId), fn($q) => $q->whereNull('item_variant_id'))
-                ->first();
+            $hasVariantColumn = Schema::hasColumn('project_item_labor_rates', 'item_variant_id');
+            $rateQuery = ProjectItemLaborRate::query()->where('project_item_id', $itemId);
+            if ($hasVariantColumn) {
+                if ($variantId > 0) {
+                    $rateQuery->where('item_variant_id', $variantId);
+                } else {
+                    $rateQuery->whereNull('item_variant_id');
+                }
+            }
+            $rate = $rateQuery->first();
             return response()->json([
                 'ok' => true,
                 'unit_cost' => $rate?->labor_unit_cost ?? null,
@@ -34,10 +41,16 @@ class LaborRateController extends Controller
             ]);
         }
 
-        $rate = ItemLaborRate::query()
-            ->where('item_id', $itemId)
-            ->when($variantId > 0, fn($q) => $q->where('item_variant_id', $variantId), fn($q) => $q->whereNull('item_variant_id'))
-            ->first();
+        $hasVariantColumn = Schema::hasColumn('item_labor_rates', 'item_variant_id');
+        $rateQuery = ItemLaborRate::query()->where('item_id', $itemId);
+        if ($hasVariantColumn) {
+            if ($variantId > 0) {
+                $rateQuery->where('item_variant_id', $variantId);
+            } else {
+                $rateQuery->whereNull('item_variant_id');
+            }
+        }
+        $rate = $rateQuery->first();
         return response()->json([
             'ok' => true,
             'unit_cost' => $rate?->labor_unit_cost ?? null,
@@ -77,7 +90,8 @@ class LaborRateController extends Controller
         if (!$item) {
             return response()->json(['ok' => false, 'message' => 'Item tidak ditemukan.'], 404);
         }
-        if (!empty($data['variant_id'])) {
+        $variantId = !empty($data['variant_id']) ? (int) $data['variant_id'] : null;
+        if ($variantId) {
             $variantOk = ItemVariant::query()
                 ->where('id', $data['variant_id'])
                 ->where('item_id', $itemId)
@@ -98,10 +112,15 @@ class LaborRateController extends Controller
         $variantId = !empty($data['variant_id']) ? (int) $data['variant_id'] : null;
 
         if ($source === 'project') {
-            $rate = ProjectItemLaborRate::firstOrNew([
-                'project_item_id' => $itemId,
-                'item_variant_id' => $variantId,
-            ]);
+            $hasVariantColumn = Schema::hasColumn('project_item_labor_rates', 'item_variant_id');
+            if ($variantId && !$hasVariantColumn) {
+                return response()->json(['ok' => false, 'message' => 'Labor varian belum bisa disimpan. Jalankan migration.'], 422);
+            }
+            $rateAttrs = ['project_item_id' => $itemId];
+            if ($hasVariantColumn) {
+                $rateAttrs['item_variant_id'] = $variantId;
+            }
+            $rate = ProjectItemLaborRate::firstOrNew($rateAttrs);
             if ($rate->exists && $laborUnitCost < (float) $rate->labor_unit_cost && empty($reason)) {
                 return response()->json(['ok' => false, 'message' => 'Alasan wajib jika nilai turun.'], 422);
             }
@@ -113,10 +132,15 @@ class LaborRateController extends Controller
             return response()->json(['ok' => true, 'unit_cost' => $rate->labor_unit_cost, 'source' => 'master_project']);
         }
 
-        $rate = ItemLaborRate::firstOrNew([
-            'item_id' => $itemId,
-            'item_variant_id' => $variantId,
-        ]);
+        $hasVariantColumn = Schema::hasColumn('item_labor_rates', 'item_variant_id');
+        if ($variantId && !$hasVariantColumn) {
+            return response()->json(['ok' => false, 'message' => 'Labor varian belum bisa disimpan. Jalankan migration.'], 422);
+        }
+        $rateAttrs = ['item_id' => $itemId];
+        if ($hasVariantColumn) {
+            $rateAttrs['item_variant_id'] = $variantId;
+        }
+        $rate = ItemLaborRate::firstOrNew($rateAttrs);
         if ($rate->exists && $laborUnitCost < (float) $rate->labor_unit_cost && empty($reason)) {
             return response()->json(['ok' => false, 'message' => 'Alasan wajib jika nilai turun.'], 422);
         }

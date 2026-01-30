@@ -238,19 +238,21 @@ class ProjectLaborController extends Controller
         }
 
         if ($type === 'project') {
-            $rate = ProjectItemLaborRate::firstOrNew([
-                'project_item_id' => $item->id,
-                'item_variant_id' => $variantId,
-            ]);
+            $rateAttrs = ['project_item_id' => $item->id];
+            if ($hasRateVariantColumn) {
+                $rateAttrs['item_variant_id'] = $variantId;
+            }
+            $rate = ProjectItemLaborRate::firstOrNew($rateAttrs);
             $rate->labor_unit_cost = $data['labor_unit_cost'];
             $rate->notes = $data['notes'] ?? null;
             $rate->updated_by = $user?->id;
             $rate->save();
         } else {
-            $rate = ItemLaborRate::firstOrNew([
-                'item_id' => $item->id,
-                'item_variant_id' => $variantId,
-            ]);
+            $rateAttrs = ['item_id' => $item->id];
+            if ($hasRateVariantColumn) {
+                $rateAttrs['item_variant_id'] = $variantId;
+            }
+            $rate = ItemLaborRate::firstOrNew($rateAttrs);
             $rate->labor_unit_cost = $data['labor_unit_cost'];
             $rate->notes = $data['notes'] ?? null;
             $rate->updated_by = $user?->id;
@@ -273,12 +275,15 @@ class ProjectLaborController extends Controller
         $laborCostNotice = null;
         if ($canSaveCost) {
             $context = $type === 'project' ? 'project' : 'retail';
-            $cost = LaborCost::firstOrNew([
+            $costAttrs = [
                 'sub_contractor_id' => (int) $data['sub_contractor_id'],
                 'item_id' => $item->id,
-                'item_variant_id' => $variantId,
                 'context' => $context,
-            ]);
+            ];
+            if ($hasLaborCostVariantColumn) {
+                $costAttrs['item_variant_id'] = $variantId;
+            }
+            $cost = LaborCost::firstOrNew($costAttrs);
             $cost->cost_amount = (float) ($data['labor_cost_amount'] ?? 0);
             $cost->save();
         } elseif ($canManageCost && !empty($data['sub_contractor_id'])) {
