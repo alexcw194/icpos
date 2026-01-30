@@ -155,7 +155,10 @@
           {{ trim(($salesOwnerPhone ?: '-').' - '.($salesOwnerEmail ?: '-')) }}
         </div>
       @endif
-      <div class="quo-row worktime-row"><span class="small">WorkTime: {{ $workingTime }}</span></div>
+      <div class="quo-row worktime-row">
+        <span class="small">Working Time:</span>
+        <span>{{ $workingTime }}</span>
+      </div>
     </td>
   </tr>
 </table>
