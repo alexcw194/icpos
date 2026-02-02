@@ -80,24 +80,8 @@
     <div class="col-6 col-md-2">
       <div class="card card-sm">
         <div class="card-body">
-          <div class="subheader">Sent &gt; 7d</div>
-          <div class="h2 m-0">{{ number_format($qSentAging7dCount) }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="card card-sm">
-        <div class="card-body">
           <div class="subheader">SO Open</div>
           <div class="h2 m-0">{{ number_format($soOpenCount) }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="card card-sm">
-        <div class="card-body">
-          <div class="subheader">SO Due 7d</div>
-          <div class="h2 m-0">{{ number_format($soDue7Count) }}</div>
         </div>
       </div>
     </div>
@@ -109,37 +93,13 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-2">
-      <div class="card card-sm">
-        <div class="card-body">
-          <div class="subheader">Overdue Inv.</div>
-          <div class="h2 m-0">{{ number_format($overdueInvoiceCount) }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="card card-sm">
-        <div class="card-body">
-          <div class="subheader">TT Pending</div>
-          <div class="h2 m-0">{{ number_format($ttPendingCount) }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="card card-sm">
-        <div class="card-body">
-          <div class="subheader">Negative Stock</div>
-          <div class="h2 m-0 text-danger">{{ number_format($negativeStockCount) }}</div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="row g-3 mb-3">
     <div class="col-lg-6">
       <div class="card mb-3">
         <div class="card-header">
-          <h3 class="card-title">Sent Quotations Aging &gt; 7 Days</h3>
+          <h3 class="card-title">Sent Quotations Aging &gt; 7 Days ({{ number_format($qSentAging7dCount) }})</h3>
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-vcenter card-table">
@@ -179,9 +139,9 @@
 
       @if($soHasDeadline)
         <div class="card mb-3">
-          <div class="card-header">
-            <h3 class="card-title">SO Overdue</h3>
-          </div>
+        <div class="card-header">
+          <h3 class="card-title">SO Overdue</h3>
+        </div>
           <div class="table-responsive">
             <table class="table table-sm table-vcenter card-table">
               <thead>
@@ -221,9 +181,9 @@
         </div>
 
         <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">SO Due Soon (Next 7 Days)</h3>
-          </div>
+        <div class="card-header">
+          <h3 class="card-title">SO Due Soon (Next 7 Days) ({{ number_format($soDue7Count) }})</h3>
+        </div>
           <div class="table-responsive">
             <table class="table table-sm table-vcenter card-table">
               <thead>
@@ -307,7 +267,7 @@
     <div class="col-lg-6">
       <div class="card mb-3">
         <div class="card-header">
-          <h3 class="card-title">Overdue Invoices (Posted, Unpaid)</h3>
+          <h3 class="card-title">Overdue Invoices (Posted, Unpaid) ({{ number_format($overdueInvoiceCount) }})</h3>
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-vcenter card-table">
@@ -351,7 +311,7 @@
 
       <div class="card mb-3">
         <div class="card-header">
-          <h3 class="card-title">TT Pending (Receipt Missing)</h3>
+          <h3 class="card-title">TT Pending (Receipt Missing) ({{ number_format($ttPendingCount) }})</h3>
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-vcenter card-table">
@@ -391,7 +351,7 @@
 
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title">Inventory Negative Stock</h3>
+          <h3 class="card-title">Inventory Negative Stock ({{ number_format($negativeStockCount) }})</h3>
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-vcenter card-table">
