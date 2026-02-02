@@ -4,10 +4,8 @@
 <div class="container-xl">
   <div class="card">
     <div class="card-header d-flex">
-      <h3 class="card-title">
-        Purchase {{ ($type ?? 'item') === 'project' ? 'Projects' : 'Items' }}
-      </h3>
-      <a href="{{ route('po.create', ['type' => $type ?? 'item']) }}" class="btn btn-primary ms-auto">+ New PO</a>
+      <h3 class="card-title">Purchase Orders</h3>
+      <a href="{{ route('po.create') }}" class="btn btn-primary ms-auto">+ New PO</a>
     </div>
 
     <div class="table-responsive">
@@ -26,7 +24,7 @@
           @forelse($pos as $po)
           <tr>
             <td>{{ $po->number }}</td>
-            <td>{{ $po->supplier_name ?? '—' }}</td>
+            <td>{{ $po->supplier->name ?? '—' }}</td>
             <td>{{ $po->company->alias ?? $po->company->name ?? '—' }}</td>
             <td>{{ $po->warehouse->name ?? '—' }}</td>
             <td><span class="badge bg-{{ $po->status === 'approved' ? 'blue' : ($po->status === 'closed' ? 'green' : 'yellow') }}">

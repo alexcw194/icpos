@@ -18,7 +18,7 @@
     </div>
     <div class="card-body">
       <div class="row g-3">
-        <div class="col-md-3"><strong>Supplier</strong><br>{{ $po->supplier_name ?? '—' }}</div>
+        <div class="col-md-3"><strong>Supplier</strong><br>{{ $po->supplier->name ?? '—' }}</div>
         <div class="col-md-3"><strong>Company</strong><br>{{ $po->company->alias ?? $po->company->name ?? '—' }}</div>
         <div class="col-md-3"><strong>Warehouse</strong><br>{{ $po->warehouse->name ?? '—' }}</div>
         <div class="col-md-3"><strong>Status</strong><br><span class="badge bg-blue">{{ ucfirst($po->status) }}</span></div>
@@ -34,8 +34,8 @@
           <tbody>
             @foreach($po->lines as $ln)
             <tr>
-              <td>{{ $ln->item->sku ?? '' }} — {{ $ln->item->name ?? '' }}</td>
-              <td>{{ $ln->itemVariant->sku ?? '—' }}</td>
+              <td>{{ $ln->sku_snapshot ?? ($ln->item->sku ?? '') }} — {{ $ln->item_name_snapshot ?? ($ln->item->name ?? '') }}</td>
+              <td>{{ $ln->variant->sku ?? '—' }}</td>
               <td class="text-end">{{ number_format($ln->qty_ordered,4,'.',',') }} {{ $ln->uom ?? '' }}</td>
               <td class="text-end">{{ number_format($ln->qty_received ?? 0,4,'.',',') }}</td>
               <td class="text-end">{{ number_format(($ln->qty_ordered - ($ln->qty_received ?? 0)),4,'.',',') }}</td>
@@ -48,6 +48,42 @@
 
       @if($po->notes)
       <div class="mt-3"><strong>Notes</strong><div class="text-muted">{{ $po->notes }}</div></div>
+      @endif
+
+      @if($po->billingTerms->isNotEmpty())
+      <hr class="my-3">
+      <div>
+        <h4 class="mb-2">Payment Terms</h4>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th class="text-end">Percent</th>
+                <th>Schedule</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach($po->billingTerms as $term)
+                <tr>
+                  <td>{{ $term->top_code }}</td>
+                  <td class="text-end">{{ number_format((float) $term->percent, 2, ',', '.') }}%</td>
+                  <td>
+                    {{ $term->due_trigger ?? '—' }}
+                    @if($term->offset_days !== null)
+                      ({{ $term->offset_days }}d)
+                    @elseif($term->day_of_month !== null)
+                      (day {{ $term->day_of_month }})
+                    @endif
+                  </td>
+                  <td>{{ $term->note ?? '—' }}</td>
+                </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
+      </div>
       @endif
     </div>
   </div>

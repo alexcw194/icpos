@@ -23,6 +23,7 @@ class DocNumberService
             'invoice'          => $company->invoice_prefix   ?? 'INV',
             'delivery'         => $company->delivery_prefix  ?? 'DO',
             'sales_order'      => $company->sales_order_prefix ?? 'SO',
+            'purchase_order'   => $company->purchase_order_prefix ?? 'PO',
             'project'          => 'PRJ',
             'project_quotation'=> 'BQ',
             default            => strtoupper(substr($docType, 0, 3)),

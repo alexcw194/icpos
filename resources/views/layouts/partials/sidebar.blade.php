@@ -94,6 +94,52 @@
             </li>
           @endif
 
+          {{-- Sales (always open) --}}
+          <li class="nav-item nav-group">
+            <div class="nav-link {{ request()->is('quotations*') || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') ? 'active' : '' }}">
+              <span class="nav-link-icon ti ti-file-invoice"></span>
+              <span class="nav-link-title">Sales</span>
+            </div>
+
+            <ul class="nav nav-pills sub-nav flex-column ms-4">
+              @if(Route::has('quotations.index'))
+                <li>
+                  <a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}"
+                     href="{{ route('quotations.index') }}">
+                    Quotations
+                  </a>
+                </li>
+              @endif
+
+              @if(Route::has('sales-orders.index'))
+                <li>
+                  <a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}"
+                     href="{{ route('sales-orders.index') }}">
+                    Sales Orders
+                  </a>
+                </li>
+              @endif
+
+              @if(Route::has('deliveries.index'))
+                <li>
+                  <a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}"
+                     href="{{ route('deliveries.index') }}">
+                    Delivery Orders
+                  </a>
+                </li>
+              @endif
+
+              @if(Route::has('invoices.index'))
+                <li>
+                  <a class="nav-link {{ request()->is('invoices*') ? 'active' : '' }}"
+                     href="{{ route('invoices.index') }}">
+                    Invoices
+                  </a>
+                </li>
+              @endif
+            </ul>
+          </li>
+
           {{-- Projects --}}
           @if($hasProjects)
             <li class="nav-item nav-group">
@@ -170,52 +216,6 @@
             </li>
           @endif
 
-          {{-- Sales (always open) --}}
-          <li class="nav-item nav-group">
-            <div class="nav-link {{ request()->is('quotations*') || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') ? 'active' : '' }}">
-              <span class="nav-link-icon ti ti-file-invoice"></span>
-              <span class="nav-link-title">Sales</span>
-            </div>
-
-            <ul class="nav nav-pills sub-nav flex-column ms-4">
-              @if(Route::has('quotations.index'))
-                <li>
-                  <a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}"
-                     href="{{ route('quotations.index') }}">
-                    Quotations
-                  </a>
-                </li>
-              @endif
-
-              @if(Route::has('sales-orders.index'))
-                <li>
-                  <a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}"
-                     href="{{ route('sales-orders.index') }}">
-                    Sales Orders
-                  </a>
-                </li>
-              @endif
-
-              @if(Route::has('deliveries.index'))
-                <li>
-                  <a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}"
-                     href="{{ route('deliveries.index') }}">
-                    Delivery Orders
-                  </a>
-                </li>
-              @endif
-
-              @if(Route::has('invoices.index'))
-                <li>
-                  <a class="nav-link {{ request()->is('invoices*') ? 'active' : '' }}"
-                     href="{{ route('invoices.index') }}">
-                    Invoices
-                  </a>
-                </li>
-              @endif
-            </ul>
-          </li>
-
           {{-- Dokumen --}}
           @hasanyrole('Sales|Admin|SuperAdmin|Super Admin')
             <li class="nav-item nav-group">
@@ -255,22 +255,22 @@
           @hasanyrole('Admin|SuperAdmin')
             @if(Route::has('po.index'))
               <li class="nav-item nav-group">
-                <div class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}">
+                <div class="nav-link {{ request()->routeIs('po.*') || request()->routeIs('suppliers.*') ? 'active' : '' }}">
                   <span class="nav-link-icon ti ti-shopping-cart"></span>
                   <span class="nav-link-title">Purchase</span>
                 </div>
 
                 <ul class="nav nav-pills sub-nav flex-column ms-4">
                   <li>
-                    <a class="nav-link {{ (request()->is('po*') && request('type') !== 'project') ? 'active' : '' }}"
-                       href="{{ route('po.index', ['type' => 'item']) }}">
-                      Purchase Items
+                    <a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}"
+                       href="{{ route('po.index') }}">
+                      Purchase Orders
                     </a>
                   </li>
                   <li>
-                    <a class="nav-link {{ (request()->is('po*') && request('type') === 'project') ? 'active' : '' }}"
-                       href="{{ route('po.index', ['type' => 'project']) }}">
-                      Purchase Projects
+                    <a class="nav-link {{ request()->routeIs('suppliers.*') ? 'active' : '' }}"
+                       href="{{ route('suppliers.index') }}">
+                      Suppliers
                     </a>
                   </li>
                 </ul>
