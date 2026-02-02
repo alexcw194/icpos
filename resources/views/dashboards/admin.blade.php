@@ -116,7 +116,7 @@
       @if($soHasDeadline)
         <div class="card mb-3">
         <div class="card-header">
-          <h3 class="card-title">SO Overdue</h3>
+          <h3 class="card-title">SO Overdue ({{ number_format(count($soOverdue)) }})</h3>
         </div>
           <div class="table-responsive">
             <table class="table table-sm table-vcenter card-table">
