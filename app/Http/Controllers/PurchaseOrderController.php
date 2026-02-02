@@ -47,7 +47,9 @@ class PurchaseOrderController extends Controller
             ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
             ->get(['code','description','is_active','applicable_to']);
-        $defaultCompanyId = old('company_id') ?: (auth()->user()->company_id ?? null);
+        $defaultCompanyId = old('company_id')
+            ?: Company::where('is_default', true)->value('id')
+            ?: (auth()->user()->company_id ?? null);
         $billingTermsData = old('billing_terms', [
             ['top_code' => 'FINISH', 'percent' => 100, 'due_trigger' => 'on_invoice'],
         ]);
