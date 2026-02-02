@@ -37,24 +37,8 @@
     <div class="col-6 col-md-2">
       <div class="card card-sm">
         <div class="card-body">
-          <div class="subheader">Sent (MTD)</div>
-          <div class="h2 m-0">{{ number_format($qSentMtdCount) }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="card card-sm">
-        <div class="card-body">
-          <div class="subheader">Won (MTD)</div>
-          <div class="h2 m-0">{{ number_format($qWonMtdCount) }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="card card-sm">
-        <div class="card-body">
-          <div class="subheader">Won Revenue</div>
-          <div class="h2 m-0">{{ $money($qWonMtdAmount) }}</div>
+          <div class="subheader">Won Revenue (Won MTD)</div>
+          <div class="h2 m-0">{{ $money($qWonMtdAmount) }} ({{ number_format($qWonMtdCount) }})</div>
         </div>
       </div>
     </div>
@@ -62,8 +46,8 @@
       <div class="col-6 col-md-2">
         <div class="card card-sm">
           <div class="card-body">
-            <div class="subheader">SO Revenue (YTD)</div>
-            <div class="h2 m-0">{{ $money($soRevenueYtd ?? 0) }}</div>
+            <div class="subheader">SO Revenue (SO Open)</div>
+            <div class="h2 m-0">{{ $money($soRevenueYtd ?? 0) }} ({{ number_format($soOpenCount) }})</div>
             <div class="text-muted small">Booked Sales Orders</div>
           </div>
         </div>
@@ -72,16 +56,8 @@
     <div class="col-6 col-md-2">
       <div class="card card-sm">
         <div class="card-body">
-          <div class="subheader">Sent Pipeline</div>
-          <div class="h2 m-0">{{ $money($qSentPipelineMtdAmount) }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="card card-sm">
-        <div class="card-body">
-          <div class="subheader">SO Open</div>
-          <div class="h2 m-0">{{ number_format($soOpenCount) }}</div>
+          <div class="subheader">Sent Pipeline (Sent MTD)</div>
+          <div class="h2 m-0">{{ $money($qSentPipelineMtdAmount) }} ({{ number_format($qSentMtdCount) }})</div>
         </div>
       </div>
     </div>
@@ -395,6 +371,14 @@
         <h3 class="card-title">Cross-Company Performance (MTD)</h3>
       </div>
       <div class="table-responsive">
+        @php
+          $totalWon = $companyStats->sum('won_mtd_amount');
+          $totalSentPipeline = $companyStats->sum('sent_pipeline_amount');
+          $totalArOutstanding = $companyStats->sum('ar_outstanding_amount');
+          $totalOverdue = $companyStats->sum('overdue_count');
+          $totalSoOpen = $companyStats->sum('so_open_count');
+          $totalNegativeStock = $companyStats->sum('negative_stock_count');
+        @endphp
         <table class="table table-sm table-vcenter card-table">
           <thead>
             <tr>
@@ -419,6 +403,15 @@
                 <td class="text-end">{{ number_format($row->negative_stock_count) }}</td>
               </tr>
             @endforeach
+            <tr class="fw-bold">
+              <td>Total</td>
+              <td class="text-end">{{ $money($totalWon) }}</td>
+              <td class="text-end">{{ $money($totalSentPipeline) }}</td>
+              <td class="text-end">{{ $money($totalArOutstanding) }}</td>
+              <td class="text-end">{{ number_format($totalOverdue) }}</td>
+              <td class="text-end">{{ number_format($totalSoOpen) }}</td>
+              <td class="text-end">{{ number_format($totalNegativeStock) }}</td>
+            </tr>
           </tbody>
         </table>
       </div>
