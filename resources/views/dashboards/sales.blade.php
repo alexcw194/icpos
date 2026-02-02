@@ -20,14 +20,6 @@
     <div class="col-6 col-md-2">
       <div class="card card-sm">
         <div class="card-body">
-          <div class="subheader">Draft (MTD)</div>
-          <div class="h2 m-0">{{ number_format($draftCount) }}</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="card card-sm">
-        <div class="card-body">
           <div class="subheader">Sent (MTD)</div>
           <div class="h2 m-0">{{ number_format($sentCount) }}</div>
         </div>

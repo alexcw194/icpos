@@ -157,6 +157,7 @@ class QuotationController extends Controller
         $brand = $this->brandSnapshot($company);
 
         DB::transaction(function () use ($v, $company, $brand, $computed, $validUntil) {
+            $sentAt = Carbon::parse($v['date']);
 
             $quotation = Quotation::create([
                 'company_id'     => $company->id,
@@ -167,7 +168,7 @@ class QuotationController extends Controller
                 'date'           => $v['date'],
                 'valid_until'    => $validUntil,
                 'status'         => 'draft',
-                'sent_at'        => null,
+                'sent_at'        => $sentAt,
                 'notes'          => $v['notes'] ?? null,
                 'terms'          => $v['terms'] ?? null,
                 'currency'       => 'IDR',
@@ -484,6 +485,7 @@ class QuotationController extends Controller
                 'discount_mode'  => $v['discount_mode'] ?? 'total',
                 'date'           => $v['date'],
                 'valid_until'    => $validUntil,
+                'sent_at'        => $quotation->sent_at ?? Carbon::parse($v['date']),
                 'notes'          => $v['notes'] ?? null,
                 'terms'          => $v['terms'] ?? null,
                 'currency'       => 'IDR',
@@ -569,7 +571,7 @@ class QuotationController extends Controller
 
         $quotation->update([
             'status'  => 'draft',
-            'sent_at' => null,
+            'sent_at' => $quotation->sent_at ?? now(),
             'won_at'  => null,
         ]);
 
