@@ -123,7 +123,7 @@ class Quotation extends Model
     {
         // Tabler: warna pastel (light)
         return match ($this->status) {
-            'draft' => 'bg-yellow-lt text-yellow-9',
+            'draft' => 'bg-blue-lt text-blue-9',
             'sent'  => 'bg-blue-lt text-blue-9',
             'won'   => 'bg-green-lt text-green-9',
             default => 'bg-secondary-lt text-secondary-9',
@@ -133,7 +133,7 @@ class Quotation extends Model
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {
-            'draft' => 'Draft',
+            'draft' => 'Sent',
             'sent'  => 'Sent',
             'won'   => 'Won',
             default => ucfirst((string) $this->status),

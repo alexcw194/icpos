@@ -66,8 +66,7 @@
             <div class="col-4 col-md-2">
               <select name="status" class="form-select" data-auto-submit="1">
                 <option value="">All</option>
-                <option value="draft" @selected($status === 'draft')>Draft</option>
-                <option value="sent"  @selected($status === 'sent')>Sent</option>
+                <option value="draft" @selected($status === 'draft')>Sent</option>
                 <option value="won"   @selected($status === 'won')>Won</option>
               </select>
             </div>

@@ -60,21 +60,21 @@ class DashboardController extends Controller
 
             $mtdBase = (clone $qBase)->whereBetween('date', [$mtdStart, $mtdEnd]);
             $qDraftMtdCount = (clone $mtdBase)->where('status', Quotation::STATUS_DRAFT)->count();
-            $qSentMtdCount = (clone $mtdBase)->where('status', Quotation::STATUS_SENT)->count();
+            $qSentMtdCount = (clone $mtdBase)->where('status', Quotation::STATUS_DRAFT)->count();
             $qWonMtdCount = (clone $mtdBase)->where('status', Quotation::STATUS_WON)->count();
             $qWonMtdAmount = (clone $mtdBase)->where('status', Quotation::STATUS_WON)->sum('total');
-            $qSentPipelineMtdAmount = (clone $mtdBase)->where('status', Quotation::STATUS_SENT)->sum('total');
+            $qSentPipelineMtdAmount = (clone $mtdBase)->where('status', Quotation::STATUS_DRAFT)->sum('total');
 
             $hasSentAt = Schema::hasColumn('quotations', 'sent_at');
             $sentAgingCutoff = Carbon::now()->subDays(7)->startOfDay();
             $qSentAging7dCount = $hasSentAt
-                ? (clone $qBase)->where('status', Quotation::STATUS_SENT)->whereNotNull('sent_at')->where('sent_at', '<=', $sentAgingCutoff)->count()
+                ? (clone $qBase)->where('status', Quotation::STATUS_DRAFT)->whereNotNull('sent_at')->where('sent_at', '<=', $sentAgingCutoff)->count()
                 : 0;
 
             $sentAgingQuotes = collect();
             if ($hasSentAt) {
                 $sentAgingQuotes = (clone $qBase)
-                    ->where('status', Quotation::STATUS_SENT)
+                    ->where('status', Quotation::STATUS_DRAFT)
                     ->whereNotNull('sent_at')
                     ->where('sent_at', '<=', $sentAgingCutoff)
                     ->orderBy('sent_at')
@@ -202,7 +202,7 @@ class DashboardController extends Controller
 
                     $sentPipelineAmount = Quotation::query()
                         ->when($hasCompanyQuotation, fn($q) => $q->where('company_id', $qid))
-                        ->where('status', Quotation::STATUS_SENT)
+                        ->where('status', Quotation::STATUS_DRAFT)
                         ->whereBetween('date', [$mtdStart, $mtdEnd])
                         ->sum('total');
 
@@ -504,14 +504,14 @@ class DashboardController extends Controller
         $mtdBase = (clone $qBase)->whereBetween('date', [$start, $end]);
 
         $draftCount = (clone $mtdBase)->where('status', Quotation::STATUS_DRAFT)->count();
-        $sentCount = (clone $mtdBase)->where('status', Quotation::STATUS_SENT)->count();
+        $sentCount = (clone $mtdBase)->where('status', Quotation::STATUS_DRAFT)->count();
         $wonCount = (clone $mtdBase)->where('status', Quotation::STATUS_WON)->count();
         $wonRevenue = (clone $mtdBase)->where('status', Quotation::STATUS_WON)->sum('total');
-        $sentPipeline = (clone $mtdBase)->where('status', Quotation::STATUS_SENT)->sum('total');
+        $sentPipeline = (clone $mtdBase)->where('status', Quotation::STATUS_DRAFT)->sum('total');
 
         $cutoff = $now->copy()->subDays(7)->startOfDay();
         $workQueue = (clone $qBase)
-            ->where('status', Quotation::STATUS_SENT)
+            ->where('status', Quotation::STATUS_DRAFT)
             ->whereNotNull('sent_at')
             ->where('sent_at', '<=', $cutoff)
             ->orderBy('sent_at')

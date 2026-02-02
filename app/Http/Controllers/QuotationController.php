@@ -370,16 +370,8 @@ class QuotationController extends Controller
                 'at'           => now()->toDateTimeString(),
             ]);
 
-            // 9) Auto mark Sent
-            if ($quotation->status === 'draft') {
-                $quotation->update([
-                    'status'  => 'sent',
-                    'sent_at' => now(),
-                ]);
-            }
-
             // Notifikasi profesional (tanpa "via ...")
-            return back()->with('ok', "Quotation {$quotation->number} berhasil dikirim ke {$to}. Status ditandai Sent.");
+            return back()->with('ok', "Quotation {$quotation->number} berhasil dikirim ke {$to}.");
         } catch (\Throwable $e) {
             \Log::error('Quotation PDF mail FAILED', [
                 'quotation_id' => $quotation->id,
@@ -565,16 +557,7 @@ class QuotationController extends Controller
     /** Tandai SENT & set sent_at */
     public function markSent(Quotation $quotation)
     {
-        if (!in_array($quotation->status, ['draft'], true)) {
-            return back()->with('warning', 'Hanya draft yang bisa ditandai terkirim.');
-        }
-
-        $quotation->update([
-            'status'  => 'sent',
-            'sent_at' => now(),
-        ]);
-
-        return back()->with('success', 'Quotation ditandai sebagai terkirim.');
+        abort(404);
     }
 
     /** Kembalikan ke DRAFT (hapus sent_at) */

@@ -95,12 +95,12 @@
                 @php
                   // Mapping status baru
                   $mapClass = [
-                    'draft' => 'badge bg-secondary',
+                    'draft' => 'badge bg-blue',
                     'sent'  => 'badge bg-blue',
                     'won'   => 'badge bg-green',
                   ];
                   $mapText = [
-                    'draft' => 'Draft',
+                    'draft' => 'Sent',
                     'sent'  => 'Sent',
                     'won'   => 'Won',
                   ];

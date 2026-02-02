@@ -67,19 +67,6 @@
               Bagikan PDF…
             </button>
 
-            <div class="dropdown-divider"></div>
-
-            @if($quotation->status === 'draft')
-              <form method="post" action="{{ route('quotations.sent',$quotation) }}">
-                @csrf
-                <button class="dropdown-item" type="submit">Mark as Sent</button>
-              </form>
-            @elseif($quotation->status === 'sent')
-              <form method="post" action="{{ route('quotations.draft',$quotation) }}">
-                @csrf
-                <button class="dropdown-item" type="submit">Back to Draft</button>
-              </form>
-            @endif
           </div>
         </div>
       </div>

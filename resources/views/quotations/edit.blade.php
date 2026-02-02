@@ -13,6 +13,7 @@
       <div>
         <div class="card-title">Edit Quotation {{ $quotation->number }}</div>
         <div class="text-muted">Tanggal dokumen: {{ $quotation->date?->format('d M Y') }}</div>
+        <div class="text-muted">Last updated: {{ $quotation->updated_at?->format('d M Y H:i') ?? '-' }}</div>
       </div>
     </div>
 
