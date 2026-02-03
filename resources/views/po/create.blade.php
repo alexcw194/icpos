@@ -69,11 +69,10 @@
           <table class="table" id="po-lines">
             <thead>
               <tr>
-                <th style="width:35%">Item</th>
-                <th style="width:20%">Variant</th>
+                <th style="width:45%">Item</th>
                 <th style="width:10%">Qty</th>
                 <th style="width:10%">UoM</th>
-                <th style="width:15%">Unit Price</th>
+                <th style="width:25%">Unit Price</th>
                 <th style="width:10%"></th>
               </tr>
             </thead>
@@ -84,12 +83,12 @@
                   <input type="hidden" name="lines[0][item_id]" class="po-item-id">
                   <input type="hidden" name="lines[0][item_variant_id]" class="po-variant-id">
                 </td>
-                <td>
-                  <input type="text" class="form-control po-variant-label" placeholder="—" readonly>
-                </td>
                 <td><input type="number" name="lines[0][qty_ordered]" class="form-control po-qty" step="0.0001" min="0" required></td>
                 <td><input type="text" name="lines[0][uom]" class="form-control po-uom" value="PCS"></td>
-                <td><input type="number" name="lines[0][unit_price]" class="form-control po-unit-price" step="0.01" min="0"></td>
+                <td>
+                  <input type="number" name="lines[0][unit_price]" class="form-control po-unit-price" step="0.01" min="0">
+                  <div class="text-muted small mt-1 po-last-buy"></div>
+                </td>
                 <td>
                   <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addLine()">+</button>
                 </td>
@@ -145,17 +144,24 @@ function initItemPicker(input) {
       if (!row) return;
       const itemIdEl = row.querySelector('.po-item-id');
       const variantIdEl = row.querySelector('.po-variant-id');
-      const variantLabelEl = row.querySelector('.po-variant-label');
+      const lastBuyEl = row.querySelector('.po-last-buy');
       const uomEl = row.querySelector('.po-uom');
       const priceEl = row.querySelector('.po-unit-price');
       const qtyEl = row.querySelector('.po-qty');
 
       if (itemIdEl) itemIdEl.value = data.item_id || '';
       if (variantIdEl) variantIdEl.value = data.variant_id || '';
-      if (variantLabelEl) variantLabelEl.value = data.variant_id ? (data.name || '') : '';
       if (uomEl) uomEl.value = (data.unit_code || 'PCS');
-      if (priceEl) priceEl.value = (data.purchase_price ?? data.price ?? '');
+      if (priceEl) priceEl.value = (data.purchase_price ?? '');
       if (qtyEl && (!qtyEl.value || qtyEl.value === '0')) qtyEl.value = '1';
+      const purchasePrice = parseFloat((data.purchase_price ?? '').toString().replace(',', '.')) || 0;
+      if (lastBuyEl) {
+        if (purchasePrice > 0 && data.purchase_price_date) {
+          lastBuyEl.textContent = `Last: ${data.purchase_price_date}`;
+        } else {
+          lastBuyEl.textContent = '';
+        }
+      }
     }
   });
   input._ts = ts;
@@ -170,12 +176,12 @@ function addLine() {
       <input type="hidden" name="lines[${lineIdx}][item_id]" class="po-item-id">
       <input type="hidden" name="lines[${lineIdx}][item_variant_id]" class="po-variant-id">
     </td>
-    <td>
-      <input type="text" class="form-control po-variant-label" placeholder="—" readonly>
-    </td>
     <td><input type="number" name="lines[${lineIdx}][qty_ordered]" class="form-control po-qty" step="0.0001" min="0" required></td>
     <td><input type="text" name="lines[${lineIdx}][uom]" class="form-control po-uom" value="PCS"></td>
-    <td><input type="number" name="lines[${lineIdx}][unit_price]" class="form-control po-unit-price" step="0.01" min="0"></td>
+    <td>
+      <input type="number" name="lines[${lineIdx}][unit_price]" class="form-control po-unit-price" step="0.01" min="0">
+      <div class="text-muted small mt-1 po-last-buy"></div>
+    </td>
     <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">−</button></td>`;
   tbody.appendChild(tr);
   initItemPicker(tr.querySelector('.po-item-search'));

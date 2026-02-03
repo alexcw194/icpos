@@ -493,6 +493,8 @@ class ItemController extends Controller
 
         $lastItemPrices = [];
         $lastVariantPrices = [];
+        $lastItemDates = [];
+        $lastVariantDates = [];
 
         if ($usePurchasePrice && $items->isNotEmpty() && Schema::hasTable('purchase_order_lines')) {
             $itemIds = $items->pluck('id')->all();
@@ -507,9 +509,14 @@ class ItemController extends Controller
                 $rows = DB::query()
                     ->fromSub($sub, 'x')
                     ->join('purchase_order_lines as pol', 'pol.id', '=', 'x.max_id')
-                    ->get(['x.item_id', 'pol.unit_price']);
+                    ->leftJoin('purchase_orders as po', 'po.id', '=', 'pol.purchase_order_id')
+                    ->get(['x.item_id', 'pol.unit_price', 'po.order_date', 'pol.created_at']);
                 foreach ($rows as $row) {
                     $lastItemPrices[$row->item_id] = (float) $row->unit_price;
+                    $dateValue = $row->order_date ?? $row->created_at ?? null;
+                    if ($dateValue) {
+                        $lastItemDates[$row->item_id] = \Illuminate\Support\Carbon::parse($dateValue)->format('d/m/Y');
+                    }
                 }
             }
 
@@ -521,9 +528,14 @@ class ItemController extends Controller
                 $rows = DB::query()
                     ->fromSub($sub, 'x')
                     ->join('purchase_order_lines as pol', 'pol.id', '=', 'x.max_id')
-                    ->get(['x.item_variant_id', 'pol.unit_price']);
+                    ->leftJoin('purchase_orders as po', 'po.id', '=', 'pol.purchase_order_id')
+                    ->get(['x.item_variant_id', 'pol.unit_price', 'po.order_date', 'pol.created_at']);
                 foreach ($rows as $row) {
                     $lastVariantPrices[$row->item_variant_id] = (float) $row->unit_price;
+                    $dateValue = $row->order_date ?? $row->created_at ?? null;
+                    if ($dateValue) {
+                        $lastVariantDates[$row->item_variant_id] = \Illuminate\Support\Carbon::parse($dateValue)->format('d/m/Y');
+                    }
                 }
             }
         }
@@ -548,6 +560,7 @@ class ItemController extends Controller
                 $label = $it->name;
                 $price = (float)$it->price;
                 $purchasePrice = $usePurchasePrice ? ($lastItemPrices[$it->id] ?? null) : null;
+                $purchaseDate = $usePurchasePrice ? ($lastItemDates[$it->id] ?? null) : null;
                 $labelPrice = $usePurchasePrice ? ($purchasePrice ?? 0) : $price;
 
                 $out[] = [
@@ -560,6 +573,7 @@ class ItemController extends Controller
                     'sku'        => $it->sku,
                     'price'      => $price,
                     'purchase_price' => $purchasePrice,
+                    'purchase_price_date' => $purchaseDate,
                     'unit_code'  => $unitCode,
                     'description'=> (string) $it->description,
                     'attributes' => null,
@@ -579,6 +593,9 @@ class ItemController extends Controller
                 $purchasePrice = $usePurchasePrice
                     ? ($lastVariantPrices[$v->id] ?? ($lastItemPrices[$it->id] ?? null))
                     : null;
+                $purchaseDate = $usePurchasePrice
+                    ? ($lastVariantDates[$v->id] ?? ($lastItemDates[$it->id] ?? null))
+                    : null;
                 $labelPrice = $usePurchasePrice ? ($purchasePrice ?? 0) : $price;
 
                 $out[] = [
@@ -591,6 +608,7 @@ class ItemController extends Controller
                     'sku'        => $sku,
                     'price'      => $price,
                     'purchase_price' => $purchasePrice,
+                    'purchase_price_date' => $purchaseDate,
                     'unit_code'  => $unitCode,
                     'description'=> (string) $it->description,
                     'attributes' => $attrs,
