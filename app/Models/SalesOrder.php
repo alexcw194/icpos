@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Database\Eloquent\Casts\Attribute;
-use App\Models\{Invoice, Delivery, SalesOrderVariation};
+use App\Models\{Invoice, Delivery, SalesOrderVariation, BillingDocument};
 
 class SalesOrder extends Model
 {
@@ -123,6 +123,11 @@ class SalesOrder extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function billingDocuments(): HasMany
+    {
+        return $this->hasMany(BillingDocument::class)->latest();
     }
 
     public function deliveries(): HasMany

@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 
 class DocNumberService
 {
-    /** @param 'quotation'|'invoice'|'delivery'|'sales_order' $docType */
+    /** @param 'quotation'|'invoice'|'delivery'|'sales_order'|'proforma' $docType */
     public static function next(string $docType, Company $company, Carbon $docDate): string
     {
         $year   = (int)$docDate->format('Y');
@@ -21,6 +21,7 @@ class DocNumberService
         $prefix = match ($docType) {
             'quotation'        => $company->quotation_prefix ?? 'QO',
             'invoice'          => $company->invoice_prefix   ?? 'INV',
+            'proforma'         => $company->proforma_prefix  ?? 'PI',
             'delivery'         => $company->delivery_prefix  ?? 'DO',
             'sales_order'      => $company->sales_order_prefix ?? 'SO',
             'purchase_order'   => $company->purchase_order_prefix ?? 'PO',

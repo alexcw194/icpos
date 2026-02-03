@@ -203,58 +203,115 @@
       </div>
 
       <div class="card mb-3">
+        @php
+          $billingDoc = $billingDoc ?? null;
+          $billingStatus = $billingDoc->status ?? null;
+          $billingBadgeMap = [
+            'draft' => ['Draft','bg-secondary-lt text-dark'],
+            'sent' => ['Sent','bg-blue-lt text-dark'],
+            'void' => ['Void','bg-red-lt text-dark'],
+          ];
+          [$billingLabel, $billingClass] = $billingBadgeMap[$billingStatus] ?? ['—','bg-secondary-lt'];
+          $canIssueProforma = $billingDoc && !$billingDoc->isLocked() && $billingDoc->status !== 'void';
+          $canIssueInvoice = $canIssueProforma && (!$o->npwp_required || $o->npwp_status === 'ok');
+        @endphp
         <div class="card-header">
-          <h3 class="card-title">Billing Terms</h3>
+          <h3 class="card-title">Billing</h3>
+          <div class="ms-auto btn-list">
+            @if(!$billingDoc || $billingDoc->status === 'void')
+              <form action="{{ route('billings.store-from-so', $o) }}" method="POST" class="d-inline">
+                @csrf
+                <button class="btn btn-sm btn-primary">Create Billing Draft</button>
+              </form>
+            @endif
+
+            @if($billingDoc)
+              <a href="{{ route('billings.show', $billingDoc) }}" class="btn btn-sm btn-outline-primary">View Billing</a>
+
+              @if($canIssueProforma)
+                <form action="{{ route('billings.issue-proforma', $billingDoc) }}" method="POST" class="d-inline"
+                      onsubmit="return confirm('Issue Proforma Invoice?')">
+                  @csrf
+                  <button class="btn btn-sm btn-outline-secondary">Issue Proforma</button>
+                </form>
+              @endif
+
+              @if(!empty($billingDoc->pi_number))
+                <a href="{{ route('billings.pdf.proforma', $billingDoc) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                  View/Print Proforma
+                </a>
+              @endif
+
+              @if($billingDoc->status !== 'void' && !$billingDoc->locked_at)
+                @if($canIssueInvoice)
+                  <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalIssueInvoiceSo">
+                    Issue Invoice
+                  </button>
+                @else
+                  <button class="btn btn-sm btn-outline-success disabled" title="NPWP wajib diisi sebelum issue invoice">
+                    Issue Invoice
+                  </button>
+                @endif
+              @endif
+
+              @if(!empty($billingDoc->inv_number))
+                <a href="{{ route('billings.pdf.invoice', $billingDoc) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                  View/Print Invoice
+                </a>
+              @endif
+
+              @if($billingDoc->status !== 'void')
+                <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalVoidBillingSo">
+                  Void
+                </button>
+              @endif
+            @endif
+          </div>
         </div>
-        <div class="table-responsive">
-          <table class="table table-vcenter card-table">
-            <thead>
-              <tr>
-                <th style="width:120px;">TOP Code</th>
-                <th style="width:120px;" class="text-end">Percent</th>
-                <th style="width:160px;" class="text-end">Amount</th>
-                <th>Note</th>
-                <th style="width:140px;">Status</th>
-                <th style="width:160px;"></th>
-              </tr>
-            </thead>
-            <tbody>
-              @forelse($o->billingTerms as $term)
-                @php
-                  $termAmount = round(((float) $contractValue) * ((float) $term->percent) / 100, 2);
-                  $status = $term->status ?? 'planned';
-                @endphp
-                <tr>
-                  <td>{{ $term->top_code }}</td>
-                  <td class="text-end">{{ number_format((float) $term->percent, 2) }}%</td>
-                  <td class="text-end">{{ number_format($termAmount, 2) }}</td>
-                  <td>{{ $term->note ?? '-' }}</td>
-                  <td>{{ ucfirst($status) }}</td>
-                  <td class="text-end">
-                    @if($status === 'planned')
-                      <form action="{{ route('sales-orders.billing-terms.create-invoice', [$o, $term]) }}" method="POST" class="d-inline"
-                            onsubmit="return confirm('Create invoice untuk TOP {{ $term->top_code }}?')">
-                        @csrf
-                        <button class="btn btn-sm btn-primary">Create Invoice</button>
-                      </form>
-                    @elseif(!empty($term->invoice_id))
-                      <a href="{{ route('invoices.show', $term->invoice_id) }}" class="btn btn-sm btn-outline-primary">View Invoice</a>
-                    @else
-                      <span class="text-muted">—</span>
-                    @endif
-                  </td>
-                </tr>
-              @empty
-                <tr>
-                  <td colspan="6" class="text-center text-muted">Belum ada billing term.</td>
-                </tr>
-              @endforelse
-            </tbody>
-          </table>
+        <div class="card-body">
+          @if($billingDoc)
+            <div class="row g-3">
+              <div class="col-md-3">
+                <div class="text-muted">Status</div>
+                <div><span class="badge {{ $billingClass }}">{{ $billingLabel }}</span></div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted">PI Number</div>
+                <div class="fw-semibold">{{ $billingDoc->pi_number ?? '—' }}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted">INV Number</div>
+                <div class="fw-semibold">{{ $billingDoc->inv_number ?? '—' }}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted">Invoice Date</div>
+                <div class="fw-semibold">{{ $billingDoc->invoice_date?->format('Y-m-d') ?? '—' }}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted">Mode</div>
+                <div class="fw-semibold text-uppercase">{{ $billingDoc->mode ?? '—' }}</div>
+              </div>
+              <div class="col-md-3">
+                <div class="text-muted">Total</div>
+                <div class="fw-bold">{{ number_format((float) $billingDoc->total, 2) }}</div>
+              </div>
+              <div class="col-md-6">
+                <div class="text-muted">Lock</div>
+                <div class="fw-semibold">{{ $billingDoc->locked_at ? 'Locked' : 'Editable' }}</div>
+              </div>
+              @if($billingDoc->status === 'void')
+                <div class="col-md-12">
+                  <div class="text-muted">Void Reason</div>
+                  <div>{{ $billingDoc->void_reason ?? '—' }}</div>
+                </div>
+              @endif
+            </div>
+          @else
+            <div class="text-muted">Belum ada billing document.</div>
+          @endif
         </div>
       </div>
-
-      <div class="card">
+<div class="card">
         <div class="card-header">
           <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs">
             <li class="nav-item">
@@ -381,6 +438,66 @@
 
   </div>
 </div>
+
+@if($billingDoc)
+  {{-- Modal Issue Invoice --}}
+  <div class="modal fade" id="modalIssueInvoiceSo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" method="POST" action="{{ route('billings.issue-invoice', $billingDoc) }}">
+        @csrf
+        <div class="modal-header">
+          <h5 class="modal-title">Issue Invoice</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          @if($o->npwp_required && $o->npwp_status !== 'ok')
+            <div class="alert alert-danger">
+              NPWP wajib diisi sebelum issue invoice.
+            </div>
+          @endif
+          <div class="mb-3">
+            <label class="form-label">Invoice Date</label>
+            <input type="date" name="invoice_date" class="form-control" value="{{ now()->toDateString() }}">
+          </div>
+          <div class="text-muted small">
+            Setelah issued, angka/lines akan terkunci.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-success" @disabled($o->npwp_required && $o->npwp_status !== 'ok')>Issue Invoice</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {{-- Modal Void Billing --}}
+  <div class="modal fade" id="modalVoidBillingSo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" method="POST" action="{{ route('billings.void', $billingDoc) }}">
+        @csrf
+        <div class="modal-header">
+          <h5 class="modal-title">Void Billing Document</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Reason</label>
+            <textarea name="void_reason" class="form-control" rows="3"></textarea>
+          </div>
+          <label class="form-check">
+            <input class="form-check-input" type="checkbox" name="create_replacement" value="1">
+            <span class="form-check-label">Create replacement draft</span>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-danger">Void</button>
+        </div>
+      </form>
+    </div>
+  </div>
+@endif
 
 {{-- Modal Cancel SO --}}
 <div class="modal fade" id="modalCancelSo" tabindex="-1" aria-hidden="true">

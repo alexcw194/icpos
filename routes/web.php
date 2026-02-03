@@ -14,6 +14,7 @@ use App\Http\Controllers\{
     ProjectQuotationController,
     QuotationController,
     InvoiceController,
+    BillingDocumentController,
     DeliveryController,
     LaborRateController,
     ProjectLaborController,
@@ -169,6 +170,24 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('invoices.tt-pending');
     Route::post('/invoices/{invoice}/mark-paid', [\App\Http\Controllers\InvoiceController::class, 'markPaid'])
         ->name('invoices.mark-paid');
+
+    // Billing Documents (single record PI/INV)
+    Route::post('sales-orders/{salesOrder}/billings', [BillingDocumentController::class, 'storeFromSalesOrder'])
+        ->name('billings.store-from-so');
+    Route::get('billings/{billing}', [BillingDocumentController::class, 'show'])
+        ->name('billings.show');
+    Route::match(['put','patch'], 'billings/{billing}', [BillingDocumentController::class, 'update'])
+        ->name('billings.update');
+    Route::post('billings/{billing}/issue-proforma', [BillingDocumentController::class, 'issueProforma'])
+        ->name('billings.issue-proforma');
+    Route::post('billings/{billing}/issue-invoice', [BillingDocumentController::class, 'issueInvoice'])
+        ->name('billings.issue-invoice');
+    Route::post('billings/{billing}/void', [BillingDocumentController::class, 'void'])
+        ->name('billings.void');
+    Route::get('billings/{billing}/pdf-proforma', [BillingDocumentController::class, 'pdfProforma'])
+        ->name('billings.pdf.proforma');
+    Route::get('billings/{billing}/pdf-invoice', [BillingDocumentController::class, 'pdfInvoice'])
+        ->name('billings.pdf.invoice');
 
     Route::get('/api/item-variants/search', [ItemVariantController::class, 'quickSearch'])
         ->name('item-variants.search');

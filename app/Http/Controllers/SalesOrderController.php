@@ -8,6 +8,7 @@ use App\Models\{
     SalesOrderLine,
     SalesOrderAttachment,
     SalesOrderBillingTerm,
+    BillingDocument,
     Company,
     Customer,
     Item,
@@ -382,7 +383,12 @@ class SalesOrderController extends Controller
         $this->authorize('view', $salesOrder);
 
         $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation','project','billingTerms','variations']);
-        return view('sales_orders.show', compact('salesOrder'));
+        $billingDoc = BillingDocument::query()
+            ->where('sales_order_id', $salesOrder->id)
+            ->orderByDesc('id')
+            ->first();
+
+        return view('sales_orders.show', compact('salesOrder', 'billingDoc'));
     }
 
     /** Edit form (header + lines + attachments upload). */
