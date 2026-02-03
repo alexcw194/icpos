@@ -385,6 +385,7 @@ class SalesOrderController extends Controller
         $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation','project','billingTerms','variations']);
         $billingDoc = BillingDocument::query()
             ->where('sales_order_id', $salesOrder->id)
+            ->where('status', '!=', 'void')
             ->orderByDesc('id')
             ->first();
 
