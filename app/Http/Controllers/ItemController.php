@@ -10,6 +10,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
@@ -456,6 +457,8 @@ class ItemController extends Controller
     public function quickSearch(Request $req)
     {
         $q = trim($req->get('q', ''));
+        $purpose = (string) $req->get('purpose', '');
+        $usePurchasePrice = $purpose === 'purchase';
         $itemType = (string) $req->get('item_type', '');
         $listType = (string) $req->get('list_type', '');
         $allowedTypes = ['standard','kit','cut_raw','cut_piece'];
@@ -488,6 +491,43 @@ class ItemController extends Controller
 
         $fmt = fn($n) => number_format((float)$n, 2, ',', '.');
 
+        $lastItemPrices = [];
+        $lastVariantPrices = [];
+
+        if ($usePurchasePrice && $items->isNotEmpty() && Schema::hasTable('purchase_order_lines')) {
+            $itemIds = $items->pluck('id')->all();
+            $variantIds = $items->pluck('variants')->flatten()->pluck('id')->filter()->values()->all();
+
+            if (!empty($itemIds)) {
+                $sub = DB::table('purchase_order_lines')
+                    ->select('item_id', DB::raw('MAX(id) as max_id'))
+                    ->whereNull('item_variant_id')
+                    ->whereIn('item_id', $itemIds)
+                    ->groupBy('item_id');
+                $rows = DB::query()
+                    ->fromSub($sub, 'x')
+                    ->join('purchase_order_lines as pol', 'pol.id', '=', 'x.max_id')
+                    ->get(['x.item_id', 'pol.unit_price']);
+                foreach ($rows as $row) {
+                    $lastItemPrices[$row->item_id] = (float) $row->unit_price;
+                }
+            }
+
+            if (!empty($variantIds)) {
+                $sub = DB::table('purchase_order_lines')
+                    ->select('item_variant_id', DB::raw('MAX(id) as max_id'))
+                    ->whereIn('item_variant_id', $variantIds)
+                    ->groupBy('item_variant_id');
+                $rows = DB::query()
+                    ->fromSub($sub, 'x')
+                    ->join('purchase_order_lines as pol', 'pol.id', '=', 'x.max_id')
+                    ->get(['x.item_variant_id', 'pol.unit_price']);
+                foreach ($rows as $row) {
+                    $lastVariantPrices[$row->item_variant_id] = (float) $row->unit_price;
+                }
+            }
+        }
+
         $out = [];
         foreach ($items as $it) {
             $unitCode = optional($it->unit)->code ?? 'PCS';
@@ -507,6 +547,8 @@ class ItemController extends Controller
             if (!$displayVariants) {
                 $label = $it->name;
                 $price = (float)$it->price;
+                $purchasePrice = $usePurchasePrice ? ($lastItemPrices[$it->id] ?? null) : null;
+                $labelPrice = $usePurchasePrice ? ($purchasePrice ?? 0) : $price;
 
                 $out[] = [
                     'uid'        => 'item-'.$it->id,
@@ -514,9 +556,10 @@ class ItemController extends Controller
                     'item_id'    => $it->id,
                     'variant_id' => null,
                     'name'       => $label,
-                    'label'      => '(' . $fmt($price) . ') ' . $label,
+                    'label'      => '(' . $fmt($labelPrice) . ') ' . $label,
                     'sku'        => $it->sku,
                     'price'      => $price,
+                    'purchase_price' => $purchasePrice,
                     'unit_code'  => $unitCode,
                     'description'=> (string) $it->description,
                     'attributes' => null,
@@ -533,6 +576,10 @@ class ItemController extends Controller
                 $displayLabel = $label;
                 $price = (float) (($v->price ?? null) !== null ? $v->price : $it->price);
                 $sku   = $v->sku ?: $it->sku;
+                $purchasePrice = $usePurchasePrice
+                    ? ($lastVariantPrices[$v->id] ?? ($lastItemPrices[$it->id] ?? null))
+                    : null;
+                $labelPrice = $usePurchasePrice ? ($purchasePrice ?? 0) : $price;
 
                 $out[] = [
                     'uid'        => 'variant-'.$v->id,
@@ -540,9 +587,10 @@ class ItemController extends Controller
                     'item_id'    => $it->id,
                     'variant_id' => $v->id,
                     'name'       => $displayLabel,
-                    'label'      => '(' . $fmt($price) . ') ' . $displayLabel,
+                    'label'      => '(' . $fmt($labelPrice) . ') ' . $displayLabel,
                     'sku'        => $sku,
                     'price'      => $price,
+                    'purchase_price' => $purchasePrice,
                     'unit_code'  => $unitCode,
                     'description'=> (string) $it->description,
                     'attributes' => $attrs,

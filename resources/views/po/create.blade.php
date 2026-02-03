@@ -58,6 +58,13 @@
 
         <hr class="my-4">
 
+        @include('sales_orders._billing_terms_form', [
+          'billingTermsData' => $billingTermsData,
+          'topOptions' => $topOptions,
+        ])
+
+        <hr class="my-4">
+
         <div class="table-responsive">
           <table class="table" id="po-lines">
             <thead>
@@ -90,12 +97,6 @@
             </tbody>
           </table>
         </div>
-
-        @include('sales_orders._billing_terms_form', [
-          'billingTermsData' => $billingTermsData,
-          'topOptions' => $topOptions,
-        ])
-
       </div>
       <div class="card-footer d-flex">
         <a href="{{ route('po.index') }}" class="btn btn-link">Cancel</a>
@@ -104,6 +105,7 @@
     </div>
   </form>
 </div>
+@push('scripts')
 <script>
 const ITEM_SEARCH_URL = @json(route('items.search', [], false));
 let lineIdx = 1;
@@ -124,7 +126,7 @@ function initItemPicker(input) {
     persist: false,
     dropdownParent: 'body',
     load(query, cb) {
-      const url = `${ITEM_SEARCH_URL}?q=${encodeURIComponent(query || '')}`;
+      const url = `${ITEM_SEARCH_URL}?purpose=purchase&q=${encodeURIComponent(query || '')}`;
       fetch(url, {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
         .then(r => r.ok ? r.json() : [])
         .then(data => cb(Array.isArray(data) ? data : []))
@@ -152,7 +154,7 @@ function initItemPicker(input) {
       if (variantIdEl) variantIdEl.value = data.variant_id || '';
       if (variantLabelEl) variantLabelEl.value = data.variant_id ? (data.name || '') : '';
       if (uomEl) uomEl.value = (data.unit_code || 'PCS');
-      if (priceEl) priceEl.value = (data.price ?? '');
+      if (priceEl) priceEl.value = (data.purchase_price ?? data.price ?? '');
       if (qtyEl && (!qtyEl.value || qtyEl.value === '0')) qtyEl.value = '1';
     }
   });
@@ -182,4 +184,5 @@ function addLine() {
 
 document.querySelectorAll('.po-item-search').forEach(initItemPicker);
 </script>
+@endpush
 @endsection
