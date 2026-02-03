@@ -322,20 +322,18 @@
       let s = String(val).trim();
       if (!s) return 0;
       s = s.replace(/\s+/g, '');
-      const hasComma = s.includes(',');
-      const hasDot = s.includes('.');
-      if (hasComma && hasDot) {
+      const commaCount = (s.match(/,/g) || []).length;
+      const dotCount = (s.match(/\./g) || []).length;
+      if (commaCount && dotCount) {
         if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
           s = s.replace(/\./g, '').replace(',', '.');
         } else {
           s = s.replace(/,/g, '');
         }
-      } else if (hasComma) {
-        const parts = s.split(',');
-        s = (parts.length === 2 && parts[1].length <= 2) ? s.replace(',', '.') : s.replace(/,/g, '');
-      } else if (hasDot) {
-        const parts = s.split('.');
-        s = (parts.length === 2 && parts[1].length <= 2) ? s : s.replace(/\./g, '');
+      } else if (commaCount) {
+        s = commaCount === 1 ? s.replace(',', '.') : s.replace(/,/g, '');
+      } else if (dotCount > 1) {
+        s = s.replace(/\./g, '');
       }
       const num = parseFloat(s);
       return Number.isFinite(num) ? num : 0;
