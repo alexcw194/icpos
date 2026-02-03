@@ -130,7 +130,9 @@
       <div class="card-header">
         <h3 class="card-title">Lines</h3>
         @if($isEditable)
-          <button class="btn btn-primary ms-auto" type="submit">Save Draft</button>
+          <button class="btn btn-outline-secondary ms-auto me-2" type="button"
+            onclick="window.location.href='{{ route('billings.show', $billing) }}'">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save Draft</button>
         @endif
       </div>
       <div class="table-responsive">
