@@ -12,20 +12,30 @@ return new class extends Migration {
             return;
         }
 
-        // Drop existing FK (customers) if present
         $schema = DB::getDatabaseName();
-        $row = DB::selectOne(
-            'SELECT constraint_name FROM information_schema.key_column_usage WHERE table_schema = ? AND table_name = ? AND column_name = ? AND referenced_table_name IS NOT NULL LIMIT 1',
+        $constraints = DB::select(
+            'SELECT constraint_name, referenced_table_name FROM information_schema.key_column_usage
+             WHERE table_schema = ? AND table_name = ? AND column_name = ? AND referenced_table_name IS NOT NULL',
             [$schema, 'purchase_orders', 'supplier_id']
         );
-        if ($row && !empty($row->constraint_name)) {
+
+        $hasSupplierFk = false;
+        foreach ($constraints as $row) {
+            if ($row->referenced_table_name === 'suppliers' && $row->constraint_name === 'purchase_orders_supplier_id_foreign') {
+                $hasSupplierFk = true;
+                continue;
+            }
             DB::statement("ALTER TABLE `purchase_orders` DROP FOREIGN KEY `{$row->constraint_name}`");
         }
 
-        // Re-add FK to suppliers
-        Schema::table('purchase_orders', function (Blueprint $t) {
-            $t->foreign('supplier_id')->references('id')->on('suppliers')->cascadeOnUpdate();
-        });
+        if (!$hasSupplierFk) {
+            Schema::table('purchase_orders', function (Blueprint $t) {
+                $t->foreign('supplier_id')
+                    ->references('id')
+                    ->on('suppliers')
+                    ->cascadeOnUpdate();
+            });
+        }
     }
 
     public function down(): void
@@ -35,16 +45,28 @@ return new class extends Migration {
         }
 
         $schema = DB::getDatabaseName();
-        $row = DB::selectOne(
-            'SELECT constraint_name FROM information_schema.key_column_usage WHERE table_schema = ? AND table_name = ? AND column_name = ? AND referenced_table_name IS NOT NULL LIMIT 1',
+        $constraints = DB::select(
+            'SELECT constraint_name, referenced_table_name FROM information_schema.key_column_usage
+             WHERE table_schema = ? AND table_name = ? AND column_name = ? AND referenced_table_name IS NOT NULL',
             [$schema, 'purchase_orders', 'supplier_id']
         );
-        if ($row && !empty($row->constraint_name)) {
+
+        $hasCustomerFk = false;
+        foreach ($constraints as $row) {
+            if ($row->referenced_table_name === 'customers' && $row->constraint_name === 'purchase_orders_supplier_id_foreign') {
+                $hasCustomerFk = true;
+                continue;
+            }
             DB::statement("ALTER TABLE `purchase_orders` DROP FOREIGN KEY `{$row->constraint_name}`");
         }
 
-        Schema::table('purchase_orders', function (Blueprint $t) {
-            $t->foreign('supplier_id')->references('id')->on('customers')->cascadeOnUpdate();
-        });
+        if (!$hasCustomerFk) {
+            Schema::table('purchase_orders', function (Blueprint $t) {
+                $t->foreign('supplier_id')
+                    ->references('id')
+                    ->on('customers')
+                    ->cascadeOnUpdate();
+            });
+        }
     }
 };
