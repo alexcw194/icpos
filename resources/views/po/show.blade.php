@@ -46,6 +46,25 @@
         </table>
       </div>
 
+      <div class="row justify-content-end mt-3">
+        <div class="col-md-4">
+          <table class="table table-sm">
+            <tr>
+              <td>Subtotal</td>
+              <td class="text-end">{{ number_format($po->subtotal ?? 0, 2, '.', ',') }}</td>
+            </tr>
+            <tr>
+              <td>Tax ({{ number_format($po->tax_percent ?? 0, 2, '.', ',') }}%)</td>
+              <td class="text-end">{{ number_format($po->tax_amount ?? 0, 2, '.', ',') }}</td>
+            </tr>
+            <tr class="fw-bold">
+              <td>Total</td>
+              <td class="text-end">{{ number_format($po->total ?? 0, 2, '.', ',') }}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
       @if($po->notes)
       <div class="mt-3"><strong>Notes</strong><div class="text-muted">{{ $po->notes }}</div></div>
       @endif

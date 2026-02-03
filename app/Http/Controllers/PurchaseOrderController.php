@@ -40,7 +40,7 @@ class PurchaseOrderController extends Controller
     }
 
     public function create(Request $request) {
-        $companies = Company::orderBy('name')->get(['id','name','alias']);
+        $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent']);
         $warehouses = Warehouse::orderBy('name')->get(['id','name']);
         $suppliers = Supplier::orderBy('name')->get(['id','name','is_active']);
         $topOptions = TermOfPayment::query()
@@ -70,6 +70,8 @@ class PurchaseOrderController extends Controller
             'lines.*.qty_ordered' => ['required','numeric','min:0.0001'],
             'lines.*.uom' => ['nullable','string','max:16'],
             'lines.*.unit_price' => ['nullable','numeric','min:0'],
+            'tax_mode' => ['nullable', Rule::in(['none','exclude','include'])],
+            'tax_percent' => ['nullable','numeric','min:0','max:100'],
             'billing_terms' => ['required','array','min:1'],
             'billing_terms.*.top_code' => ['required','string','max:64'],
             'billing_terms.*.percent' => ['required','string'],
@@ -84,7 +86,14 @@ class PurchaseOrderController extends Controller
         $orderDate = $data['order_date'] ? Carbon::parse($data['order_date']) : now();
         $number = app(DocNumberService::class)->next('purchase_order', $company, $orderDate);
 
-        $po = DB::transaction(function () use ($data, $billingTerms, $company, $orderDate, $number) {
+        $taxMode = $data['tax_mode'] ?? 'none';
+        $taxPctInput = $this->toNumber($data['tax_percent'] ?? 0);
+        $taxPct = max(min($taxPctInput, 100), 0.0);
+        if ($taxMode === 'none') {
+            $taxPct = 0.0;
+        }
+
+        $po = DB::transaction(function () use ($data, $billingTerms, $company, $orderDate, $number, $taxMode, $taxPct) {
             $po = PurchaseOrder::create([
                 'company_id'  => $data['company_id'],
                 'supplier_id' => $data['supplier_id'],
@@ -123,12 +132,22 @@ class PurchaseOrderController extends Controller
                 ]);
             }
 
+            $taxAmount = 0.0;
+            $total = $subtotal;
+            if ($taxMode === 'exclude' && $taxPct > 0) {
+                $taxAmount = round($subtotal * ($taxPct / 100), 2);
+                $total = $subtotal + $taxAmount;
+            } elseif ($taxMode === 'include' && $taxPct > 0) {
+                $taxAmount = round($subtotal * ($taxPct / (100 + $taxPct)), 2);
+                $total = $subtotal;
+            }
+
             $po->update([
                 'subtotal' => $subtotal,
                 'discount_amount' => 0,
-                'tax_percent' => 0,
-                'tax_amount' => 0,
-                'total' => $subtotal,
+                'tax_percent' => $taxPct,
+                'tax_amount' => $taxAmount,
+                'total' => $total,
             ]);
 
             if (!empty($billingTerms)) {
