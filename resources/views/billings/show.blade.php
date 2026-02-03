@@ -130,8 +130,8 @@
       <div class="card-header">
         <h3 class="card-title">Lines</h3>
         @if($isEditable)
-          <button class="btn btn-outline-secondary ms-auto me-2" type="button"
-            onclick="window.location.href='{{ route('billings.show', $billing) }}'">Cancel</button>
+          <a class="btn btn-outline-secondary ms-auto me-2"
+            href="{{ route('sales-orders.show', $billing->salesOrder ?? $billing->sales_order_id) }}">Cancel</a>
           <button class="btn btn-primary" type="submit">Save Draft</button>
         @endif
       </div>
@@ -187,7 +187,7 @@
                 </td>
                 <td class="text-end">
                   @if($isEditable)
-                    <input type="number" step="0.01" min="0" name="lines[{{ $i }}][unit_price]" class="form-control form-control-sm text-end js-price" value="{{ number_format((float) $ln->unit_price, 2, '.', '') }}">
+                    <input type="text" inputmode="decimal" name="lines[{{ $i }}][unit_price]" class="form-control form-control-sm text-end js-price" value="{{ number_format((float) $ln->unit_price, 2, ',', '.') }}">
                   @else
                     {{ number_format((float) $ln->unit_price, 2) }}
                   @endif
