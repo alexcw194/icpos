@@ -3,9 +3,26 @@
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #222; }
-    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
-    .company-name { font-size:18px; font-weight:bold; }
+    * { font-family: DejaVu Sans, sans-serif; font-size: 12px; color:#111; }
+    .right { text-align:right; }
+    .small { font-size:11px; color:#555; }
+
+    /* ===== Header 3 kolom (ikuti quotation) ===== */
+    .hdr{ width:100%; border-collapse:collapse; margin-bottom:14px; table-layout:fixed; }
+    .hdr td{ vertical-align:top; padding:0; word-wrap:break-word; }
+    .hdr-left{ width:40%; text-align:left !important; }
+    .hdr-mid{  width:35%; padding-left:8px; text-align:left !important; }
+    .hdr-right{ width:25%; text-align:right !important; }
+
+    .logo-top{ width:144px; height:auto; margin:0 0 6px 0; }
+    .co-name{ margin:0 0 4px; font-size:14px; font-weight:800; text-transform:uppercase; }
+    .co-meta div{ line-height:1.35; }
+
+    .quo-title{ margin:0; font-size:20px; font-weight:900; letter-spacing:.3px; }
+    .quo-number{ margin:2px 0 6px; font-weight:700; }
+    .quo-row{ margin-top:2px; }
+    h2.block { font-size:13px; margin:0 0 6px; text-transform:uppercase; letter-spacing:.4px; }
+
     .meta-table { width:100%; margin-bottom:20px; border-collapse:collapse; }
     .meta-table th, .meta-table td { text-align:left; padding:4px 6px; border-bottom:1px solid #ddd; }
     .items { width:100%; border-collapse:collapse; }
@@ -22,15 +39,6 @@
 </head>
 <body>
 @php
-  $company   = $billing->company;
-  $headerName = $company->alias ?? $company->name ?? '';
-  $addr       = $company->address ?? '';
-  $phone      = $company->phone ?? '';
-  $email      = $company->email ?? '';
-  $taxId      = $company->tax_id ?? '';
-
-  $contactLine = implode(' | ', array_filter([$phone ?: null, $email ?: null]));
-
   $mode = $mode ?? 'invoice';
   $docNo = $mode === 'proforma'
     ? ($billing->pi_number ?: 'DRAFT-'.$billing->id)
@@ -38,25 +46,78 @@
   $docDate = $mode === 'invoice'
     ? ($billing->invoice_date ?? $billing->issued_at ?? $billing->created_at)
     : ($billing->pi_issued_at ?? $billing->created_at);
+  $docTitle = $mode === 'proforma' ? 'PROFORMA INVOICE' : 'INVOICE';
+
+  $company = $billing->company;
+  $co = [
+    'name'     => $company->name ?? '',
+    'address'  => $company->address ?? '',
+    'email'    => $company->email ?? '',
+    'phone'    => $company->phone ?? '',
+    'whatsapp' => $company->whatsapp ?? '',
+    'logo'     => $company->logo_path ?? null,
+  ];
+
+  $logoSrc = null;
+  if ($co['logo']) {
+    if (preg_match('~^https?://~', $co['logo'])) {
+      $logoSrc = $co['logo'];
+    } else {
+      $rel = ltrim($co['logo'], '/');
+      $candidates = [
+        public_path($rel),
+        substr($rel,0,8)==='storage/' ? storage_path('app/public/'.substr($rel,8)) : storage_path('app/public/'.$rel),
+        base_path($rel),
+      ];
+      foreach ($candidates as $p) {
+        if (is_file($p)) {
+          $ext  = strtolower(pathinfo($p, PATHINFO_EXTENSION) ?: 'png');
+          $mime = 'image/'.($ext === 'svg' ? 'svg+xml' : $ext);
+          $logoSrc = 'data:'.$mime.';base64,'.base64_encode(@file_get_contents($p));
+          break;
+        }
+      }
+    }
+  }
+
+  $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
 @endphp
 
 @if($mode === 'proforma')
   <div class="wm">PROFORMA</div>
 @endif
 
-<div class="header">
-  <div>
-    <div class="company-name">{{ $headerName }}</div>
-    @if($addr)<div>{{ $addr }}</div>@endif
-    @if($contactLine)<div>{{ $contactLine }}</div>@endif
-    @if($taxId)<div>NPWP: {{ $taxId }}</div>@endif
-  </div>
-  <div style="text-align:right;">
-    <h2>{{ $mode === 'proforma' ? 'Proforma Invoice' : 'Invoice' }}</h2>
-    <div>No: {{ $docNo }}</div>
-    <div>Tanggal: {{ optional($docDate)->format('d M Y') }}</div>
-  </div>
-</div>
+<table class="hdr">
+  <tr>
+    <td class="hdr-left">
+      @if($logoSrc)
+        <img class="logo-top" src="{{ $logoSrc }}" alt="">
+      @endif
+      <p class="co-name">{{ $co['name'] }}</p>
+      <div class="co-meta">
+        @if($co['address'])  <div>{{ $co['address'] }}</div>@endif
+        @if($co['phone'])    <div>Telp: {{ $co['phone'] }}</div>@endif
+        @if($co['whatsapp']) <div>WA: {{ $co['whatsapp'] }}</div>@endif
+        @if($co['email'])    <div>Email: {{ $co['email'] }}</div>@endif
+      </div>
+    </td>
+
+    <td class="hdr-mid">
+      <h2 class="block">Customer</h2>
+      <strong>{{ $billing->customer->name ?? '-' }}</strong><br>
+      {{ $billing->customer->address ?? '' }}
+    </td>
+
+    <td class="hdr-right">
+      <div class="quo-title">{{ $docTitle }}</div>
+      <div class="quo-number"># {{ $docNo }}</div>
+      <div class="quo-row"><span class="small">Date:</span> {{ $fmtDate($docDate) }}</div>
+      @if($billing->salesOrder?->so_number)
+        <div class="quo-row"><span class="small">SO No:</span> {{ $billing->salesOrder->so_number }}</div>
+      @endif
+    </td>
+  </tr>
+</table>
 
 <table class="meta-table">
   <tr>
