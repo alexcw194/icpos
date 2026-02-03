@@ -251,6 +251,28 @@ class BillingDocumentController extends Controller
         return back()->with('success', 'Invoice issued.');
     }
 
+    public function cancelDraft(BillingDocument $billing)
+    {
+        $this->authorizePermission('invoices.update');
+
+        if ($billing->status !== 'draft' || $billing->locked_at) {
+            abort(422, 'Billing document tidak bisa dibatalkan.');
+        }
+
+        $salesOrderId = $billing->sales_order_id;
+        $shouldDelete = $billing->updated_by === null;
+
+        if ($shouldDelete) {
+            DB::transaction(function () use ($billing) {
+                $billing->delete();
+            });
+        }
+
+        return redirect()
+            ->route('sales-orders.show', $salesOrderId)
+            ->with('success', $shouldDelete ? 'Billing draft dibatalkan.' : 'Billing draft tetap tersimpan.');
+    }
+
     public function void(Request $request, BillingDocument $billing)
     {
         $this->authorizePermission('invoices.update');

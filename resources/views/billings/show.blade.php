@@ -123,6 +123,12 @@
     </div>
   </div>
 
+  @if($isEditable)
+    <form id="billing-cancel" method="POST" action="{{ route('billings.cancel', $billing) }}" class="d-none">
+      @csrf
+    </form>
+  @endif
+
   <form method="POST" action="{{ route('billings.update', $billing) }}">
     @csrf
     @method('PATCH')
@@ -130,8 +136,7 @@
       <div class="card-header">
         <h3 class="card-title">Lines</h3>
         @if($isEditable)
-          <a class="btn btn-outline-secondary ms-auto me-2"
-            href="{{ route('sales-orders.show', $billing->salesOrder ?? $billing->sales_order_id) }}">Cancel</a>
+          <button class="btn btn-outline-secondary ms-auto me-2" type="submit" form="billing-cancel">Cancel</button>
           <button class="btn btn-primary" type="submit">Save Draft</button>
         @endif
       </div>

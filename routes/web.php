@@ -178,6 +178,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('billings.show');
     Route::match(['put','patch'], 'billings/{billing}', [BillingDocumentController::class, 'update'])
         ->name('billings.update');
+    Route::post('billings/{billing}/cancel', [BillingDocumentController::class, 'cancelDraft'])
+        ->name('billings.cancel');
     Route::post('billings/{billing}/issue-proforma', [BillingDocumentController::class, 'issueProforma'])
         ->name('billings.issue-proforma');
     Route::post('billings/{billing}/issue-invoice', [BillingDocumentController::class, 'issueInvoice'])
