@@ -9,7 +9,7 @@ class SalesOrderLine extends Model
 {
     protected $fillable = [
         'sales_order_id','position',
-        'name','description','unit',
+        'name','po_item_name','description','unit',
         'qty_ordered','unit_price',
         'discount_type','discount_value','discount_amount',
         'line_subtotal','line_total',

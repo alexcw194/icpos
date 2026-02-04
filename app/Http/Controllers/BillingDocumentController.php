@@ -64,7 +64,7 @@ class BillingDocumentController extends Controller
                 'sales_order_line_id' => $ln->id,
                 'position' => $ln->position ?? $idx + 1,
                 'name' => $ln->name,
-                'description' => $ln->description,
+                'description' => $ln->po_item_name ?: $ln->description,
                 'unit' => $ln->unit,
                 'qty' => (float) ($ln->qty_ordered ?? 0),
                 'unit_price' => (float) ($ln->unit_price ?? 0),

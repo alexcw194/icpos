@@ -647,7 +647,7 @@ class DeliveryController extends Controller
                     'sales_order_line_id' => $line->id,
                     'item_id'           => $line->item_id,
                     'item_variant_id'   => $line->item_variant_id,
-                    'description'       => $line->description,
+                    'description'       => $line->po_item_name ?: $line->description,
                     'unit'              => $line->unit,
                     'qty_requested'     => $ordered,
                     'qty'               => $remaining,

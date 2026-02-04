@@ -110,7 +110,7 @@
                              : 'text-muted');
                 @endphp
                 <tr>
-                  <td>{{ $line->item->name ?? $line->description }}</td>
+                  <td>{{ $line->description ?: ($line->item->name ?? '-') }}</td>
                   <td>{{ $line->variant->name ?? '-' }}</td>
                   <td class="text-end">{{ number_format((float) $line->qty, 2) }}</td>
                   <td>{{ $line->unit ?? '-' }}</td>

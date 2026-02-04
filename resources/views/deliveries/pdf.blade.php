@@ -71,7 +71,7 @@
       @foreach($delivery->lines as $index => $line)
         <tr>
           <td class="text-end">{{ $index + 1 }}</td>
-          <td>{{ $line->item->name ?? $line->description }}</td>
+          <td>{{ $line->description ?: ($line->item->name ?? '-') }}</td>
           <td>{{ $line->variant->name ?? '-' }}</td>
           <td class="text-end">{{ number_format((float) $line->qty, 2) }}</td>
           <td>{{ $line->unit ?? '-' }}</td>

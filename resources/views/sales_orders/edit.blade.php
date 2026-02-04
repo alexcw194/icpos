@@ -271,6 +271,7 @@
               <thead class="table-light">
                 <tr>
                   <th class="col-item">Item</th>
+                  <th class="col-po">PO Item Name</th>
                   <th class="col-desc">Deskripsi</th>
                   <th class="col-qty text-end">Qty</th>
                   <th class="col-unit">Unit</th>
@@ -360,6 +361,9 @@
       <input type="hidden" name="lines[__IDX__][item_id]" class="q-item-id">
       <input type="hidden" name="lines[__IDX__][item_variant_id]" class="q-item-variant-id">
     </td>
+    <td class="col-po">
+      <input type="text" name="lines[__IDX__][po_item_name]" class="form-control form-control-sm po-item-name" placeholder="Nama item di PO">
+    </td>
     <td class="col-desc">
       <textarea name="lines[__IDX__][description]" class="form-control form-control-sm line_desc q-item-desc" rows="1"></textarea>
     </td>
@@ -413,7 +417,9 @@
 
   /* Tabel Items */
   #linesTable th, #linesTable td { vertical-align: middle; }
-  #linesTable .col-item       { width:22%; }  #linesTable .col-desc{ width:20%; }
+  #linesTable .col-item       { width:20%; }
+  #linesTable .col-po         { width:16%; }
+  #linesTable .col-desc       { width:18%; }
   #linesTable .col-qty        { width:8ch;}   #linesTable .col-unit{ width:7ch; }
   #linesTable .col-price      { width:14%; }  #linesTable .col-disc{ width:16%; }
   #linesTable .col-subtotal   { width:9%; }   #linesTable .col-disc-amount{ width:9%; }
@@ -493,6 +499,7 @@
       'item_id'         => $ln->item_id,
       'item_variant_id' => $ln->item_variant_id,
       'name'            => $ln->name,
+      'po_item_name'    => $ln->po_item_name,
       'description'     => $ln->description,
       'qty'             => (float) $qty,
       'unit'            => $ln->unit ?? 'pcs',
@@ -598,6 +605,8 @@
   }
   const STORAGE_BASE = {!! json_encode(asset('storage'), JSON_UNESCAPED_SLASHES) !!};
   const toNum=v=>{ if(v==null) return 0; v=String(v).trim(); if(!v) return 0; v=v.replace(/\s/g,''); const c=v.includes(','), d=v.includes('.'); if(c&&d){v=v.replace(/\./g,'').replace(',', '.')} else {v=v.replace(',', '.')} const n=parseFloat(v); return isNaN(n)?0:n; };
+  const formatMoneyValue=v=>{ const s=String(v ?? '').trim(); if(s==='') return ''; const n=toNum(s); return new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n); };
+  const formatMoneyInput=el=>{ if(!el) return; const s=String(el.value ?? '').trim(); if(s==='') return; el.value=formatMoneyValue(s); };
   const rupiah=n=>{ try{ return 'Rp '+new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n) }catch(e){ const f=(Math.round(n*100)/100).toFixed(2); const [a,b]=f.split('.'); return 'Rp '+a.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+b } };
 
   // fallback tab
@@ -634,7 +643,7 @@
         (document.getElementById('stage_item_id')||{}).value = o ? (o.item_id||'') : '';
         (document.getElementById('stage_item_variant_id')||{}).value = o ? (o.variant_id||'') : '';
         (document.getElementById('stage_unit')||{}).value = o ? (o.unit||'pcs') : 'pcs';
-        (document.getElementById('stage_price')||{}).value = o ? String(o.price||0) : '';
+        (document.getElementById('stage_price')||{}).value = o ? formatMoneyValue(o.price||0) : '';
       }
     });
     input.__ts = ts;
@@ -673,10 +682,14 @@
     tr.querySelector('.q-item-name').value = name;
     tr.querySelector('.q-item-id').value   = d.item_id ?? '';
     tr.querySelector('.q-item-variant-id').value = d.item_variant_id ?? '';
+    tr.querySelector('.po-item-name').value = d.po_item_name ?? '';
     tr.querySelector('.q-item-desc').value = d.description ?? '';
     tr.querySelector('.q-item-qty').value  = String((d.qty ?? 1) > 0 ? d.qty : 1);
     tr.querySelector('.q-item-unit').value = d.unit ?? 'pcs';
-    tr.querySelector('.q-item-rate').value = String(d.unit_price ?? 0);
+    const rateInput = tr.querySelector('.q-item-rate');
+    if (rateInput) {
+      rateInput.value = formatMoneyValue(d.unit_price ?? 0);
+    }
 
     const dtSel=tr.querySelector('.disc-type'); const dvInp=tr.querySelector('.disc-value');
     if (dtSel) dtSel.value = d.discount_type ?? 'amount';
@@ -700,6 +713,7 @@
       item_id:id,
       item_variant_id:(document.getElementById('stage_item_variant_id')||{}).value || '',
       name:label,
+      po_item_name:'',
       description:(document.getElementById('stage_desc')||{}).value || '',
       qty: toNum((document.getElementById('stage_qty')||{}).value || '1'),
       unit:(document.getElementById('stage_unit')||{}).value || 'pcs',
@@ -731,6 +745,7 @@
     tr.querySelector('.q-item-id').value = '';
     tr.querySelector('.q-item-variant-id').value = '';
     tr.querySelector('.q-item-name').value = '';
+    tr.querySelector('.po-item-name').value = '';
     tr.querySelector('.q-item-desc').value = '';
     tr.querySelector('.q-item-qty').value = '1';
     tr.querySelector('.q-item-unit').value = 'lot';
@@ -823,6 +838,12 @@
     }
   });
 
+  document.addEventListener('blur', (e) => {
+    if (e.target?.classList?.contains('price') || e.target?.id === 'stage_price') {
+      formatMoneyInput(e.target);
+    }
+  }, true);
+
   // Preload lines
   const PRELOAD=@json($PRELOAD);
   PRELOAD.forEach(addRow);
@@ -831,6 +852,8 @@
   initStagePicker();
   applyMode(@json($discMode === 'per_item' ? 'per_item' : 'total'));
   applyPoTypeRules();
+  document.querySelectorAll('.price').forEach(formatMoneyInput);
+  formatMoneyInput(document.getElementById('stage_price'));
   recalc();
 
   // Upload draft attachments
