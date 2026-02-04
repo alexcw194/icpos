@@ -84,6 +84,13 @@ class StockAdjustmentController extends Controller
             if ($variantLabel === '') {
                 $variantLabel = 'Variant #' . $v->id;
             }
+            if ($item->name && str_contains($variantLabel, $item->name)) {
+                $variantLabel = trim(str_replace($item->name, '', $variantLabel));
+                $variantLabel = ltrim($variantLabel, "-/— \t");
+                if ($variantLabel === '') {
+                    $variantLabel = $item->sku ?? 'Variant #' . $v->id;
+                }
+            }
             $itemOptions[] = [
                 'value' => 'variant:' . $v->id,
                 'label' => $item->name . ' - ' . $variantLabel,
