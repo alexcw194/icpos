@@ -31,7 +31,7 @@
     .text-end { text-align:right; }
     .totals { width:40%; margin-left:auto; border-collapse:collapse; }
     .totals td { padding:4px 6px; }
-    .bank-table { width:100%; margin-top:16px; border-collapse:collapse; }
+    .bank-table { width:50%; margin-top:16px; margin-right:auto; border-collapse:collapse; }
     .bank-table th, .bank-table td { border:1px solid #ccc; padding:6px; }
     .bank-table th { background:#f2f2f2; text-align:left; }
     /* Watermark */
@@ -198,7 +198,7 @@
   <table class="bank-table">
     <thead>
       <tr>
-        <th colspan="3">Rekening Bank (Aktif)</th>
+        <th colspan="3">Pembayaran melalui :</th>
       </tr>
       <tr>
         <th>Bank</th>
