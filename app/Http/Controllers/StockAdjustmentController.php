@@ -107,12 +107,21 @@ class StockAdjustmentController extends Controller
             'itemOptions',
             'warehouses',
             'selectedItemId',
-            'selectedVariantId'
+            'selectedVariantId',
+            'companyId'
         ));
     }
 
     public function store(Request $r)
     {
+        $companyId = $r->input('company_id')
+            ?: auth()->user()?->company_id
+            ?: Company::where('is_default', true)->value('id');
+
+        if ($companyId) {
+            $r->merge(['company_id' => $companyId]);
+        }
+
         $data = $r->validate([
             'company_id' => 'required|exists:companies,id',
             'warehouse_id' => 'nullable|exists:warehouses,id',

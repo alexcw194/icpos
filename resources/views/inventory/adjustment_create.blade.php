@@ -23,6 +23,7 @@
         $selectedVariantId = old('variant_id', $selectedVariantId ?? null);
         $selectedWarehouseId = old('warehouse_id', request('warehouse_id'));
         $selectedDate = old('adjustment_date', now()->toDateString());
+        $selectedCompanyId = old('company_id', $companyId ?? auth()->user()->company_id);
       @endphp
 
       <div class="mb-3">
@@ -31,7 +32,7 @@
         <input type="hidden" name="item_id" id="adjust_item_id" value="{{ $selectedItemId }}">
         <input type="hidden" name="variant_id" id="adjust_variant_id" value="{{ $selectedVariantId }}">
         <div class="form-hint">Item master dibuat oleh SuperAdmin.</div>
-        <input type="hidden" name="company_id" value="{{ auth()->user()->company_id }}">
+        <input type="hidden" name="company_id" value="{{ $selectedCompanyId }}">
       </div>
 
       <div class="mb-3">
@@ -175,6 +176,8 @@
       create: false,
       persist: false,
       allowEmptyOption: true,
+      closeAfterSelect: false,
+      openOnFocus: true,
       dropdownParent: 'body',
       render: {
         option(d, esc){
