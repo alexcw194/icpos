@@ -36,14 +36,18 @@ class CompanyController extends Controller
             'tax_id'              => 'nullable|string|max:64',
             'email'               => 'nullable|email|max:128',
             'phone'               => 'nullable|string|max:64',
-            'bank_name'           => 'nullable|string|max:128',
-            'bank_account_name'   => 'nullable|string|max:128',
-            'bank_account_no'     => 'nullable|string|max:64',
-            'bank_account_branch' => 'nullable|string|max:128',
             'logo'                => 'nullable|image|max:2048',
             'is_default'          => 'nullable|boolean',
             // NEW: default masa berlaku quotation (hari). Boleh kosong → fallback 30 di sisi Quotation.
             'default_valid_days'  => 'nullable|integer|min:1|max:365',
+            'banks'               => 'nullable|array',
+            'banks.*.id'          => 'nullable|integer',
+            'banks.*.name'        => 'nullable|string|max:128',
+            'banks.*.account_name'=> 'nullable|string|max:128',
+            'banks.*.account_no'  => 'nullable|string|max:64',
+            'banks.*.branch'      => 'nullable|string|max:128',
+            'banks.*.is_active'   => 'nullable|boolean',
+            'banks.*._delete'     => 'nullable|boolean',
         ]);
 
         // Normalisasi flag boolean
@@ -65,15 +69,17 @@ class CompanyController extends Controller
         }
 
         $setDefault = $request->boolean('is_default');
+        $bankRows = $request->input('banks', []);
 
-        DB::transaction(function () use ($data, $setDefault) {
+        DB::transaction(function () use ($data, $setDefault, $bankRows) {
             if ($setDefault) {
                 Company::where('is_default', true)->update(['is_default' => false]);
                 $data['is_default'] = true;
             } else {
                 $data['is_default'] = false;
             }
-            Company::create($data);
+            $company = Company::create($data);
+            $this->syncCompanyBanks($company, $bankRows);
         });
 
         return redirect()->route('companies.index')->with('success', 'Company created');
@@ -98,14 +104,18 @@ class CompanyController extends Controller
             'tax_id'              => 'nullable|string|max:64',
             'email'               => 'nullable|email|max:128',
             'phone'               => 'nullable|string|max:64',
-            'bank_name'           => 'nullable|string|max:128',
-            'bank_account_name'   => 'nullable|string|max:128',
-            'bank_account_no'     => 'nullable|string|max:64',
-            'bank_account_branch' => 'nullable|string|max:128',
             'logo'                => 'nullable|image|max:2048',
             'is_default'          => 'nullable|boolean',
             // NEW
             'default_valid_days'  => 'nullable|integer|min:1|max:365',
+            'banks'               => 'nullable|array',
+            'banks.*.id'          => 'nullable|integer',
+            'banks.*.name'        => 'nullable|string|max:128',
+            'banks.*.account_name'=> 'nullable|string|max:128',
+            'banks.*.account_no'  => 'nullable|string|max:64',
+            'banks.*.branch'      => 'nullable|string|max:128',
+            'banks.*.is_active'   => 'nullable|boolean',
+            'banks.*._delete'     => 'nullable|boolean',
         ]);
 
         // Normalisasi flag boolean
@@ -132,8 +142,9 @@ class CompanyController extends Controller
         }
 
         $setDefault = $request->boolean('is_default');
+        $bankRows = $request->input('banks', []);
 
-        DB::transaction(function () use ($company, $data, $setDefault) {
+        DB::transaction(function () use ($company, $data, $setDefault, $bankRows) {
             if ($setDefault) {
                 Company::where('is_default', true)
                     ->where('id', '!=', $company->id)
@@ -145,6 +156,7 @@ class CompanyController extends Controller
             }
 
             $company->update($data);
+            $this->syncCompanyBanks($company, $bankRows);
         });
 
         return redirect()->route('companies.index')->with('success', 'Company updated');
@@ -181,5 +193,47 @@ class CompanyController extends Controller
 
         $company->delete(); // hard delete (table already enforced by FKs)
         return redirect()->route('companies.index')->with('success', 'Company deleted.');
+    }
+
+    private function syncCompanyBanks(Company $company, array $rows): void
+    {
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $id = $row['id'] ?? null;
+            $isDelete = !empty($row['_delete']);
+
+            $payload = [
+                'name'         => trim((string) ($row['name'] ?? '')),
+                'account_name' => trim((string) ($row['account_name'] ?? '')),
+                'account_no'   => trim((string) ($row['account_no'] ?? '')),
+                'branch'       => trim((string) ($row['branch'] ?? '')),
+                'is_active'    => !empty($row['is_active']),
+            ];
+
+            $hasData = $payload['name'] !== ''
+                || $payload['account_name'] !== ''
+                || $payload['account_no'] !== ''
+                || $payload['branch'] !== '';
+
+            if ($isDelete) {
+                if ($id) {
+                    $company->banks()->where('company_id', $company->id)->whereKey($id)->delete();
+                }
+                continue;
+            }
+
+            if (!$hasData || $payload['name'] === '') {
+                continue;
+            }
+
+            if ($id) {
+                $company->banks()->where('company_id', $company->id)->whereKey($id)->update($payload);
+            } else {
+                $company->banks()->create($payload);
+            }
+        }
     }
 }

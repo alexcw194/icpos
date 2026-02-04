@@ -1,4 +1,20 @@
-@php($co = $company ?? null)
+@php
+  $co = $company ?? null;
+  $bankRows = old('banks');
+  if (!is_array($bankRows)) {
+    $bankRows = ($co?->banks?->map(fn($b) => [
+      'id' => $b->id,
+      'name' => $b->name,
+      'account_name' => $b->account_name,
+      'account_no' => $b->account_no,
+      'branch' => $b->branch,
+      'is_active' => (bool) $b->is_active,
+    ])->values()->toArray()) ?? [];
+  }
+  $bankRowKeys = array_keys($bankRows);
+  $bankRowIndex = $bankRowKeys ? (max($bankRowKeys) + 1) : 0;
+  $bankRowCount = count($bankRows);
+@endphp
 
 <div class="row g-3">
   <div class="col-md-6">
@@ -17,6 +33,15 @@
       <input id="isTaxable" class="form-check-input" type="checkbox" name="is_taxable" value="1"
              @checked(old('is_taxable', $co->is_taxable ?? false))>
       <span class="form-check-label">Pakai pajak</span>
+    </label>
+  </div>
+
+  <div class="col-md-3">
+    <label class="form-label d-block">Default Company</label>
+    <label class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" name="is_default" value="1"
+             @checked(old('is_default', $co->is_default ?? false))>
+      <span class="form-check-label">Jadikan default</span>
     </label>
   </div>
 
@@ -101,33 +126,85 @@
 
   <div class="col-12"><hr></div>
 
-  <div class="col-md-4">
-    <label class="form-label">Bank Name</label>
-    <input class="form-control" name="bank_name" value="{{ old('bank_name', $co->bank_name ?? '') }}">
-  </div>
-
-  <div class="col-md-4">
-    <label class="form-label">Account Name</label>
-    <input class="form-control" name="bank_account_name" value="{{ old('bank_account_name', $co->bank_account_name ?? '') }}">
-  </div>
-
-  <div class="col-md-4">
-    <label class="form-label">Account No</label>
-    <input class="form-control" name="bank_account_no" value="{{ old('bank_account_no', $co->bank_account_no ?? '') }}">
-  </div>
-
-  <div class="col-md-6">
-    <label class="form-label">Branch</label>
-    <input class="form-control" name="bank_account_branch" value="{{ old('bank_account_branch', $co->bank_account_branch ?? '') }}">
-  </div>
-
-  <div class="col-md-3">
-    <label class="form-label d-block">Set as Default</label>
-    <label class="form-check form-switch">
-      <input class="form-check-input" type="checkbox" name="is_default" value="1"
-             @checked(old('is_default', $co->is_default ?? false))>
-      <span class="form-check-label">Jadikan default</span>
-    </label>
+  <div class="col-12">
+    <div class="d-flex align-items-center mb-2">
+      <h4 class="mb-0">Bank Accounts</h4>
+      <button type="button" class="btn btn-outline-primary btn-sm ms-auto" id="addBankRow">
+        Tambah Bank
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle" id="companyBanksTable">
+        <thead class="bg-light">
+          <tr>
+            <th style="width:22%">Bank Name</th>
+            <th style="width:22%">Account Name</th>
+            <th style="width:18%">Account No</th>
+            <th style="width:18%">Branch</th>
+            <th style="width:10%" class="text-center">Active</th>
+            <th style="width:10%" class="text-center">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if($bankRowCount === 0)
+            <tr class="bank-empty-row">
+              <td colspan="6" class="text-muted text-center">Belum ada bank. Klik "Tambah Bank".</td>
+            </tr>
+          @endif
+          @foreach($bankRows as $i => $row)
+            <tr data-bank-row>
+              <td>
+                <input type="hidden" name="banks[{{ $i }}][id]" value="{{ old("banks.$i.id", $row['id'] ?? '') }}">
+                <input class="form-control" name="banks[{{ $i }}][name]" value="{{ old("banks.$i.name", $row['name'] ?? '') }}">
+              </td>
+              <td>
+                <input class="form-control" name="banks[{{ $i }}][account_name]" value="{{ old("banks.$i.account_name", $row['account_name'] ?? '') }}">
+              </td>
+              <td>
+                <input class="form-control" name="banks[{{ $i }}][account_no]" value="{{ old("banks.$i.account_no", $row['account_no'] ?? '') }}">
+              </td>
+              <td>
+                <input class="form-control" name="banks[{{ $i }}][branch]" value="{{ old("banks.$i.branch", $row['branch'] ?? '') }}">
+              </td>
+              <td class="text-center">
+                <input type="hidden" name="banks[{{ $i }}][is_active]" value="0">
+                <input class="form-check-input" type="checkbox" name="banks[{{ $i }}][is_active]" value="1"
+                       @checked(old("banks.$i.is_active", $row['is_active'] ?? false))>
+              </td>
+              <td class="text-center">
+                <input type="hidden" name="banks[{{ $i }}][_delete]" value="0">
+                <button type="button" class="btn btn-outline-danger btn-sm" data-remove-bank>Hapus</button>
+              </td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    </div>
+    <template id="bankRowTemplate">
+      <tr data-bank-row>
+        <td>
+          <input type="hidden" name="banks[__INDEX__][id]" value="">
+          <input class="form-control" name="banks[__INDEX__][name]" value="">
+        </td>
+        <td>
+          <input class="form-control" name="banks[__INDEX__][account_name]" value="">
+        </td>
+        <td>
+          <input class="form-control" name="banks[__INDEX__][account_no]" value="">
+        </td>
+        <td>
+          <input class="form-control" name="banks[__INDEX__][branch]" value="">
+        </td>
+        <td class="text-center">
+          <input type="hidden" name="banks[__INDEX__][is_active]" value="0">
+          <input class="form-check-input" type="checkbox" name="banks[__INDEX__][is_active]" value="1">
+        </td>
+        <td class="text-center">
+          <input type="hidden" name="banks[__INDEX__][_delete]" value="0">
+          <button type="button" class="btn btn-outline-danger btn-sm" data-remove-bank>Hapus</button>
+        </td>
+      </tr>
+    </template>
   </div>
 </div>
 
@@ -186,5 +263,47 @@
       dvdInput.addEventListener('input', clampDays);
       dvdInput.addEventListener('blur', clampDays);
     }
+
+    const addBtn = document.getElementById('addBankRow');
+    const table = document.getElementById('companyBanksTable');
+    const template = document.getElementById('bankRowTemplate');
+    let nextIndex = {{ $bankRowIndex }};
+
+    function ensureEmptyRowHidden() {
+      if (!table) return;
+      const emptyRow = table.querySelector('.bank-empty-row');
+      const hasRows = table.querySelectorAll('tr[data-bank-row]').length > 0;
+      if (emptyRow) {
+        emptyRow.style.display = hasRows ? 'none' : '';
+      }
+    }
+
+    function addRow() {
+      if (!template || !table) return;
+      const html = template.innerHTML.replace(/__INDEX__/g, String(nextIndex++));
+      const tbody = table.querySelector('tbody');
+      tbody.insertAdjacentHTML('beforeend', html);
+      ensureEmptyRowHidden();
+    }
+
+    function onRemove(e) {
+      const btn = e.target.closest('[data-remove-bank]');
+      if (!btn) return;
+      const row = btn.closest('tr');
+      if (!row) return;
+      const idInput = row.querySelector('input[name*=\"[id]\"]');
+      const deleteInput = row.querySelector('input[name*=\"[_delete]\"]');
+      if (idInput && idInput.value) {
+        if (deleteInput) deleteInput.value = '1';
+        row.style.display = 'none';
+      } else {
+        row.remove();
+      }
+      ensureEmptyRowHidden();
+    }
+
+    if (addBtn) addBtn.addEventListener('click', addRow);
+    if (table) table.addEventListener('click', onRemove);
+    ensureEmptyRowHidden();
   })();
 </script>

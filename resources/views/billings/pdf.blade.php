@@ -31,6 +31,9 @@
     .text-end { text-align:right; }
     .totals { width:40%; margin-left:auto; border-collapse:collapse; }
     .totals td { padding:4px 6px; }
+    .bank-table { width:100%; margin-top:16px; border-collapse:collapse; }
+    .bank-table th, .bank-table td { border:1px solid #ccc; padding:6px; }
+    .bank-table th { background:#f2f2f2; text-align:left; }
     .wm {
       position: fixed; top: 35%; left: 10%; right:10%; text-align:center;
       font-size: 64px; color: rgba(180,180,180,0.30); transform: rotate(-20deg);
@@ -49,6 +52,14 @@
   $docTitle = $mode === 'proforma' ? 'PROFORMA INVOICE' : 'INVOICE';
 
   $company = $billing->company;
+  $activeBanks = collect();
+  if ($company?->id) {
+    $activeBanks = \App\Models\Bank::query()
+      ->where('company_id', $company->id)
+      ->where('is_active', true)
+      ->orderBy('name')
+      ->get();
+  }
   $co = [
     'name'     => $company->name ?? '',
     'address'  => $company->address ?? '',
@@ -179,5 +190,29 @@
     <td class="text-end"><strong>{{ number_format((float)$billing->total, 2) }}</strong></td>
   </tr>
 </table>
+
+@if($activeBanks->count())
+  <table class="bank-table">
+    <thead>
+      <tr>
+        <th colspan="3">Rekening Bank (Aktif)</th>
+      </tr>
+      <tr>
+        <th>Bank</th>
+        <th>No Account</th>
+        <th>Nama Account</th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach($activeBanks as $bank)
+        <tr>
+          <td>{{ $bank->name }}</td>
+          <td>{{ $bank->account_no ?: '-' }}</td>
+          <td>{{ $bank->account_name ?: '-' }}</td>
+        </tr>
+      @endforeach
+    </tbody>
+  </table>
+@endif
 </body>
 </html>
