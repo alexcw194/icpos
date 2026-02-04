@@ -390,6 +390,9 @@
   #soForm.scope-mode .col-disc,
   #soForm.scope-mode .col-disc-amount,
   #soForm.scope-mode th[data-col="disc-input"] { display:none; }
+  #soForm.mode-total .col-disc,
+  #soForm.mode-total .col-disc-amount,
+  #soForm.mode-total th[data-col="disc-input"] { display:none; }
   .nav-tabs .nav-link { cursor: pointer; }
 
   /* TomSelect solid putih & di atas elemen lain */
@@ -963,16 +966,29 @@
   const totalDiscTypeSel = document.getElementById('total_discount_type');
   const totalDiscValInp  = document.getElementById('total_discount_value');
   const totalDiscUnit    = document.getElementById('totalDiscUnit');
+  const soFormEl         = document.getElementById('soForm');
 
   function toggleTotalControls(){
     const mode = (document.querySelector('input[name="discount_mode"]:checked')?.value) || 'total';
     if (mode === 'per_item'){
+      soFormEl?.classList.add('mode-per');
+      soFormEl?.classList.remove('mode-total');
       totalControls?.classList.add('d-none');
       if (totalDiscTypeSel) totalDiscTypeSel.value = 'amount';
       if (totalDiscValInp)  totalDiscValInp.value  = '0';
       if (totalDiscUnit)    totalDiscUnit.textContent = 'IDR';
     } else {
+      soFormEl?.classList.add('mode-total');
+      soFormEl?.classList.remove('mode-per');
       totalControls?.classList.remove('d-none');
+      document.querySelectorAll('#linesBody tr[data-line-row]').forEach(tr=>{
+        const dt = tr.querySelector('.disc-type');
+        const dv = tr.querySelector('.disc-value');
+        const du = tr.querySelector('.disc-unit');
+        if (dt) dt.value = 'amount';
+        if (dv) dv.value = '0';
+        if (du) du.textContent = 'IDR';
+      });
     }
     recalc();
   }

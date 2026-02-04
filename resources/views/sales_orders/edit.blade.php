@@ -435,6 +435,9 @@
   #soForm.scope-mode th[data-col="disc-input"] { display:none; }
 
   .mode-per [data-section="discount-total-controls"]{ display:none!important; }
+  #soForm.mode-total .col-disc,
+  #soForm.mode-total .col-disc-amount,
+  #soForm.mode-total th[data-col="disc-input"] { display:none; }
 </style>
 @endpush
 
@@ -822,6 +825,21 @@
     else { form.classList.add('mode-total'); form.classList.remove('mode-per'); }
     const hiddenMode = document.getElementById('discount_mode_hidden');
     if (hiddenMode) hiddenMode.value = mode;
+    if (mode === 'per_item') {
+      if (totalDiscTypeSel) totalDiscTypeSel.value = 'amount';
+      if (totalDiscValInp) totalDiscValInp.value = '0';
+      const totalDiscUnit = document.getElementById('totalDiscUnit');
+      if (totalDiscUnit) totalDiscUnit.textContent = 'IDR';
+    } else {
+      body.querySelectorAll('tr[data-line-row]').forEach(tr=>{
+        const dt = tr.querySelector('.disc-type');
+        const dv = tr.querySelector('.disc-value');
+        const du = tr.querySelector('.disc-unit');
+        if (dt) dt.value = 'amount';
+        if (dv) dv.value = '0';
+        if (du) du.textContent = 'IDR';
+      });
+    }
     recalc();
   }
   document.getElementById('dm-total')?.addEventListener('change', ()=>applyMode('total'));
