@@ -438,9 +438,16 @@
     $variantLabel = trim((string) ($v->label ?? ''));
     if ($variantLabel === '') $variantLabel = trim((string) ($v->sku ?? ''));
     if ($variantLabel === '') $variantLabel = 'Variant #' . $v->id;
+    $label = $variantLabel;
+    $itemName = trim((string) ($item->name ?? ''));
+    if ($itemName !== '' && stripos($label, $itemName) === 0) {
+      $label = trim(substr($label, strlen($itemName)));
+      $label = ltrim($label, " -\u{2013}\u{2014}\t");
+    }
+    if ($label === '') $label = $variantLabel;
     $ITEM_OPTIONS->push([
       'value' => 'variant:' . $v->id,
-      'label' => $item->name . ' - ' . $variantLabel,
+      'label' => ($itemName !== '' ? ($itemName . ' - ' . $label) : $label),
       'unit'  => optional($item->unit)->code ?? 'pcs',
       'price' => (float)($v->price ?? $item->price ?? 0),
       'item_id' => (int) $item->id,
