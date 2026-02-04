@@ -106,16 +106,16 @@ class BillingDocumentController extends Controller
 
         $data = $request->validate([
             'notes' => ['nullable','string'],
-            'discount_amount' => ['nullable','numeric','min:0'],
-            'tax_percent' => ['nullable','numeric','min:0','max:100'],
+            'discount_amount' => ['nullable','string'],
+            'tax_percent' => ['nullable','string'],
             'lines' => ['required','array','min:1'],
             'lines.*.name' => ['required','string'],
             'lines.*.description' => ['nullable','string'],
-            'lines.*.qty' => ['required','numeric','min:0.0001'],
+            'lines.*.qty' => ['required','string'],
             'lines.*.unit' => ['nullable','string','max:16'],
-            'lines.*.unit_price' => ['required','numeric','min:0'],
+            'lines.*.unit_price' => ['required','string'],
             'lines.*.discount_type' => ['nullable','in:amount,percent'],
-            'lines.*.discount_value' => ['nullable','numeric','min:0'],
+            'lines.*.discount_value' => ['nullable','string'],
             'lines.*.sales_order_line_id' => ['nullable','integer'],
         ]);
 
