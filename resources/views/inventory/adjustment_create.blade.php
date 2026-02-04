@@ -184,11 +184,25 @@
           return `<div class=\"d-flex justify-content-between\"><span>${esc(d.label || '')}</span><span class=\"text-muted small\">${esc(d.unit || '')}</span></div>`;
         }
       },
+      onItemAdd(){
+        const ci = this.control_input;
+        if (ci) {
+          requestAnimationFrame(() => {
+            ci.focus();
+          });
+        }
+      },
       onChange(val){
         const opt = this.options[val];
         itemIdInput.value = opt ? (opt.item_id || '') : '';
         variantIdInput.value = opt ? (opt.variant_id || '') : '';
         fetchBalance();
+        const ci = this.control_input;
+        if (ci) {
+          requestAnimationFrame(() => {
+            ci.focus();
+          });
+        }
       }
     });
     input.__ts = ts;
