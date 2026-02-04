@@ -414,14 +414,42 @@
 
 @push('scripts')
 @php
-  $ITEM_OPTIONS = $items->map(function($it){
-    return [
-      'id'    => (string)$it->id,
+  $ITEM_OPTIONS = collect();
+  $itemsNoVariant = ($items ?? collect())->filter(function ($it) {
+    $variantType = $it->variant_type ?? 'none';
+    return (int) ($it->variants_count ?? 0) === 0 && $variantType === 'none';
+  });
+
+  foreach ($itemsNoVariant as $it) {
+    $ITEM_OPTIONS->push([
+      'value' => 'item:' . $it->id,
       'label' => $it->name,
       'unit'  => optional($it->unit)->code ?? 'pcs',
       'price' => (float)($it->price ?? 0),
-    ];
-  })->values();
+      'item_id' => (int) $it->id,
+      'variant_id' => null,
+      'sku' => $it->sku ?? '',
+    ]);
+  }
+
+  foreach (($variants ?? collect()) as $v) {
+    $item = $v->item;
+    if (!$item) continue;
+    $variantLabel = trim((string) ($v->label ?? ''));
+    if ($variantLabel === '') $variantLabel = trim((string) ($v->sku ?? ''));
+    if ($variantLabel === '') $variantLabel = 'Variant #' . $v->id;
+    $ITEM_OPTIONS->push([
+      'value' => 'variant:' . $v->id,
+      'label' => $item->name . ' - ' . $variantLabel,
+      'unit'  => optional($item->unit)->code ?? 'pcs',
+      'price' => (float)($v->price ?? $item->price ?? 0),
+      'item_id' => (int) $item->id,
+      'variant_id' => (int) $v->id,
+      'sku' => $v->sku ?? $item->sku ?? '',
+    ]);
+  }
+
+  $ITEM_OPTIONS = $ITEM_OPTIONS->values();
 @endphp
 
 <script>
@@ -703,17 +731,23 @@
     try { await ensureTomSelect(); } catch(e){ console.warn('TomSelect gagal dimuat', e); return; }
 
     const opts = (window.SO_ITEM_OPTIONS || []).map(o => ({
-      value: String(o.id), label:o.label, unit:o.unit || 'pcs', price:Number(o.price || 0),
+      value: String(o.value ?? o.id ?? ''),
+      label: o.label,
+      unit: o.unit || 'pcs',
+      price: Number(o.price || 0),
+      item_id: o.item_id ?? null,
+      variant_id: o.variant_id ?? null,
+      sku: o.sku || '',
     }));
 
     const ts = new TomSelect(input, {
-      options: opts, valueField:'value', labelField:'label', searchField:['label'],
+      options: opts, valueField:'value', labelField:'label', searchField:['label','sku'],
       maxOptions:50, create:false, persist:false, allowEmptyOption:true, dropdownParent:'body',
       render:{ option(d,esc){ return `<div class="d-flex justify-content-between"><span>${esc(d.label||'')}</span><span class="text-muted small">${esc(d.unit||'')}</span></div>`; } },
       onChange(val){
         const o=this.options[val];
-        (document.getElementById('stage_item_id')||{}).value = o ? o.value : '';
-        (document.getElementById('stage_item_variant_id')||{}).value = '';
+        (document.getElementById('stage_item_id')||{}).value = o ? (o.item_id || '') : '';
+        (document.getElementById('stage_item_variant_id')||{}).value = o ? (o.variant_id || '') : '';
         (document.getElementById('stage_unit')||{}).value  = o ? (o.unit||'pcs') : 'pcs';
         (document.getElementById('stage_price')||{}).value = o ? String(o.price||0) : '';
       }

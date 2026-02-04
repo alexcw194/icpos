@@ -46,8 +46,14 @@ class SalesOrderController extends Controller
 
         // data lain yang sudah kamu pakai di blade
         $items = Item::with('unit:id,code')
+            ->withCount('variants')
             ->orderBy('name')
-            ->get(['id','name','price','unit_id']);
+            ->get(['id','name','price','unit_id','sku','variant_type']);
+        $variants = ItemVariant::query()
+            ->with(['item:id,name,unit_id,variant_type,name_template', 'item.unit:id,code'])
+            ->orderBy('item_id')
+            ->orderBy('id')
+            ->get(['id','item_id','sku','attributes','price']);
         $projects = Project::visibleTo(auth()->user())
             ->with('customer:id,name')
             ->orderBy('name')
@@ -71,7 +77,7 @@ class SalesOrderController extends Controller
 
         // ⚠️ TIDAK ADA SalesOrder::create DI SINI
         return view('sales_orders.create_from_quotation', compact(
-            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items', 'projects', 'topOptions'
+            'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items', 'variants', 'projects', 'topOptions'
         ));
     }
 
@@ -79,7 +85,15 @@ class SalesOrderController extends Controller
     public function create()
     {
         $customers = Customer::orderBy('name')->get(['id','name']);
-        $items     = Item::with('unit:id,code')->orderBy('name')->get(['id','name','price','unit_id']);
+        $items     = Item::with('unit:id,code')
+            ->withCount('variants')
+            ->orderBy('name')
+            ->get(['id','name','price','unit_id','sku','variant_type']);
+        $variants = ItemVariant::query()
+            ->with(['item:id,name,unit_id,variant_type,name_template', 'item.unit:id,code'])
+            ->orderBy('item_id')
+            ->orderBy('id')
+            ->get(['id','item_id','sku','attributes','price']);
         $projects  = Project::visibleTo(auth()->user())
             ->with('customer:id,name')
             ->orderBy('name')
@@ -113,6 +127,7 @@ class SalesOrderController extends Controller
             'items'              => $items,
             'projects'           => $projects,
             'topOptions'         => $topOptions,
+            'variants'           => $variants,
             'companies'          => $companies,
             'sales'              => $sales,
             'selectedCompanyId'  => $selectedCompanyId, // dipakai di <select name="company_id">
