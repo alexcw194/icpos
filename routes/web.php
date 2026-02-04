@@ -265,6 +265,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('inventory.adjustments.create');
     Route::post('/inventory/adjustments', [\App\Http\Controllers\StockAdjustmentController::class, 'store'])
         ->name('inventory.adjustments.store');
+    Route::get('/api/stock-adjustments/summary', [\App\Http\Controllers\StockAdjustmentController::class, 'summary'])
+        ->name('inventory.adjustments.summary');
     Route::get('/inventory/reconciliation', [\App\Http\Controllers\StockReconciliationController::class, 'index'])
         ->name('inventory.reconciliation');
 
