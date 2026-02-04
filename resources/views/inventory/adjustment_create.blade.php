@@ -60,7 +60,7 @@
       </div>
       <div class="mb-3">
         <label class="form-label">Qty Adjustment</label>
-        <input type="number" name="qty_adjustment" step="0.0001" class="form-control" required>
+        <input type="number" name="qty_adjustment" step="0.0001" class="form-control" id="adjustQtyInput" required>
       </div>
       <div class="mb-3">
         <label class="form-label">Reason</label>
@@ -94,6 +94,7 @@
   const itemIdInput = document.getElementById('adjust_item_id');
   const variantIdInput = document.getElementById('adjust_variant_id');
   const warehouseSel = document.getElementById('adjustWarehouseSelect');
+  const qtyInput = document.getElementById('adjustQtyInput');
   const balanceEl = document.getElementById('adjustBalanceValue');
   const balanceHint = document.getElementById('adjustBalanceHint');
   if (!input) return;
@@ -176,7 +177,7 @@
       create: false,
       persist: false,
       allowEmptyOption: true,
-      closeAfterSelect: false,
+      closeAfterSelect: true,
       openOnFocus: true,
       dropdownParent: 'body',
       render: {
@@ -185,10 +186,9 @@
         }
       },
       onItemAdd(){
-        const ci = this.control_input;
-        if (ci) {
+        if (qtyInput) {
           requestAnimationFrame(() => {
-            ci.focus();
+            qtyInput.focus();
           });
         }
       },
@@ -197,12 +197,6 @@
         itemIdInput.value = opt ? (opt.item_id || '') : '';
         variantIdInput.value = opt ? (opt.variant_id || '') : '';
         fetchBalance();
-        const ci = this.control_input;
-        if (ci) {
-          requestAnimationFrame(() => {
-            ci.focus();
-          });
-        }
       }
     });
     input.__ts = ts;
