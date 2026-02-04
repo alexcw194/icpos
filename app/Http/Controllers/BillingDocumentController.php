@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BillingDocument;
+use App\Models\BillingDocumentLine;
 use App\Models\SalesOrder;
 use App\Services\DocNumberService;
 use Carbon\Carbon;
@@ -17,6 +18,68 @@ class BillingDocumentController extends Controller
     {
         $this->authorizePermission('invoices.view');
         $billing->load(['company','customer','salesOrder','lines']);
+
+        return view('billings.show', compact('billing'));
+    }
+
+    public function createFromSalesOrder(SalesOrder $salesOrder)
+    {
+        $this->authorizePermission('invoices.create');
+
+        if ($salesOrder->status === 'cancelled') {
+            abort(422, 'SO sudah cancelled.');
+        }
+
+        $existing = BillingDocument::query()
+            ->where('sales_order_id', $salesOrder->id)
+            ->whereIn('status', ['draft','sent'])
+            ->orderByDesc('id')
+            ->first();
+
+        if ($existing) {
+            return redirect()
+                ->route('billings.show', $existing)
+                ->with('ok', 'Billing Draft sudah ada.');
+        }
+
+        $salesOrder->load(['company','customer','lines']);
+
+        $billing = BillingDocument::make([
+            'sales_order_id' => $salesOrder->id,
+            'company_id' => $salesOrder->company_id,
+            'customer_id' => $salesOrder->customer_id,
+            'status' => 'draft',
+            'mode' => null,
+            'subtotal' => (float) ($salesOrder->lines_subtotal ?? 0),
+            'discount_amount' => (float) ($salesOrder->total_discount_amount ?? 0),
+            'tax_percent' => (float) ($salesOrder->tax_percent ?? 0),
+            'tax_amount' => (float) ($salesOrder->tax_amount ?? 0),
+            'total' => (float) ($salesOrder->total ?? 0),
+            'currency' => $salesOrder->currency ?? 'IDR',
+            'notes' => $salesOrder->notes,
+        ]);
+
+        $lines = $salesOrder->lines->map(function ($ln, $idx) {
+            return new BillingDocumentLine([
+                'sales_order_line_id' => $ln->id,
+                'position' => $ln->position ?? $idx + 1,
+                'name' => $ln->name,
+                'description' => $ln->description,
+                'unit' => $ln->unit,
+                'qty' => (float) ($ln->qty_ordered ?? 0),
+                'unit_price' => (float) ($ln->unit_price ?? 0),
+                'discount_type' => $ln->discount_type ?? 'amount',
+                'discount_value' => (float) ($ln->discount_value ?? 0),
+                'discount_amount' => (float) ($ln->discount_amount ?? 0),
+                'line_subtotal' => (float) ($ln->line_subtotal ?? 0),
+                'line_total' => (float) ($ln->line_total ?? 0),
+            ]);
+        });
+
+        $billing->setRelation('company', $salesOrder->company);
+        $billing->setRelation('customer', $salesOrder->customer);
+        $billing->setRelation('salesOrder', $salesOrder);
+        $billing->setRelation('lines', $lines);
 
         return view('billings.show', compact('billing'));
     }
@@ -41,42 +104,83 @@ class BillingDocumentController extends Controller
                 ->with('ok', 'Billing Draft sudah ada.');
         }
 
-        $salesOrder->load(['company','customer','lines']);
+        $data = $request->validate([
+            'notes' => ['nullable','string'],
+            'discount_amount' => ['nullable','numeric','min:0'],
+            'tax_percent' => ['nullable','numeric','min:0','max:100'],
+            'lines' => ['required','array','min:1'],
+            'lines.*.name' => ['required','string'],
+            'lines.*.description' => ['nullable','string'],
+            'lines.*.qty' => ['required','numeric','min:0.0001'],
+            'lines.*.unit' => ['nullable','string','max:16'],
+            'lines.*.unit_price' => ['required','numeric','min:0'],
+            'lines.*.discount_type' => ['nullable','in:amount,percent'],
+            'lines.*.discount_value' => ['nullable','numeric','min:0'],
+            'lines.*.sales_order_line_id' => ['nullable','integer'],
+        ]);
 
-        $billing = DB::transaction(function () use ($salesOrder) {
+        $salesOrder->load(['company','customer']);
+
+        $billing = DB::transaction(function () use ($salesOrder, $data) {
+            $subtotal = 0.0;
+            $lines = [];
+
+            foreach ($data['lines'] as $idx => $row) {
+                $qty = $this->toNumber($row['qty'] ?? 0);
+                $unitPrice = $this->toNumber($row['unit_price'] ?? 0);
+                $discType = $row['discount_type'] ?? 'amount';
+                $discValue = $this->toNumber($row['discount_value'] ?? 0);
+
+                $lineSubtotal = round($qty * $unitPrice, 2);
+                if ($discType === 'percent') {
+                    $discAmount = round($lineSubtotal * max(min($discValue, 100), 0) / 100, 2);
+                } else {
+                    $discAmount = min(max($discValue, 0), $lineSubtotal);
+                }
+                $lineTotal = round(max($lineSubtotal - $discAmount, 0), 2);
+
+                $lines[] = [
+                    'sales_order_line_id' => $row['sales_order_line_id'] ?? null,
+                    'position' => $idx + 1,
+                    'name' => $row['name'],
+                    'description' => $row['description'] ?? null,
+                    'unit' => $row['unit'] ?? null,
+                    'qty' => $qty,
+                    'unit_price' => $unitPrice,
+                    'discount_type' => $discType,
+                    'discount_value' => $discValue,
+                    'discount_amount' => $discAmount,
+                    'line_subtotal' => $lineSubtotal,
+                    'line_total' => $lineTotal,
+                ];
+
+                $subtotal += $lineTotal;
+            }
+
+            $discountAmount = $this->toNumber($data['discount_amount'] ?? 0);
+            $taxPercent = $this->toNumber($data['tax_percent'] ?? 0);
+            $taxPercent = max(min($taxPercent, 100), 0);
+
+            $taxBase = max($subtotal - $discountAmount, 0);
+            $taxAmount = round($taxBase * ($taxPercent / 100), 2);
+            $total = $taxBase + $taxAmount;
+
             $billing = BillingDocument::create([
                 'sales_order_id' => $salesOrder->id,
                 'company_id' => $salesOrder->company_id,
                 'customer_id' => $salesOrder->customer_id,
                 'status' => 'draft',
                 'mode' => null,
-                'subtotal' => (float) ($salesOrder->lines_subtotal ?? 0),
-                'discount_amount' => (float) ($salesOrder->total_discount_amount ?? 0),
-                'tax_percent' => (float) ($salesOrder->tax_percent ?? 0),
-                'tax_amount' => (float) ($salesOrder->tax_amount ?? 0),
-                'total' => (float) ($salesOrder->total ?? 0),
+                'subtotal' => $subtotal,
+                'discount_amount' => $discountAmount,
+                'tax_percent' => $taxPercent,
+                'tax_amount' => $taxAmount,
+                'total' => $total,
                 'currency' => $salesOrder->currency ?? 'IDR',
-                'notes' => $salesOrder->notes,
+                'notes' => $data['notes'] ?? null,
                 'created_by' => auth()->id(),
+                'updated_by' => auth()->id(),
             ]);
-
-            $lines = [];
-            foreach ($salesOrder->lines as $idx => $ln) {
-                $lines[] = [
-                    'sales_order_line_id' => $ln->id,
-                    'position' => $ln->position ?? $idx + 1,
-                    'name' => $ln->name,
-                    'description' => $ln->description,
-                    'unit' => $ln->unit,
-                    'qty' => (float) ($ln->qty_ordered ?? 0),
-                    'unit_price' => (float) ($ln->unit_price ?? 0),
-                    'discount_type' => $ln->discount_type ?? 'amount',
-                    'discount_value' => (float) ($ln->discount_value ?? 0),
-                    'discount_amount' => (float) ($ln->discount_amount ?? 0),
-                    'line_subtotal' => (float) ($ln->line_subtotal ?? 0),
-                    'line_total' => (float) ($ln->line_total ?? 0),
-                ];
-            }
 
             if ($lines) {
                 $billing->lines()->createMany($lines);

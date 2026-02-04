@@ -605,9 +605,17 @@
   const rowTpl = document.getElementById('rowTpl');
   let idx=0;
 
+  function buildRow() {
+    const tpl = rowTpl?.content?.firstElementChild;
+    if (!tpl) return null;
+    const tr = tpl.cloneNode(true);
+    tr.innerHTML = tr.innerHTML.replace(/__IDX__/g, idx);
+    return tr;
+  }
+
   function addRow(d){
-    const tr=document.createElement('tr'); tr.setAttribute('data-line-row',''); tr.className='qline';
-    tr.innerHTML=rowTpl.innerHTML.replace(/__IDX__/g, idx);
+    const tr = buildRow();
+    if (!tr) return;
 
     // ⬇️ Perbaikan: pastikan yang tampil adalah nama/label, bukan ID
     let name = d.name ?? '';
@@ -677,10 +685,8 @@
   });
 
   function addScopeLine() {
-    const tr = document.createElement('tr');
-    tr.setAttribute('data-line-row','');
-    tr.className='qline';
-    tr.innerHTML = rowTpl.innerHTML.replace(/__IDX__/g, idx);
+    const tr = buildRow();
+    if (!tr) return;
     tr.querySelector('.q-item-id').value = '';
     tr.querySelector('.q-item-variant-id').value = '';
     tr.querySelector('.q-item-name').value = '';

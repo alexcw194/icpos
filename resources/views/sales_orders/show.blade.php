@@ -219,10 +219,7 @@
           <h3 class="card-title">Billing</h3>
           <div class="ms-auto btn-list">
             @if(!$billingDoc || $billingDoc->status === 'void')
-              <form action="{{ route('billings.store-from-so', $o) }}" method="POST" class="d-inline">
-                @csrf
-                <button class="btn btn-sm btn-primary">Create Billing Draft</button>
-              </form>
+              <a href="{{ route('billings.create-from-so', $o) }}" class="btn btn-sm btn-primary">Create Billing Draft</a>
             @endif
 
             @if($billingDoc)

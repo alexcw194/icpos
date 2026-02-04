@@ -172,6 +172,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('invoices.mark-paid');
 
     // Billing Documents (single record PI/INV)
+    Route::get('sales-orders/{salesOrder}/billings/create', [BillingDocumentController::class, 'createFromSalesOrder'])
+        ->name('billings.create-from-so');
     Route::post('sales-orders/{salesOrder}/billings', [BillingDocumentController::class, 'storeFromSalesOrder'])
         ->name('billings.store-from-so');
     Route::get('billings/{billing}', [BillingDocumentController::class, 'show'])

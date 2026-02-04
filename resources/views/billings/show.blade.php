@@ -2,6 +2,7 @@
 
 @section('content')
 @php
+  $isNew = !$billing->exists;
   $billingStatus = $billing->status ?? 'draft';
   $badgeMap = [
     'draft' => ['Draft','bg-secondary-lt text-dark'],
@@ -10,11 +11,11 @@
   ];
   [$statusLabel, $statusClass] = $badgeMap[$billingStatus] ?? [$billingStatus,'bg-secondary-lt'];
   $isEditable = $billing->isEditable();
-  $canIssueProforma = !$billing->isLocked() && $billing->status !== 'void';
+  $canIssueProforma = !$isNew && !$billing->isLocked() && $billing->status !== 'void';
   $so = $billing->salesOrder;
   $npwpBlocked = $so && $so->npwp_required && ($so->npwp_status ?? 'missing') !== 'ok';
   $canIssueInvoice = $canIssueProforma && !$npwpBlocked;
-  $displayNumber = $billing->inv_number ?? $billing->pi_number ?? ('DRAFT-'.$billing->id);
+  $displayNumber = $billing->inv_number ?? $billing->pi_number ?? ($isNew ? 'DRAFT' : 'DRAFT-'.$billing->id);
 @endphp
 
 <div class="container-xl">
@@ -39,32 +40,34 @@
       <div class="text-muted">SO: <a href="{{ route('sales-orders.show', $billing->salesOrder) }}">{{ $billing->salesOrder->so_number ?? ('#'.$billing->salesOrder_id) }}</a></div>
     </div>
     <div class="btn-list">
-      @if($canIssueProforma)
-        <form action="{{ route('billings.issue-proforma', $billing) }}" method="POST" class="d-inline"
-              onsubmit="return confirm('Issue Proforma Invoice?')">
-          @csrf
-          <button class="btn btn-outline-secondary">Issue Proforma</button>
-        </form>
-      @endif
-
-      @if(!empty($billing->pi_number))
-        <a href="{{ route('billings.pdf.proforma', $billing) }}" target="_blank" class="btn btn-outline-secondary">View/Print Proforma</a>
-      @endif
-
-      @if(!$billing->isLocked() && $billing->status !== 'void')
-        @if($canIssueInvoice)
-          <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalIssueInvoice">Issue Invoice</button>
-        @else
-          <button class="btn btn-outline-success disabled" title="NPWP wajib diisi sebelum issue invoice">Issue Invoice</button>
+      @if(!$isNew)
+        @if($canIssueProforma)
+          <form action="{{ route('billings.issue-proforma', $billing) }}" method="POST" class="d-inline"
+                onsubmit="return confirm('Issue Proforma Invoice?')">
+            @csrf
+            <button class="btn btn-outline-secondary">Issue Proforma</button>
+          </form>
         @endif
-      @endif
 
-      @if(!empty($billing->inv_number))
-        <a href="{{ route('billings.pdf.invoice', $billing) }}" target="_blank" class="btn btn-outline-primary">View/Print Invoice</a>
-      @endif
+        @if(!empty($billing->pi_number))
+          <a href="{{ route('billings.pdf.proforma', $billing) }}" target="_blank" class="btn btn-outline-secondary">View/Print Proforma</a>
+        @endif
 
-      @if($billing->status !== 'void')
-        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalVoidBilling">Void</button>
+        @if(!$billing->isLocked() && $billing->status !== 'void')
+          @if($canIssueInvoice)
+            <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalIssueInvoice">Issue Invoice</button>
+          @else
+            <button class="btn btn-outline-success disabled" title="NPWP wajib diisi sebelum issue invoice">Issue Invoice</button>
+          @endif
+        @endif
+
+        @if(!empty($billing->inv_number))
+          <a href="{{ route('billings.pdf.invoice', $billing) }}" target="_blank" class="btn btn-outline-primary">View/Print Invoice</a>
+        @endif
+
+        @if($billing->status !== 'void')
+          <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalVoidBilling">Void</button>
+        @endif
       @endif
     </div>
   </div>
@@ -123,20 +126,27 @@
     </div>
   </div>
 
-  @if($isEditable)
+  @if($isEditable && !$isNew)
     <form id="billing-cancel" method="POST" action="{{ route('billings.cancel', $billing) }}" class="d-none">
       @csrf
     </form>
   @endif
 
-  <form method="POST" action="{{ route('billings.update', $billing) }}">
+  <form method="POST" action="{{ $isNew ? route('billings.store-from-so', $billing->salesOrder ?? $billing->sales_order_id) : route('billings.update', $billing) }}">
     @csrf
-    @method('PATCH')
+    @if(!$isNew)
+      @method('PATCH')
+    @endif
     <div class="card mb-3">
       <div class="card-header">
         <h3 class="card-title">Lines</h3>
         @if($isEditable)
-          <button class="btn btn-outline-secondary ms-auto me-2" type="submit" form="billing-cancel">Cancel</button>
+          @if($isNew)
+            <a class="btn btn-outline-secondary ms-auto me-2"
+              href="{{ route('sales-orders.show', $billing->salesOrder ?? $billing->sales_order_id) }}">Cancel</a>
+          @else
+            <button class="btn btn-outline-secondary ms-auto me-2" type="submit" form="billing-cancel">Cancel</button>
+          @endif
           <button class="btn btn-primary" type="submit">Save Draft</button>
         @endif
       </div>
@@ -166,7 +176,11 @@
                 <td>{{ $i + 1 }}</td>
                 <td>
                   <div class="fw-semibold">{{ $ln->name }}</div>
-                  <input type="hidden" name="lines[{{ $i }}][id]" value="{{ $ln->id }}">
+                  @if(!$isNew)
+                    <input type="hidden" name="lines[{{ $i }}][id]" value="{{ $ln->id }}">
+                  @else
+                    <input type="hidden" name="lines[{{ $i }}][sales_order_line_id]" value="{{ $ln->sales_order_line_id }}">
+                  @endif
                   <input type="hidden" name="lines[{{ $i }}][name]" value="{{ $ln->name }}">
                 </td>
                 <td>
@@ -290,7 +304,7 @@
     </div>
   @endif
 
-  @if($billing->status !== 'void')
+  @if(!$isNew && $billing->status !== 'void')
     <div class="modal fade" id="modalVoidBilling" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog">
         <form class="modal-content" method="POST" action="{{ route('billings.void', $billing) }}">
