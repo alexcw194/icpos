@@ -186,6 +186,8 @@
         }
       },
       onItemAdd(){
+        this.close();
+        this.blur();
         if (qtyInput) {
           requestAnimationFrame(() => {
             qtyInput.focus();
