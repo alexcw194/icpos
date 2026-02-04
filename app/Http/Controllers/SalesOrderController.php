@@ -12,6 +12,7 @@ use App\Models\{
     Company,
     Customer,
     Item,
+    ItemVariant,
     Project,
     TermOfPayment,
     User
@@ -410,8 +411,14 @@ class SalesOrderController extends Controller
         // Data item untuk TomSelect di staging row
         $items = Item::query()
             ->with('unit:id,code')
+            ->withCount('variants')
             ->orderBy('name')
-            ->get(['id','name','unit_id','price']);
+            ->get(['id','name','unit_id','price','sku','variant_type']);
+        $variants = ItemVariant::query()
+            ->with(['item:id,name,unit_id,variant_type,name_template', 'item.unit:id,code'])
+            ->orderBy('item_id')
+            ->orderBy('id')
+            ->get(['id','item_id','sku','attributes','price']);
         $projects = Project::visibleTo(auth()->user())
             ->with('customer:id,name')
             ->orderBy('name')
@@ -444,6 +451,7 @@ class SalesOrderController extends Controller
         return view('sales_orders.edit', compact(
             'salesOrder',
             'items',
+            'variants',
             'projects',
             'topOptions',
             'lineSeed',
