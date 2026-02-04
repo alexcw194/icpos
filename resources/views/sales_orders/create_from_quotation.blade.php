@@ -203,8 +203,8 @@
               <thead class="table-light">
                 <tr>
                   <th class="col-item">Item</th>
-                  <th class="col-po">PO Item Name</th>
                   <th class="col-desc">Deskripsi</th>
+                  <th class="col-po">PO Item Name</th>
                   <th class="col-qty text-end">Qty</th>
                   <th class="col-unit">Unit</th>
                   <th class="col-price text-end">Unit Price</th>
@@ -294,11 +294,11 @@
       <input type="hidden" name="lines[__IDX__][item_id]" class="q-item-id">
       <input type="hidden" name="lines[__IDX__][item_variant_id]" class="q-item-variant-id">
     </td>
-    <td class="col-po">
-      <input type="text" name="lines[__IDX__][po_item_name]" class="form-control form-control-sm po-item-name" placeholder="Nama item di PO">
-    </td>
     <td class="col-desc">
       <textarea name="lines[__IDX__][description]" class="form-control form-control-sm line_desc q-item-desc" rows="1"></textarea>
+    </td>
+    <td class="col-po">
+      <input type="text" name="lines[__IDX__][po_item_name]" class="form-control form-control-sm po-item-name" placeholder="Nama item di PO">
     </td>
     <td class="col-qty">
       <input type="text" name="lines[__IDX__][qty]" class="form-control form-control-sm text-end qty q-item-qty" inputmode="decimal" placeholder="0" maxlength="6">
@@ -352,8 +352,8 @@
   /* Tabel Items */
   #linesTable th, #linesTable td { vertical-align: middle; }
   #linesTable .col-item       { width:20%; }
-  #linesTable .col-po         { width:16%; }
   #linesTable .col-desc       { width:18%; }
+  #linesTable .col-po         { width:16%; }
   #linesTable .col-qty        { width:6.5ch;} #linesTable .col-unit{ width:7ch; }
   #linesTable .col-price      { width:14%; }  #linesTable .col-disc{ width:16%; }
   #linesTable .col-subtotal   { width:9%; }   #linesTable .col-disc-amount{ width:9%; }
