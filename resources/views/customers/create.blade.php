@@ -49,6 +49,49 @@
                   <div class="col-md-6">
                     <label class="form-label">Customer Name <span class="text-danger">*</span></label>
                     <input type="text" name="name" value="{{ old('name') }}" class="form-control" required>
+
+                    @php
+                      $exactCandidates = collect(session('duplicate_exact_candidates', []));
+                      $similarCandidates = collect(session('similar_name_candidates', []));
+                    @endphp
+
+                    @if($exactCandidates->isNotEmpty())
+                      <div class="alert alert-danger mt-2 mb-0 py-2">
+                        <div class="fw-semibold mb-1">Nama persis sudah ada:</div>
+                        <ul class="mb-0 ps-3">
+                          @foreach($exactCandidates as $cand)
+                            <li>
+                              <a href="{{ route('customers.show', $cand['id']) }}">{{ $cand['name'] }}</a>
+                            </li>
+                          @endforeach
+                        </ul>
+                      </div>
+                    @endif
+
+                    @if($similarCandidates->isNotEmpty())
+                      <div class="alert alert-warning mt-2 mb-2 py-2">
+                        <div class="fw-semibold mb-1">Ditemukan nama mirip:</div>
+                        <ul class="mb-0 ps-3">
+                          @foreach($similarCandidates as $cand)
+                            <li>
+                              <a href="{{ route('customers.show', $cand['id']) }}">{{ $cand['name'] }}</a>
+                              <span class="text-muted">(similarity {{ $cand['score'] ?? '-' }}%)</span>
+                            </li>
+                          @endforeach
+                        </ul>
+                      </div>
+                      <input type="hidden" name="confirm_similar_name" value="0">
+                      <label class="form-check mt-1">
+                        <input
+                          type="checkbox"
+                          class="form-check-input"
+                          name="confirm_similar_name"
+                          value="1"
+                          @checked((string) old('confirm_similar_name', '0') === '1')
+                        >
+                        <span class="form-check-label">Saya konfirmasi ini memang perusahaan berbeda, tetap simpan.</span>
+                      </label>
+                    @endif
                   </div>
 
                   <div class="col-md-6 d-flex align-items-end justify-content-end">

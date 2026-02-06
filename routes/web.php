@@ -78,6 +78,8 @@ Route::middleware(['auth'])->group(function () {
         [CustomerController::class, 'destroyContact'])->name('customers.contacts.destroy');
     Route::patch('customers/{customer}/notes', [CustomerController::class,'updateNotes'])
         ->name('customers.notes');
+    Route::post('customers/{customer}/merge', [CustomerController::class,'merge'])
+        ->name('customers.merge');
 
     Route::post('/items/{item}/adjust', [StockController::class,'adjust'])
     ->name('stocks.adjust');

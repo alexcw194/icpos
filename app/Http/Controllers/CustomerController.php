@@ -2,20 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BillingDocument;
 use App\Models\Customer;
+use App\Models\Delivery;
+use App\Models\Document;
 use App\Models\Jenis;
 use App\Models\User;
 use App\Models\Contact;
 use App\Models\ContactTitle;
 use App\Models\ContactPosition;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Invoice;
+use App\Models\Project;
+use App\Models\ProjectQuotation;
 use App\Models\Quotation;
 use App\Models\SalesOrder;
-use Illuminate\Validation\Rule;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class CustomerController extends Controller
 {
+    private const DUP_SIMILAR_THRESHOLD = 72.0;
+    private const DUP_MAX_RESULTS = 8;
+
     public function index(Request $request)
     {
         $this->authorize('viewAny', Customer::class);
@@ -100,6 +111,10 @@ class CustomerController extends Controller
             'shipping_notes' => ['nullable', 'string'],
         ]);
 
+        if ($guardResponse = $this->guardAgainstDuplicateNames($request, (string) $data['name'])) {
+            return $guardResponse;
+        }
+
         // hard lock untuk role Sales: owner = dirinya
         if ($request->user()->hasRole('Sales')) {
             $data['sales_user_id'] = $request->user()->id;
@@ -113,7 +128,7 @@ class CustomerController extends Controller
             ->with('success', 'Customer berhasil dibuat.');
     }
 
-    public function show(Customer $customer)
+    public function show(Request $request, Customer $customer)
     {
         $this->authorize('view', $customer);
 
@@ -174,6 +189,17 @@ class CustomerController extends Controller
 
         $contactTitles = ContactTitle::active()->ordered()->get(['id', 'name']);
         $contactPositions = ContactPosition::active()->ordered()->get(['id', 'name']);
+        $canMergeCustomers = $this->canMergeCustomers($request->user());
+        $mergeCandidates = collect();
+
+        if ($canMergeCustomers) {
+            $dups = $this->findDuplicateCandidates($customer->name, $customer->id);
+            $mergeCandidates = $dups['exact']
+                ->merge($dups['similar'])
+                ->unique('id')
+                ->take(self::DUP_MAX_RESULTS)
+                ->values();
+        }
 
         return view('customers.show', compact(
             'customer',
@@ -181,7 +207,9 @@ class CustomerController extends Controller
             'salesOrders',
             'projects',
             'contactTitles',
-            'contactPositions'
+            'contactPositions',
+            'canMergeCustomers',
+            'mergeCandidates'
         ));
     }
 
@@ -248,6 +276,10 @@ class CustomerController extends Controller
             'shipping_notes' => ['nullable', 'string'],
         ]);
 
+        if ($guardResponse = $this->guardAgainstDuplicateNames($request, (string) $data['name'], $customer->id)) {
+            return $guardResponse;
+        }
+
         // hard lock untuk role Sales: tidak boleh re-assign
         if ($request->user()->hasRole('Sales')) {
             $data['sales_user_id'] = $customer->sales_user_id ?: $request->user()->id;
@@ -270,6 +302,21 @@ class CustomerController extends Controller
         return redirect()
             ->route('customers.index')
             ->with('success', 'Customer berhasil dihapus.');
+    }
+
+    public function updateNotes(Request $request, Customer $customer): RedirectResponse
+    {
+        $this->authorize('update', $customer);
+
+        $data = $request->validate([
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $customer->update([
+            'notes' => $data['notes'] ?? null,
+        ]);
+
+        return back()->with('success', 'Notes customer berhasil diperbarui.');
     }
 
     public function storeContact(Request $request, Customer $customer)
@@ -445,5 +492,354 @@ class CustomerController extends Controller
         return response()->json(
             $customers->merge($contacts)->take(30)->values()
         );
+    }
+
+    public function dupCheck(Request $request): JsonResponse
+    {
+        $name = trim((string) $request->input('q', $request->input('name', '')));
+        $exceptId = $request->filled('except_id') ? (int) $request->input('except_id') : null;
+
+        if ($name === '') {
+            return response()->json([
+                'ok' => true,
+                'name' => '',
+                'name_key' => '',
+                'can_create' => true,
+                'exact' => [],
+                'similar' => [],
+            ]);
+        }
+
+        $dups = $this->findDuplicateCandidates($name, $exceptId);
+        $exact = $dups['exact']->values();
+        $similar = $dups['similar']->values();
+
+        return response()->json([
+            'ok' => true,
+            'name' => $name,
+            'name_key' => Customer::makeNameKey($name),
+            'can_create' => $exact->isEmpty(),
+            'exact' => $exact->all(),
+            'similar' => $similar->all(),
+        ]);
+    }
+
+    public function quickStore(Request $request): JsonResponse|RedirectResponse
+    {
+        $this->authorize('create', Customer::class);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:190'],
+            'confirm_similar_name' => ['nullable', 'boolean'],
+        ]);
+
+        if ($guardResponse = $this->guardAgainstDuplicateNames($request, (string) $data['name'])) {
+            return $guardResponse;
+        }
+
+        $customer = Customer::create([
+            'name' => $data['name'],
+            'sales_user_id' => $request->user()?->id,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'customer' => [
+                'id' => (int) $customer->id,
+                'name' => $customer->name,
+                'uid' => 'customer-' . $customer->id,
+                'type' => 'customer',
+                'label' => $customer->name,
+                'customer_id' => (int) $customer->id,
+                'contact_id' => null,
+            ],
+        ]);
+    }
+
+    public function merge(Request $request, Customer $customer): RedirectResponse
+    {
+        $this->authorize('update', $customer);
+        $this->authorize('delete', $customer);
+
+        if (!$this->canMergeCustomers($request->user())) {
+            abort(403);
+        }
+
+        $data = $request->validate([
+            'target_customer_id' => ['required', 'integer', 'exists:customers,id'],
+        ]);
+
+        $target = Customer::query()->findOrFail((int) $data['target_customer_id']);
+        $this->authorize('update', $target);
+
+        if ((int) $target->id === (int) $customer->id) {
+            return back()->withErrors([
+                'target_customer_id' => 'Customer tujuan merge harus berbeda.',
+            ]);
+        }
+
+        $sourceName = $customer->name;
+        $targetName = $target->name;
+
+        $moved = DB::transaction(function () use ($customer, $target) {
+            $source = Customer::query()->lockForUpdate()->findOrFail($customer->id);
+            $master = Customer::query()->lockForUpdate()->findOrFail($target->id);
+
+            $this->mergeCustomerProfileData($source, $master);
+
+            $sourceId = (int) $source->id;
+            $masterId = (int) $master->id;
+
+            $moved = [];
+            $moved['contacts'] = Contact::where('customer_id', $sourceId)->update(['customer_id' => $masterId]);
+            $moved['quotations'] = Quotation::where('customer_id', $sourceId)->update(['customer_id' => $masterId]);
+            $moved['sales_orders'] = SalesOrder::where('customer_id', $sourceId)->update(['customer_id' => $masterId]);
+            $moved['invoices'] = Invoice::where('customer_id', $sourceId)->update(['customer_id' => $masterId]);
+            $moved['deliveries'] = Delivery::where('customer_id', $sourceId)->update(['customer_id' => $masterId]);
+            $moved['billing_documents'] = BillingDocument::where('customer_id', $sourceId)->update(['customer_id' => $masterId]);
+            $moved['projects'] = Project::where('customer_id', $sourceId)->update(['customer_id' => $masterId]);
+            $moved['project_quotations'] = ProjectQuotation::where('customer_id', $sourceId)->update(['customer_id' => $masterId]);
+            $moved['documents'] = Document::where('customer_id', $sourceId)->update(['customer_id' => $masterId]);
+
+            $source->delete();
+
+            return $moved;
+        });
+
+        $labels = [
+            'contacts' => 'contacts',
+            'quotations' => 'quotations',
+            'sales_orders' => 'sales orders',
+            'invoices' => 'invoices',
+            'deliveries' => 'deliveries',
+            'billing_documents' => 'billing documents',
+            'projects' => 'projects',
+            'project_quotations' => 'project quotations',
+            'documents' => 'documents',
+        ];
+
+        $summary = collect($moved)
+            ->filter(fn ($count) => (int) $count > 0)
+            ->map(fn ($count, $key) => $count . ' ' . ($labels[$key] ?? $key))
+            ->values()
+            ->implode(', ');
+
+        $summaryText = $summary !== '' ? $summary : 'tidak ada relasi yang perlu dipindahkan';
+
+        return redirect()
+            ->route('customers.show', $target)
+            ->with('success', "Merge selesai: {$sourceName} digabung ke {$targetName}. Dipindahkan: {$summaryText}.");
+    }
+
+    private function canMergeCustomers(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return $user->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']);
+    }
+
+    private function guardAgainstDuplicateNames(Request $request, string $name, ?int $exceptCustomerId = null): RedirectResponse|JsonResponse|null
+    {
+        $dups = $this->findDuplicateCandidates($name, $exceptCustomerId);
+        $exact = $dups['exact']->values();
+        $similar = $dups['similar']->values();
+
+        if ($exact->isNotEmpty()) {
+            $msg = 'Nama customer/perusahaan sudah ada persis. Gunakan data existing, tidak bisa membuat duplikat persis.';
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'reason' => 'exact_duplicate',
+                    'message' => $msg,
+                    'exact' => $exact->all(),
+                    'similar' => $similar->all(),
+                ], 422);
+            }
+
+            return back()
+                ->withInput()
+                ->withErrors(['name' => $msg])
+                ->with('duplicate_exact_candidates', $exact->all());
+        }
+
+        if ($similar->isNotEmpty() && !$request->boolean('confirm_similar_name')) {
+            $msg = 'Ditemukan nama mirip. Pilih data yang sudah ada untuk merge, atau centang konfirmasi jika memang perusahaan berbeda.';
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'reason' => 'similar_duplicate',
+                    'message' => $msg,
+                    'exact' => [],
+                    'similar' => $similar->all(),
+                ], 409);
+            }
+
+            return back()
+                ->withInput()
+                ->withErrors(['name' => $msg])
+                ->with('similar_name_candidates', $similar->all());
+        }
+
+        return null;
+    }
+
+    /**
+     * Return:
+     * - exact: names with identical normalized key (hard-block)
+     * - similar: names with high similarity score (require decision)
+     */
+    private function findDuplicateCandidates(string $name, ?int $exceptCustomerId = null): array
+    {
+        $nameKey = Customer::makeNameKey($name);
+        if ($nameKey === '') {
+            return ['exact' => collect(), 'similar' => collect()];
+        }
+
+        $tokens = collect(preg_split('/\s+/', $nameKey))
+            ->filter(fn ($token) => mb_strlen((string) $token) >= 3)
+            ->unique()
+            ->values();
+
+        $query = Customer::query()
+            ->select(['id', 'name', 'name_key', 'city', 'phone', 'email'])
+            ->when($exceptCustomerId, fn ($q) => $q->where('id', '!=', $exceptCustomerId))
+            ->where(function ($q) use ($nameKey, $tokens) {
+                $q->where('name_key', $nameKey);
+
+                foreach ($tokens as $token) {
+                    $q->orWhere('name_key', 'like', "%{$token}%");
+                }
+            })
+            ->orderBy('name')
+            ->limit(120);
+
+        $candidates = $query->get();
+
+        if ($candidates->isEmpty()) {
+            $candidates = Customer::query()
+                ->select(['id', 'name', 'name_key', 'city', 'phone', 'email'])
+                ->when($exceptCustomerId, fn ($q) => $q->where('id', '!=', $exceptCustomerId))
+                ->orderByDesc('id')
+                ->limit(120)
+                ->get();
+        }
+
+        $exact = collect();
+        $similar = collect();
+
+        foreach ($candidates as $candidate) {
+            $candidateKey = Customer::makeNameKey((string) ($candidate->name_key ?: $candidate->name));
+            if ($candidateKey === '') {
+                continue;
+            }
+
+            if ($candidateKey === $nameKey) {
+                $exact->push($this->formatDuplicateCandidate($candidate, 100.0));
+                continue;
+            }
+
+            similar_text($nameKey, $candidateKey, $textScore);
+            $tokenScore = $this->tokenSimilarityScore($nameKey, $candidateKey);
+            $containsScore = (str_contains($candidateKey, $nameKey) || str_contains($nameKey, $candidateKey)) ? 85.0 : 0.0;
+            $score = max($textScore, $tokenScore, $containsScore);
+
+            if ($score >= self::DUP_SIMILAR_THRESHOLD) {
+                $similar->push($this->formatDuplicateCandidate($candidate, $score));
+            }
+        }
+
+        $exact = $exact
+            ->unique('id')
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->take(self::DUP_MAX_RESULTS)
+            ->values();
+
+        $similar = $similar
+            ->unique('id')
+            ->sortByDesc('score')
+            ->take(self::DUP_MAX_RESULTS)
+            ->values();
+
+        return compact('exact', 'similar');
+    }
+
+    private function formatDuplicateCandidate(Customer $candidate, float $score): array
+    {
+        return [
+            'id' => (int) $candidate->id,
+            'name' => (string) $candidate->name,
+            'city' => $candidate->city,
+            'phone' => $candidate->phone,
+            'email' => $candidate->email,
+            'score' => round($score, 1),
+        ];
+    }
+
+    private function tokenSimilarityScore(string $a, string $b): float
+    {
+        $aTokens = collect(preg_split('/\s+/', $a))->filter()->unique()->values();
+        $bTokens = collect(preg_split('/\s+/', $b))->filter()->unique()->values();
+
+        $unionCount = $aTokens->merge($bTokens)->unique()->count();
+        if ($unionCount === 0) {
+            return 0.0;
+        }
+
+        $intersectionCount = $aTokens->intersect($bTokens)->count();
+        return ($intersectionCount / $unionCount) * 100.0;
+    }
+
+    private function mergeCustomerProfileData(Customer $source, Customer $target): void
+    {
+        $fillable = [
+            'phone',
+            'email',
+            'website',
+            'billing_terms_days',
+            'address',
+            'city',
+            'province',
+            'country',
+            'npwp',
+            'npwp_number',
+            'npwp_name',
+            'npwp_address',
+            'notes',
+            'billing_street',
+            'billing_city',
+            'billing_state',
+            'billing_zip',
+            'billing_country',
+            'billing_notes',
+            'shipping_street',
+            'shipping_city',
+            'shipping_state',
+            'shipping_zip',
+            'shipping_country',
+            'shipping_notes',
+            'jenis_id',
+            'sales_user_id',
+        ];
+
+        $updates = [];
+        foreach ($fillable as $field) {
+            $targetValue = $target->{$field};
+            $sourceValue = $source->{$field};
+
+            $isTargetEmpty = $targetValue === null || (is_string($targetValue) && trim($targetValue) === '');
+            $isSourceFilled = $sourceValue !== null && (!is_string($sourceValue) || trim($sourceValue) !== '');
+
+            if ($isTargetEmpty && $isSourceFilled) {
+                $updates[$field] = $sourceValue;
+            }
+        }
+
+        if (!empty($updates)) {
+            $target->update($updates);
+        }
     }
 }

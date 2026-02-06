@@ -130,6 +130,56 @@
             </div>
           </div>
         </div>
+
+        @if(($canMergeCustomers ?? false) === true)
+          <div class="card mt-3">
+            <div class="card-header">
+              <div class="card-title">Merge Perusahaan Duplikat</div>
+            </div>
+            <div class="card-body">
+              <p class="text-muted mb-2">
+                Gunakan fitur ini untuk menggabungkan customer/perusahaan yang sama.
+                Data relasi (termasuk quotation) akan dipindah ke customer tujuan, lalu customer ini dihapus.
+              </p>
+
+              <form method="POST" action="{{ route('customers.merge', $customer) }}" class="row g-2">
+                @csrf
+                <div class="col-md-8">
+                  <label class="form-label">Customer tujuan merge</label>
+                  <select name="target_customer_id" class="form-select" required>
+                    <option value="">-- pilih customer tujuan --</option>
+                    @foreach(($mergeCandidates ?? collect()) as $cand)
+                      <option value="{{ $cand['id'] }}" @selected((string)old('target_customer_id') === (string)$cand['id'])>
+                        {{ $cand['name'] }}
+                        @if(!empty($cand['score']))
+                          (similarity {{ $cand['score'] }}%)
+                        @endif
+                      </option>
+                    @endforeach
+                  </select>
+                  @error('target_customer_id')
+                    <div class="text-danger small mt-1">{{ $message }}</div>
+                  @enderror
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                  <button
+                    class="btn btn-danger w-100"
+                    type="submit"
+                    onclick="return confirm('Lanjut merge customer ini ke customer tujuan? Data sumber akan dihapus setelah relasi dipindah.');"
+                  >
+                    Merge Sekarang
+                  </button>
+                </div>
+              </form>
+
+              @if(($mergeCandidates ?? collect())->isEmpty())
+                <div class="alert alert-warning mt-3 mb-0 py-2">
+                  Belum ada kandidat merge berdasarkan nama mirip. Anda bisa edit nama customer agar lebih spesifik, lalu cek ulang.
+                </div>
+              @endif
+            </div>
+          </div>
+        @endif
       @endif
 
       {{-- ---------- CONTACTS ---------- --}}
