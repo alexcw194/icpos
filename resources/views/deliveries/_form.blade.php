@@ -153,9 +153,38 @@
     const tableBody = document.querySelector('#lines-table tbody');
     const addBtn = document.getElementById('add-line');
     const template = document.getElementById('line-row-template');
+    const formEl = tableBody ? tableBody.closest('form') : null;
     const warehouseSelect = document.querySelector('select[name="warehouse_id"]');
     const stockMap = Object.assign({}, @json($stocks ?? []));
     const stockFormatter = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const priceFormatter = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function parseLocaleNumber(rawValue) {
+      const raw = String(rawValue ?? '').trim();
+      if (raw === '') return null;
+
+      let normalized = raw.replace(/\s/g, '');
+      if (normalized.includes(',') && normalized.includes('.')) {
+        normalized = normalized.replace(/\./g, '').replace(',', '.');
+      } else if (normalized.includes(',')) {
+        normalized = normalized.replace(',', '.');
+      }
+
+      const value = Number.parseFloat(normalized);
+      return Number.isFinite(value) ? value : null;
+    }
+
+    function formatPriceInput(input) {
+      if (!input) return;
+      const value = parseLocaleNumber(input.value);
+      input.value = value === null ? '' : priceFormatter.format(value);
+    }
+
+    function normalizePriceForSubmit(input) {
+      if (!input) return;
+      const value = parseLocaleNumber(input.value);
+      input.value = value === null ? '' : value.toFixed(2);
+    }
 
     function makeKey(warehouseId, itemId, variantId) {
       return [warehouseId || 0, itemId || 0, variantId || 0].join('::');
@@ -217,8 +246,12 @@
       const qtyInput = row.querySelector('.line-qty');
       const requestedInput = row.querySelector('.line-requested');
       const backorderInput = row.querySelector('.line-backorder');
+      const priceInput = row.querySelector('.line-price');
       if (qtyInput && requestedInput && !requestedInput.value) {
         requestedInput.value = qtyInput.value;
+      }
+      if (priceInput) {
+        priceInput.addEventListener('blur', () => formatPriceInput(priceInput));
       }
 
       // === Auto-hitung backorder = max(requested - qty, 0)
@@ -281,6 +314,10 @@
     Array.from(tableBody.querySelectorAll('tr[data-index]')).forEach(row => {
       bindRowEvents(row);
       updateRowStock(row);
+    });
+    tableBody.querySelectorAll('.line-price').forEach(formatPriceInput);
+    formEl && formEl.addEventListener('submit', () => {
+      tableBody.querySelectorAll('.line-price').forEach(normalizePriceForSubmit);
     });
     updateAllRowStocks();
   })();
@@ -378,7 +415,7 @@
     <td><input type="text" class="form-control" data-name="unit"></td>
     <td><input type="number" step="1" min="0" class="form-control text-end line-requested" data-name="qty_requested" readonly></td>
     <td><input type="number" step="1" min="0" class="form-control text-end line-backorder" data-name="qty_backordered" readonly></td>
-    <td><input type="number" step="0.01" min="0" class="form-control text-end" data-name="price_snapshot"></td>
+    <td><input type="text" inputmode="decimal" class="form-control text-end line-price" data-name="price_snapshot"></td>
     <td><input type="text" class="form-control" data-name="line_notes"></td>
     <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-line"><i class="ti ti-x"></i></button></td>
   </tr>

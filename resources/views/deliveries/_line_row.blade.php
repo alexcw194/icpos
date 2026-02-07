@@ -8,6 +8,14 @@
   $qtyRequested     = $row['qty_requested']     ?? null;
   $qtyBackordered   = $row['qty_backordered']   ?? null;
   $priceSnapshot    = $row['price_snapshot']    ?? null;
+  $priceInputValue  = '';
+  if ($priceSnapshot !== null && $priceSnapshot !== '') {
+    if (is_numeric($priceSnapshot)) {
+      $priceInputValue = number_format((float) $priceSnapshot, 2, ',', '.');
+    } else {
+      $priceInputValue = (string) $priceSnapshot;
+    }
+  }
   $lineNotes        = $row['line_notes']        ?? null;
   $quotationLineId  = $row['quotation_line_id'] ?? null;
   $soLineId         = $row['sales_order_line_id'] ?? null;
@@ -111,7 +119,11 @@
     <input type="number" step="1" min="0" name="lines[{{ $index }}][qty_backordered]" class="form-control text-end line-backorder" value="{{ (int) $qtyBackordered }}" readonly>
   </td>
   <td>
-    <input type="number" step="0.01" min="0" name="lines[{{ $index }}][price_snapshot]" class="form-control text-end" value="{{ $priceSnapshot }}">
+    <input type="text"
+           inputmode="decimal"
+           name="lines[{{ $index }}][price_snapshot]"
+           class="form-control text-end line-price"
+           value="{{ $priceInputValue }}">
   </td>
   <td>
     <input type="text" name="lines[{{ $index }}][line_notes]" class="form-control" value="{{ $lineNotes }}">
