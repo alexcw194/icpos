@@ -30,6 +30,11 @@
           ? $makeSrc($salesSig['image_path'] ?? null)
           : null;
   }
+
+  $recipientCompany = trim((string) data_get($document->customer_snapshot, 'name', ''));
+  $recipientContactName = trim((string) data_get($document->contact_snapshot, 'name', ''));
+  $recipientContactPosition = trim((string) data_get($document->contact_snapshot, 'position', ''));
+  $hasRecipientContact = $recipientContactName !== '';
 @endphp
 <!doctype html>
 <html lang="en">
@@ -201,9 +206,18 @@
 
       <div class="recipient">
         <div class="line">Kepada Yth.</div>
-        <div class="line name">{{ data_get($document->customer_snapshot, 'name') }}</div>
-        @if($document->contact_snapshot)
-          <div class="line">{{ data_get($document->contact_snapshot, 'name') }}</div>
+        @if($hasRecipientContact)
+          <div class="line name">
+            {{ $recipientContactName }}
+            @if($recipientContactPosition !== '')
+              ({{ $recipientContactPosition }})
+            @endif
+          </div>
+          @if($recipientCompany !== '')
+            <div class="line">{{ $recipientCompany }}</div>
+          @endif
+        @elseif($recipientCompany !== '')
+          <div class="line name">{{ $recipientCompany }}</div>
         @endif
       </div>
 
