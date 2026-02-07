@@ -1,7 +1,6 @@
 @php
   $contacts = $customer->contacts()->orderBy('first_name')->get();
   $contactTitles = $contactTitles ?? \App\Models\ContactTitle::active()->ordered()->get(['id','name']);
-  $contactPositions = $contactPositions ?? \App\Models\ContactPosition::active()->ordered()->get(['id','name']);
 @endphp
 
 <div class="card" id="contacts">
@@ -35,12 +34,7 @@
       </div>
       <div class="col-md-3">
         <label class="form-label">Jabatan</label>
-        <select name="contact_position_id" class="form-select">
-          <option value="">-</option>
-          @foreach($contactPositions as $pos)
-            <option value="{{ $pos->id }}">{{ $pos->name }}</option>
-          @endforeach
-        </select>
+        <input name="position" class="form-control" placeholder="Isi jabatan bebas">
       </div>
       <div class="col-md-3">
         <label class="form-label">Telepon</label>
@@ -90,11 +84,10 @@
                           class="btn btn-outline-primary btn-edit-contact"
                           data-id="{{ $c->id }}"
                           data-title-id="{{ $c->contact_title_id }}"
-                          data-position-id="{{ $c->contact_position_id }}"
                           data-first-name="{{ $c->first_name }}"
                           data-last-name="{{ $c->last_name }}"
                           data-title-label="{{ $c->title_label }}"
-                          data-position-label="{{ $c->position_label }}"
+                          data-position="{{ $c->position_label }}"
                           data-phone="{{ $c->phone }}"
                           data-email="{{ $c->email }}"
                           data-notes="{{ $c->notes }}"
@@ -150,12 +143,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Jabatan</label>
-              <select name="contact_position_id" class="form-select">
-                <option value="">-</option>
-                @foreach($contactPositions as $pos)
-                  <option value="{{ $pos->id }}">{{ $pos->name }}</option>
-                @endforeach
-              </select>
+              <input type="text" name="position" class="form-control" placeholder="Isi jabatan bebas">
             </div>
             <div class="col-md-6">
               <label class="form-label">Telepon</label>
@@ -222,9 +210,8 @@
                   class="btn btn-outline-primary btn-edit-contact"
                   data-id="${escapeHTML(c.id)}"
                   data-title-id="${escapeHTML(c.contact_title_id || '')}"
-                  data-position-id="${escapeHTML(c.contact_position_id || '')}"
                   data-title-label="${escapeHTML(titleLabel)}"
-                  data-position-label="${escapeHTML(positionLabel)}"
+                  data-position="${escapeHTML(positionLabel)}"
                   data-first-name="${escapeHTML(c.first_name || '')}"
                   data-last-name="${escapeHTML(c.last_name || '')}"
                   data-phone="${escapeHTML(c.phone || '')}"
@@ -252,9 +239,8 @@
     const editBtn = row.querySelector('.btn-edit-contact');
     if (editBtn) {
       editBtn.dataset.titleId = contact.contact_title_id || '';
-      editBtn.dataset.positionId = contact.contact_position_id || '';
       editBtn.dataset.titleLabel = contact.title_label || '';
-      editBtn.dataset.positionLabel = contact.position_label || '';
+      editBtn.dataset.position = contact.position_label || '';
       editBtn.dataset.firstName = contact.first_name || '';
       editBtn.dataset.lastName = contact.last_name || '';
       editBtn.dataset.phone = contact.phone || '';
@@ -292,7 +278,7 @@
       editForm.querySelector('[name="contact_title_id"]').value = editBtn.dataset.titleId || '';
       editForm.querySelector('[name="first_name"]').value = editBtn.dataset.firstName || '';
       editForm.querySelector('[name="last_name"]').value = editBtn.dataset.lastName || '';
-      editForm.querySelector('[name="contact_position_id"]').value = editBtn.dataset.positionId || '';
+      editForm.querySelector('[name="position"]').value = editBtn.dataset.position || '';
       editForm.querySelector('[name="phone"]').value = editBtn.dataset.phone || '';
       editForm.querySelector('[name="email"]').value = editBtn.dataset.email || '';
       editForm.querySelector('[name="notes"]').value = editBtn.dataset.notes || '';

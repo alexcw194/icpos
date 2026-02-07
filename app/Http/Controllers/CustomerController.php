@@ -10,7 +10,6 @@ use App\Models\Jenis;
 use App\Models\User;
 use App\Models\Contact;
 use App\Models\ContactTitle;
-use App\Models\ContactPosition;
 use App\Models\Invoice;
 use App\Models\Project;
 use App\Models\ProjectQuotation;
@@ -188,7 +187,6 @@ class CustomerController extends Controller
             ->withQueryString();
 
         $contactTitles = ContactTitle::active()->ordered()->get(['id', 'name']);
-        $contactPositions = ContactPosition::active()->ordered()->get(['id', 'name']);
         $canMergeCustomers = $this->canMergeCustomers($request->user());
         $mergeCandidates = collect();
 
@@ -207,7 +205,6 @@ class CustomerController extends Controller
             'salesOrders',
             'projects',
             'contactTitles',
-            'contactPositions',
             'canMergeCustomers',
             'mergeCandidates'
         ));
@@ -327,7 +324,8 @@ class CustomerController extends Controller
             'first_name' => ['required', 'string', 'max:120'],
             'last_name' => ['nullable', 'string', 'max:120'],
             'contact_title_id' => ['nullable', 'exists:contact_titles,id'],
-            'contact_position_id' => ['nullable', 'exists:contact_positions,id'],
+            'position' => ['nullable', 'string', 'max:120'],
+            'contact_position_id' => ['sometimes', 'nullable', 'integer'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:120'],
             'notes' => ['nullable', 'string'],
@@ -336,12 +334,12 @@ class CustomerController extends Controller
         $title = !empty($data['contact_title_id'])
             ? ContactTitle::find($data['contact_title_id'])
             : null;
-        $position = !empty($data['contact_position_id'])
-            ? ContactPosition::find($data['contact_position_id'])
-            : null;
 
         $data['title_snapshot'] = $title?->name;
-        $data['position_snapshot'] = $position?->name;
+        $positionText = trim((string) ($data['position'] ?? ''));
+        $data['position_snapshot'] = $positionText !== '' ? $positionText : null;
+        $data['position'] = $data['position_snapshot']; // legacy column compatibility
+        $data['contact_position_id'] = null;
 
         $contact = $customer->contacts()->create($data);
 
@@ -371,7 +369,8 @@ class CustomerController extends Controller
             'first_name' => ['required', 'string', 'max:120'],
             'last_name' => ['nullable', 'string', 'max:120'],
             'contact_title_id' => ['nullable', 'exists:contact_titles,id'],
-            'contact_position_id' => ['nullable', 'exists:contact_positions,id'],
+            'position' => ['nullable', 'string', 'max:120'],
+            'contact_position_id' => ['sometimes', 'nullable', 'integer'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:120'],
             'notes' => ['nullable', 'string'],
@@ -380,12 +379,12 @@ class CustomerController extends Controller
         $title = !empty($data['contact_title_id'])
             ? ContactTitle::find($data['contact_title_id'])
             : null;
-        $position = !empty($data['contact_position_id'])
-            ? ContactPosition::find($data['contact_position_id'])
-            : null;
 
         $data['title_snapshot'] = $title?->name;
-        $data['position_snapshot'] = $position?->name;
+        $positionText = trim((string) ($data['position'] ?? ''));
+        $data['position_snapshot'] = $positionText !== '' ? $positionText : null;
+        $data['position'] = $data['position_snapshot']; // legacy column compatibility
+        $data['contact_position_id'] = null;
 
         $contact->update($data);
 
