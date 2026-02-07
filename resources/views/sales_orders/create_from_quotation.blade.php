@@ -49,8 +49,8 @@
       {{-- Row 1: PO No, PO Date, PO Type, Deadline --}}
       <div class="row g-3">
         <div class="col-md-3">
-          <label class="form-label required">Customer PO No</label>
-          <input type="text" name="po_number" class="form-control" value="{{ old('po_number') }}" required>
+          <label class="form-label">Customer PO No</label>
+          <input type="text" name="po_number" class="form-control" value="{{ old('po_number') }}">
         </div>
         <div class="col-md-3">
           <label class="form-label">Customer PO Date</label>

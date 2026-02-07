@@ -50,9 +50,9 @@
       {{-- Row 1: PO & Deadline --}}
       <div class="row g-3">
         <div class="col-md-3">
-          <label class="form-label required">Customer PO No</label>
+          <label class="form-label">Customer PO No</label>
           <input type="text" name="customer_po_number" class="form-control"
-                 value="{{ old('customer_po_number', $so->customer_po_number) }}" required>
+                 value="{{ old('customer_po_number', $so->customer_po_number) }}">
         </div>
         <div class="col-md-3">
           <label class="form-label">Customer PO Date</label>

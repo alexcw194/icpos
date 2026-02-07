@@ -92,6 +92,10 @@
   }
 
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
+  $poNumber = trim((string) ($billing->salesOrder?->customer_po_number ?? ''));
+  $poDate = $billing->salesOrder?->customer_po_date
+    ? \Illuminate\Support\Carbon::parse($billing->salesOrder->customer_po_date)->format('d-m-Y')
+    : '';
 @endphp
 
 @if($mode === 'proforma')
@@ -134,14 +138,22 @@
   <tr>
     <th width="25%">Customer</th>
     <td>{{ $billing->customer->name ?? '-' }}</td>
-    <th width="25%">Status</th>
-    <td>{{ ucfirst($billing->status ?? 'draft') }}</td>
+    @if($poNumber !== '')
+      <th width="25%">PO No.</th>
+      <td>{{ $poNumber }}</td>
+    @else
+      <td colspan="2"></td>
+    @endif
   </tr>
   <tr>
     <th>Sales Order</th>
-    <td>{{ $billing->salesOrder->so_number ?? '-' }}</td>
-    <th>Currency</th>
-    <td>{{ $billing->currency ?? 'IDR' }}</td>
+    <td>{{ $billing->salesOrder?->so_number ?? '-' }}</td>
+    @if($poDate !== '')
+      <th>Tgl. PO</th>
+      <td>{{ $poDate }}</td>
+    @else
+      <td colspan="2"></td>
+    @endif
   </tr>
 </table>
 

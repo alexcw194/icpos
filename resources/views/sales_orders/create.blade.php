@@ -69,8 +69,8 @@
 
         {{-- PO NUMBER --}}
         <div class="col-md-3">
-          <label class="form-label">Customer PO Number <span class="text-danger">*</span></label>
-          <input type="text" name="customer_po_number" class="form-control" value="{{ old('customer_po_number') }}" required>
+          <label class="form-label">Customer PO Number</label>
+          <input type="text" name="customer_po_number" class="form-control" value="{{ old('customer_po_number') }}">
         </div>
 
         {{-- PO DATE --}}

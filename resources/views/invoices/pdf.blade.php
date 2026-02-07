@@ -93,6 +93,10 @@
   }
 
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
+  $poNumber = trim((string) ($invoice->salesOrder?->customer_po_number ?? ''));
+  $poDate = $invoice->salesOrder?->customer_po_date
+    ? \Illuminate\Support\Carbon::parse($invoice->salesOrder->customer_po_date)->format('d-m-Y')
+    : '';
 @endphp
 
 {{-- Watermark rules:
@@ -143,9 +147,25 @@
   <tr>
     <th width="25%">Customer</th>
     <td>{{ $invoice->customer->name ?? '-' }}</td>
-    <th width="25%">Status</th>
-    <td>{{ ucfirst($invoice->status ?? 'draft') }}</td>
+    @if($poNumber !== '')
+      <th width="25%">PO No.</th>
+      <td>{{ $poNumber }}</td>
+    @else
+      <td colspan="2"></td>
+    @endif
   </tr>
+  @if($invoice->salesOrder?->so_number || $poDate !== '')
+    <tr>
+      <th>Sales Order</th>
+      <td>{{ $invoice->salesOrder?->so_number ?? '-' }}</td>
+      @if($poDate !== '')
+        <th>Tgl. PO</th>
+        <td>{{ $poDate }}</td>
+      @else
+        <td colspan="2"></td>
+      @endif
+    </tr>
+  @endif
 </table>
 
 <table class="items">

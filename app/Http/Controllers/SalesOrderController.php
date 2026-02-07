@@ -143,7 +143,7 @@ class SalesOrderController extends Controller
         $data = $request->validate([
             'company_id'           => ['required','exists:companies,id'],
             'customer_id'          => ['required','exists:customers,id'],
-            'customer_po_number'   => ['required','string','max:100'],
+            'customer_po_number'   => ['nullable','string','max:100'],
             'customer_po_date'     => ['nullable','date'],
             'po_type'              => ['required','in:goods,project,maintenance'],
             'project_id'           => ['nullable','integer','exists:projects,id'],
@@ -200,6 +200,8 @@ class SalesOrderController extends Controller
 
         // 2) Normalisasi input header
         $isScope      = in_array(($data['po_type'] ?? 'goods'), ['project', 'maintenance'], true);
+        $poNumber     = trim((string) ($data['customer_po_number'] ?? ''));
+        $poNumber     = $poNumber !== '' ? $poNumber : null;
         $mode         = $data['discount_mode'] ?? 'total';
         $tdType       = $data['total_discount_type'] ?? 'amount';
         $tdVal        = $toNum($data['total_discount_value'] ?? 0);
@@ -294,7 +296,7 @@ class SalesOrderController extends Controller
 
         /** @var \App\Models\SalesOrder $so */
         $so = null;
-        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, $mode, &$so) {
+        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, $mode, $poNumber, &$so) {
             $so = SalesOrder::create([
                 'company_id'          => $company->id,
                 'customer_id'         => $data['customer_id'],
@@ -302,7 +304,7 @@ class SalesOrderController extends Controller
                 'order_date'          => now()->toDateString(),
                 'deadline'            => $data['deadline'] ?? null,
                 'sales_user_id'       => $salesUserId, // ✅ JANGAN pakai $request di sini
-                'customer_po_number'  => $data['customer_po_number'],
+                'customer_po_number'  => $poNumber,
                 'customer_po_date'    => $data['customer_po_date'] ?? null,
                 'po_type'             => $data['po_type'],
                 'payment_term_id'     => null,
@@ -504,7 +506,7 @@ class SalesOrderController extends Controller
 
         // Validasi header + lines (+ attachments input)
         $data = $request->validate([
-            'customer_po_number' => ['required','string','max:100'],
+            'customer_po_number' => ['nullable','string','max:100'],
             'customer_po_date'   => ['nullable','date'],
             'po_type'            => ['required','in:goods,project,maintenance'],
             'project_id'         => ['nullable','integer','exists:projects,id'],
@@ -550,6 +552,8 @@ class SalesOrderController extends Controller
 
         // Hitung ulang totals
         $isScope     = in_array(($data['po_type'] ?? 'goods'), ['project', 'maintenance'], true);
+        $poNumber    = trim((string) ($data['customer_po_number'] ?? ''));
+        $poNumber    = $poNumber !== '' ? $poNumber : null;
         $mode        = $data['discount_mode'];
         $taxPctInput = $parse($data['tax_percent'] ?? 0);
         $taxPct      = ($company->is_taxable ?? false) ? $clamp($taxPctInput, 0, 100) : 0.0;
@@ -677,9 +681,9 @@ class SalesOrderController extends Controller
             }
         }
 
-        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$billingTerms,$existingTerms) {
+        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$billingTerms,$existingTerms,$poNumber) {
             $salesOrder->update([
-                'customer_po_number'    => $data['customer_po_number'],
+                'customer_po_number'    => $poNumber,
                 'customer_po_date'      => $data['customer_po_date'] ?? null,
                 'po_type'               => $data['po_type'],
                 'payment_term_id'       => null,
@@ -877,7 +881,7 @@ class SalesOrderController extends Controller
     {
         // 1) Validasi (rules murni, tanpa angka)
         $data = $request->validate([
-            'po_number'      => ['required','string','max:100'],
+            'po_number'      => ['nullable','string','max:100'],
             'po_date'        => ['nullable','date'],
             'po_type'        => ['required','in:goods,project,maintenance'],
             'project_id'     => ['nullable','integer','exists:projects,id'],
@@ -907,6 +911,8 @@ class SalesOrderController extends Controller
 
         // 2) Normalisasi nilai
         $under        = $this->toNumber($data['under_amount'] ?? 0);
+        $poNumber     = trim((string) ($data['po_number'] ?? ''));
+        $poNumber     = $poNumber !== '' ? $poNumber : null;
         $taxPctInput  = $this->toNumber($data['tax_percent'] ?? ($quotation->tax_percent ?? 0));
         $discountMode = $data['discount_mode'] ?? ($quotation->discount_mode ?? 'total');
         $company      = $quotation->company()->firstOrFail();
@@ -934,7 +940,7 @@ class SalesOrderController extends Controller
             ?: ($quotation->sales_user_id ?: auth()->id());
 
         /** @var SalesOrder $so */
-        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms, $isScope) {
+        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $poNumber, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms, $isScope) {
 
             // Nomor SO
             $number = app(DocNumberService::class)->next('sales_order', $company, now());
@@ -949,7 +955,7 @@ class SalesOrderController extends Controller
                 'order_date'          => now()->toDateString(),
                 'deadline'            => $data['deadline'] ?? null,
 
-                'customer_po_number'  => $data['po_number'],
+                'customer_po_number'  => $poNumber,
                 'customer_po_date'    => $data['po_date'] ?? null,
                 'po_type'             => $data['po_type'],
                 'payment_term_id'     => null,
