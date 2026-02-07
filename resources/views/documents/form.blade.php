@@ -38,10 +38,23 @@
 
   <div class="card">
     <div class="card-body">
-      <div class="mb-3">
-        <label class="form-label">Title</label>
-        <input type="text" name="title" class="form-control" value="{{ old('title', $document->title) }}" required>
-        @error('title')<div class="text-danger small">{{ $message }}</div>@enderror
+      <div class="row g-3 mb-3">
+        <div class="col-md-8">
+          <label class="form-label">Title</label>
+          <input type="text" name="title" class="form-control" value="{{ old('title', $document->title) }}" required>
+          @error('title')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Date</label>
+          <input
+            type="date"
+            name="document_date"
+            class="form-control"
+            value="{{ old('document_date', optional($document->document_date)->toDateString() ?? now()->toDateString()) }}"
+            required
+          >
+          @error('document_date')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
       </div>
 
       @php

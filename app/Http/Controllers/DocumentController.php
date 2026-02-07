@@ -85,6 +85,7 @@ class DocumentController extends Controller
         $user = auth()->user();
         $document = new Document([
             'status' => Document::STATUS_DRAFT,
+            'document_date' => now()->toDateString(),
         ]);
 
         $draftToken = session('doc_draft_token');
@@ -157,6 +158,7 @@ class DocumentController extends Controller
 
         $document = Document::create([
             'title' => $titleUpper ?? $data['title'],
+            'document_date' => $data['document_date'],
             'body_html' => $templateId ? '' : '',
             'document_template_id' => $templateId,
             'payload_json' => $payload,
@@ -268,6 +270,7 @@ class DocumentController extends Controller
 
         $document->update([
             'title' => $titleUpper ?? $data['title'],
+            'document_date' => $data['document_date'],
             'body_html' => $templateId ? '' : $this->sanitizeHtml($this->resolveBodyHtml($data), $document->id),
             'document_template_id' => $templateId,
             'payload_json' => $payload,
@@ -456,6 +459,7 @@ class DocumentController extends Controller
         $rules = [
             'document_template_id' => ['nullable', 'exists:document_templates,id'],
             'title' => ['required', 'string', 'max:190'],
+            'document_date' => ['required', 'date'],
             'body' => [$template ? 'nullable' : 'required', 'string'],
             'body_html' => ['nullable', 'string'],
             'created_by_user_id' => ['nullable', 'exists:users,id', function ($attribute, $value, $fail) use ($request) {

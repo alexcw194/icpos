@@ -6,7 +6,7 @@
   $directorSig = $signatures['director'] ?? null;
 
   $pdfNumber = $document->number ?: ('DRAFT-' . $document->id);
-  $dateText = ($document->approved_at ?? $document->submitted_at ?? $document->created_at)?->format('d M Y') ?? '';
+  $dateText = ($document->document_date ?? $document->approved_at ?? $document->submitted_at ?? $document->created_at)?->format('d M Y') ?? '';
 
   $makeSrc = function ($path) {
       if (!$path) return null;
