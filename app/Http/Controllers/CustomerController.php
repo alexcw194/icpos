@@ -325,7 +325,6 @@ class CustomerController extends Controller
             'last_name' => ['nullable', 'string', 'max:120'],
             'contact_title_id' => ['nullable', 'exists:contact_titles,id'],
             'position' => ['nullable', 'string', 'max:120'],
-            'contact_position_id' => ['sometimes', 'nullable', 'integer'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:120'],
             'notes' => ['nullable', 'string'],
@@ -339,7 +338,6 @@ class CustomerController extends Controller
         $positionText = trim((string) ($data['position'] ?? ''));
         $data['position_snapshot'] = $positionText !== '' ? $positionText : null;
         $data['position'] = $data['position_snapshot']; // legacy column compatibility
-        $data['contact_position_id'] = null;
 
         $contact = $customer->contacts()->create($data);
 
@@ -370,7 +368,6 @@ class CustomerController extends Controller
             'last_name' => ['nullable', 'string', 'max:120'],
             'contact_title_id' => ['nullable', 'exists:contact_titles,id'],
             'position' => ['nullable', 'string', 'max:120'],
-            'contact_position_id' => ['sometimes', 'nullable', 'integer'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:120'],
             'notes' => ['nullable', 'string'],
@@ -384,7 +381,6 @@ class CustomerController extends Controller
         $positionText = trim((string) ($data['position'] ?? ''));
         $data['position_snapshot'] = $positionText !== '' ? $positionText : null;
         $data['position'] = $data['position_snapshot']; // legacy column compatibility
-        $data['contact_position_id'] = null;
 
         $contact->update($data);
 

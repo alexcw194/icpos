@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\ContactTitle;
-use App\Models\ContactPosition;
 
 class Contact extends Model
 {
@@ -17,7 +16,6 @@ class Contact extends Model
         'first_name',
         'last_name',
         'contact_title_id',
-        'contact_position_id',
         'title_snapshot',
         'position_snapshot',
         'title',
@@ -45,11 +43,6 @@ class Contact extends Model
         return $this->belongsTo(ContactTitle::class, 'contact_title_id');
     }
 
-    public function positionMaster(): BelongsTo
-    {
-        return $this->belongsTo(ContactPosition::class, 'contact_position_id');
-    }
-
     public function getNameAttribute(): string
     {
         return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
@@ -69,6 +62,6 @@ class Contact extends Model
 
     public function getPositionLabelAttribute(): string
     {
-        return trim((string) ($this->position_snapshot ?? ($this->positionMaster->name ?? ($this->position ?? ''))));
+        return trim((string) ($this->position_snapshot ?? ($this->position ?? '')));
     }
 }

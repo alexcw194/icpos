@@ -214,7 +214,6 @@
                               || request()->routeIs('bq-line-catalogs.*')
                               || request()->routeIs('term-of-payments.*')
                               || request()->routeIs('contact-titles.*')
-                              || request()->routeIs('contact-positions.*')
                               || request()->routeIs('document-counters.*')
                               || request()->routeIs('po.*')
                               || request()->routeIs('gr.*')
@@ -264,7 +263,6 @@
                         <li><a href="{{ route('term-of-payments.index') }}" class="dropdown-item {{ request()->routeIs('term-of-payments.*') ? 'active' : '' }}">Term of Payment (TOP)</a></li>
                         @role('SuperAdmin')
                           <li><a href="{{ route('contact-titles.index') }}" class="dropdown-item {{ request()->routeIs('contact-titles.*') ? 'active' : '' }}">Titles</a></li>
-                          <li><a href="{{ route('contact-positions.index') }}" class="dropdown-item {{ request()->routeIs('contact-positions.*') ? 'active' : '' }}">Positions</a></li>
                         @endrole
                       </ul>
                     </div>
