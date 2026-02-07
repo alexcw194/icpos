@@ -214,7 +214,7 @@
             @endif
           </div>
           @if($recipientCompany !== '')
-            <div class="line">{{ $recipientCompany }}</div>
+            <div class="line name">{{ $recipientCompany }}</div>
           @endif
         @elseif($recipientCompany !== '')
           <div class="line name">{{ $recipientCompany }}</div>
