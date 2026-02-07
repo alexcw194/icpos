@@ -106,7 +106,12 @@
     <div class="col-md-6">
       <div class="card"><div class="card-body">
         <div class="mb-2"><strong>Order Date:</strong> {{ $o->order_date }}</div>
-        <div class="mb-2"><strong>Customer PO:</strong> {{ $o->customer_po_number }}@if($o->customer_po_date) ({{ $o->customer_po_date }})@endif</div>
+        @php
+          $poDate = $o->customer_po_date
+            ? \Illuminate\Support\Carbon::parse($o->customer_po_date)->format('d-m-Y')
+            : null;
+        @endphp
+        <div class="mb-2"><strong>Customer PO:</strong> {{ $o->customer_po_number }}@if($poDate) ({{ $poDate }})@endif</div>
         <div class="mb-2"><strong>PO Type:</strong> {{ ucfirst($o->po_type ?? 'goods') }}</div>
         @php
           $projectLabel = null;

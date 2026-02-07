@@ -46,11 +46,15 @@
           <tr>
             <th style="width:1%">#</th>
             <th>SO Number</th>
+            <th>PO Number</th>
+            <th>PO Date</th>
+            <th>PO Type</th>
             <th>Customer</th>
             <th>Company</th>
             <th class="text-end">Total</th>
             <th>Status</th>
             <th>Tax</th>
+            <th style="width:1%">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -80,48 +84,41 @@
                 'maintenance' => ['Maintenance','bg-teal-lt text-dark'],
               ];
               [$poLabel, $poClass] = $poTypeMap[$o->po_type ?? 'goods'] ?? ['Goods','bg-azure-lt text-dark'];
+              $poDate = $o->customer_po_date
+                ? \Illuminate\Support\Carbon::parse($o->customer_po_date)->format('d-m-Y')
+                : '—';
             @endphp
 
             <tr>
               <td>{{ $orders->firstItem() + $loop->index }}</td>
-
-              {{-- SO number + PO (aksi muncul saat hover DI BAWAH PO) --}}
-              <td class="align-middle">
-                <a href="{{ route('sales-orders.show',$o) }}" class="fw-bold">{{ $o->so_number }}</a>
-                <div class="text-muted small">PO: {{ $o->customer_po_number }}@if($o->customer_po_date) ({{ $o->customer_po_date }})@endif</div>
-                <div class="mt-1">
-                  <span class="badge {{ $poClass }}">{{ $poLabel }}</span>
-                </div>
-
-                {{-- ACTIONS (hidden by default, visible on row hover) --}}
-                <div class="so-actions small mt-1">
-                  <a href="{{ route('sales-orders.show',$o) }}" class="link-primary">View</a>
-
-                  @can('update', $o)
-                    <span class="text-muted">|</span>
-                    <a href="{{ route('sales-orders.edit',$o) }}" class="link-warning">Edit</a>
-                  @endcan
-
-                  @can('delete', $o)
-                    <span class="text-muted">|</span>
-                    <form action="{{ route('sales-orders.destroy',$o) }}" method="POST" class="d-inline"
-                          onsubmit="return confirm('Delete this Sales Order?')">
-                      @csrf @method('DELETE')
-                      <button type="submit" class="btn btn-link link-danger p-0 m-0 align-baseline">Delete</button>
-                    </form>
-                  @endcan
-                </div>
-              </td>
-
+              <td class="align-middle"><a href="{{ route('sales-orders.show',$o) }}" class="fw-bold">{{ $o->so_number }}</a></td>
+              <td class="align-middle">{{ $o->customer_po_number }}</td>
+              <td class="align-middle text-nowrap">{{ $poDate }}</td>
+              <td class="align-middle"><span class="badge {{ $poClass }}">{{ $poLabel }}</span></td>
               <td class="align-middle">{{ $o->customer->name ?? '—' }}</td>
               <td class="align-middle">{{ $o->company->alias ?? $o->company->name }}</td>
               <td class="text-end align-middle">{{ number_format($o->total,2) }}</td>
               <td class="align-middle"><span class="badge {{ $stClass }}">{{ $stLabel }}</span></td>
               <td class="align-middle">{!! $npwpBadge !!}</td>
+              <td class="align-middle text-nowrap">
+                <a href="{{ route('sales-orders.show',$o) }}" class="link-primary">View</a>
+                @can('update', $o)
+                  <span class="text-muted">|</span>
+                  <a href="{{ route('sales-orders.edit',$o) }}" class="link-warning">Edit</a>
+                @endcan
+                @can('delete', $o)
+                  <span class="text-muted">|</span>
+                  <form action="{{ route('sales-orders.destroy',$o) }}" method="POST" class="d-inline"
+                        onsubmit="return confirm('Delete this Sales Order?')">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="btn btn-link link-danger p-0 m-0 align-baseline">Delete</button>
+                  </form>
+                @endcan
+              </td>
             </tr>
           @empty
             <tr>
-              <td colspan="7" class="text-center text-muted">Belum ada Sales Order.</td>
+              <td colspan="11" class="text-center text-muted">Belum ada Sales Order.</td>
             </tr>
           @endforelse
         </tbody>
@@ -138,10 +135,6 @@
 
 @push('styles')
 <style>
-  /* Aksi di bawah PO: sembunyikan sampai baris di-hover */
-  .table .so-actions { display: none; }
-  .table tr:hover .so-actions { display: block; }
-
   /* Rapikan tampilan link tombol */
   .table .btn-link { text-decoration: none; }
   .table .btn-link:hover { text-decoration: underline; }
