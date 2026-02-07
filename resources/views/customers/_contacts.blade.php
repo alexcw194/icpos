@@ -96,6 +96,7 @@
                   </button>
                   <button type="button"
                           class="btn btn-outline-danger btn-delete-contact"
+                          data-confirm="Hapus kontak ini?"
                           data-delete-url="{{ route('customers.contacts.destroy', [$customer, $c]) }}">
                     Hapus
                   </button>
@@ -179,10 +180,13 @@
 
   if (!addForm || !rows || !modalEl || !editForm) return;
 
-  const modal = window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+  function getModalInstance() {
+    if (!window.bootstrap || !bootstrap.Modal) return null;
+    return bootstrap.Modal.getOrCreateInstance(modalEl);
+  }
 
   function escapeHTML(s){
-    return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+    return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   }
 
   function showAlert(message, type = 'success') {
@@ -220,6 +224,7 @@
                   data-update-url="${escapeHTML(urls.update_url)}">Ubah</button>
           <button type="button"
                   class="btn btn-outline-danger btn-delete-contact"
+                  data-confirm="Hapus kontak ini?"
                   data-delete-url="${escapeHTML(urls.delete_url)}">Hapus</button>
         </div>
       </td>
@@ -275,6 +280,10 @@
     const editBtn = e.target.closest('.btn-edit-contact');
     if (editBtn) {
       editForm.action = editBtn.dataset.updateUrl || '';
+      if (!editForm.action) {
+        showAlert('Gagal membuka form ubah kontak.', 'danger');
+        return;
+      }
       editForm.querySelector('[name="contact_title_id"]').value = editBtn.dataset.titleId || '';
       editForm.querySelector('[name="first_name"]').value = editBtn.dataset.firstName || '';
       editForm.querySelector('[name="last_name"]').value = editBtn.dataset.lastName || '';
@@ -282,15 +291,24 @@
       editForm.querySelector('[name="phone"]').value = editBtn.dataset.phone || '';
       editForm.querySelector('[name="email"]').value = editBtn.dataset.email || '';
       editForm.querySelector('[name="notes"]').value = editBtn.dataset.notes || '';
-      if (modal) modal.show();
+      const modal = getModalInstance();
+      if (modal) {
+        modal.show();
+      } else {
+        modalEl.classList.add('show');
+        modalEl.style.display = 'block';
+        modalEl.removeAttribute('aria-hidden');
+        modalEl.setAttribute('aria-modal', 'true');
+      }
       return;
     }
 
     const deleteBtn = e.target.closest('.btn-delete-contact');
     if (deleteBtn) {
       const url = deleteBtn.dataset.deleteUrl;
+      const confirmText = deleteBtn.dataset.confirm || 'Hapus kontak ini?';
       if (!url) return;
-      if (!confirm('Hapus kontak ini?')) return;
+      if (!confirm(confirmText)) return;
       fetch(url, {
         method: 'POST',
         headers: {
@@ -329,7 +347,15 @@
       const j = await r.json();
       if (j && j.ok) {
         updateRow(j.contact);
-        if (modal) modal.hide();
+        const modal = getModalInstance();
+        if (modal) {
+          modal.hide();
+        } else {
+          modalEl.classList.remove('show');
+          modalEl.style.display = 'none';
+          modalEl.setAttribute('aria-hidden', 'true');
+          modalEl.removeAttribute('aria-modal');
+        }
         showAlert('Kontak berhasil diperbarui.');
         return;
       }
