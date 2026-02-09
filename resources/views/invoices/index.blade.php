@@ -10,12 +10,25 @@
         </tr></thead>
         <tbody>
         @forelse($invoices as $inv)
+          @php
+            $st = strtolower((string) ($inv->status ?? 'draft'));
+            if ($st === 'paid' || $inv->paid_at) {
+              $statusLabel = 'Paid';
+              $statusClass = 'bg-green-lt text-green';
+            } elseif (in_array($st, ['posted','invoiced','sent'], true)) {
+              $statusLabel = 'Unpaid';
+              $statusClass = 'bg-yellow-lt text-dark';
+            } else {
+              $statusLabel = 'Draft';
+              $statusClass = 'bg-secondary-lt text-dark';
+            }
+          @endphp
           <tr>
             <td>{{ $inv->number }}</td>
             <td>{{ $inv->date?->format('Y-m-d') }}</td>
             <td>{{ $inv->customer->name ?? '-' }}</td>
             <td class="text-end">{{ number_format($inv->total,2) }}</td>
-            <td><span class="badge">{{ strtoupper($inv->status) }}</span></td>
+            <td><span class="badge {{ $statusClass }}">{{ $statusLabel }}</span></td>
             <td class="text-end">
               <a href="{{ route('invoices.show',$inv) }}" class="btn btn-sm btn-outline-primary">Open</a>
             </td>

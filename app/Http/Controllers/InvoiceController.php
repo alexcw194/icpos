@@ -7,6 +7,7 @@ use App\Services\DocNumberService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Carbon\Carbon;
@@ -38,9 +39,9 @@ class InvoiceController extends Controller
             ->orderBy('code')->orderBy('name')
             ->get();
 
-        $pref = ($invoice->tax_percent ?? 0) > 0 ? 'ppn' : 'non'; // hint preselect
+        $prefScope = ($invoice->tax_percent ?? 0) > 0 ? 'ppn' : 'non_ppn'; // hint preselect
 
-        return view('invoices.show', compact('invoice','banks','pref'));
+        return view('invoices.show', compact('invoice','banks','prefScope'));
     }
 
     /**
@@ -328,7 +329,14 @@ class InvoiceController extends Controller
             'paid_at'       => ['required', 'date'],
             'paid_amount'   => ['required', 'numeric', 'min:0.01'],
             // gunakan salah satu: paid_bank_id dari master OR paid_bank (free text)
-            'paid_bank_id'  => ['nullable', 'integer', 'exists:banks,id'],
+            'paid_bank_id'  => [
+                'required',
+                'integer',
+                Rule::exists('banks', 'id')->where(function ($query) use ($invoice) {
+                    $query->where('company_id', $invoice->company_id)
+                        ->where('is_active', true);
+                }),
+            ],
             'paid_bank'     => ['nullable', 'string', 'max:100'], // fallback jika belum pakai master
             'paid_ref'      => ['nullable', 'string', 'max:150'],
             'payment_notes' => ['nullable', 'string'],
@@ -337,6 +345,11 @@ class InvoiceController extends Controller
         DB::transaction(function () use ($invoice, $data) {
             // Normalisasi tanggal
             $paidAt = Carbon::parse($data['paid_at']);
+            $bank = Bank::query()
+                ->where('id', $data['paid_bank_id'])
+                ->where('company_id', $invoice->company_id)
+                ->where('is_active', true)
+                ->firstOrFail();
 
             // Persist; tidak menyentuh due_date/receipt
             $invoice->paid_at       = $paidAt;
@@ -345,14 +358,11 @@ class InvoiceController extends Controller
             $invoice->payment_notes = $data['payment_notes'] ?? null;
 
             // Support kedua skenario bank (master / free text)
-            if (array_key_exists('paid_bank_id', $data)) {
-                // jika kolom tersedia di schema
-                if (schema()->hasColumn('invoices', 'paid_bank_id')) {
-                    $invoice->paid_bank_id = $data['paid_bank_id'];
-                }
+            if (schema()->hasColumn('invoices', 'paid_bank_id')) {
+                $invoice->paid_bank_id = $bank->id;
             }
-            if (!empty($data['paid_bank']) && schema()->hasColumn('invoices', 'paid_bank')) {
-                $invoice->paid_bank = $data['paid_bank'];
+            if (schema()->hasColumn('invoices', 'paid_bank')) {
+                $invoice->paid_bank = $bank->display_label ?: $bank->name;
             }
 
             // Idempotent: set status ke PAID (boleh update data bayar saat status sudah PAID)
