@@ -6,9 +6,13 @@ use App\Models\BillingDocument;
 use App\Models\Invoice;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\Schema;
 
 class BillingInvoiceSyncService
 {
+    /** @var array<string, array<int, string>> */
+    private static array $tableColumnsCache = [];
+
     /**
      * Sync one issued billing document into invoices table.
      *
@@ -39,7 +43,7 @@ class BillingInvoiceSyncService
             ->where('number', $invoiceNumber)
             ->first();
 
-        $payload = [
+        $payload = $this->filterPayloadByExistingColumns('invoices', [
             'company_id' => $billing->company_id,
             'customer_id' => $billing->customer_id,
             'quotation_id' => $billing->salesOrder?->quotation_id,
@@ -56,7 +60,7 @@ class BillingInvoiceSyncService
             'currency' => $billing->currency ?: 'IDR',
             'brand_snapshot' => $billing->salesOrder?->brand_snapshot,
             'notes' => $billing->notes,
-        ];
+        ]);
 
         if ($invoice) {
             if ($preservePaid && strtolower((string) $invoice->status) === 'paid') {
@@ -65,16 +69,19 @@ class BillingInvoiceSyncService
             $invoice->fill($payload);
             $invoice->save();
         } else {
-            $invoice = Invoice::create($payload + [
-                'created_by' => auth()->id(),
-            ]);
+            $createPayload = $payload;
+            if ($this->tableHasColumn('invoices', 'created_by')) {
+                $createPayload['created_by'] = auth()->id();
+            }
+
+            $invoice = Invoice::create($createPayload);
         }
 
         if ($syncLines) {
             $invoice->lines()->delete();
             if ($billing->lines->isNotEmpty()) {
-                $invoice->lines()->createMany($billing->lines->map(function ($line) use ($billing) {
-                    return [
+                $linePayloads = $billing->lines->map(function ($line) use ($billing) {
+                    return $this->filterPayloadByExistingColumns('invoice_lines', [
                         'sales_order_id' => $billing->sales_order_id,
                         'sales_order_line_id' => $line->sales_order_line_id,
                         'description' => $line->description ?: $line->name,
@@ -84,8 +91,12 @@ class BillingInvoiceSyncService
                         'discount_amount' => (float) $line->discount_amount,
                         'line_subtotal' => (float) $line->line_subtotal,
                         'line_total' => (float) $line->line_total,
-                    ];
-                })->all());
+                    ]);
+                })->filter(fn (array $payload) => !empty($payload))->values()->all();
+
+                if (!empty($linePayloads)) {
+                    $invoice->lines()->createMany($linePayloads);
+                }
             }
         }
 
@@ -108,5 +119,34 @@ class BillingInvoiceSyncService
         }
 
         return Carbon::parse($value);
+    }
+
+    private function tableHasColumn(string $table, string $column): bool
+    {
+        $columns = $this->tableColumns($table);
+        return in_array($column, $columns, true);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function tableColumns(string $table): array
+    {
+        if (!isset(self::$tableColumnsCache[$table])) {
+            self::$tableColumnsCache[$table] = Schema::getColumnListing($table);
+        }
+
+        return self::$tableColumnsCache[$table];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function filterPayloadByExistingColumns(string $table, array $payload): array
+    {
+        $allowed = array_flip($this->tableColumns($table));
+
+        return array_intersect_key($payload, $allowed);
     }
 }
