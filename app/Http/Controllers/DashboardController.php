@@ -149,9 +149,9 @@ class DashboardController extends Controller
                     ->count();
             }
 
-            $ttPendingCount = (clone $invBase)
+            $unpaidCount = (clone $invBase)
                 ->where('status', 'posted')
-                ->whereNull('receipt_path')
+                ->whereNull('paid_at')
                 ->count();
 
             $overdueInvoices = collect();
@@ -166,9 +166,9 @@ class DashboardController extends Controller
                     ->get();
             }
 
-            $ttPendingInvoices = (clone $invBase)
+            $unpaidInvoices = (clone $invBase)
                 ->where('status', 'posted')
-                ->whereNull('receipt_path')
+                ->whereNull('paid_at')
                 ->orderByDesc('date')
                 ->limit(20)
                 ->get();
@@ -259,7 +259,7 @@ class DashboardController extends Controller
                 'soRevenueYtd',
                 'arOutstandingAmount',
                 'overdueInvoiceCount',
-                'ttPendingCount',
+                'unpaidCount',
                 'negativeStockCount',
                 'sentAgingQuotes',
                 'soHasDeadline',
@@ -268,7 +268,7 @@ class DashboardController extends Controller
                 'soRecentOpen',
                 'overdueInvoices',
                 'negativeStockRows',
-                'ttPendingInvoices',
+                'unpaidInvoices',
                 'companyStats'
             ));
         }
@@ -306,10 +306,7 @@ class DashboardController extends Controller
                 ->whereBetween('due_date', [$today, $today->copy()->addDays(7)])
                 ->count();
 
-            $ttPendingCount = (clone $invBase)
-                ->where('status', 'posted')
-                ->whereNull('receipt_path')
-                ->count();
+            $unpaidCount = (int) $arOutstandingCount;
 
             $mtdCollectedAmount = (clone $invBase)
                 ->where('status', 'paid')
@@ -334,9 +331,9 @@ class DashboardController extends Controller
                 ->limit(25)
                 ->get();
 
-            $ttPendingInvoices = (clone $invBase)
+            $unpaidInvoices = (clone $invBase)
                 ->where('status', 'posted')
-                ->whereNull('receipt_path')
+                ->whereNull('paid_at')
                 ->orderByDesc('date')
                 ->limit(25)
                 ->get();
@@ -361,11 +358,11 @@ class DashboardController extends Controller
                 'arOutstandingCount',
                 'overdueCount',
                 'dueSoonCount',
-                'ttPendingCount',
+                'unpaidCount',
                 'mtdCollectedAmount',
                 'overdueInvoices',
                 'dueSoonInvoices',
-                'ttPendingInvoices',
+                'unpaidInvoices',
                 'mtdPaidInvoices',
                 'npwpLockedSoCount'
             ));

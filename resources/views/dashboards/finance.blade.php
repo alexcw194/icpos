@@ -48,8 +48,8 @@
     <div class="col-6 col-md-2">
       <div class="card card-sm">
         <div class="card-body">
-          <div class="subheader">TT Pending</div>
-          <div class="h2 m-0">{{ number_format($ttPendingCount) }}</div>
+          <div class="subheader">Unpaid</div>
+          <div class="h2 m-0">{{ number_format($unpaidCount) }}</div>
         </div>
       </div>
     </div>
@@ -168,9 +168,8 @@
   </div>
 
   <div class="card mb-3">
-    <div class="card-header d-flex align-items-center">
-      <h3 class="card-title">TT Pending (Posted w/o Receipt)</h3>
-      <a href="{{ route('invoices.tt-pending') }}" class="ms-auto text-decoration-none small">View TT Pending</a>
+    <div class="card-header">
+      <h3 class="card-title">Unpaid Invoices (Posted, Unpaid)</h3>
     </div>
     <div class="table-responsive">
       <table class="table table-sm table-vcenter card-table">
@@ -181,12 +180,11 @@
             <th>Customer</th>
             <th>Invoice Date</th>
             <th>Status</th>
-            <th>Receipt</th>
             <th class="text-end">Total</th>
           </tr>
         </thead>
         <tbody>
-          @forelse($ttPendingInvoices as $inv)
+          @forelse($unpaidInvoices as $inv)
             <tr>
               <td>
                 <a href="{{ route('invoices.show', $inv) }}" class="text-decoration-none">
@@ -196,13 +194,12 @@
               <td>{{ $companyLabel($inv->company) }}</td>
               <td>{{ $inv->customer->name ?? '-' }}</td>
               <td>{{ optional($inv->date)->format('d M Y') ?? '-' }}</td>
-              <td><span class="badge bg-blue-lt text-blue-9">Posted</span></td>
-              <td><span class="badge bg-orange-lt text-orange-9">Missing</span></td>
+              <td><span class="badge bg-orange-lt text-orange-9">Unpaid</span></td>
               <td class="text-end">{{ $money($inv->total ?? 0) }}</td>
             </tr>
           @empty
             <tr>
-              <td colspan="7" class="text-center text-muted">Tidak ada TT pending.</td>
+              <td colspan="6" class="text-center text-muted">Tidak ada invoice unpaid.</td>
             </tr>
           @endforelse
         </tbody>

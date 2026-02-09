@@ -287,7 +287,7 @@
 
       <div class="card mb-3">
         <div class="card-header">
-          <h3 class="card-title">TT Pending (Receipt Missing) ({{ number_format($ttPendingCount) }})</h3>
+          <h3 class="card-title">Unpaid Invoices (Posted, Unpaid) ({{ number_format($unpaidCount) }})</h3>
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-vcenter card-table">
@@ -297,12 +297,12 @@
                 <th>Customer</th>
                 <th>Company</th>
                 <th>Date</th>
+                <th>Status</th>
                 <th class="text-end">Total</th>
-                <th>Receipt</th>
               </tr>
             </thead>
             <tbody>
-              @forelse($ttPendingInvoices as $inv)
+              @forelse($unpaidInvoices as $inv)
                 <tr>
                   <td>
                     <a href="{{ route('invoices.show', $inv) }}" class="text-decoration-none">
@@ -312,8 +312,8 @@
                   <td>{{ $inv->customer->name ?? '-' }}</td>
                   <td>{{ $companyLabel($inv->company) }}</td>
                   <td>{{ optional($inv->date)->format('d M Y') ?? '-' }}</td>
+                  <td><span class="badge bg-orange-lt text-orange-9">Unpaid</span></td>
                   <td class="text-end">{{ $money($inv->total ?? 0) }}</td>
-                  <td><span class="badge bg-orange-lt text-orange-9">Missing</span></td>
                 </tr>
               @empty
                 <tr>
