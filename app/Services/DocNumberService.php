@@ -3,13 +3,13 @@
 namespace App\Services;
 
 use App\Models\Company;
+use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Carbon;
 
 class DocNumberService
 {
     /** @param 'quotation'|'invoice'|'delivery'|'sales_order'|'proforma' $docType */
-    public static function next(string $docType, Company $company, Carbon $docDate): string
+    public static function next(string $docType, Company $company, DateTimeInterface $docDate): string
     {
         $year   = (int)$docDate->format('Y');
         $counterType = match ($docType) {
