@@ -44,37 +44,6 @@ class StockService
         // NOTE: Delivery progress should not change SO billing status.
     }
 
-    /**
-     * Perbarui status Sales Order menjadi `delivered`, `partial_delivered`, atau `open`.
-     * - `delivered` jika semua baris sudah terkirim penuh (qty_delivered >= qty_ordered)
-     * - `partial_delivered` jika ada sebagian baris terkirim tetapi belum semuanya
-     * - `open` jika belum ada qty_delivered sama sekali
-     */
-    private static function updateSalesOrderStatus(int $salesOrderId): void
-    {
-        $stats = DB::table('sales_order_lines')
-            ->where('sales_order_id', $salesOrderId)
-            ->selectRaw(
-                'SUM(CASE WHEN qty_delivered >= qty_ordered THEN 1 ELSE 0 END) as delivered_lines, ' .
-                'SUM(CASE WHEN qty_delivered > 0 THEN 1 ELSE 0 END) as partially_delivered_lines, ' .
-                'COUNT(*) as total_lines'
-            )
-            ->first();
-
-        if (!$stats || $stats->total_lines <= 0) {
-            return;
-        }
-
-        $status = 'open';
-        if ($stats->delivered_lines == $stats->total_lines) {
-            $status = 'delivered';
-        } elseif ($stats->partially_delivered_lines > 0) {
-            $status = 'partial_delivered';
-        }
-
-        DB::table('sales_orders')->where('id', $salesOrderId)->update(['status' => $status]);
-    }
-
     public static function postDelivery(Delivery $delivery, ?int $actingUserId = null): void
     {
         if ($delivery->status === Delivery::STATUS_POSTED) {
@@ -135,6 +104,11 @@ class StockService
                 'cancelled_by' => null,
                 'cancel_reason' => null,
             ])->save();
+
+            if ($lockedDelivery->sales_order_id) {
+                app(\App\Services\SalesOrderStatusSyncService::class)
+                    ->syncById((int) $lockedDelivery->sales_order_id);
+            }
         });
 
         $delivery->refresh();
@@ -187,6 +161,11 @@ class StockService
                 'cancelled_by'  => $userId,
                 'cancel_reason' => $reason,
             ])->save();
+
+            if ($lockedDelivery->sales_order_id) {
+                app(\App\Services\SalesOrderStatusSyncService::class)
+                    ->syncById((int) $lockedDelivery->sales_order_id);
+            }
         });
 
         $delivery->refresh();

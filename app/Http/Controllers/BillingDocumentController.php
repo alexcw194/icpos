@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\BillingDocument;
 use App\Models\BillingDocumentLine;
 use App\Models\SalesOrder;
+use App\Services\AutoDeliveryDraftFromSoService;
 use App\Services\BillingInvoiceSyncService;
 use App\Services\DocNumberService;
+use App\Services\SalesOrderStatusSyncService;
 use Carbon\Carbon;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -16,7 +18,9 @@ use Illuminate\Support\Facades\DB;
 class BillingDocumentController extends Controller
 {
     public function __construct(
-        private readonly BillingInvoiceSyncService $billingInvoiceSync
+        private readonly BillingInvoiceSyncService $billingInvoiceSync,
+        private readonly AutoDeliveryDraftFromSoService $autoDeliveryDraftFromSo,
+        private readonly SalesOrderStatusSyncService $salesOrderStatusSync
     ) {
     }
 
@@ -337,6 +341,27 @@ class BillingDocumentController extends Controller
             abort(422, 'NPWP wajib diisi sebelum issue invoice.');
         }
 
+        $isGoods = $so && strtolower((string) ($so->po_type ?? 'goods')) === 'goods';
+        $hasAnyDelivered = false;
+        if ($isGoods && $so) {
+            $deliveryStats = DB::table('sales_order_lines')
+                ->where('sales_order_id', $so->id)
+                ->selectRaw(
+                    'COUNT(*) as total_lines, ' .
+                    'SUM(CASE WHEN COALESCE(qty_delivered,0) > 0 THEN 1 ELSE 0 END) as any_delivered_lines, ' .
+                    'SUM(CASE WHEN COALESCE(qty_delivered,0) >= COALESCE(qty_ordered,0) THEN 1 ELSE 0 END) as full_delivered_lines'
+                )
+                ->first();
+
+            $totalLines = (int) ($deliveryStats->total_lines ?? 0);
+            $hasAnyDelivered = ((int) ($deliveryStats->any_delivered_lines ?? 0)) > 0;
+            $allDelivered = $totalLines > 0 && ((int) ($deliveryStats->full_delivered_lines ?? 0)) === $totalLines;
+
+            if ($hasAnyDelivered && !$allDelivered) {
+                abort(422, 'Pengiriman parsial terdeteksi. Selesaikan posting Delivery Note terlebih dulu sebelum issue invoice.');
+            }
+        }
+
         $data = $request->validate([
             'invoice_date' => ['nullable','date'],
         ]);
@@ -345,7 +370,8 @@ class BillingDocumentController extends Controller
             ? Carbon::parse($data['invoice_date'])
             : now();
 
-        DB::transaction(function () use ($billing, $issueDate) {
+        $autoDeliveryState = ['created' => false, 'reused' => false];
+        DB::transaction(function () use ($billing, $issueDate, $so, $isGoods, $hasAnyDelivered, &$autoDeliveryState) {
             $invNumber = DocNumberService::next('invoice', $billing->company, $issueDate);
             $issuedAt = now();
 
@@ -366,9 +392,28 @@ class BillingDocumentController extends Controller
                 'sync_lines' => true,
                 'preserve_paid' => true,
             ]);
+
+            if ($isGoods && $so && !$hasAnyDelivered) {
+                $result = $this->autoDeliveryDraftFromSo->ensureForSalesOrder($so);
+                $autoDeliveryState = [
+                    'created' => (bool) ($result['created'] ?? false),
+                    'reused' => (bool) ($result['reused'] ?? false),
+                ];
+            }
+
+            if ($so) {
+                $this->salesOrderStatusSync->sync($so);
+            }
         });
 
-        return back()->with('success', 'Invoice issued.');
+        $message = 'Invoice issued.';
+        if ($autoDeliveryState['created']) {
+            $message .= ' Delivery draft otomatis dibuat.';
+        } elseif ($autoDeliveryState['reused']) {
+            $message .= ' Delivery draft untuk SO ini sudah tersedia.';
+        }
+
+        return back()->with('success', $message);
     }
 
     public function cancelDraft(BillingDocument $billing)

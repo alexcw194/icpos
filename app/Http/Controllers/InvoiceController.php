@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Invoice, Quotation, Company, SalesOrder, SalesOrderBillingTerm, Bank};
 use App\Services\DocNumberService;
+use App\Services\SalesOrderStatusSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -14,6 +15,11 @@ use Carbon\Carbon;
 
 class InvoiceController extends Controller
 {
+    public function __construct(
+        private readonly SalesOrderStatusSyncService $salesOrderStatusSync
+    ) {
+    }
+
     public function index()
     {
         $this->authorize('viewAny', \App\Models\Invoice::class);
@@ -175,7 +181,7 @@ class InvoiceController extends Controller
                 'invoice_id' => $invoice->id,
             ]);
 
-            $this->syncSoBillingStatus($salesOrder);
+            $this->salesOrderStatusSync->sync($salesOrder);
         });
 
         return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice created from Billing Term.');
@@ -370,46 +376,26 @@ class InvoiceController extends Controller
 
             $invoice->save();
 
+            $salesOrderId = (int) ($invoice->sales_order_id ?? 0);
             if ($invoice->so_billing_term_id) {
                 $term = SalesOrderBillingTerm::find($invoice->so_billing_term_id);
                 if ($term) {
                     $term->status = 'paid';
                     $term->save();
                     if ($term->salesOrder) {
-                        $this->syncSoBillingStatus($term->salesOrder);
+                        $salesOrderId = (int) $term->salesOrder->id;
                     }
                 }
+            }
+
+            if ($salesOrderId > 0) {
+                $this->salesOrderStatusSync->syncById($salesOrderId);
             }
         });
 
         return back()->with('success', 'Invoice marked as PAID.');
     }
 
-    private function syncSoBillingStatus(SalesOrder $salesOrder): void
-    {
-        if (in_array($salesOrder->status, ['cancelled', 'closed'], true)) {
-            return;
-        }
-
-        $terms = $salesOrder->billingTerms()->get(['status']);
-        if ($terms->isEmpty()) {
-            return;
-        }
-
-        $allPaid = $terms->every(fn ($t) => $t->status === 'paid');
-        if ($allPaid) {
-            $salesOrder->status = 'fully_billed';
-            $salesOrder->save();
-            return;
-        }
-
-        $anyBilled = $terms->contains(fn ($t) => in_array($t->status, ['invoiced', 'paid'], true));
-        if ($anyBilled) {
-            $salesOrder->status = 'partially_billed';
-            $salesOrder->save();
-            return;
-        }
-    }
 }
 
 /**
