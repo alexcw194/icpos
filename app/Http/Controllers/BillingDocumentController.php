@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\BillingDocument;
 use App\Models\BillingDocumentLine;
-use App\Models\Invoice;
 use App\Models\SalesOrder;
+use App\Services\BillingInvoiceSyncService;
 use App\Services\DocNumberService;
 use Carbon\Carbon;
 use Dompdf\Dompdf;
@@ -15,6 +15,11 @@ use Illuminate\Support\Facades\DB;
 
 class BillingDocumentController extends Controller
 {
+    public function __construct(
+        private readonly BillingInvoiceSyncService $billingInvoiceSync
+    ) {
+    }
+
     public function show(BillingDocument $billing)
     {
         $this->authorizePermission('invoices.view');
@@ -354,59 +359,13 @@ class BillingDocumentController extends Controller
                 'ar_posted_at' => $issuedAt,
                 'updated_by' => auth()->id(),
             ]);
-
-            $invoice = Invoice::query()
-                ->where('company_id', $billing->company_id)
-                ->where('number', $invNumber)
-                ->first();
-
-            $invoicePayload = [
-                'company_id' => $billing->company_id,
-                'customer_id' => $billing->customer_id,
-                'quotation_id' => $billing->salesOrder?->quotation_id,
-                'sales_order_id' => $billing->sales_order_id,
-                'number' => $invNumber,
-                'date' => $issueDate->toDateString(),
-                'status' => 'posted',
+            $this->billingInvoiceSync->sync($billing, [
+                'invoice_number' => $invNumber,
+                'issue_date' => $issueDate,
                 'posted_at' => $issuedAt,
-                'subtotal' => (float) $billing->subtotal,
-                'discount' => (float) $billing->discount_amount,
-                'tax_percent' => (float) $billing->tax_percent,
-                'tax_amount' => (float) $billing->tax_amount,
-                'total' => (float) $billing->total,
-                'currency' => $billing->currency ?: 'IDR',
-                'brand_snapshot' => $billing->salesOrder?->brand_snapshot,
-                'notes' => $billing->notes,
-            ];
-
-            if ($invoice) {
-                if (strtolower((string) $invoice->status) === 'paid') {
-                    unset($invoicePayload['status'], $invoicePayload['posted_at']);
-                }
-                $invoice->fill($invoicePayload);
-                $invoice->save();
-            } else {
-                $invoice = Invoice::create($invoicePayload + [
-                    'created_by' => auth()->id(),
-                ]);
-            }
-
-            $invoice->lines()->delete();
-            if ($billing->lines->isNotEmpty()) {
-                $invoice->lines()->createMany($billing->lines->map(function ($line) use ($billing) {
-                    return [
-                        'sales_order_id' => $billing->sales_order_id,
-                        'sales_order_line_id' => $line->sales_order_line_id,
-                        'description' => $line->description ?: $line->name,
-                        'unit' => $line->unit ?: 'pcs',
-                        'qty' => (float) $line->qty,
-                        'unit_price' => (float) $line->unit_price,
-                        'discount_amount' => (float) $line->discount_amount,
-                        'line_subtotal' => (float) $line->line_subtotal,
-                        'line_total' => (float) $line->line_total,
-                    ];
-                })->all());
-            }
+                'sync_lines' => true,
+                'preserve_paid' => true,
+            ]);
         });
 
         return back()->with('success', 'Invoice issued.');
