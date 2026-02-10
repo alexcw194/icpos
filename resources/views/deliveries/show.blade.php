@@ -17,7 +17,7 @@
             <a href="{{ route('deliveries.edit', $delivery) }}" class="btn btn-primary">Edit Draft</a>
           @endcan
           @can('deliveries.post')
-            <form action="{{ route('deliveries.post', $delivery) }}" method="POST" onsubmit="return confirm('Post delivery dan kurangi stok?');">
+            <form action="{{ route('deliveries.post', $delivery, false) }}" method="POST" onsubmit="return confirm('Post delivery dan kurangi stok?');">
               @csrf
               <button type="submit" class="btn btn-success">Post Delivery</button>
             </form>
@@ -192,7 +192,7 @@
 @can('deliveries.cancel')
   <div class="modal fade" id="modal-cancel" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog" role="document">
-      <form class="modal-content" method="POST" action="{{ route('deliveries.cancel', $delivery) }}">
+      <form class="modal-content" method="POST" action="{{ route('deliveries.cancel', $delivery, false) }}">
         @csrf
         <div class="modal-header">
           <h5 class="modal-title">Cancel Delivery</h5>

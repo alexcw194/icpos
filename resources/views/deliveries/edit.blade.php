@@ -42,7 +42,7 @@
 
   @can('deliveries.post')
     {{-- KEEP: hidden form remains untouched (not used by the button above) --}}
-    <form id="post-delivery" method="POST" action="{{ route('deliveries.post', $delivery) }}" class="d-none">
+    <form id="post-delivery" method="POST" action="{{ route('deliveries.post', $delivery, false) }}" class="d-none">
       @csrf
     </form>
   @endcan

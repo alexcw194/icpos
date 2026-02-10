@@ -221,7 +221,7 @@
               <td class="text-end">
                 <a class="btn btn-outline-secondary btn-sm" href="{{ route('deliveries.show', $dlv) }}">Open</a>
                 @can('post', $dlv)
-                  <form method="POST" action="{{ route('deliveries.post', $dlv) }}" class="d-inline">
+                  <form method="POST" action="{{ route('deliveries.post', $dlv, false) }}" class="d-inline">
                     @csrf
                     <button type="submit" class="btn btn-outline-success btn-sm">Post</button>
                   </form>
