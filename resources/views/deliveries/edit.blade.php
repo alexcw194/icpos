@@ -22,13 +22,12 @@
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-primary">Save Changes</button>
           @can('deliveries.post')
-            <form method="POST"
-                  action="{{ route('deliveries.post', $delivery, false) }}"
-                  class="d-inline"
-                  onsubmit="return confirm('Post delivery dan kurangi stok?');">
-              @csrf
-              <button type="submit" class="btn btn-success">Post Delivery</button>
-            </form>
+            <button type="submit"
+                    form="post-delivery"
+                    class="btn btn-success"
+                    onclick="return confirm('Post delivery dan kurangi stok?');">
+              Post Delivery
+            </button>
           @endcan
         </div>
       </div>
@@ -39,6 +38,12 @@
     <form id="delete-delivery" method="POST" action="{{ route('deliveries.destroy', $delivery) }}" class="d-none">
       @csrf
       @method('DELETE')
+    </form>
+  @endcan
+
+  @can('deliveries.post')
+    <form id="post-delivery" method="POST" action="{{ route('deliveries.post', $delivery, false) }}" class="d-none">
+      @csrf
     </form>
   @endcan
 
