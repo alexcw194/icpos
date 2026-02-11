@@ -28,6 +28,8 @@ class IncomeReportController extends Controller
         $summary = $this->incomeReportService->reportSummary($filters);
         $dailyRows = $this->incomeReportService->dailySummary($filters);
         $invoices = $this->incomeReportService->paginatedDetails($filters, 50);
+        $salesItems = $this->incomeReportService->salesItemDetails($filters, 500);
+        $salesSummary = $this->salesItemSummary($salesItems);
 
         $companies = Company::query()->orderBy('name')->get(['id', 'alias', 'name']);
         $customers = Customer::query()->orderBy('name')->limit(500)->get(['id', 'name']);
@@ -43,6 +45,8 @@ class IncomeReportController extends Controller
             'summary' => $summary,
             'dailyRows' => $dailyRows,
             'invoices' => $invoices,
+            'salesItems' => $salesItems,
+            'salesSummary' => $salesSummary,
             'companies' => $companies,
             'customers' => $customers,
             'currencies' => $currencies,
@@ -56,6 +60,7 @@ class IncomeReportController extends Controller
         $filters = $this->filtersFromRequest($request);
         $normalized = $this->incomeReportService->normalizeFilters($filters);
         $rows = $this->incomeReportService->allDetails($filters);
+        $salesItems = $this->incomeReportService->salesItemDetails($filters, 2000);
 
         $filename = sprintf(
             'income-report-%s_%s.csv',
@@ -63,7 +68,7 @@ class IncomeReportController extends Controller
             $normalized['end_date']->toDateString()
         );
 
-        return response()->streamDownload(function () use ($rows) {
+        return response()->streamDownload(function () use ($rows, $salesItems) {
             $out = fopen('php://output', 'w');
             if ($out === false) {
                 return;
@@ -105,6 +110,44 @@ class IncomeReportController extends Controller
                 ]);
             }
 
+            fputcsv($out, []);
+            fputcsv($out, ['SO Item Sales (Cost by SO Date)']);
+            fputcsv($out, [
+                'SO No',
+                'SO Date',
+                'Company',
+                'Customer',
+                'Item',
+                'Variant SKU',
+                'Qty',
+                'Revenue',
+                'Cost Unit Used',
+                'Cost Total',
+                'Gross Profit',
+                'Cost Source',
+                'Cost Effective Date',
+                'Cost Missing',
+            ]);
+
+            foreach ($salesItems as $row) {
+                fputcsv($out, [
+                    $row->so_number ?: $row->so_id,
+                    $row->so_date,
+                    $row->company_name,
+                    $row->customer_name,
+                    $row->item_name,
+                    $row->variant_sku ?: '-',
+                    (float) $row->qty,
+                    (float) $row->revenue,
+                    $row->cost_unit_used !== null ? (float) $row->cost_unit_used : '',
+                    $row->cost_total !== null ? (float) $row->cost_total : '',
+                    $row->gross_profit !== null ? (float) $row->gross_profit : '',
+                    $row->cost_source,
+                    $row->cost_effective_date ?: '',
+                    $row->cost_missing ? 'yes' : 'no',
+                ]);
+            }
+
             fclose($out);
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -120,6 +163,8 @@ class IncomeReportController extends Controller
         $summary = $this->incomeReportService->reportSummary($filters);
         $dailyRows = $this->incomeReportService->dailySummary($filters)->take(31);
         $details = $this->incomeReportService->allDetails($filters, 500);
+        $salesItems = $this->incomeReportService->salesItemDetails($filters, 400);
+        $salesSummary = $this->salesItemSummary($salesItems);
 
         $options = new Options();
         $options->set('isRemoteEnabled', true);
@@ -130,6 +175,8 @@ class IncomeReportController extends Controller
             'summary' => $summary,
             'dailyRows' => $dailyRows,
             'details' => $details,
+            'salesItems' => $salesItems,
+            'salesSummary' => $salesSummary,
         ])->render();
 
         $pdf->loadHtml($html);
@@ -187,5 +234,23 @@ class IncomeReportController extends Controller
         }
 
         abort(403, 'Admin only.');
+    }
+
+    private function salesItemSummary($salesItems): array
+    {
+        $revenue = (float) $salesItems->sum(fn ($row) => (float) ($row->revenue ?? 0));
+        $cost = (float) $salesItems
+            ->filter(fn ($row) => $row->cost_total !== null)
+            ->sum(fn ($row) => (float) $row->cost_total);
+        $grossProfit = $revenue - $cost;
+        $missing = (int) $salesItems->where('cost_missing', true)->count();
+
+        return [
+            'revenue' => $revenue,
+            'cost' => $cost,
+            'gross_profit' => $grossProfit,
+            'missing_count' => $missing,
+            'line_count' => (int) $salesItems->count(),
+        ];
     }
 }

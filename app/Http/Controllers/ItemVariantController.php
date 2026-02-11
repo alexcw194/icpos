@@ -7,6 +7,7 @@ use App\Models\ItemVariant;
 use App\Models\Size;
 use App\Models\Color;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class ItemVariantController extends Controller
 {
@@ -34,6 +35,7 @@ class ItemVariantController extends Controller
         $data = $request->validate([
             'sku'         => ['nullable', 'string', 'max:255', 'unique:item_variants,sku'],
             'price'       => ['nullable', 'string', 'max:50'],   // string biar bisa "1.234.567,89"
+            'default_cost'=> ['nullable', 'string', 'max:50'],
             'stock'       => ['nullable', 'string', 'max:50'],   // string biar bisa "1.000"
             'is_active'   => ['nullable', 'boolean'],
             'barcode'     => ['nullable', 'string', 'max:64'],
@@ -42,6 +44,8 @@ class ItemVariantController extends Controller
             'attr_size'   => ['nullable', 'string', 'max:50'],
             'attr_length' => ['nullable', 'string', 'max:50'],
         ]);
+
+        $defaultCost = $this->normalizeDecimal($data['default_cost'] ?? null);
 
         $attrs = array_filter([
             'color'  => $data['attr_color']  ?? null,
@@ -52,6 +56,7 @@ class ItemVariantController extends Controller
         $variant = $item->variants()->create([
             'sku'        => $data['sku'] ?? null,        // mutator handle uppercase/null
             'price'      => $data['price'] ?? null,      // mutator parse ID/EN format
+            'default_cost'=> $defaultCost,
             'stock'      => $data['stock'] ?? null,      // mutator parse int & clamp >= 0
             'attributes' => $attrs ?: null,
             'is_active'  => $request->boolean('is_active', true),
@@ -115,6 +120,7 @@ class ItemVariantController extends Controller
         $data = $request->validate([
             'sku'         => ['nullable', 'string', 'max:255', 'unique:item_variants,sku,' . $variant->id],
             'price'       => ['nullable', 'string', 'max:50'], // string: "1.234.567,89"
+            'default_cost'=> ['nullable', 'string', 'max:50'],
             'stock'       => ['nullable', 'string', 'max:50'], // string: "1.000"
             'is_active'   => ['nullable', 'boolean'],
             'barcode'     => ['nullable', 'string', 'max:64'],
@@ -123,6 +129,8 @@ class ItemVariantController extends Controller
             'attr_size'   => ['nullable', 'string', 'max:50'],
             'attr_length' => ['nullable', 'string', 'max:50'],
         ]);
+
+        $defaultCost = $this->normalizeDecimal($data['default_cost'] ?? null);
 
         $attrs = array_filter([
             'color'  => $data['attr_color']  ?? null,
@@ -133,6 +141,7 @@ class ItemVariantController extends Controller
         $variant->update([
             'sku'        => $data['sku'] ?? null,        // mutator: uppercase/null
             'price'      => $data['price'] ?? null,      // mutator: parse ID format
+            'default_cost'=> $defaultCost,
             'stock'      => $data['stock'] ?? null,      // mutator: int + clamp >=0
             'attributes' => $attrs ?: null,
             'is_active'  => $request->boolean('is_active', true),
@@ -162,6 +171,45 @@ class ItemVariantController extends Controller
     {
         $sku = trim((string) $sku);
         return $sku === '' ? null : mb_strtoupper($sku, 'UTF-8');
+    }
+
+    private function normalizeDecimal($value): ?float
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        $raw = preg_replace('/[^\d,\.\-]/', '', $raw) ?? '';
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_contains($raw, ',') && str_contains($raw, '.')) {
+            $raw = str_replace('.', '', $raw);
+            $raw = str_replace(',', '.', $raw);
+        } else {
+            $raw = str_replace(',', '.', $raw);
+        }
+
+        if (!is_numeric($raw)) {
+            throw ValidationException::withMessages([
+                'default_cost' => 'Format Harga Beli Dasar tidak valid.',
+            ]);
+        }
+
+        $num = (float) $raw;
+        if ($num < 0) {
+            throw ValidationException::withMessages([
+                'default_cost' => 'Harga Beli Dasar tidak boleh negatif.',
+            ]);
+        }
+
+        return $num;
     }
 
     /**

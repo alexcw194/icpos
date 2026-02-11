@@ -98,6 +98,13 @@
     </div>
 
     <div class="col-md-4">
+      <label class="form-label">Harga Beli Dasar</label>
+      <input type="text" name="default_cost" value="{{ $v('default_cost') }}" class="form-control" inputmode="decimal" autocomplete="off" placeholder="Opsional">
+      @error('default_cost')<div class="text-danger small">{{ $message }}</div>@enderror
+      <div class="form-hint">Dipakai jika belum ada histori harga beli dari PO approve.</div>
+    </div>
+
+    <div class="col-md-4">
       <label class="form-label">Stok</label>
       <input type="number" name="stock" value="{{ $v('stock', 0) }}" class="form-control" min="0" step="1" required>
       @error('stock')<div class="text-danger small">{{ $message }}</div>@enderror

@@ -8,12 +8,18 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Company;
 use App\Models\Warehouse;
 use App\Services\DocNumberService;
+use App\Services\PurchasePriceSyncService;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Carbon;
 
 class PurchaseOrderController extends Controller
 {
+    public function __construct(
+        private readonly PurchasePriceSyncService $purchasePriceSyncService
+    ) {
+    }
+
     private const BILLING_DUE_TRIGGERS = [
         'on_invoice',
         'after_invoice_days',
@@ -161,8 +167,17 @@ class PurchaseOrderController extends Controller
 
     public function approve(PurchaseOrder $po) {
         abort_if($po->status !== 'draft', 400, 'Invalid state');
-        $po->update(['status' => 'approved', 'approved_at' => now(), 'approved_by' => auth()->id()]);
-        return back()->with('success', 'PO approved');
+        $syncStats = DB::transaction(function () use ($po) {
+            $po->update(['status' => 'approved', 'approved_at' => now(), 'approved_by' => auth()->id()]);
+            return $this->purchasePriceSyncService->syncFromApprovedPurchaseOrder($po);
+        });
+
+        return back()->with(
+            'success',
+            'PO approved. Harga beli tersinkron: '
+            .($syncStats['updated_variants'] + $syncStats['updated_items'])
+            .' line(s).'
+        );
     }
 
     public function show(PurchaseOrder $po) {

@@ -330,9 +330,12 @@ function initItemPicker(input) {
       if (priceEl) priceEl.value = (data.purchase_price ?? '');
       if (qtyEl && (!qtyEl.value || qtyEl.value === '0')) qtyEl.value = '1';
       const purchasePrice = parseFloat((data.purchase_price ?? '').toString().replace(',', '.')) || 0;
+      const source = (data.purchase_price_source || '').toString().toLowerCase();
       if (lastBuyEl) {
-        if (purchasePrice > 0 && data.purchase_price_date) {
-          lastBuyEl.textContent = `Last: ${data.purchase_price_date}`;
+        if (purchasePrice > 0 && data.purchase_price_date && (source === 'variant_last' || source === 'item_last')) {
+          lastBuyEl.textContent = `Last Approved PO: ${data.purchase_price_date}`;
+        } else if (source === 'variant_default' || source === 'item_default') {
+          lastBuyEl.textContent = 'Base Cost';
         } else {
           lastBuyEl.textContent = '';
         }

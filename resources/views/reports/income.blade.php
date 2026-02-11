@@ -212,5 +212,137 @@
       {{ $invoices->withQueryString()->links() }}
     </div>
   </div>
+
+  <div class="row row-deck row-cards mt-3 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">SO Item Revenue</div>
+          <div class="h2 m-0">{{ $money($salesSummary['revenue'] ?? 0) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">SO Item Cost</div>
+          <div class="h2 m-0">{{ $money($salesSummary['cost'] ?? 0) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">SO Gross Profit</div>
+          <div class="h2 m-0 {{ ($salesSummary['gross_profit'] ?? 0) < 0 ? 'text-danger' : 'text-success' }}">
+            {{ $money($salesSummary['gross_profit'] ?? 0) }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">Missing Cost Line</div>
+          <div class="h2 m-0">{{ number_format((int) ($salesSummary['missing_count'] ?? 0), 0, ',', '.') }}</div>
+          <div class="text-muted small">{{ number_format((int) ($salesSummary['line_count'] ?? 0), 0, ',', '.') }} total line</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">
+      <h3 class="card-title">SO Item Sales (Cost by SO Date)</h3>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>SO</th>
+            <th>Date</th>
+            <th>Company</th>
+            <th>Customer</th>
+            <th>Item</th>
+            <th class="text-end">Qty</th>
+            <th class="text-end">Revenue</th>
+            <th class="text-end">Cost Unit</th>
+            <th class="text-end">Cost Total</th>
+            <th class="text-end">Gross Profit</th>
+            <th>Cost Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse($salesItems as $row)
+            <tr>
+              <td>
+                @if($row->so_id)
+                  <a href="{{ route('sales-orders.show', $row->so_id) }}" class="text-decoration-none">
+                    {{ $row->so_number ?: ('#'.$row->so_id) }}
+                  </a>
+                @else
+                  -
+                @endif
+              </td>
+              <td>{{ \Carbon\Carbon::parse($row->so_date)->format('d M Y') }}</td>
+              <td>{{ $row->company_name }}</td>
+              <td>{{ $row->customer_name }}</td>
+              <td>
+                {{ $row->item_name }}
+                @if($row->variant_sku)
+                  <div class="text-muted small">{{ $row->variant_sku }}</div>
+                @endif
+              </td>
+              <td class="text-end">{{ number_format((float) $row->qty, 2, ',', '.') }}</td>
+              <td class="text-end">{{ $money($row->revenue) }}</td>
+              <td class="text-end">
+                @if($row->cost_unit_used !== null)
+                  {{ $money($row->cost_unit_used) }}
+                @else
+                  -
+                @endif
+              </td>
+              <td class="text-end">
+                @if($row->cost_total !== null)
+                  {{ $money($row->cost_total) }}
+                @else
+                  -
+                @endif
+              </td>
+              <td class="text-end">
+                @if($row->gross_profit !== null)
+                  <span class="{{ $row->gross_profit < 0 ? 'text-danger' : 'text-success' }}">
+                    {{ $money($row->gross_profit) }}
+                  </span>
+                @else
+                  -
+                @endif
+              </td>
+              <td>
+                @php
+                  $src = (string) ($row->cost_source ?? 'missing');
+                  $srcLabel = match($src) {
+                    'variant_history' => 'Variant History',
+                    'item_history' => 'Item History',
+                    'variant_default' => 'Variant Default',
+                    'item_default' => 'Item Default',
+                    default => 'Missing',
+                  };
+                @endphp
+                <div>{{ $srcLabel }}</div>
+                @if($row->cost_effective_date)
+                  <div class="text-muted small">Eff: {{ \Carbon\Carbon::parse($row->cost_effective_date)->format('d M Y') }}</div>
+                @endif
+              </td>
+            </tr>
+          @empty
+            <tr>
+              <td colspan="11" class="text-center text-muted">No sales item data.</td>
+            </tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 @endsection

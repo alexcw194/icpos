@@ -101,7 +101,6 @@ class StockPostingService
                 }
 
                 DB::table('item_variants')->where('id', $itemVariantId)->update([
-                    'last_cost'   => round($unitCost, 2),
                     'avg_cost'    => round($avgAfter, 2),
                     'updated_at'  => now(),
                 ]);

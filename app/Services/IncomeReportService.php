@@ -3,14 +3,21 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Models\SalesOrderLine;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class IncomeReportService
 {
+    public function __construct(
+        private readonly SalesCostAsOfDateService $salesCostAsOfDateService
+    ) {
+    }
+
     /**
      * Build dashboard KPI snapshot (cash + accrual + unpaid) for Admin/SuperAdmin.
      */
@@ -136,6 +143,76 @@ class IncomeReportService
     public function allDetails(array $filters, int $limit = 5000): Collection
     {
         return $this->detailsQuery($filters)->limit($limit)->get();
+    }
+
+    public function salesItemDetails(array $filters, int $limit = 500): Collection
+    {
+        $normalized = $this->normalizeFilters($filters);
+        $start = $normalized['start_date']->toDateString();
+        $end = $normalized['end_date']->toDateString();
+
+        $query = SalesOrderLine::query()
+            ->with([
+                'salesOrder:id,company_id,customer_id,so_number,order_date,created_at,currency,status,po_type',
+                'salesOrder.company:id,alias,name',
+                'salesOrder.customer:id,name',
+                'item:id,name,default_cost',
+                'variant:id,item_id,sku,attributes,default_cost',
+            ])
+            ->whereNotNull('item_id')
+            ->whereHas('salesOrder', function ($q) use ($normalized, $start, $end) {
+                $q->where('po_type', 'goods')
+                    ->whereRaw('DATE(COALESCE(order_date, created_at)) BETWEEN ? AND ?', [$start, $end])
+                    ->when(
+                        Schema::hasColumn('sales_orders', 'status'),
+                        fn ($sq) => $sq->where('status', '!=', 'cancelled')
+                    )
+                    ->when($normalized['company_id'], fn ($sq, $companyId) => $sq->where('company_id', $companyId))
+                    ->when($normalized['customer_id'], fn ($sq, $customerId) => $sq->where('customer_id', $customerId))
+                    ->when($normalized['currency'] !== '', fn ($sq) => $sq->where('currency', $normalized['currency']));
+            })
+            ->orderByDesc('sales_order_id')
+            ->orderBy('position')
+            ->limit($limit);
+
+        $rows = $query->get();
+
+        return $rows->map(function (SalesOrderLine $line) {
+            $so = $line->salesOrder;
+            $soDate = $so?->order_date
+                ? Carbon::parse($so->order_date)->startOfDay()
+                : Carbon::parse($so?->created_at ?? now())->startOfDay();
+
+            $cost = $this->salesCostAsOfDateService->resolve(
+                itemId: (int) $line->item_id,
+                variantId: $line->item_variant_id ? (int) $line->item_variant_id : null,
+                soDate: $soDate,
+            );
+
+            $qty = (float) ($line->qty_ordered ?? 0);
+            $revenue = (float) ($line->line_total ?? 0);
+            $costUnit = $cost['cost_unit'] !== null ? (float) $cost['cost_unit'] : null;
+            $costTotal = $costUnit !== null ? round($costUnit * $qty, 2) : null;
+            $grossProfit = $costTotal !== null ? round($revenue - $costTotal, 2) : null;
+
+            return (object) [
+                'so_id' => $so?->id,
+                'so_number' => $so?->so_number,
+                'so_date' => $soDate->toDateString(),
+                'company_name' => $so?->company?->alias ?: ($so?->company?->name ?? '-'),
+                'customer_name' => $so?->customer?->name ?? '-',
+                'item_name' => $line->item?->name ?: ($line->name ?? '-'),
+                'variant_sku' => $line->variant?->sku,
+                'qty' => $qty,
+                'revenue' => $revenue,
+                'cost_unit_used' => $costUnit,
+                'cost_total' => $costTotal,
+                'gross_profit' => $grossProfit,
+                'cost_source' => $cost['source'],
+                'cost_effective_date' => $cost['effective_date'],
+                'cost_missing' => (bool) $cost['cost_missing'],
+            ];
+        });
     }
 
     protected function detailsQuery(array $filters): Builder

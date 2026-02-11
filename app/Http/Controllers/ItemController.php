@@ -10,7 +10,6 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
@@ -203,6 +202,7 @@ class ItemController extends Controller
         $request->merge([
             'sku'                 => $this->normalizeSku($request->input('sku')),
             'price'               => $this->normalizeIdNumber($request->input('price')),
+            'default_cost'        => $this->normalizeIdNumber($request->input('default_cost')),
             'default_roll_length' => $this->normalizeLengthValue($request->input('default_roll_length')),
             'length_per_piece'    => $this->normalizeLengthValue($request->input('length_per_piece')),
         ]);
@@ -214,6 +214,7 @@ class ItemController extends Controller
             'sku'         => ['nullable','string','max:255','unique:items,sku'],
             'description' => ['nullable','string'],
             'price'       => ['required','numeric'],
+            'default_cost'=> ['nullable','numeric','min:0'],
             'stock'       => ['required','integer','min:0'],
             'unit_id'     => ['required', Rule::exists('units','id')->where('is_active', 1)],
             'brand_id'    => ['nullable','exists:brands,id'],
@@ -338,6 +339,7 @@ class ItemController extends Controller
         $request->merge([
             'sku'                 => $this->normalizeSku($request->input('sku')),
             'price'               => $this->normalizeIdNumber($request->input('price')),
+            'default_cost'        => $this->normalizeIdNumber($request->input('default_cost')),
             'default_roll_length' => $this->normalizeLengthValue($request->input('default_roll_length')),
             'length_per_piece'    => $this->normalizeLengthValue($request->input('length_per_piece')),
         ]);
@@ -355,6 +357,7 @@ class ItemController extends Controller
             'sku'         => ['nullable','string','max:255','unique:items,sku,'.$item->id],
             'description' => ['nullable','string'],
             'price'       => ['required','numeric'],
+            'default_cost'=> ['nullable','numeric','min:0'],
             'stock'       => ['required','integer','min:0'],
             'unit_id'     => ['required', $unitRule],
             'brand_id'    => ['nullable','exists:brands,id'],
@@ -469,7 +472,7 @@ class ItemController extends Controller
         $items = Item::query()
             ->with([
                 'unit:id,code',
-                'variants:id,item_id,sku,price,attributes,is_active',
+                'variants:id,item_id,sku,price,attributes,is_active,last_cost,last_cost_at,default_cost',
             ])
             ->when($listType !== '', fn($qq) => $qq->where('list_type', $listType))
             ->when($itemType !== '', fn($qq) => $qq->where('item_type', $itemType))
@@ -486,59 +489,10 @@ class ItemController extends Controller
             ->limit(40) // ambil agak longgar, nanti dipotong lagi di output
             ->get([
                 'id','name','sku','price','unit_id','brand_id','description',
-                'variant_type','name_template'
+                'variant_type','name_template','last_cost','last_cost_at','default_cost'
             ]);
 
         $fmt = fn($n) => number_format((float)$n, 2, ',', '.');
-
-        $lastItemPrices = [];
-        $lastVariantPrices = [];
-        $lastItemDates = [];
-        $lastVariantDates = [];
-
-        if ($usePurchasePrice && $items->isNotEmpty() && Schema::hasTable('purchase_order_lines')) {
-            $itemIds = $items->pluck('id')->all();
-            $variantIds = $items->pluck('variants')->flatten()->pluck('id')->filter()->values()->all();
-
-            if (!empty($itemIds)) {
-                $sub = DB::table('purchase_order_lines')
-                    ->select('item_id', DB::raw('MAX(id) as max_id'))
-                    ->whereNull('item_variant_id')
-                    ->whereIn('item_id', $itemIds)
-                    ->groupBy('item_id');
-                $rows = DB::query()
-                    ->fromSub($sub, 'x')
-                    ->join('purchase_order_lines as pol', 'pol.id', '=', 'x.max_id')
-                    ->leftJoin('purchase_orders as po', 'po.id', '=', 'pol.purchase_order_id')
-                    ->get(['x.item_id', 'pol.unit_price', 'po.order_date', 'pol.created_at']);
-                foreach ($rows as $row) {
-                    $lastItemPrices[$row->item_id] = (float) $row->unit_price;
-                    $dateValue = $row->order_date ?? $row->created_at ?? null;
-                    if ($dateValue) {
-                        $lastItemDates[$row->item_id] = \Illuminate\Support\Carbon::parse($dateValue)->format('d/m/Y');
-                    }
-                }
-            }
-
-            if (!empty($variantIds)) {
-                $sub = DB::table('purchase_order_lines')
-                    ->select('item_variant_id', DB::raw('MAX(id) as max_id'))
-                    ->whereIn('item_variant_id', $variantIds)
-                    ->groupBy('item_variant_id');
-                $rows = DB::query()
-                    ->fromSub($sub, 'x')
-                    ->join('purchase_order_lines as pol', 'pol.id', '=', 'x.max_id')
-                    ->leftJoin('purchase_orders as po', 'po.id', '=', 'pol.purchase_order_id')
-                    ->get(['x.item_variant_id', 'pol.unit_price', 'po.order_date', 'pol.created_at']);
-                foreach ($rows as $row) {
-                    $lastVariantPrices[$row->item_variant_id] = (float) $row->unit_price;
-                    $dateValue = $row->order_date ?? $row->created_at ?? null;
-                    if ($dateValue) {
-                        $lastVariantDates[$row->item_variant_id] = \Illuminate\Support\Carbon::parse($dateValue)->format('d/m/Y');
-                    }
-                }
-            }
-        }
 
         $out = [];
         foreach ($items as $it) {
@@ -559,8 +513,20 @@ class ItemController extends Controller
             if (!$displayVariants) {
                 $label = $it->name;
                 $price = (float)$it->price;
-                $purchasePrice = $usePurchasePrice ? ($lastItemPrices[$it->id] ?? null) : null;
-                $purchaseDate = $usePurchasePrice ? ($lastItemDates[$it->id] ?? null) : null;
+                $itemLastCost = $it->last_cost !== null ? (float) $it->last_cost : null;
+                $itemDefaultCost = $it->default_cost !== null ? (float) $it->default_cost : null;
+                $purchasePrice = $usePurchasePrice ? ($itemLastCost ?? $itemDefaultCost) : null;
+                $purchaseSource = 'none';
+                if ($usePurchasePrice) {
+                    if ($itemLastCost !== null) {
+                        $purchaseSource = 'item_last';
+                    } elseif ($itemDefaultCost !== null) {
+                        $purchaseSource = 'item_default';
+                    }
+                }
+                $purchaseDate = $usePurchasePrice && $purchaseSource === 'item_last' && $it->last_cost_at
+                    ? \Illuminate\Support\Carbon::parse($it->last_cost_at)->format('d/m/Y')
+                    : null;
                 $labelPrice = $usePurchasePrice ? ($purchasePrice ?? 0) : $price;
 
                 $out[] = [
@@ -573,6 +539,7 @@ class ItemController extends Controller
                     'sku'        => $it->sku,
                     'price'      => $price,
                     'purchase_price' => $purchasePrice,
+                    'purchase_price_source' => $purchaseSource,
                     'purchase_price_date' => $purchaseDate,
                     'unit_code'  => $unitCode,
                     'description'=> (string) $it->description,
@@ -590,12 +557,35 @@ class ItemController extends Controller
                 $displayLabel = $label;
                 $price = (float) (($v->price ?? null) !== null ? $v->price : $it->price);
                 $sku   = $v->sku ?: $it->sku;
-                $purchasePrice = $usePurchasePrice
-                    ? ($lastVariantPrices[$v->id] ?? ($lastItemPrices[$it->id] ?? null))
-                    : null;
-                $purchaseDate = $usePurchasePrice
-                    ? ($lastVariantDates[$v->id] ?? ($lastItemDates[$it->id] ?? null))
-                    : null;
+                $variantLastCost = $v->last_cost !== null ? (float) $v->last_cost : null;
+                $variantDefaultCost = $v->default_cost !== null ? (float) $v->default_cost : null;
+                $itemLastCost = $it->last_cost !== null ? (float) $it->last_cost : null;
+                $itemDefaultCost = $it->default_cost !== null ? (float) $it->default_cost : null;
+
+                $purchaseSource = 'none';
+                $purchaseDate = null;
+                $purchasePrice = null;
+                if ($usePurchasePrice) {
+                    if ($variantLastCost !== null) {
+                        $purchasePrice = $variantLastCost;
+                        $purchaseSource = 'variant_last';
+                        $purchaseDate = $v->last_cost_at
+                            ? \Illuminate\Support\Carbon::parse($v->last_cost_at)->format('d/m/Y')
+                            : null;
+                    } elseif ($variantDefaultCost !== null) {
+                        $purchasePrice = $variantDefaultCost;
+                        $purchaseSource = 'variant_default';
+                    } elseif ($itemLastCost !== null) {
+                        $purchasePrice = $itemLastCost;
+                        $purchaseSource = 'item_last';
+                        $purchaseDate = $it->last_cost_at
+                            ? \Illuminate\Support\Carbon::parse($it->last_cost_at)->format('d/m/Y')
+                            : null;
+                    } elseif ($itemDefaultCost !== null) {
+                        $purchasePrice = $itemDefaultCost;
+                        $purchaseSource = 'item_default';
+                    }
+                }
                 $labelPrice = $usePurchasePrice ? ($purchasePrice ?? 0) : $price;
 
                 $out[] = [
@@ -608,6 +598,7 @@ class ItemController extends Controller
                     'sku'        => $sku,
                     'price'      => $price,
                     'purchase_price' => $purchasePrice,
+                    'purchase_price_source' => $purchaseSource,
                     'purchase_price_date' => $purchaseDate,
                     'unit_code'  => $unitCode,
                     'description'=> (string) $it->description,

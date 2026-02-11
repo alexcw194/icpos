@@ -108,5 +108,72 @@
     @endforelse
   </tbody>
 </table>
+
+<h2>SO Item Sales (Cost by SO Date)</h2>
+<table class="summary">
+  <tr>
+    <td><strong>Revenue</strong><br>{{ $money($salesSummary['revenue'] ?? 0) }}</td>
+    <td><strong>Cost</strong><br>{{ $money($salesSummary['cost'] ?? 0) }}</td>
+    <td><strong>Gross Profit</strong><br>{{ $money($salesSummary['gross_profit'] ?? 0) }}</td>
+    <td><strong>Missing Cost Line</strong><br>{{ number_format((int) ($salesSummary['missing_count'] ?? 0), 0, ',', '.') }}</td>
+  </tr>
+</table>
+
+<table class="grid">
+  <thead>
+    <tr>
+      <th>SO</th>
+      <th>Date</th>
+      <th>Customer</th>
+      <th>Item</th>
+      <th class="right">Qty</th>
+      <th class="right">Revenue</th>
+      <th class="right">Cost Unit</th>
+      <th class="right">Cost Total</th>
+      <th class="right">Gross Profit</th>
+      <th>Source</th>
+    </tr>
+  </thead>
+  <tbody>
+    @forelse($salesItems as $row)
+      @php
+        $src = (string) ($row->cost_source ?? 'missing');
+        $srcLabel = match($src) {
+          'variant_history' => 'Variant History',
+          'item_history' => 'Item History',
+          'variant_default' => 'Variant Default',
+          'item_default' => 'Item Default',
+          default => 'Missing',
+        };
+      @endphp
+      <tr>
+        <td>{{ $row->so_number ?: $row->so_id }}</td>
+        <td>{{ Carbon::parse($row->so_date)->format('d M Y') }}</td>
+        <td>{{ $row->customer_name }}</td>
+        <td>
+          {{ $row->item_name }}
+          @if($row->variant_sku)
+            <br><span class="muted">{{ $row->variant_sku }}</span>
+          @endif
+        </td>
+        <td class="right">{{ number_format((float) $row->qty, 2, ',', '.') }}</td>
+        <td class="right">{{ $money($row->revenue) }}</td>
+        <td class="right">{{ $row->cost_unit_used !== null ? $money($row->cost_unit_used) : '-' }}</td>
+        <td class="right">{{ $row->cost_total !== null ? $money($row->cost_total) : '-' }}</td>
+        <td class="right">{{ $row->gross_profit !== null ? $money($row->gross_profit) : '-' }}</td>
+        <td>
+          {{ $srcLabel }}
+          @if($row->cost_effective_date)
+            <br><span class="muted">Eff: {{ Carbon::parse($row->cost_effective_date)->format('d M Y') }}</span>
+          @endif
+        </td>
+      </tr>
+    @empty
+      <tr>
+        <td colspan="10" class="right">No sales item data.</td>
+      </tr>
+    @endforelse
+  </tbody>
+</table>
 </body>
 </html>

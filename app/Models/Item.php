@@ -20,6 +20,9 @@ class Item extends Model
         'sku',
         'description',
         'price',
+        'default_cost',
+        'last_cost',
+        'last_cost_at',
         'stock',
         'unit_id',
         'brand_id',
@@ -43,6 +46,9 @@ class Item extends Model
 
     protected $casts = [
         'price'               => 'decimal:2',
+        'default_cost'        => 'decimal:2',
+        'last_cost'           => 'decimal:2',
+        'last_cost_at'        => 'datetime',
         'stock'               => 'integer',
         'sellable'            => 'boolean',
         'purchasable'         => 'boolean',

@@ -18,6 +18,7 @@ class ItemVariant extends Model
         'barcode',
         'min_stock',
         'last_cost',
+        'last_cost_at',
         'avg_cost',
         'default_cost',
     ];
@@ -28,6 +29,7 @@ class ItemVariant extends Model
         'attributes' => 'array',
         'is_active'  => 'boolean',
         'last_cost'    => 'decimal:2',
+        'last_cost_at' => 'datetime',
         'avg_cost'     => 'decimal:2',
         'default_cost' => 'decimal:2',
     ];

@@ -17,6 +17,11 @@
     <input type="text" name="price" class="form-control" inputmode="decimal" value="{{ old('price', isset($variant) ? $variant->price : '') }}">
   </div>
   <div class="col-md-4">
+    <label class="form-label">Harga Beli Dasar (Override)</label>
+    <input type="text" name="default_cost" class="form-control" inputmode="decimal" value="{{ old('default_cost', isset($variant) ? $variant->default_cost : '') }}" placeholder="Opsional">
+    @error('default_cost')<div class="text-danger small">{{ $message }}</div>@enderror
+  </div>
+  <div class="col-md-4">
     <label class="form-label">Stok</label>
     <input type="text" name="stock" class="form-control" inputmode="numeric" value="{{ old('stock', isset($variant) ? $variant->stock : '0') }}">
   </div>
