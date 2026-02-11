@@ -288,13 +288,13 @@ class DeliveryController extends Controller
 
         // Hard guards
         if (!$delivery->warehouse_id) {
-            throw ValidationException::withMessages([
-                'warehouse_id' => 'Warehouse wajib diisi sebelum posting.',
-            ]);
+            return redirect()
+                ->route('deliveries.show', $delivery)
+                ->with('error', 'Warehouse wajib diisi sebelum posting.');
         }
         if ($delivery->lines()->count() === 0) {
             return redirect()
-                ->route('deliveries.edit', $delivery)
+                ->route('deliveries.show', $delivery)
                 ->with('error', 'Tidak bisa posting delivery tanpa item.');
         }
 
@@ -324,9 +324,15 @@ class DeliveryController extends Controller
         }
 
         if (!empty($errors)) {
+            $firstError = reset($errors) ?: null;
+            $message = 'Posting diblokir: stok tidak mencukupi.';
+            if (is_string($firstError) && $firstError !== '') {
+                $message .= ' '.$firstError;
+            }
+
             return redirect()
                 ->route('deliveries.show', $delivery)
-                ->with('error', 'Posting diblokir: stok tidak mencukupi. Cek kolom “Stock After” yang merah.');
+                ->with('error', $message);
         }
 
         // === EXECUTION: aman, lanjut posting ===
