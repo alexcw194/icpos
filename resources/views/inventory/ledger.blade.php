@@ -14,7 +14,7 @@
           <select name="warehouse_id" class="form-select">
             <option value="">All Warehouses</option>
             @foreach($warehouses as $w)
-              <option value="{{ $w->id }}" {{ request('warehouse_id')==$w->id ? 'selected':'' }}>
+              <option value="{{ $w->id }}" {{ request('warehouse_id') == $w->id ? 'selected' : '' }}>
                 {{ $w->name }}
               </option>
             @endforeach
@@ -25,7 +25,7 @@
           <select name="item_id" class="form-select">
             <option value="">All Items</option>
             @foreach($items as $it)
-              <option value="{{ $it->id }}" {{ request('item_id')==$it->id ? 'selected':'' }}>
+              <option value="{{ $it->id }}" {{ request('item_id') == $it->id ? 'selected' : '' }}>
                 {{ $it->name }}
               </option>
             @endforeach
@@ -64,16 +64,16 @@
         <tbody>
           @forelse($ledgers as $lg)
             <tr>
-              <td>{{ $lg->created_at->format('Y-m-d H:i') }}</td>
-              <td>{{ $lg->warehouse->name ?? '—' }}</td>
-              <td>{{ $lg->item->name ?? '—' }}</td>
-              <td>{{ $lg->variant->sku ?? '—' }}</td>
-              <td>{{ strtoupper($lg->trx_type) }}</td>
-              <td class="text-end text-success">{{ number_format($lg->qty_in, 2, ',', '.') }}</td>
-              <td class="text-end text-danger">{{ number_format($lg->qty_out, 2, ',', '.') }}</td>
-              <td class="text-end fw-bold">{{ number_format($lg->balance, 2, ',', '.') }}</td>
-              <td>{{ $lg->reference ?? '—' }}</td>
-              <td>{{ $lg->createdBy->name ?? '—' }}</td>
+              <td>{{ optional($lg->ledger_date ?? $lg->created_at)->format('Y-m-d H:i') }}</td>
+              <td>{{ $lg->warehouse->name ?? '-' }}</td>
+              <td>{{ $lg->item->name ?? '-' }}</td>
+              <td>{{ $lg->variant->sku ?? '-' }}</td>
+              <td>{{ strtoupper((string) $lg->trx_type) }}</td>
+              <td class="text-end text-success">{{ number_format((float) $lg->qty_in, 2, ',', '.') }}</td>
+              <td class="text-end text-danger">{{ number_format((float) $lg->qty_out, 2, ',', '.') }}</td>
+              <td class="text-end fw-bold">{{ number_format((float) $lg->balance, 2, ',', '.') }}</td>
+              <td>{{ $lg->reference ?: '-' }}</td>
+              <td>{{ $lg->createdBy->name ?? '-' }}</td>
             </tr>
           @empty
             <tr><td colspan="10" class="text-center text-muted">No ledger entries found.</td></tr>
