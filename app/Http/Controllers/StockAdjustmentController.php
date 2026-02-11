@@ -10,7 +10,6 @@ use App\Models\Warehouse;
 use App\Models\Company;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 
 class StockAdjustmentController extends Controller
 {
@@ -39,7 +38,8 @@ class StockAdjustmentController extends Controller
             ->get(['id', 'item_id', 'sku', 'attributes']);
 
         $warehouses = Warehouse::query()
-            ->when(Schema::hasColumn('warehouses', 'company_id') && $companyId, fn($q) => $q->where('company_id', $companyId))
+            ->forCompany($companyId)
+            ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -146,6 +146,18 @@ class StockAdjustmentController extends Controller
             if ($hasVariants) {
                 return back()
                     ->withErrors(['item_id' => 'Item ini memiliki varian. Pilih varian yang sesuai.'])
+                    ->withInput();
+            }
+        }
+
+        if (!empty($data['warehouse_id'])) {
+            $warehouseAllowed = Warehouse::query()
+                ->forCompany((int) $data['company_id'])
+                ->whereKey((int) $data['warehouse_id'])
+                ->exists();
+            if (!$warehouseAllowed) {
+                return back()
+                    ->withErrors(['warehouse_id' => 'Warehouse tidak terhubung ke company yang dipilih.'])
                     ->withInput();
             }
         }

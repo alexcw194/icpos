@@ -22,17 +22,39 @@
             </div>
         @endif
 
+        @php
+            $selectedCompanyIds = collect(old('company_ids', $selectedCompanyIds ?? []))
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+            if (empty($selectedCompanyIds) && !empty(old('company_id'))) {
+                $selectedCompanyIds = [(int) old('company_id')];
+            }
+            if (empty($selectedCompanyIds) && $row->company_id) {
+                $selectedCompanyIds = [(int) $row->company_id];
+            }
+        @endphp
+
         <div class="mb-3">
-            <label for="company_id" class="form-label">Company *</label>
-            <select id="company_id" name="company_id" class="form-select" required>
+            <label class="form-label">Companies *</label>
+            <div class="row g-2">
                 @foreach($companies as $company)
-                    <option value="{{ $company->id }}"
-                        @selected(old('company_id', $row->company_id) == $company->id)>
-                        {{ $company->alias ?? $company->name }}
-                    </option>
+                    <div class="col-md-4">
+                        <label class="form-check">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   name="company_ids[]"
+                                   value="{{ $company->id }}"
+                                   @checked(in_array((int) $company->id, $selectedCompanyIds, true))>
+                            <span class="form-check-label">{{ $company->alias ?? $company->name }}</span>
+                        </label>
+                    </div>
                 @endforeach
-            </select>
-            @error('company_id') <small class="text-danger">{{ $message }}</small> @enderror
+            </div>
+            @error('company_ids') <small class="text-danger">{{ $message }}</small> @enderror
+            @error('company_ids.*') <small class="text-danger d-block">{{ $message }}</small> @enderror
+            <div class="form-text">Warehouse bisa dipakai oleh beberapa company sekaligus.</div>
         </div>
 
         <div class="mb-3">

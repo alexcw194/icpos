@@ -39,6 +39,7 @@
                     <th>#</th>
                     <th>Kode</th>
                     <th>Nama</th>
+                    <th>Companies</th>
                     <th>Alamat</th>
                     <th>Allow -</th>
                     <th>Aktif</th>
@@ -52,6 +53,22 @@
                     <td>{{ $rows->firstItem() + $i }}</td>
                     <td>{{ $row->code }}</td>
                     <td>{{ $row->name }}</td>
+                    <td>
+                        @php
+                            $companyNames = collect();
+                            if (!empty($supportsCompanyWarehouse)) {
+                                $companyNames = $row->companies->map(fn($c) => $c->alias ?? $c->name)->filter()->values();
+                            }
+                            if ($companyNames->isEmpty() && $row->company) {
+                                $companyNames = collect([$row->company->alias ?? $row->company->name])->filter()->values();
+                            }
+                        @endphp
+                        @if($companyNames->isNotEmpty())
+                            {{ $companyNames->implode(', ') }}
+                        @else
+                            -
+                        @endif
+                    </td>
                     <td>{{ $row->address }}</td>
                     <td>{{ $row->allow_negative_stock ? 'Ya' : 'Tidak' }}</td>
                     <td>{{ $row->is_active ? 'Ya' : 'Tidak' }}</td>
@@ -65,7 +82,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="8">Tidak ada data</td></tr>
+                <tr><td colspan="9">Tidak ada data</td></tr>
                 @endforelse
             </tbody>
         </table>

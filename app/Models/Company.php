@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Company extends Model
 {
@@ -31,5 +32,11 @@ class Company extends Model
     public function banks()
     {
         return $this->hasMany(\App\Models\Bank::class)->orderBy('code')->orderBy('name');
+    }
+
+    public function warehouses(): BelongsToMany
+    {
+        return $this->belongsToMany(Warehouse::class, 'company_warehouse')
+            ->withTimestamps();
     }
 }

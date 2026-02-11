@@ -436,7 +436,7 @@ class DeliveryController extends Controller
         }
 
         $rows = Warehouse::query()
-            ->where('company_id', $companyId)
+            ->forCompany($companyId)
             ->where('is_active', true)
             ->orderBy('id')
             ->limit(2)
@@ -449,7 +449,16 @@ class DeliveryController extends Controller
     {
         $companies = Company::orderBy('name')->get(['id', 'name', 'alias']);
         $customers = Customer::orderBy('name')->get(['id', 'name']);
-        $warehouses = Warehouse::orderBy('name')->get(['id', 'name', 'allow_negative_stock']);
+        $warehouseQuery = Warehouse::query()->orderBy('name');
+        if ($delivery->company_id) {
+            $warehouseQuery->forCompany((int) $delivery->company_id);
+        }
+        if ($delivery->warehouse_id) {
+            $warehouseQuery->orWhere('id', $delivery->warehouse_id);
+        }
+        $warehouses = $warehouseQuery
+            ->distinct()
+            ->get(['id', 'name', 'allow_negative_stock']);
         $items = Item::with('unit:id,code')->orderBy('name')->get(['id', 'name', 'unit_id']);
         $variants = ItemVariant::with('item:id,name,variant_type,name_template')
             ->orderBy('sku')
@@ -563,6 +572,7 @@ class DeliveryController extends Controller
 
         $validated['sales_order_id'] = $salesOrderId;
 
+        $salesOrder = null;
         if ($validated['sales_order_id']) {
             $salesOrder = SalesOrder::find($validated['sales_order_id']);
             if ($salesOrder && ($salesOrder->po_type ?? 'goods') === 'maintenance') {
@@ -573,6 +583,20 @@ class DeliveryController extends Controller
             if ($salesOrder && $salesOrder->status === 'cancelled') {
                 throw ValidationException::withMessages([
                     'sales_order_id' => 'SO cancelled. Delivery tidak dapat dibuat.',
+                ]);
+            }
+        }
+
+        if (!empty($validated['warehouse_id'])) {
+            $companyId = (int) ($validated['company_id'] ?? $salesOrder?->company_id ?? 0);
+            $warehouseAllowed = Warehouse::query()
+                ->forCompany($companyId)
+                ->whereKey((int) $validated['warehouse_id'])
+                ->exists();
+
+            if (!$warehouseAllowed) {
+                throw ValidationException::withMessages([
+                    'warehouse_id' => 'Warehouse tidak terhubung ke company yang dipilih.',
                 ]);
             }
         }

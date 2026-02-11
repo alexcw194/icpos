@@ -6,6 +6,8 @@ use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Models\Company;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class WarehouseController extends Controller
 {
@@ -16,8 +18,10 @@ class WarehouseController extends Controller
     {
         $q      = $request->string('q')->toString();
         $status = $request->string('status')->toString(); // '', 'active', 'inactive'
+        $supportsCompanyWarehouse = Schema::hasTable('company_warehouse');
 
-        $rows = Warehouse::query()
+        $rowsQuery = Warehouse::query()
+            ->with(['company:id,name,alias'])
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
                     $w->where('code', 'like', "%{$q}%")
@@ -27,11 +31,17 @@ class WarehouseController extends Controller
             })
             ->when($status === 'active',   fn($qw) => $qw->where('is_active', true))
             ->when($status === 'inactive', fn($qw) => $qw->where('is_active', false))
-            ->orderBy('code')
+            ->orderBy('code');
+
+        if ($supportsCompanyWarehouse) {
+            $rowsQuery->with(['companies:id,name,alias']);
+        }
+
+        $rows = $rowsQuery
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.warehouses.index', compact('rows', 'q', 'status'));
+        return view('admin.warehouses.index', compact('rows', 'q', 'status', 'supportsCompanyWarehouse'));
     }
 
     /**
@@ -44,7 +54,8 @@ class WarehouseController extends Controller
             'is_active' => true,
             'allow_negative_stock' => false,
         ]);
-        return view('admin.warehouses.form', compact('row', 'companies'));
+        $selectedCompanyIds = [];
+        return view('admin.warehouses.form', compact('row', 'companies', 'selectedCompanyIds'));
     }
 
     /**
@@ -52,8 +63,15 @@ class WarehouseController extends Controller
      */
     public function store(Request $request)
     {
+        if (!$request->filled('company_ids') && $request->filled('company_id')) {
+            $request->merge([
+                'company_ids' => [(int) $request->input('company_id')],
+            ]);
+        }
+
         $data = $request->validate([
-            'company_id'            => ['required','exists:companies,id'],
+            'company_ids'          => ['required','array','min:1'],
+            'company_ids.*'        => ['integer','exists:companies,id'],
             'code'                 => ['required','string','max:50','unique:warehouses,code'],
             'name'                 => ['required','string','max:150'],
             'address'              => ['nullable','string'],
@@ -62,8 +80,23 @@ class WarehouseController extends Controller
         ]);
         $data['allow_negative_stock'] = $request->boolean('allow_negative_stock');
         $data['is_active']            = $request->boolean('is_active');
+        $companyIds = collect($data['company_ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $primaryCompanyId = $companyIds[0] ?? null;
 
-        Warehouse::create($data);
+        DB::transaction(function () use ($data, $companyIds, $primaryCompanyId) {
+            $warehouse = Warehouse::create([
+                'company_id' => $primaryCompanyId,
+                'code' => $data['code'],
+                'name' => $data['name'],
+                'address' => $data['address'] ?? null,
+                'allow_negative_stock' => $data['allow_negative_stock'],
+                'is_active' => $data['is_active'],
+            ]);
+
+            if (Schema::hasTable('company_warehouse')) {
+                $warehouse->companies()->sync($companyIds);
+            }
+        });
 
         return redirect()->route('warehouses.index')->with('success','Warehouse created.');
     }
@@ -83,7 +116,14 @@ class WarehouseController extends Controller
     {
         $row = $warehouse;
         $companies = Company::orderBy('name')->get();
-        return view('admin.warehouses.form', compact('row', 'companies'));
+        $selectedCompanyIds = Schema::hasTable('company_warehouse')
+            ? $warehouse->companies()->pluck('companies.id')->map(fn ($id) => (int) $id)->all()
+            : [];
+        if (empty($selectedCompanyIds) && $warehouse->company_id) {
+            $selectedCompanyIds = [(int) $warehouse->company_id];
+        }
+
+        return view('admin.warehouses.form', compact('row', 'companies', 'selectedCompanyIds'));
     }
 
     /**
@@ -91,8 +131,15 @@ class WarehouseController extends Controller
      */
     public function update(Request $request, Warehouse $warehouse)
     {
+        if (!$request->filled('company_ids') && $request->filled('company_id')) {
+            $request->merge([
+                'company_ids' => [(int) $request->input('company_id')],
+            ]);
+        }
+
         $data = $request->validate([
-            'company_id'            => ['required','exists:companies,id'],
+            'company_ids'          => ['required','array','min:1'],
+            'company_ids.*'        => ['integer','exists:companies,id'],
             'code'                 => ['required','string','max:50', Rule::unique('warehouses','code')->ignore($warehouse->id)],
             'name'                 => ['required','string','max:150'],
             'address'              => ['nullable','string'],
@@ -101,8 +148,23 @@ class WarehouseController extends Controller
         ]);
         $data['allow_negative_stock'] = $request->boolean('allow_negative_stock');
         $data['is_active']            = $request->boolean('is_active');
+        $companyIds = collect($data['company_ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $primaryCompanyId = $companyIds[0] ?? null;
 
-        $warehouse->update($data);
+        DB::transaction(function () use ($warehouse, $data, $companyIds, $primaryCompanyId) {
+            $warehouse->update([
+                'company_id' => $primaryCompanyId,
+                'code' => $data['code'],
+                'name' => $data['name'],
+                'address' => $data['address'] ?? null,
+                'allow_negative_stock' => $data['allow_negative_stock'],
+                'is_active' => $data['is_active'],
+            ]);
+
+            if (Schema::hasTable('company_warehouse')) {
+                $warehouse->companies()->sync($companyIds);
+            }
+        });
 
         return redirect()->route('warehouses.index')->with('ok','Warehouse updated.');
     }

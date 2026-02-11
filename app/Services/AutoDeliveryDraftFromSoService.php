@@ -113,7 +113,7 @@ class AutoDeliveryDraftFromSoService
         }
 
         $rows = Warehouse::query()
-            ->where('company_id', $companyId)
+            ->forCompany($companyId)
             ->where('is_active', true)
             ->orderBy('id')
             ->limit(2)
