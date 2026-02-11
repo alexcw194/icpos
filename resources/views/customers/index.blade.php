@@ -20,7 +20,7 @@
               name="q"
               value="{{ request('q','') }}"
               class="form-control"
-              placeholder="Cari nama / kota / email"
+              placeholder="Cari nama / email / phone"
               enterkeyhint="search"
               inputmode="search"
               autocomplete="off"
@@ -74,8 +74,8 @@
           <thead>
             <tr>
               <th>Customer</th>
+              <th class="d-none d-md-table-cell">Category Hotel</th>
               <th class="d-none d-md-table-cell">Sales Owner</th>
-              <th class="d-none d-md-table-cell">City</th>
               <th class="d-none d-md-table-cell">Phone</th>
               <th class="d-none d-md-table-cell">Email</th>
               <th class="text-end"></th>
@@ -88,24 +88,14 @@
                   <a href="{{ route('customers.show', $c) }}" class="fw-bold text-decoration-none">
                     {{ $c->name }}
                   </a>
-
-                  @if($c->jenis)
-                    <div class="small mt-1">
-                      <span class="badge bg-light text-dark border">{{ $c->jenis->name }}</span>
-                    </div>
-                  @endif
-
-                  @if($c->address)
-                    <div class="text-muted small mt-1">
-                      {{ Str::limit($c->address, 120) }}
-                    </div>
-                  @endif
                 </td>
 
                 <td class="d-none d-md-table-cell">
+                  {{ $c->jenis->name ?? '-' }}
+                </td>
+                <td class="d-none d-md-table-cell">
                   {{ $c->salesOwner?->name ?? '-' }}
                 </td>
-                <td class="d-none d-md-table-cell">{{ $c->city ?? '-' }}</td>
                 <td class="d-none d-md-table-cell">{{ $c->phone ?? '-' }}</td>
                 <td class="d-none d-md-table-cell">
                   @if($c->email)

@@ -102,7 +102,7 @@
                   </div>
 
                   <div class="col-md-6">
-                    <label class="form-label">Jenis <span class="text-danger">*</span></label>
+                    <label class="form-label">Category Hotel <span class="text-danger">*</span></label>
                     <select name="jenis_id" class="form-select" required>
                       <option value="">-- pilih --</option>
                       @foreach ($jenisList as $j)

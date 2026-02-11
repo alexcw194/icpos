@@ -84,7 +84,7 @@
                 <div>{{ $customer->phone ?: '-' }}</div>
               </div>
               <div class="col-md-6">
-                <div class="text-muted">Jenis</div>
+                <div class="text-muted">Category Hotel</div>
                 <div>{{ $customer->jenis->name ?? '-' }}</div>
               </div>
               <div class="col-md-6">
