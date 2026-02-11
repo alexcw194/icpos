@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\{
     DashboardController,
+    IncomeReportController,
     ProfileController,
     CustomerController,
     DocumentController,
@@ -344,6 +345,13 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
 // Admin-only area (EnsureAdmin)
 // =======================
 Route::middleware(['auth', EnsureAdmin::class])->group(function () {
+    Route::get('reports/income', [IncomeReportController::class, 'index'])
+        ->name('reports.income.index');
+    Route::get('reports/income/export.csv', [IncomeReportController::class, 'exportCsv'])
+        ->name('reports.income.export.csv');
+    Route::get('reports/income/export.pdf', [IncomeReportController::class, 'exportPdf'])
+        ->name('reports.income.export.pdf');
+
     // =======================
     // Items (WRITE untuk Admin/SuperAdmin)
     // =======================

@@ -137,6 +137,17 @@
                   </a>
                 </li>
               @endif
+
+              @hasanyrole('Admin|SuperAdmin')
+                @if(Route::has('reports.income.index'))
+                  <li>
+                    <a class="nav-link {{ request()->routeIs('reports.income.*') ? 'active' : '' }}"
+                       href="{{ route('reports.income.index') }}">
+                      Income Report
+                    </a>
+                  </li>
+                @endif
+              @endhasanyrole
             </ul>
           </li>
 

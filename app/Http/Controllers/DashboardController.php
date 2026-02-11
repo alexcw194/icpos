@@ -9,12 +9,18 @@ use App\Models\Quotation;
 use App\Models\SalesOrder;
 use App\Models\StockAdjustment;
 use App\Models\StockSummary;
+use App\Services\IncomeReportService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        private readonly IncomeReportService $incomeReportService
+    ) {
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -53,6 +59,13 @@ class DashboardController extends Controller
             $hasSoStatus = Schema::hasColumn('sales_orders', 'status');
             $hasCompanyInvoice = Schema::hasColumn('invoices', 'company_id');
             $hasCompanySummary = Schema::hasColumn('stock_summaries', 'company_id');
+            $incomeDashboard = $this->incomeReportService->dashboardSnapshot($companyId);
+            $incomeDailySnapshot = $this->incomeReportService->dailySummary([
+                'company_id' => $companyId,
+                'start_date' => $mtdStart->toDateString(),
+                'end_date' => $mtdEnd->toDateString(),
+                'basis' => 'both',
+            ])->take(14);
 
             $qBase = Quotation::query()
                 ->with(['customer:id,name', 'company:id,alias,name'])
@@ -133,10 +146,7 @@ class DashboardController extends Controller
                 ->with(['customer:id,name', 'company:id,alias,name'])
                 ->when($companyId && $hasCompanyInvoice, fn($q) => $q->where('company_id', $companyId));
 
-            $arOutstandingAmount = (clone $invBase)
-                ->where('status', 'posted')
-                ->whereNull('paid_at')
-                ->sum('total');
+            $arOutstandingAmount = (float) ($incomeDashboard['unpaid_balance'] ?? 0);
 
             $overdueInvoiceCount = 0;
             $hasDueDate = Schema::hasColumn('invoices', 'due_date');
@@ -258,6 +268,8 @@ class DashboardController extends Controller
                 'soDue7Count',
                 'soRevenueYtd',
                 'arOutstandingAmount',
+                'incomeDashboard',
+                'incomeDailySnapshot',
                 'overdueInvoiceCount',
                 'unpaidCount',
                 'negativeStockCount',

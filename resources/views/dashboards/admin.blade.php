@@ -71,6 +71,64 @@
     </div>
   </div>
 
+  <div class="row row-deck row-cards mb-3">
+    <div class="col-6 col-md-2">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">Paid Income Today</div>
+          <div class="h2 m-0">{{ $money($incomeDashboard['cash_today'] ?? 0) }}</div>
+          <div class="text-muted small">Cash basis</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">Paid Income MTD</div>
+          <div class="h2 m-0">{{ $money($incomeDashboard['cash_mtd'] ?? 0) }}</div>
+          <div class="text-muted small">Cash basis</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">Paid Income YTD</div>
+          <div class="h2 m-0">{{ $money($incomeDashboard['cash_ytd'] ?? 0) }}</div>
+          <div class="text-muted small">Cash basis</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">Accrual Revenue MTD</div>
+          <div class="h2 m-0">{{ $money($incomeDashboard['accrual_mtd'] ?? 0) }}</div>
+          <div class="text-muted small">Accrual basis</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">Accrual Revenue YTD</div>
+          <div class="h2 m-0">{{ $money($incomeDashboard['accrual_ytd'] ?? 0) }}</div>
+          <div class="text-muted small">Accrual basis</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">Income Report</div>
+          <a href="{{ route('reports.income.index', ['company_id' => $companyId]) }}" class="btn btn-primary btn-sm w-100 mt-2">
+            Open Report
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="row g-3 mb-3">
     <div class="col-lg-6">
       <div class="card mb-3">
@@ -241,6 +299,42 @@
     </div>
 
     <div class="col-lg-6">
+      <div class="card mb-3">
+        <div class="card-header d-flex align-items-center">
+          <h3 class="card-title">Income Snapshot (Cash vs Accrual)</h3>
+          <div class="ms-auto">
+            <a href="{{ route('reports.income.index', ['company_id' => $companyId]) }}" class="btn btn-outline-primary btn-sm">View Report</a>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-vcenter card-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th class="text-end">Cash</th>
+                <th class="text-end">Accrual</th>
+                <th class="text-end">Delta</th>
+              </tr>
+            </thead>
+            <tbody>
+              @forelse($incomeDailySnapshot as $row)
+                @php $day = Carbon::parse($row->day); @endphp
+                <tr>
+                  <td>{{ $day->format('d M Y') }}</td>
+                  <td class="text-end">{{ $money($row->cash_amount) }}</td>
+                  <td class="text-end">{{ $money($row->accrual_amount) }}</td>
+                  <td class="text-end {{ $row->delta < 0 ? 'text-danger' : 'text-success' }}">{{ $money($row->delta) }}</td>
+                </tr>
+              @empty
+                <tr>
+                  <td colspan="4" class="text-center text-muted">No data.</td>
+                </tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="card mb-3">
         <div class="card-header">
           <h3 class="card-title">Overdue Invoices (Posted, Unpaid) ({{ number_format($overdueInvoiceCount) }})</h3>
