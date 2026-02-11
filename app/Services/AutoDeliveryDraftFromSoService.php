@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Delivery;
 use App\Models\SalesOrder;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
 
 class AutoDeliveryDraftFromSoService
@@ -62,11 +63,13 @@ class AutoDeliveryDraftFromSoService
             ];
         }
 
-        $delivery = DB::transaction(function () use ($salesOrder, $linePayloads) {
+        $defaultWarehouseId = $this->resolveSingleWarehouseId((int) $salesOrder->company_id);
+
+        $delivery = DB::transaction(function () use ($salesOrder, $linePayloads, $defaultWarehouseId) {
             $delivery = Delivery::create([
                 'company_id' => $salesOrder->company_id,
                 'customer_id' => $salesOrder->customer_id,
-                'warehouse_id' => null,
+                'warehouse_id' => $defaultWarehouseId,
                 'invoice_id' => null,
                 'quotation_id' => $salesOrder->quotation_id,
                 'sales_order_id' => $salesOrder->id,
@@ -101,5 +104,21 @@ class AutoDeliveryDraftFromSoService
             'created' => true,
             'reused' => false,
         ];
+    }
+
+    private function resolveSingleWarehouseId(int $companyId): ?int
+    {
+        if ($companyId <= 0) {
+            return null;
+        }
+
+        $rows = Warehouse::query()
+            ->where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->limit(2)
+            ->pluck('id');
+
+        return $rows->count() === 1 ? (int) $rows->first() : null;
     }
 }

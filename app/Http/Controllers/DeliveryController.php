@@ -113,9 +113,11 @@ class DeliveryController extends Controller
         }
 
         // Isi header dari SO
+        $defaultWarehouseId = $this->resolveSingleWarehouseId((int) $salesOrder->company_id);
         $delivery->fill([
             'company_id'     => $salesOrder->company_id,
             'customer_id'    => $salesOrder->customer_id,
+            'warehouse_id'   => $defaultWarehouseId,
             'quotation_id'   => $salesOrder->quotation_id,
             'sales_order_id' => $salesOrder->id,
             'reference'      => $salesOrder->so_number ?? $salesOrder->customer_po_number,
@@ -289,8 +291,8 @@ class DeliveryController extends Controller
         // Hard guards
         if (!$delivery->warehouse_id) {
             return redirect()
-                ->route('deliveries.show', $delivery)
-                ->with('error', 'Warehouse wajib diisi sebelum posting.');
+                ->route('deliveries.edit', $delivery)
+                ->with('error', 'Warehouse belum dipilih. Silakan pilih warehouse lalu post ulang.');
         }
         if ($delivery->lines()->count() === 0) {
             return redirect()
@@ -425,6 +427,22 @@ class DeliveryController extends Controller
         if (!$user || !$user->can($permission)) {
             abort(403);
         }
+    }
+
+    private function resolveSingleWarehouseId(int $companyId): ?int
+    {
+        if ($companyId <= 0) {
+            return null;
+        }
+
+        $rows = Warehouse::query()
+            ->where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->limit(2)
+            ->pluck('id');
+
+        return $rows->count() === 1 ? (int) $rows->first() : null;
     }
 
     private function formPayload(Delivery $delivery, Collection $lines): array
