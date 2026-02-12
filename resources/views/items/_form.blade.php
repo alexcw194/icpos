@@ -62,24 +62,6 @@
     </div>
 
     <div class="col-md-4">
-      <label class="form-label">Unit</label>
-      <select name="unit_id" id="unit_id" class="form-select" required>
-        <option value="">— Pilih Unit —</option>
-        @foreach ($units as $u)
-          <option value="{{ $u->id }}" {{ (string)$selectedUnitId === (string)$u->id ? 'selected' : '' }}>
-            {{ $u->code }} — {{ $u->name }} @if(!$u->is_active) (nonaktif) @endif
-          </option>
-        @endforeach
-      </select>
-      @error('unit_id')<div class="text-danger small">{{ $message }}</div>@enderror
-      @isset($defaultUnitId)
-        @if(!isset($item))
-          <div class="form-hint">Default ke <b>PCS</b> bila tersedia.</div>
-        @endif
-      @endisset
-    </div>
-
-    <div class="col-md-4">
       <label class="form-label">Brand (opsional)</label>
       <select name="brand_id" id="brand_id" class="form-select">
         <option value="">— Tanpa Brand —</option>
@@ -102,6 +84,24 @@
       <input type="text" name="default_cost" value="{{ $v('default_cost') }}" class="form-control" inputmode="decimal" autocomplete="off" placeholder="Opsional">
       @error('default_cost')<div class="text-danger small">{{ $message }}</div>@enderror
       <div class="form-hint">Dipakai jika belum ada histori harga beli dari PO approve.</div>
+    </div>
+
+    <div class="col-md-4">
+      <label class="form-label">Unit</label>
+      <select name="unit_id" id="unit_id" class="form-select" required>
+        <option value="">— Pilih Unit —</option>
+        @foreach ($units as $u)
+          <option value="{{ $u->id }}" {{ (string)$selectedUnitId === (string)$u->id ? 'selected' : '' }}>
+            {{ $u->code }} — {{ $u->name }} @if(!$u->is_active) (nonaktif) @endif
+          </option>
+        @endforeach
+      </select>
+      @error('unit_id')<div class="text-danger small">{{ $message }}</div>@enderror
+      @isset($defaultUnitId)
+        @if(!isset($item))
+          <div class="form-hint">Default ke <b>PCS</b> bila tersedia.</div>
+        @endif
+      @endisset
     </div>
 
     <div class="col-md-4">
