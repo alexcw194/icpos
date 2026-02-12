@@ -19,6 +19,7 @@
    */
   $returnUrl = request()->fullUrl();
   $isProjectItems = $isProjectItems ?? false;
+  $canManageItems = auth()->user()?->hasAnyRole(['SuperAdmin','Admin']) ?? false;
   $itemShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
   $itemEditRoute = $isProjectItems ? 'project-items.edit' : 'items.edit';
 @endphp
@@ -103,7 +104,7 @@
               @if($isVariant)
                 @include('layouts.partials.crud_actions', [
                   'view'   => $variantView,
-                  'edit'   => auth()->user()?->hasAnyRole('SuperAdmin|Admin') ? $variantEdit : null,
+                  'edit'   => $canManageItems ? $variantEdit : null,
                   'delete' => null, // enterprise safety: no delete in list
                   'size'   => 'sm',
                 ])
@@ -115,7 +116,7 @@
               @else
                 @include('layouts.partials.crud_actions', [
                   'view'   => $itemView,
-                  'edit'   => auth()->user()?->hasAnyRole('SuperAdmin|Admin') ? $itemEdit : null,
+                  'edit'   => $canManageItems ? $itemEdit : null,
                   'delete' => null, // enterprise safety: no delete in list
                   'size'   => 'sm',
                 ])
@@ -233,7 +234,7 @@
               @if($isVariant)
                 @include('layouts.partials.crud_actions', [
                   'view'   => $variantView,
-                  'edit'   => auth()->user()?->hasAnyRole('SuperAdmin|Admin') ? $variantEdit : null,
+                  'edit'   => $canManageItems ? $variantEdit : null,
                   'delete' => null, // enterprise safety: no delete in list
                   'size'   => 'sm',
                 ])
@@ -245,7 +246,7 @@
               @else
                 @include('layouts.partials.crud_actions', [
                   'view'   => $itemView,
-                  'edit'   => auth()->user()?->hasAnyRole('SuperAdmin|Admin') ? $itemEdit : null,
+                  'edit'   => $canManageItems ? $itemEdit : null,
                   'delete' => null, // enterprise safety: no delete in list
                   'size'   => 'sm',
                 ])

@@ -461,7 +461,8 @@ class ItemController extends Controller
     {
         $q = trim($req->get('q', ''));
         $purpose = (string) $req->get('purpose', '');
-        $usePurchasePrice = $purpose === 'purchase';
+        $canViewPurchasePrice = (bool) $req->user()?->hasAnyRole(['Admin', 'SuperAdmin']);
+        $usePurchasePrice = $purpose === 'purchase' && $canViewPurchasePrice;
         $itemType = (string) $req->get('item_type', '');
         $listType = (string) $req->get('list_type', '');
         $allowedTypes = ['standard','kit','cut_raw','cut_piece'];

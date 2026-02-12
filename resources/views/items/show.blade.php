@@ -5,6 +5,7 @@
 <div class="container-xl">
   @php
     $isProjectItems = request()->routeIs('project-items.*');
+    $canManageItems = auth()->user()?->hasAnyRole(['SuperAdmin','Admin']) ?? false;
     $editUrl = $isProjectItems ? route('project-items.edit', $item) : route('items.edit', $item);
     $backUrl = $isProjectItems ? route('project-items.index') : route('items.index');
     $parentShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
@@ -23,43 +24,47 @@
       <div class="card-title mb-0">{{ $isProjectItems ? 'Detail Project Item' : 'Detail Item' }}</div>
 
       <div class="ms-auto d-flex align-items-center gap-2">
-        {{-- Primary CTA --}}
-        <a href="{{ $editUrl }}" class="btn btn-warning btn-sm">Ubah</a>
+        @if($canManageItems)
+          {{-- Primary CTA --}}
+          <a href="{{ $editUrl }}" class="btn btn-warning btn-sm">Ubah</a>
 
-        {{-- Overflow actions --}}
-        <div class="dropdown">
-          <button class="btn btn-outline-secondary btn-icon btn-sm" data-bs-toggle="dropdown" aria-label="Menu">
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
-                 stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
-                 aria-hidden="true">
-              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-              <circle cx="5" cy="12" r="1"></circle>
-              <circle cx="12" cy="12" r="1"></circle>
-              <circle cx="19" cy="12" r="1"></circle>
-            </svg>
-          </button>
-
-          <div class="dropdown-menu dropdown-menu-end">
-            <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalAdjust">
-              Penyesuaian Stok
+          {{-- Overflow actions --}}
+          <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-icon btn-sm" data-bs-toggle="dropdown" aria-label="Menu">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
+                   stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <circle cx="5" cy="12" r="1"></circle>
+                <circle cx="12" cy="12" r="1"></circle>
+                <circle cx="19" cy="12" r="1"></circle>
+              </svg>
             </button>
 
-            <a href="{{ route('items.variants.index', $item) }}" class="dropdown-item">
-              Kelola Varian
-            </a>
+            <div class="dropdown-menu dropdown-menu-end">
+              <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalAdjust">
+                Penyesuaian Stok
+              </button>
 
-            <form method="POST" action="{{ $transferAction }}" onsubmit="return confirm('{{ $transferConfirm }}');">
-              @csrf
-              <button type="submit" class="dropdown-item">{{ $transferLabel }}</button>
-            </form>
+              <a href="{{ route('items.variants.index', $item) }}" class="dropdown-item">
+                Kelola Varian
+              </a>
 
-            <div class="dropdown-divider"></div>
+              <form method="POST" action="{{ $transferAction }}" onsubmit="return confirm('{{ $transferConfirm }}');">
+                @csrf
+                <button type="submit" class="dropdown-item">{{ $transferLabel }}</button>
+              </form>
 
-            <a href="{{ $backUrl }}" class="dropdown-item">
-              Kembali
-            </a>
+              <div class="dropdown-divider"></div>
+
+              <a href="{{ $backUrl }}" class="dropdown-item">
+                Kembali
+              </a>
+            </div>
           </div>
-        </div>
+        @else
+          <a href="{{ $backUrl }}" class="btn btn-outline-secondary btn-sm">Kembali</a>
+        @endif
       </div>
     </div>
 
@@ -299,6 +304,7 @@
   </div>
 </div>
 
+@if($canManageItems)
 {{-- ======================= Modal Penyesuaian Stok (logic dipertahankan) ======================= --}}
 @php
   $__company    = $company ?? \App\Models\Company::where('is_default', true)->first();
@@ -404,6 +410,7 @@ document.addEventListener('DOMContentLoaded', function(){
   qtyEl.addEventListener('input', recalc);
 });
 </script>
+@endif
 
 @push('styles')
 <style>

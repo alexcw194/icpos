@@ -15,6 +15,7 @@
           $isProjectItems = $isProjectItems ?? false;
           $itemShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
           $itemEditRoute = $isProjectItems ? 'project-items.edit' : 'items.edit';
+          $canManageItems = auth()->user()?->hasAnyRole(['SuperAdmin','Admin']) ?? false;
           $hasVariants = $row['has_variants'];
           $variantCount = $row['variant_count'];
           $badgeText = $hasVariants ? 'Varian (' . $variantCount . ')' : 'Single';
@@ -66,12 +67,12 @@
               {{-- Enterprise safety: NO delete in list --}}
               @include('layouts.partials.crud_actions', [
                 'view' => route($itemShowRoute, $item),
-                'edit' => route($itemEditRoute, $item),
+                'edit' => $canManageItems ? route($itemEditRoute, $item) : null,
                 'delete' => null,
                 'size' => 'sm',
               ])
 
-              @if($hasVariants)
+              @if($hasVariants && $canManageItems)
                 <a href="{{ route('items.variants.index', $item) }}" class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex">Kelola Varian</a>
                 <a href="{{ route('items.variants.index', $item) }}" class="btn btn-icon btn-sm btn-outline-secondary d-md-none" aria-label="Kelola Varian" title="Kelola Varian">
                   <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24"
@@ -120,9 +121,11 @@
                   </tbody>
                 </table>
               </div>
-              <div class="mt-2">
-                <a href="{{ route('items.variants.index', $item) }}">Lihat semua varian</a>
-              </div>
+              @if($canManageItems)
+                <div class="mt-2">
+                  <a href="{{ route('items.variants.index', $item) }}">Lihat semua varian</a>
+                </div>
+              @endif
             </td>
           </tr>
         @endif
@@ -142,6 +145,7 @@
       $isProjectItems = $isProjectItems ?? false;
       $itemShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
       $itemEditRoute = $isProjectItems ? 'project-items.edit' : 'items.edit';
+      $canManageItems = auth()->user()?->hasAnyRole(['SuperAdmin','Admin']) ?? false;
     @endphp
     <div class="card inventory-card mb-3">
       <div class="card-body">
@@ -168,7 +172,9 @@
                 </div>
               </div>
             @endforeach
-            <a href="{{ route('items.variants.index', $item) }}" class="small">Lihat semua varian</a>
+            @if($canManageItems)
+              <a href="{{ route('items.variants.index', $item) }}" class="small">Lihat semua varian</a>
+            @endif
           </div>
         @endif
 
@@ -176,12 +182,12 @@
           {{-- Enterprise safety: NO delete in list --}}
           @include('layouts.partials.crud_actions', [
             'view' => route($itemShowRoute, $item),
-            'edit' => route($itemEditRoute, $item),
+            'edit' => $canManageItems ? route($itemEditRoute, $item) : null,
             'delete' => null,
             'size' => 'sm',
           ])
 
-          @if($row['has_variants'])
+          @if($row['has_variants'] && $canManageItems)
             <a href="{{ route('items.variants.index', $item) }}" class="btn btn-outline-secondary btn-sm">Kelola Varian</a>
           @endif
         </div>
