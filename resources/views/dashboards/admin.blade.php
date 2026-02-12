@@ -117,16 +117,6 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-2">
-      <div class="card card-sm">
-        <div class="card-body">
-          <div class="subheader">Income Report</div>
-          <a href="{{ route('reports.income.index', ['company_id' => $companyId]) }}" class="btn btn-primary btn-sm w-100 mt-2">
-            Open Report
-          </a>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="row g-3 mb-3">
