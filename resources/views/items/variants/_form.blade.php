@@ -4,6 +4,24 @@
   $colorOptions  = collect($colorOptions  ?? [])->filter(fn($v) => (string) $v !== '');
   $sizeOptions   = collect($sizeOptions   ?? [])->filter(fn($v) => (string) $v !== '');
   $lengthOptions = collect($lengthOptions ?? [])->filter(fn($v) => (string) $v !== '');
+
+  $formatMoney = static function ($value): string {
+    if ($value === null || $value === '') {
+      return '';
+    }
+
+    return number_format((float) $value, 2, ',', '.');
+  };
+
+  $priceValue = old('price');
+  if ($priceValue === null && isset($variant)) {
+    $priceValue = $formatMoney($variant->price);
+  }
+
+  $defaultCostValue = old('default_cost');
+  if ($defaultCostValue === null && isset($variant)) {
+    $defaultCostValue = $formatMoney($variant->default_cost);
+  }
 @endphp
 
 <div class="row g-3">
@@ -14,11 +32,11 @@
   </div>
   <div class="col-md-4">
     <label class="form-label">Harga</label>
-    <input type="text" name="price" class="form-control" inputmode="decimal" value="{{ old('price', isset($variant) ? $variant->price : '') }}">
+    <input type="text" name="price" class="form-control" inputmode="decimal" value="{{ $priceValue ?? '' }}">
   </div>
   <div class="col-md-4">
     <label class="form-label">Harga Beli Dasar (Override)</label>
-    <input type="text" name="default_cost" class="form-control" inputmode="decimal" value="{{ old('default_cost', isset($variant) ? $variant->default_cost : '') }}" placeholder="Opsional">
+    <input type="text" name="default_cost" class="form-control" inputmode="decimal" value="{{ $defaultCostValue ?? '' }}" placeholder="Opsional">
     @error('default_cost')<div class="text-danger small">{{ $message }}</div>@enderror
   </div>
   <div class="col-md-4">
