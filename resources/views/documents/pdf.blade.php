@@ -42,7 +42,7 @@
   <meta charset="utf-8">
   <title>{{ $pdfNumber }}</title>
   <style>
-    @page { margin: 0; }
+    @page { margin: 120px 60px 80px 72px; }
     body {
       margin: 0;
       font-family: DejaVu Sans, Arial, sans-serif;
@@ -52,8 +52,6 @@
     }
     .page {
       position: relative;
-      padding: 120px 60px 80px 72px;
-      min-height: 100vh;
     }
     .letterhead {
       position: fixed;
@@ -95,7 +93,13 @@
       font-size: 12px;
     }
     .recipient {
-      margin: 18px 0 18px;
+      margin: 12px 0 12px;
+    }
+    .recipient.has-contact {
+      margin-bottom: 16px;
+    }
+    .recipient.no-contact {
+      margin-bottom: 8px;
     }
     .recipient .line {
       margin: 0 0 2px;
@@ -105,7 +109,13 @@
       font-size: 12.5px;
     }
     .body {
-      margin-bottom: 40px;
+      margin-bottom: 20px;
+    }
+    .body > :first-child {
+      margin-top: 0;
+    }
+    .body > :last-child {
+      margin-bottom: 0;
     }
     .body img {
       max-width: 100%;
@@ -147,7 +157,7 @@
       justify-content: space-between;
       align-items: flex-end;
       gap: 16px;
-      margin-top: 14px;
+      margin-top: 6px;
       page-break-inside: avoid;
     }
     .signature-block {
@@ -204,7 +214,7 @@
         <div class="doc-date">{{ $dateText }}</div>
       </div>
 
-      <div class="recipient">
+      <div class="recipient {{ $hasRecipientContact ? 'has-contact' : 'no-contact' }}">
         <div class="line">Kepada Yth.</div>
         @if($hasRecipientContact)
           <div class="line name">
@@ -248,3 +258,4 @@
   </div>
 </body>
 </html>
+

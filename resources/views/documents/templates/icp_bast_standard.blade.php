@@ -43,7 +43,7 @@
   <meta charset="utf-8">
   <title>{{ $document->number ?: 'BAST' }}</title>
   <style>
-    @page { margin: 0; }
+    @page { margin: 110px 60px 70px 70px; }
     body {
       margin: 0;
       font-family: DejaVu Sans, Arial, sans-serif;
@@ -53,8 +53,6 @@
     }
     .page {
       position: relative;
-      padding: 110px 60px 70px 70px;
-      min-height: 100vh;
     }
     .letterhead {
       position: fixed;
@@ -489,3 +487,4 @@
   </div>
 </body>
 </html>
+
