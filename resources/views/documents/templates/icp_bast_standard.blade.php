@@ -56,9 +56,9 @@
     }
     .letterhead {
       position: fixed;
-      top: 0;
-      left: 0;
-      height: 100%;
+      top: -110px;
+      left: -70px;
+      height: 297mm;
       width: auto;
       z-index: 0;
     }
