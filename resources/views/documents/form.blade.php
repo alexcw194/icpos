@@ -342,7 +342,9 @@
       menubar: false,
       branding: false,
       plugins: 'lists table link image fullscreen',
-      toolbar: 'undo redo | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | table image link | fullscreen',
+      toolbar: 'undo redo | fontsize lineheight | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | table image link | fullscreen',
+      font_size_formats: '8pt 9pt 10pt 11pt 12pt 14pt 16pt 18pt 24pt 30pt 36pt 48pt 60pt 72pt',
+      line_height_formats: '1 1.15 1.3 1.5 1.75 2 2.5 3',
       automatic_uploads: true,
       images_upload_url: buildUploadUrl(),
       images_upload_credentials: true,
@@ -513,3 +515,4 @@
   });
 </script>
 @endpush
+
