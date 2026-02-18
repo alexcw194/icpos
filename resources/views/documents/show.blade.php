@@ -35,13 +35,13 @@
       </div>
     </div>
     <div class="col-auto ms-auto d-print-none d-flex flex-wrap gap-2">
-      <a href="{{ route('documents.pdf', $document) }}" class="btn btn-outline-secondary">Preview PDF</a>
+      <a href="{{ route('documents.pdf', ['document' => $document, 'v' => $document->updated_at?->timestamp]) }}" class="btn btn-outline-secondary">Preview PDF</a>
       @if($document->status === \App\Models\Document::STATUS_APPROVED)
-        <a href="{{ route('documents.pdf-download', $document) }}" class="btn btn-outline-secondary">Download</a>
+        <a href="{{ route('documents.pdf-download', ['document' => $document, 'v' => $document->updated_at?->timestamp]) }}" class="btn btn-outline-secondary">Download</a>
         <button type="button"
                 class="btn btn-outline-secondary"
                 id="share-pdf-btn"
-                data-url="{{ route('documents.pdf-download', $document) }}"
+                data-url="{{ route('documents.pdf-download', ['document' => $document, 'v' => $document->updated_at?->timestamp]) }}"
                 data-title="{{ $document->number ?? 'Document' }}"
                 data-name="{{ ($document->number ?? 'document') . '.pdf' }}">
           Share PDF

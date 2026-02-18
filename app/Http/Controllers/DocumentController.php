@@ -677,8 +677,8 @@ class DocumentController extends Controller
     {
         $allowed = [
             'text-align' => '/^(left|right|center|justify)$/',
-            'font-size' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
-            'line-height' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)?$/',
+            'font-size' => '/^(\\d+(\\.\\d+)?(px|pt|em|rem|%)?|xx-small|x-small|small|medium|large|x-large|xx-large|smaller|larger)$/',
+            'line-height' => '/^(\\d+(\\.\\d+)?(px|pt|em|rem|%)?|normal)$/',
             'margin-top' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
             'margin-bottom' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
             'margin-left' => '/^\\d+(\\.\\d+)?(px|pt|em|rem|%)$/',
@@ -787,7 +787,10 @@ class DocumentController extends Controller
 
         return response($pdf->output(), 200)
             ->header('Content-Type', 'application/pdf')
-            ->header('Content-Disposition', $disposition.'; filename="'.$filename.'"');
+            ->header('Content-Disposition', $disposition.'; filename="'.$filename.'"')
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     private function normalizeTemplatePayload(array $payload, Customer $customer): array
