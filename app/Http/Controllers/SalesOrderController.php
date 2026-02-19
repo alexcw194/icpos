@@ -388,14 +388,28 @@ class SalesOrderController extends Controller
         $status  = $request->query('status');
         if ($status && !in_array($status, $allowed, true)) $status = null;
 
+        $search = trim((string) $request->query('q', ''));
+
         $q = SalesOrder::query()
             ->visibleTo(auth()->user())
             ->with(['customer','company'])
             ->when($status, fn($x) => $x->where('status',$status))
+            ->when($search !== '', function ($x) use ($search) {
+                $x->where(function ($w) use ($search) {
+                    $w->where('so_number', 'like', "%{$search}%")
+                        ->orWhere('customer_po_number', 'like', "%{$search}%")
+                        ->orWhere('project_name', 'like', "%{$search}%")
+                        ->orWhereHas('customer', fn ($cq) => $cq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('company', function ($coq) use ($search) {
+                            $coq->where('name', 'like', "%{$search}%")
+                                ->orWhere('alias', 'like', "%{$search}%");
+                        });
+                });
+            })
             ->latest();
 
         $orders = $q->paginate(15)->withQueryString();
-        return view('sales_orders.index', compact('orders','status'));
+        return view('sales_orders.index', compact('orders','status','search'));
     }
 
     /** Detail SO. */
@@ -1286,3 +1300,4 @@ class SalesOrderController extends Controller
     }
 
 }
+

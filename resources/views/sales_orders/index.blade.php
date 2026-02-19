@@ -39,6 +39,23 @@
     {!! $btn('cancelled','Cancelled') !!}
   </div>
 
+  <form method="GET" action="{{ route('sales-orders.index') }}" class="mb-3">
+    @if($st)
+      <input type="hidden" name="status" value="{{ $st }}">
+    @endif
+    <div class="input-group" style="max-width: 520px;">
+      <input type="text"
+             name="q"
+             class="form-control"
+             placeholder="Search SO / PO / Customer / Company"
+             value="{{ $search ?? '' }}">
+      <button type="submit" class="btn btn-primary">Search</button>
+      @if(!empty($search))
+        <a href="{{ route('sales-orders.index', array_filter(['status' => $st])) }}" class="btn btn-outline-secondary">Reset</a>
+      @endif
+    </div>
+  </form>
+
   <div class="card">
     <div class="table-responsive">
       <table class="table table-vcenter card-table">
@@ -140,3 +157,4 @@
   .table .btn-link:hover { text-decoration: underline; }
 </style>
 @endpush
+
