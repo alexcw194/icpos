@@ -186,10 +186,17 @@ class InvoiceController extends Controller
 
         return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice created from Billing Term.');
     }
-
     protected function authorizePermission(string $permission): void
     {
-        abort_unless(auth()->user()?->can($permission), 403, 'This action is unauthorized.');
+        $user = auth()->user();
+        abort_unless($user, 403, 'This action is unauthorized.');
+
+        // Keep Admin/SuperAdmin access aligned with InvoicePolicy, even if fine-grained permissions are not seeded.
+        if ($user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+            return;
+        }
+
+        abort_unless($user->can($permission), 403, 'This action is unauthorized.');
     }
 
     public function pdfProforma(\App\Models\Invoice $invoice)
@@ -406,3 +413,4 @@ if (!function_exists('schema')) {
         return \Illuminate\Support\Facades\Schema::getFacadeRoot();
     }
 }
+
