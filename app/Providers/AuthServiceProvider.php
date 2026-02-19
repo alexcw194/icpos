@@ -37,6 +37,7 @@ class AuthServiceProvider extends ServiceProvider
             if ($user->hasRole('SuperAdmin')) return true;                 // full bypass
             // treat all finance abilities as admin-allowed
             if ($user->hasRole('Admin') && str_starts_with($ability ?? '', 'finance.')) return true;
+            if ($user->hasRole('Admin') && str_starts_with($ability ?? '', 'deliveries.')) return true;
             return null;
         });
 
