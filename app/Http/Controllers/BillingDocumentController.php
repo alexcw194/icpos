@@ -76,7 +76,7 @@ class BillingDocumentController extends Controller
                 'name' => $ln->name,
                 'description' => $ln->po_item_name ?: $ln->description,
                 'unit' => $ln->unit,
-                'qty' => (float) ($ln->qty_ordered ?? 0),
+                'qty' => round((float) ($ln->qty_ordered ?? 0), 2),
                 'unit_price' => (float) ($ln->unit_price ?? 0),
                 'discount_type' => $ln->discount_type ?? 'amount',
                 'discount_value' => (float) ($ln->discount_value ?? 0),
@@ -136,7 +136,7 @@ class BillingDocumentController extends Controller
             $lines = [];
 
             foreach ($data['lines'] as $idx => $row) {
-                $qty = $this->toNumber($row['qty'] ?? 0);
+                $qty = round($this->toNumber($row['qty'] ?? 0), 2);
                 $unitPrice = $this->toNumber($row['unit_price'] ?? 0);
                 $discType = $row['discount_type'] ?? 'amount';
                 $discValue = $this->toNumber($row['discount_value'] ?? 0);
@@ -218,7 +218,7 @@ class BillingDocumentController extends Controller
             'lines.*.id' => ['required','integer'],
             'lines.*.name' => ['required','string'],
             'lines.*.description' => ['nullable','string'],
-            'lines.*.qty' => ['required','numeric','min:0.0001'],
+            'lines.*.qty' => ['required','numeric','min:0.01'],
             'lines.*.unit' => ['nullable','string','max:16'],
             'lines.*.unit_price' => ['required','numeric','min:0'],
             'lines.*.discount_type' => ['nullable','in:amount,percent'],
@@ -237,7 +237,7 @@ class BillingDocumentController extends Controller
 
             foreach ($data['lines'] as $row) {
                 $line = $existing[(int) $row['id']];
-                $qty = $this->toNumber($row['qty'] ?? 0);
+                $qty = round($this->toNumber($row['qty'] ?? 0), 2);
                 $unitPrice = $this->toNumber($row['unit_price'] ?? 0);
                 $discType = $row['discount_type'] ?? 'amount';
                 $discValue = $this->toNumber($row['discount_value'] ?? 0);
@@ -487,7 +487,7 @@ class BillingDocumentController extends Controller
                         'name' => $line->name,
                         'description' => $line->description,
                         'unit' => $line->unit,
-                        'qty' => (float) $line->qty,
+                        'qty' => round((float) $line->qty, 2),
                         'unit_price' => (float) $line->unit_price,
                         'discount_type' => $line->discount_type,
                         'discount_value' => (float) $line->discount_value,
@@ -586,3 +586,4 @@ class BillingDocumentController extends Controller
         return (float) $s;
     }
 }
+

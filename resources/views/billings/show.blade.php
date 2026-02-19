@@ -192,9 +192,9 @@
                 </td>
                 <td class="text-end">
                   @if($isEditable)
-                    <input type="number" step="0.0001" min="0" name="lines[{{ $i }}][qty]" class="form-control form-control-sm text-end js-qty" value="{{ number_format((float) $ln->qty, 4, '.', '') }}">
+                    <input type="number" step="0.01" min="0" name="lines[{{ $i }}][qty]" class="form-control form-control-sm text-end js-qty" value="{{ number_format((float) $ln->qty, 2, '.', '') }}">
                   @else
-                    {{ number_format((float) $ln->qty, 4) }}
+                    {{ number_format((float) $ln->qty, 2) }}
                   @endif
                 </td>
                 <td>
@@ -409,3 +409,4 @@
 @endif
 @endpush
 @endsection
+
