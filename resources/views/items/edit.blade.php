@@ -68,8 +68,10 @@
   const form  = document.getElementById('itemEditForm');
   if (!form) return;
 
-  const input = form.querySelector('input[name="price"]');
-  if (!input) return;
+  const moneyInputs = Array.from(
+    form.querySelectorAll('input[name="price"], input[name="default_cost"]')
+  );
+  if (!moneyInputs.length) return;
 
   function toNum(v) {
     if (v == null) return 0;
@@ -106,22 +108,32 @@
     }
   }
 
-  function unformatInput(el) { el.value = String(toNum(el.value)); }
-  function formatInput(el)   {
+  function unformatInput(el) {
+    const val = (el.value || '').trim();
+    if (val === '') return;
+    el.value = String(toNum(el.value));
+  }
+
+  function formatInput(el) {
     const val = (el.value || '').trim();
     if (val === '') return;
     el.value = formatMoney(toNum(el.value));
   }
 
-  if ((input.value || '').trim() !== '') {
-    formatInput(input);
-  }
+  moneyInputs.forEach((input) => {
+    if ((input.value || '').trim() !== '') {
+      formatInput(input);
+    }
 
-  input.addEventListener('focus', () => unformatInput(input));
-  input.addEventListener('blur',  () => formatInput(input));
+    input.addEventListener('focus', () => unformatInput(input));
+    input.addEventListener('blur', () => formatInput(input));
+  });
 
   form.addEventListener('submit', () => {
-    input.value = String(toNum(input.value));
+    moneyInputs.forEach((input) => {
+      const val = (input.value || '').trim();
+      input.value = val === '' ? '' : String(toNum(input.value));
+    });
   });
 })();
 </script>
