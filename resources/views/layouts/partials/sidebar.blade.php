@@ -1,9 +1,10 @@
-﻿@php
+@php
   use Illuminate\Support\Facades\Route;
 
   $hasCustomers = Route::has('customers.index');
   $hasItems     = Route::has('items.index');
   $hasProjects  = Route::has('projects.index');
+  $financeOnly = auth()->user()?->isFinanceOnly() ?? false;
 
   $appName = config('app.name','ICPOS');
   $logoUrl = null;
@@ -96,13 +97,13 @@
 
           {{-- Sales (always open) --}}
           <li class="nav-item nav-group">
-            <div class="nav-link {{ request()->is('quotations*') || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') ? 'active' : '' }}">
+            <div class="nav-link {{ ((!$financeOnly && request()->is('quotations*')) || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*')) ? 'active' : '' }}">
               <span class="nav-link-icon ti ti-file-invoice"></span>
               <span class="nav-link-title">Sales</span>
             </div>
 
             <ul class="nav nav-pills sub-nav flex-column ms-4">
-              @if(Route::has('quotations.index'))
+              @if(!$financeOnly && Route::has('quotations.index'))
                 <li>
                   <a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}"
                      href="{{ route('quotations.index') }}">
@@ -358,3 +359,4 @@
     </div>
   </div>
 </aside>
+

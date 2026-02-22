@@ -174,7 +174,7 @@ class CustomerController extends Controller
             ->with([
                 'company:id,alias,name',
                 'salesOwner:id,name',
-                'quotations' => fn($qq) => $qq->latest('quotation_date')->limit(1),
+                'quotations' => fn($qq) => $qq->visibleTo(auth()->user())->latest('quotation_date')->limit(1),
             ])
             ->when($q !== '' && $tab === 'projects', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
@@ -838,3 +838,4 @@ class CustomerController extends Controller
         }
     }
 }
+

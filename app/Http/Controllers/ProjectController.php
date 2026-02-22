@@ -112,18 +112,32 @@ class ProjectController extends Controller
         return redirect()->route('projects.index')->with('success', 'Project berhasil dibuat.');
     }
 
-    public function show(Project $project)
+    public function show(Request $request, Project $project)
     {
         $this->authorize('view', $project);
 
-        $project->load([
+        $user = $request->user();
+        $canViewProjectQuotations = !($user?->isFinanceOnly());
+
+        $relations = [
             'customer',
             'company',
             'salesOwner',
-            'quotations' => fn($q) => $q->latest('quotation_date'),
-        ]);
+        ];
 
-        return view('projects.show', compact('project'));
+        if ($canViewProjectQuotations) {
+            $relations['quotations'] = fn($q) => $q
+                ->visibleTo($user)
+                ->latest('quotation_date');
+        }
+
+        $project->load($relations);
+
+        if (!$canViewProjectQuotations && $request->query('tab') === 'quotations') {
+            return redirect()->route('projects.show', ['project' => $project, 'tab' => 'overview']);
+        }
+
+        return view('projects.show', compact('project', 'canViewProjectQuotations'));
     }
 
     public function edit(Project $project)
@@ -184,3 +198,4 @@ class ProjectController extends Controller
         return redirect()->route('projects.index')->with('success', 'Project dihapus.');
     }
 }
+

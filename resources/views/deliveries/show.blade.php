@@ -1,6 +1,7 @@
 @extends('layouts.tabler')
 
 @section('content')
+@php $financeOnly = auth()->user()?->isFinanceOnly() ?? false; @endphp
 <div class="container-xl">
   @if($errors->any())
     <div class="alert alert-danger mb-3">
@@ -167,7 +168,7 @@
           </div>
           <div class="list-group-item">
             <div class="text-muted small">Quotation</div>
-            @if($delivery->quotation)
+            @if($delivery->quotation && !$financeOnly)
               <a href="{{ route('quotations.show', $delivery->quotation) }}">{{ $delivery->quotation->number ?? ('#'.$delivery->quotation->id) }}</a>
             @else
               <span class="text-muted">-</span>
@@ -226,3 +227,4 @@
   </div>
 @endcan
 @endsection
+

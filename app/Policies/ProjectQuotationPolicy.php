@@ -12,12 +12,16 @@ class ProjectQuotationPolicy
 
     public function viewAny(User $user): bool
     {
-        return true;
+        return !($user->isFinanceOnly());
     }
 
     public function view(User $user, ProjectQuotation $quotation): bool
     {
-        if ($user->hasAnyRole(['Admin', 'SuperAdmin', 'Finance', 'Logistic'])) {
+        if ($user->isFinanceOnly()) {
+            return false;
+        }
+
+        if ($user->hasAnyRole(['Admin', 'SuperAdmin', 'Logistic'])) {
             return true;
         }
 

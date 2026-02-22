@@ -44,26 +44,34 @@
         <a href="{{ route('invoices.pdf', $invoice) }}" target="_blank" class="btn btn-outline-primary">
           PDF Invoice
         </a>
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modal-post-invoice">
-          Post Invoice
-        </button>
+        @can('invoices.post')
+          <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modal-post-invoice">
+            Post Invoice
+          </button>
+        @endcan
       @elseif($invStatus === 'posted')
         <a href="{{ route('invoices.pdf', $invoice) }}" target="_blank" class="btn btn-outline-primary">
           PDF Invoice
         </a>
-        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-update-receipt">
-          Update Due Date / Upload TT
-        </button>
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modal-mark-paid">
-          Mark as Paid
-        </button>
+        @can('invoices.update')
+          <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-update-receipt">
+            Update Due Date / Upload TT
+          </button>
+        @endcan
+        @can('invoices.pay')
+          <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modal-mark-paid">
+            Mark as Paid
+          </button>
+        @endcan
       @elseif($invStatus === 'paid')
         <a href="{{ route('invoices.pdf', $invoice) }}" target="_blank" class="btn btn-outline-primary">
           PDF Invoice
         </a>
-        <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modal-mark-paid">
-          Update Payment
-        </button>
+        @can('invoices.pay')
+          <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modal-mark-paid">
+            Update Payment
+          </button>
+        @endcan
       @else
         <a href="{{ route('invoices.pdf', $invoice) }}" target="_blank" class="btn btn-outline-primary">
           PDF Invoice
@@ -225,7 +233,7 @@
     </div>
   @endif
 
-  @if($invStatus === 'draft')
+  @if($invStatus === 'draft' && auth()->user()?->can('invoices.post'))
     <div class="modal fade" id="modal-post-invoice" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog">
         <form class="modal-content" method="POST" action="{{ route('invoices.post', $invoice) }}" enctype="multipart/form-data">
@@ -262,7 +270,7 @@
     </div>
   @endif
 
-  @if($invStatus === 'posted')
+  @if($invStatus === 'posted' && auth()->user()?->can('invoices.update'))
     <div class="modal fade" id="modal-update-receipt" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog">
         <form class="modal-content" method="POST" action="{{ route('invoices.update-receipt', $invoice) }}" enctype="multipart/form-data">
@@ -294,7 +302,7 @@
     </div>
   @endif
 
-  @if(in_array($invStatus, ['posted', 'paid'], true))
+  @if(in_array($invStatus, ['posted', 'paid'], true) && auth()->user()?->can('invoices.pay'))
     @php $hasBanks = $banks->isNotEmpty(); @endphp
     <div class="modal fade" id="modal-mark-paid" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog">
@@ -360,3 +368,4 @@
   @endif
 </div>
 @endsection
+

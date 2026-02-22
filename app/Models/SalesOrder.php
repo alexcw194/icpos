@@ -67,7 +67,7 @@ class SalesOrder extends Model
             return $query->whereRaw('1=0');
         }
 
-        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole(['Admin', 'SuperAdmin', 'Finance'])) {
             return $query;
         }
 

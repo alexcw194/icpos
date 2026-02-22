@@ -16,6 +16,32 @@ use App\Support\MailConfigurator;
 
 class QuotationController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $user = $request->user();
+
+            if ($user && method_exists($user, 'isFinanceOnly') && $user->isFinanceOnly()) {
+                abort(403, 'This action is unauthorized.');
+            }
+
+            $quotation = $request->route('quotation');
+            $quotationId = $quotation instanceof Quotation
+                ? (int) $quotation->id
+                : (is_numeric($quotation) ? (int) $quotation : 0);
+
+            if ($quotationId > 0 && $user) {
+                $allowed = Quotation::query()
+                    ->visibleTo($user)
+                    ->whereKey($quotationId)
+                    ->exists();
+
+                abort_unless($allowed, 403, 'This action is unauthorized.');
+            }
+
+            return $next($request);
+        });
+    }
     /** Hanya 3 status ini yang dipakai */
     private const ALLOWED_STATUS = ['draft','sent','won'];
 
@@ -50,7 +76,7 @@ class QuotationController extends Controller
         $quotations = $query->paginate(15)->withQueryString();
         $companies  = Company::orderBy('name')->get(['id','alias','name']);
 
-        // Data untuk panel preview (kanan) — wajib ikut visibleTo
+        // Data untuk panel preview (kanan) - wajib ikut visibleTo
         $active = null;
         if ($highlightId) {
             $active = Quotation::query()
@@ -311,7 +337,7 @@ class QuotationController extends Controller
         $pdfBinary = $pdf->output();
 
         $companyName = $quotation->company->alias ?? $quotation->company->name ?? 'Company';
-        $subject     = 'Quotation '.$quotation->number.' — '.$companyName;
+        $subject     = 'Quotation '.$quotation->number.' - '.$companyName;
 
         // 3) Pengirim = sales user atau user login
         $sender = $quotation->salesUser ?? auth()->user();
@@ -344,7 +370,7 @@ class QuotationController extends Controller
                 ->from($fromEmail, $fromName)
                 ->replyTo($sender->email ?? $fromEmail, $sender->name ?? $fromName);
 
-            // 7) Tentukan CC sesuai preferensi user (email_cc_self) → ke email login user
+            // 7) Tentukan CC sesuai preferensi user (email_cc_self) -> ke email login user
             $cc = null;
             if (!empty($sender->email_cc_self)) {
                 $cc = $sender->email ?? null;
@@ -695,3 +721,5 @@ class QuotationController extends Controller
         return view('quotations._preview', compact('quotation'));
     }
 }
+
+

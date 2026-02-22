@@ -2,11 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Invoice;
+use App\Models\User;
+use App\Policies\InvoicePolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
-use App\Models\Invoice;
-use App\Policies\InvoicePolicy;
-use App\Models\User;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -16,8 +16,8 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        \App\Models\Customer::class   => \App\Policies\CustomerPolicy::class,
-        \App\Models\SalesOrder::class => \App\Policies\SalesOrderPolicy::class, // + Sales Order
+        \App\Models\Customer::class => \App\Policies\CustomerPolicy::class,
+        \App\Models\SalesOrder::class => \App\Policies\SalesOrderPolicy::class,
         Invoice::class => InvoicePolicy::class,
         \App\Models\Project::class => \App\Policies\ProjectPolicy::class,
         \App\Models\ProjectQuotation::class => \App\Policies\ProjectQuotationPolicy::class,
@@ -29,19 +29,45 @@ class AuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Daftarkan policy
         $this->registerPolicies();
 
-        // Super Admin bypass semua ability
         Gate::before(function (User $user, string $ability = null) {
-            if ($user->hasRole('SuperAdmin')) return true;                 // full bypass
-            // treat all finance abilities as admin-allowed
-            if ($user->hasRole('Admin') && str_starts_with($ability ?? '', 'finance.')) return true;
-            if ($user->hasRole('Admin') && str_starts_with($ability ?? '', 'deliveries.')) return true;
+            $ability = $ability ?? '';
+
+            if ($user->hasRole('SuperAdmin')) {
+                return true;
+            }
+
+            if ($user->hasRole('Admin') && str_starts_with($ability, 'finance.')) {
+                return true;
+            }
+
+            if ($user->hasRole('Admin') && str_starts_with($ability, 'deliveries.')) {
+                return true;
+            }
+
+            if ($user->hasRole('Admin') && str_starts_with($ability, 'invoices.')) {
+                return true;
+            }
+
+            if ($user->hasRole('Finance')) {
+                $financeAbilities = [
+                    'invoices.view',
+                    'invoices.create',
+                    'invoices.update',
+                    'invoices.post',
+                    'deliveries.view',
+                    'deliveries.create',
+                    'deliveries.update',
+                    'deliveries.post',
+                ];
+
+                if (in_array($ability, $financeAbilities, true)) {
+                    return true;
+                }
+            }
+
             return null;
         });
-
-        // Gate tambahan bisa didefinisikan di sini bila diperlukan
-        // Gate::define('something', fn($user) => ...);
     }
 }

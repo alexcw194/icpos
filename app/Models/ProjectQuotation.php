@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
-use Illuminate\Database\Eloquent\Builder;
 
 class ProjectQuotation extends Model
 {
@@ -111,7 +111,11 @@ class ProjectQuotation extends Model
             return $query->whereRaw('1=0');
         }
 
-        if ($u->hasAnyRole(['Admin', 'SuperAdmin', 'Finance', 'Logistic'])) {
+        if (method_exists($u, 'isFinanceOnly') && $u->isFinanceOnly()) {
+            return $query->whereRaw('1=0');
+        }
+
+        if ($u->hasAnyRole(['Admin', 'SuperAdmin', 'Logistic'])) {
             return $query;
         }
 

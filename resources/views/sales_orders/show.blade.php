@@ -6,6 +6,7 @@
   $contractValue = (float) ($o->contract_value ?? $o->total ?? 0);
   $voAppliedTotal = ($o->relationLoaded('variations') ? $o->variations->where('status', 'applied')->sum('delta_amount') : 0);
   $isCancelled = $o->status === 'cancelled';
+  $financeOnly = auth()->user()?->isFinanceOnly() ?? false;
   $statusMap = [
     'open'               => ['Open','bg-yellow-lt text-dark'],
     'partial_delivered'  => ['Partial Delivered','bg-cyan-lt text-dark'],
@@ -44,7 +45,7 @@
       <h2 class="page-title mb-1">
         Sales Order
         <span class="text-muted">{{ $o->so_number }}</span>
-        @if ($o->quotation) 
+        @if ($o->quotation && !$financeOnly) 
           <span class="ms-2 text-muted">· From Quotation:
             <a href="{{ route('quotations.show', $o->quotation) }}">
               {{ $o->quotation->number }}
@@ -524,6 +525,4 @@
 </div>
 
 @endsection
-
-
 

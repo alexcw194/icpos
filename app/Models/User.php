@@ -96,6 +96,15 @@ class User extends Authenticatable
         return $this->hasRole('Admin');
     }
 
+    public function isFinanceOnly(): bool
+    {
+        if (!$this->hasRole('Finance')) {
+            return false;
+        }
+
+        return !$this->hasAnyRole(['Sales', 'Admin', 'SuperAdmin']);
+    }
+
     /**
      * (Legacy) Jika masih memakai role tunggal.
      * Sudah tidak diperlukan bila pakai Spatie HasRoles sepenuhnya.
@@ -118,3 +127,4 @@ class User extends Authenticatable
         return asset('storage/' . $this->profile_image_path);
     }
 }
+

@@ -30,6 +30,17 @@ use Illuminate\Validation\Rule;
 
 class ProjectQuotationController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $user = $request->user();
+            if ($user && method_exists($user, 'isFinanceOnly') && $user->isFinanceOnly()) {
+                abort(403, 'This action is unauthorized.');
+            }
+
+            return $next($request);
+        });
+    }
     private const PAYMENT_TERM_TRIGGERS = [
         'on_invoice',
         'after_invoice_days',
@@ -1034,3 +1045,4 @@ class ProjectQuotationController extends Controller
             ]);
     }
 }
+

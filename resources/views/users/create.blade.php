@@ -1,6 +1,13 @@
 @extends('layouts.tabler')
 
 @section('content')
+@php
+  $selectedRoles = collect(old('roles', old('role') ? [old('role')] : ['Sales']))
+    ->filter(fn ($role) => is_string($role) && trim($role) !== '')
+    ->map(fn ($role) => trim($role))
+    ->values()
+    ->all();
+@endphp
 <div class="container-xl">
   <div class="card">
     <div class="card-header">
@@ -39,15 +46,27 @@
         <div class="row g-3">
           <div class="col-md-8">
             <div class="mb-3">
-              <label class="form-label">Role</label>
-              <select name="role" class="form-select" required>
+              <label class="form-label">Roles</label>
+              <div class="row g-2">
                 @foreach(($roles ?? []) as $roleName)
-                  <option value="{{ $roleName }}" @selected(old('role', 'Sales') === $roleName)>
-                    {{ $roleName }}
-                  </option>
+                  <div class="col-md-4 col-sm-6">
+                    <label class="form-check">
+                      <input
+                        class="form-check-input role-checkbox"
+                        type="checkbox"
+                        name="roles[]"
+                        value="{{ $roleName }}"
+                        data-role-name="{{ $roleName }}"
+                        @checked(in_array($roleName, $selectedRoles, true))
+                      >
+                      <span class="form-check-label">{{ $roleName }}</span>
+                    </label>
+                  </div>
                 @endforeach
-              </select>
-              <small class="text-muted">Role diambil dari database (Spatie).</small>
+              </div>
+              @error('roles')<div class="text-danger small">{{ $message }}</div>@enderror
+              @error('roles.*')<div class="text-danger small">{{ $message }}</div>@enderror
+              <small class="text-muted d-block">Role diambil dari database (Spatie). Admin bersifat eksklusif.</small>
             </div>
           </div>
 
@@ -89,3 +108,41 @@
   </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+  (function () {
+    const boxes = Array.from(document.querySelectorAll('.role-checkbox'));
+    if (!boxes.length) return;
+
+    const adminBox = boxes.find((el) => (el.dataset.roleName || '').toLowerCase() === 'admin');
+    if (!adminBox) return;
+
+    const syncAdminExclusivity = () => {
+      const adminChecked = adminBox.checked;
+      boxes.forEach((box) => {
+        if (box === adminBox) return;
+        if (adminChecked) {
+          box.checked = false;
+          box.disabled = true;
+        } else {
+          box.disabled = false;
+        }
+      });
+    };
+
+    boxes.forEach((box) => {
+      box.addEventListener('change', () => {
+        if (box === adminBox && adminBox.checked) {
+          boxes.forEach((other) => {
+            if (other !== adminBox) other.checked = false;
+          });
+        }
+        syncAdminExclusivity();
+      });
+    });
+
+    syncAdminExclusivity();
+  })();
+</script>
+@endpush

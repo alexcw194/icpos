@@ -3,6 +3,11 @@
 @section('content')
 @php
   $avatarUrl = $user->profile_image_path ? asset('storage/'.$user->profile_image_path) : null;
+  $selectedRoles = collect(old('roles', old('role') ? [old('role')] : ($currentRoles ?? $user->getRoleNames()->all())))
+    ->filter(fn ($role) => is_string($role) && trim($role) !== '')
+    ->map(fn ($role) => trim($role))
+    ->values()
+    ->all();
 @endphp
 
 <div class="container-xl">
@@ -45,14 +50,28 @@
           @error('phone')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
 
-        <div class="col-md-4">
-          <label class="form-label">Role</label>
-          <select name="role" class="form-select" required>
-            @foreach($roles as $r)
-              <option value="{{ $r }}" @selected(old('role',$user->getRoleNames()->first())===$r)>{{ $r }}</option>
+        <div class="col-md-6">
+          <label class="form-label">Roles</label>
+          <div class="row g-2">
+            @foreach($roles as $roleName)
+              <div class="col-md-6">
+                <label class="form-check">
+                  <input
+                    class="form-check-input role-checkbox"
+                    type="checkbox"
+                    name="roles[]"
+                    value="{{ $roleName }}"
+                    data-role-name="{{ $roleName }}"
+                    @checked(in_array($roleName, $selectedRoles, true))
+                  >
+                  <span class="form-check-label">{{ $roleName }}</span>
+                </label>
+              </div>
             @endforeach
-          </select>
-          @error('role')<div class="text-danger small">{{ $message }}</div>@enderror
+          </div>
+          @error('roles')<div class="text-danger small">{{ $message }}</div>@enderror
+          @error('roles.*')<div class="text-danger small">{{ $message }}</div>@enderror
+          <small class="text-muted d-block">Admin bersifat eksklusif.</small>
         </div>
 
         <div class="col-md-4 d-flex align-items-end">
@@ -104,21 +123,53 @@
 
 @push('scripts')
 <script>
-  // Preview avatar langsung saat pilih file
   (function(){
     const form = document.getElementById('userEditForm');
     if(!form) return;
+
+    // Preview avatar langsung saat pilih file
     const file = form.querySelector('input[name="avatar"]');
     const avatar = form.closest('.card').querySelector('.avatar');
-    if(!file || !avatar) return;
+    if(file && avatar){
+      file.addEventListener('change', (e) => {
+        const f = e.target.files?.[0];
+        if(!f) return;
+        const reader = new FileReader();
+        reader.onload = ev => { avatar.style.backgroundImage = `url('${ev.target.result}')`; };
+        reader.readAsDataURL(f);
+      });
+    }
 
-    file.addEventListener('change', (e) => {
-      const f = e.target.files?.[0];
-      if(!f) return;
-      const reader = new FileReader();
-      reader.onload = ev => { avatar.style.backgroundImage = `url('${ev.target.result}')`; };
-      reader.readAsDataURL(f);
+    // Admin role eksklusif
+    const boxes = Array.from(form.querySelectorAll('.role-checkbox'));
+    const adminBox = boxes.find((el) => (el.dataset.roleName || '').toLowerCase() === 'admin');
+    if(!adminBox) return;
+
+    const syncAdminExclusivity = () => {
+      const adminChecked = adminBox.checked;
+      boxes.forEach((box) => {
+        if (box === adminBox) return;
+        if (adminChecked) {
+          box.checked = false;
+          box.disabled = true;
+        } else {
+          box.disabled = false;
+        }
+      });
+    };
+
+    boxes.forEach((box) => {
+      box.addEventListener('change', () => {
+        if (box === adminBox && adminBox.checked) {
+          boxes.forEach((other) => {
+            if (other !== adminBox) other.checked = false;
+          });
+        }
+        syncAdminExclusivity();
+      });
     });
+
+    syncAdminExclusivity();
   })();
 </script>
 @endpush

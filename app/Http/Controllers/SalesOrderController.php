@@ -41,6 +41,12 @@ class SalesOrderController extends Controller
     /** Wizard: Create Sales Order from Quotation (UI). */
     public function createFromQuotation(Quotation $quotation)
     {
+        $this->authorize('create', SalesOrder::class);
+        abort_unless(
+            Quotation::query()->visibleTo(auth()->user())->whereKey($quotation->id)->exists(),
+            403,
+            'This action is unauthorized.'
+        );
 
         $quotation->load(['customer','company','salesUser','lines']);
 
@@ -893,6 +899,13 @@ class SalesOrderController extends Controller
     /** Simpan hasil wizard Create SO. */
     public function storeFromQuotation(Request $request, Quotation $quotation)
     {
+        $this->authorize('create', SalesOrder::class);
+        abort_unless(
+            Quotation::query()->visibleTo(auth()->user())->whereKey($quotation->id)->exists(),
+            403,
+            'This action is unauthorized.'
+        );
+
         // 1) Validasi (rules murni, tanpa angka)
         $data = $request->validate([
             'po_number'      => ['nullable','string','max:100'],

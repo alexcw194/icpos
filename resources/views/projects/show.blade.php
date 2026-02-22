@@ -3,6 +3,10 @@
 @section('content')
 @php
   $tab = request('tab', 'overview');
+  $canViewProjectQuotations = $canViewProjectQuotations ?? true;
+  if (!$canViewProjectQuotations && $tab === 'quotations') {
+    $tab = 'overview';
+  }
 @endphp
 
 <div class="container-xl">
@@ -28,10 +32,12 @@
              class="list-group-item subrail-link d-flex align-items-center {{ $tab==='overview' ? 'active' : '' }}">
             <i class="ti ti-layout-grid me-2"></i> <span>Overview</span>
           </a>
-          <a href="{{ route('projects.show', [$project, 'tab' => 'quotations']) }}"
-             class="list-group-item subrail-link d-flex align-items-center {{ $tab==='quotations' ? 'active' : '' }}">
-            <i class="ti ti-file-description me-2"></i> <span>Quotations (BQ)</span>
-          </a>
+          @if($canViewProjectQuotations)
+            <a href="{{ route('projects.show', [$project, 'tab' => 'quotations']) }}"
+               class="list-group-item subrail-link d-flex align-items-center {{ $tab==='quotations' ? 'active' : '' }}">
+              <i class="ti ti-file-description me-2"></i> <span>Quotations (BQ)</span>
+            </a>
+          @endif
         </div>
       </div>
     </div>
@@ -95,7 +101,7 @@
         </div>
       @endif
 
-      @if($tab === 'quotations')
+      @if($canViewProjectQuotations && $tab === 'quotations')
         <div class="card">
           <div class="card-header">
             <div class="card-title">Project Quotations (BQ)</div>
@@ -171,3 +177,4 @@
   }
 </style>
 @endpush
+
