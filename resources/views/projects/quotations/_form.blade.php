@@ -392,9 +392,9 @@
                   </td>
                   <td>
                     <input type="text" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_total]" class="form-control text-end js-line-labor" value="{{ $line['labor_total'] ?? 0 }}" readonly>
-                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_cost_amount]" class="js-line-labor-cost" value="{{ $line['labor_cost_amount'] ?? '' }}">
-                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_cost_missing]" class="js-line-labor-cost-missing" value="{{ $laborCostMissing ? 1 : 0 }}">
-                    <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_margin_amount]" class="js-line-labor-margin" value="{{ $line['labor_margin_amount'] ?? '' }}">
+                    <input type="hidden" class="js-line-labor-cost" value="{{ $line['labor_cost_amount'] ?? '' }}">
+                    <input type="hidden" class="js-line-labor-cost-missing" value="{{ $laborCostMissing ? 1 : 0 }}">
+                    <input type="hidden" class="js-line-labor-margin" value="{{ $line['labor_margin_amount'] ?? '' }}">
                   </td>
                   <td class="text-end"><span class="js-line-total">0</span></td>
                   <td class="text-nowrap text-end">
@@ -1313,9 +1313,9 @@
         </td>
         <td>
           <input type="text" name="sections[${sIndex}][lines][${lIndex}][labor_total]" class="form-control text-end js-line-labor" value="${laborTotal}" readonly>
-          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_cost_amount]" class="js-line-labor-cost" value="${laborCostAmount}">
-          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_cost_missing]" class="js-line-labor-cost-missing" value="${laborCostMissing ? 1 : 0}">
-          <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_margin_amount]" class="js-line-labor-margin" value="${laborMarginAmount}">
+          <input type="hidden" class="js-line-labor-cost" value="${laborCostAmount}">
+          <input type="hidden" class="js-line-labor-cost-missing" value="${laborCostMissing ? 1 : 0}">
+          <input type="hidden" class="js-line-labor-margin" value="${laborMarginAmount}">
         </td>
         <td class="text-end"><span class="js-line-total">0</span></td>
         <td class="text-nowrap text-end">

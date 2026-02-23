@@ -34,8 +34,10 @@ class ProjectQuotationTotalsService
                 $lineType = $line['line_type'] ?? 'product';
                 $qty = Number::idToFloat($line['qty'] ?? 0);
                 $unitPrice = Number::idToFloat($line['unit_price'] ?? 0);
-                $materialTotal = Number::idToFloat($line['material_total'] ?? 0);
-                $laborTotal = Number::idToFloat($line['labor_total'] ?? 0);
+                $materialRaw = $line['material_total'] ?? null;
+                $laborRaw = $line['labor_total'] ?? null;
+                $materialTotal = Number::idToFloat($materialRaw ?? 0);
+                $laborTotal = Number::idToFloat($laborRaw ?? 0);
                 $percentValue = $lineType === 'percent'
                     ? $this->parsePercent($line['percent_value'] ?? 0)
                     : null;
@@ -46,6 +48,23 @@ class ProjectQuotationTotalsService
                     ? Number::idToFloat($line['computed_amount'] ?? 0)
                     : null;
                 $laborUnitSnapshot = Number::idToFloat($line['labor_unit_cost_snapshot'] ?? 0);
+
+                // Fallback when some numeric inputs are missing (e.g. near max_input_vars limit).
+                if ($lineType !== 'percent' && ($materialRaw === null || $materialRaw === '')) {
+                    if ($lineType === 'charge' && (($line['cost_bucket'] ?? 'material') === 'labor')) {
+                        $materialTotal = 0.0;
+                    } else {
+                        $materialTotal = $qty * $unitPrice;
+                    }
+                }
+                if ($lineType !== 'percent' && ($laborRaw === null || $laborRaw === '')) {
+                    if ($laborUnitSnapshot > 0) {
+                        $laborTotal = $qty * $laborUnitSnapshot;
+                    } else {
+                        $laborTotal = 0.0;
+                    }
+                }
+
                 if ($laborUnitSnapshot <= 0 && $qty > 0 && $laborTotal > 0) {
                     $laborUnitSnapshot = $laborTotal / $qty;
                 }
@@ -242,3 +261,4 @@ class ProjectQuotationTotalsService
         return $map;
     }
 }
+

@@ -765,8 +765,8 @@ class ProjectQuotationController extends Controller
             'sections.*.lines.*.qty' => ['required', 'numeric', 'min:0'],
             'sections.*.lines.*.unit' => ['required', 'string', 'max:16'],
             'sections.*.lines.*.unit_price' => ['nullable', 'numeric', 'min:0'],
-            'sections.*.lines.*.material_total' => ['required', 'numeric', 'min:0'],
-            'sections.*.lines.*.labor_total' => ['required', 'numeric', 'min:0'],
+            'sections.*.lines.*.material_total' => ['nullable', 'numeric', 'min:0'],
+            'sections.*.lines.*.labor_total' => ['nullable', 'numeric', 'min:0'],
             'sections.*.lines.*.labor_source' => ['nullable', 'in:master_item,master_project,manual'],
             'sections.*.lines.*.labor_unit_cost_snapshot' => ['nullable', 'numeric', 'min:0'],
         ])->validate();
