@@ -12,10 +12,12 @@ class Supplier extends Model
         'email',
         'address',
         'notes',
+        'default_billing_terms',
         'is_active',
     ];
 
     protected $casts = [
+        'default_billing_terms' => 'array',
         'is_active' => 'boolean',
     ];
 }

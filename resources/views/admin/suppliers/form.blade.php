@@ -37,6 +37,12 @@
             <textarea name="notes" class="form-control" rows="2">{{ old('notes', $row->notes) }}</textarea>
           </div>
           <div class="col-12">
+            @include('sales_orders._billing_terms_form', [
+              'billingTermsData' => $billingTermsData,
+              'topOptions' => $topOptions,
+            ])
+          </div>
+          <div class="col-12">
             <label class="form-check">
               <input type="checkbox" name="is_active" class="form-check-input" value="1"
                      @checked(old('is_active', $row->is_active))>

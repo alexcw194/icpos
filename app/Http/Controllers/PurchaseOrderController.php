@@ -48,7 +48,7 @@ class PurchaseOrderController extends Controller
     public function create(Request $request) {
         $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent']);
         $warehouses = Warehouse::orderBy('name')->get(['id','name']);
-        $suppliers = Supplier::orderBy('name')->get(['id','name','is_active']);
+        $suppliers = Supplier::orderBy('name')->get(['id','name','is_active','default_billing_terms']);
         $topOptions = TermOfPayment::query()
             ->whereIn('code', TermOfPayment::ALLOWED_CODES)
             ->orderBy('code')
@@ -224,7 +224,7 @@ class PurchaseOrderController extends Controller
         return redirect()->route('gr.show', $gr);
     }
 
-    /** Ubah "1.234,56" → 1234.56; "1.234" → 1234 ; null → 0 */
+    /** Ubah "1.234,56" -> 1234.56; "1.234" -> 1234 ; null -> 0 */
     private function toNumber($val): float
     {
         if ($val === null || $val === '') return 0.0;

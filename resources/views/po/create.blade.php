@@ -28,7 +28,7 @@
           <div class="col-md-3">
             <label class="form-label">Warehouse</label>
             <select name="warehouse_id" class="form-select">
-              <option value="">—</option>
+              <option value="">-</option>
               @foreach($warehouses as $w)
               <option value="{{ $w->id }}">{{ $w->name }}</option>
               @endforeach
@@ -37,9 +37,11 @@
           <div class="col-md-3">
             <label class="form-label">Supplier</label>
             <select name="supplier_id" class="form-select" required>
-              <option value="">— pilih —</option>
+              <option value="">- pilih -</option>
               @foreach($suppliers as $s)
-                <option value="{{ $s->id }}" @selected((string)old('supplier_id') === (string)$s->id)>
+                <option value="{{ $s->id }}"
+                        data-billing-terms="{{ e(json_encode($s->default_billing_terms ?? [])) }}"
+                        @selected((string)old('supplier_id') === (string)$s->id)>
                   {{ $s->name }}@if(!$s->is_active) (inactive)@endif
                 </option>
               @endforeach
@@ -159,6 +161,10 @@
 @push('scripts')
 <script>
 const ITEM_SEARCH_URL = @json(route('items.search', [], false));
+const HAS_OLD_BILLING_TERMS = @json(old('billing_terms') !== null);
+const FALLBACK_BILLING_TERMS = @json([
+  ['top_code' => 'FINISH', 'percent' => 100, 'due_trigger' => 'on_invoice'],
+]);
 let lineIdx = 1;
 const moneyFormatter = new Intl.NumberFormat('id-ID', {
   minimumFractionDigits: 2,
@@ -278,6 +284,61 @@ function syncCompanyTax() {
   syncTaxMode();
 }
 
+function getFallbackBillingTerms() {
+  return (FALLBACK_BILLING_TERMS || []).map((row) => ({
+    top_code: row.top_code || '',
+    percent: row.percent ?? 0,
+    due_trigger: row.due_trigger || '',
+    offset_days: row.offset_days ?? '',
+    day_of_month: row.day_of_month ?? '',
+    note: row.note || '',
+  }));
+}
+
+function normalizeBillingTermsRows(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return getFallbackBillingTerms();
+  }
+
+  const normalized = rows
+    .map((row) => ({
+      top_code: row?.top_code || '',
+      percent: row?.percent ?? 0,
+      due_trigger: row?.due_trigger || '',
+      offset_days: row?.offset_days ?? '',
+      day_of_month: row?.day_of_month ?? '',
+      note: row?.note || '',
+    }))
+    .filter((row) => row.top_code !== '');
+
+  return normalized.length > 0 ? normalized : getFallbackBillingTerms();
+}
+
+function parseSupplierBillingTerms(option) {
+  if (!option) return getFallbackBillingTerms();
+  const raw = option.dataset?.billingTerms || '[]';
+  try {
+    const parsed = JSON.parse(raw);
+    return normalizeBillingTermsRows(parsed);
+  } catch (e) {
+    return getFallbackBillingTerms();
+  }
+}
+
+function applySupplierBillingTerms({ force = false } = {}) {
+  if (typeof window.setBillingTermsRows !== 'function') return;
+  if (HAS_OLD_BILLING_TERMS && !force) return;
+
+  const supplierSelect = document.querySelector('select[name="supplier_id"]');
+  if (!supplierSelect) return;
+
+  const option = supplierSelect.selectedOptions?.[0] || null;
+  if (!option || !option.value) return;
+
+  const terms = parseSupplierBillingTerms(option);
+  window.setBillingTermsRows(terms);
+}
+
 function removeLine(btn) {
   const row = btn?.closest('tr');
   if (row) row.remove();
@@ -388,6 +449,13 @@ if (linesTable) {
 document.getElementById('po_tax_mode')?.addEventListener('change', syncTaxMode);
 document.getElementById('po_tax_percent')?.addEventListener('input', recalcTotals);
 document.querySelector('select[name="company_id"]')?.addEventListener('change', syncCompanyTax);
+document.querySelector('select[name="supplier_id"]')?.addEventListener('change', () => {
+  applySupplierBillingTerms({ force: true });
+});
+
+if (!HAS_OLD_BILLING_TERMS) {
+  applySupplierBillingTerms({ force: true });
+}
 
 syncCompanyTax();
 recalcTotals();
