@@ -26,9 +26,11 @@
     .grid th, .grid td { border:1px solid #999; padding:6px; }
     .terms th, .terms td { padding:4px; }
 
-    .sign-wrap { width: 100%; margin-top: 16px; }
-    .sign-space { height: 60px; }
-    .sign-name { font-weight: 700; text-decoration: underline; }
+    .sign-wrap { position:relative; height:90px; margin:8px 0 6px; text-align:left; }
+    .sign-layer { position:absolute; left:0; top:50%; transform:translateY(-50%); }
+    .sign-layer.stamp { left:24px; }
+    .sign-layer.signature { z-index:1; }
+    .sign-layer.stamp { z-index:2; }
     h2.block { font-size:13px; margin:0 0 6px; text-transform:uppercase; letter-spacing:.4px; }
 
     .draft-badge {
@@ -45,6 +47,7 @@
 <body>
 @php
   $isDraft = $po->status === 'draft';
+  $isApproved = $po->status === 'approved';
   $numberText = $isDraft ? ('DRAFT-' . $po->id) : ($po->number ?: ('PO-' . $po->id));
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
 
@@ -83,6 +86,29 @@
   $subtotal = (float) ($po->subtotal ?? 0);
   $total = (float) ($po->total ?? 0);
   $isTaxIncluded = $taxAmount > 0 && abs($total - $subtotal) < 0.01;
+
+  $stampPath = \App\Models\Setting::get('documents.stamp_path');
+  $directorSignaturePath = \App\Models\Setting::get('documents.director_signature_path');
+  $resolveImage = function (?string $path): ?string {
+    if (!$path) return null;
+    if (preg_match('~^https?://~', $path)) return $path;
+    $rel = ltrim($path, '/');
+    $candidates = [
+      public_path($rel),
+      str_starts_with($rel, 'storage/') ? storage_path('app/public/' . substr($rel, 8)) : storage_path('app/public/' . $rel),
+      base_path($rel),
+    ];
+    foreach ($candidates as $imgPath) {
+      if (is_file($imgPath)) {
+        $ext  = strtolower(pathinfo($imgPath, PATHINFO_EXTENSION) ?: 'png');
+        $mime = 'image/' . ($ext === 'svg' ? 'svg+xml' : $ext);
+        return 'data:' . $mime . ';base64,' . base64_encode((string) @file_get_contents($imgPath));
+      }
+    }
+    return null;
+  };
+  $stampSrc = $resolveImage($stampPath);
+  $directorSignatureSrc = $resolveImage($directorSignaturePath);
 @endphp
 
 <table class="hdr">
@@ -229,9 +255,14 @@
 
       <div style="margin-top:16px;">Hormat Kami,</div>
       <div class="sign-wrap">
-        <div class="sign-space"></div>
+        @if($isApproved && $directorSignatureSrc)
+          <img src="{{ $directorSignatureSrc }}" alt="" class="sign-layer signature" style="height:60px;">
+        @endif
+        @if($isApproved && $stampSrc)
+          <img src="{{ $stampSrc }}" alt="" class="sign-layer stamp" style="height:60px;">
+        @endif
       </div>
-      <div class="sign-name">Christian Widargo</div>
+      <div style="font-weight:700; text-decoration:underline;">Christian Widargo</div>
       <div class="small">Direktur Utama</div>
     </td>
   </tr>
