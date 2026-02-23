@@ -76,7 +76,7 @@
           </div>
           <div class="col-md-3">
             <label class="form-label">PO Date</label>
-            <input type="date" name="order_date" class="form-control" value="{{ old('order_date', optional($po->order_date)->toDateString() ?? $po->order_date) }}">
+            <input type="date" name="order_date" class="form-control" value="{{ old('order_date', $po->order_date ? \Illuminate\Support\Carbon::parse($po->order_date)->toDateString() : now()->toDateString()) }}">
           </div>
           <div class="col-12">
             <label class="form-label">Notes</label>
