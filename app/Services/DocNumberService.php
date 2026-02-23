@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class DocNumberService
 {
-    /** @param 'quotation'|'invoice'|'delivery'|'sales_order'|'proforma' $docType */
+    /** @param 'quotation'|'invoice'|'delivery'|'sales_order'|'proforma'|'purchase_order'|'goods_receipt'|'project_quotation'|'project' $docType */
     public static function next(string $docType, Company $company, DateTimeInterface $docDate): string
     {
         $year   = (int)$docDate->format('Y');
@@ -25,6 +25,7 @@ class DocNumberService
             'delivery'         => $company->delivery_prefix  ?? 'DO',
             'sales_order'      => $company->sales_order_prefix ?? 'SO',
             'purchase_order'   => $company->purchase_order_prefix ?? 'PO',
+            'goods_receipt'   => $company->goods_receipt_prefix ?? 'GR',
             'project'          => 'PRJ',
             'project_quotation'=> 'BQ',
             default            => strtoupper(substr($docType, 0, 3)),

@@ -10,15 +10,20 @@
         <div class="row g-3">
           <div class="col-md-3">
             <label class="form-label">GR Number</label>
-            <input type="text" name="gr[number]" class="form-control" placeholder="Auto/Manual">
+            <input type="text" name="gr[number]" class="form-control" placeholder="Auto/Manual" value="{{ old('gr.number') }}">
           </div>
           <div class="col-md-3">
             <label class="form-label">GR Date</label>
-            <input type="date" name="gr[gr_date]" class="form-control" value="{{ now()->toDateString() }}">
+            <input type="date" name="gr[gr_date]" class="form-control" value="{{ old('gr.gr_date', now()->toDateString()) }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Received At</label>
+            <input type="datetime-local" name="gr[received_at]" class="form-control" value="{{ old('gr.received_at', now()->format('Y-m-d\\TH:i')) }}">
+            <small class="text-muted">Isi tanggal dan jam saat barang benar-benar diterima.</small>
           </div>
           <div class="col-12">
             <label class="form-label">Notes</label>
-            <textarea name="gr[notes]" class="form-control" rows="2"></textarea>
+            <textarea name="gr[notes]" class="form-control" rows="2">{{ old('gr.notes') }}</textarea>
           </div>
         </div>
 
@@ -34,17 +39,32 @@
             </tr></thead>
             <tbody>
               @foreach($po->lines as $ln)
-              @php $remaining = ($ln->qty_ordered - ($ln->qty_received ?? 0)); @endphp
+              @php $remaining = ((float) $ln->qty_ordered - (float) ($ln->qty_received ?? 0)); @endphp
               @if($remaining > 0)
               <tr>
                 <td>{{ $ln->item->sku ?? '' }} - {{ $ln->item->name ?? '' }}</td>
                 <td>{{ $ln->variant->sku ?? '-' }}</td>
                 <td class="text-end">{{ number_format($remaining,2,'.',',') }} {{ $ln->uom ?? '' }}</td>
                 <td class="text-end">
-                  <input type="number" name="lines[{{ $ln->id }}][qty_received]" step="0.0001" min="0" max="{{ $remaining }}" class="form-control text-end">
+                  <input
+                    type="number"
+                    name="lines[{{ $ln->id }}][qty_received]"
+                    step="0.0001"
+                    min="0"
+                    max="{{ $remaining }}"
+                    class="form-control text-end"
+                    value="{{ old('lines.' . $ln->id . '.qty_received') }}"
+                  >
                 </td>
                 <td class="text-end">
-                  <input type="number" name="lines[{{ $ln->id }}][unit_cost]" step="0.01" min="0" class="form-control text-end">
+                  <input
+                    type="number"
+                    name="lines[{{ $ln->id }}][unit_cost]"
+                    step="0.01"
+                    min="0"
+                    class="form-control text-end"
+                    value="{{ old('lines.' . $ln->id . '.unit_cost', $ln->unit_price) }}"
+                  >
                 </td>
               </tr>
               @endif

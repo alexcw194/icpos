@@ -16,17 +16,18 @@
     </div>
     <div class="card-body">
       <div class="row g-3">
-        <div class="col-md-3"><strong>Company</strong><br>{{ $gr->company->alias ?? $gr->company->name ?? '—' }}</div>
-        <div class="col-md-3"><strong>Warehouse</strong><br>{{ $gr->warehouse->name ?? '—' }}</div>
+        <div class="col-md-3"><strong>Company</strong><br>{{ $gr->company->alias ?? $gr->company->name ?? '-' }}</div>
+        <div class="col-md-3"><strong>Warehouse</strong><br>{{ $gr->warehouse->name ?? '-' }}</div>
         <div class="col-md-3"><strong>From PO</strong><br>
-          @if($gr->purchaseOrder)
-            <a href="{{ route('po.show', $gr->purchaseOrder) }}">{{ $gr->purchaseOrder->number }}</a>
-          @else — @endif
+          @if($gr->po)
+            <a href="{{ route('po.show', $gr->po) }}">{{ $gr->po->number }}</a>
+          @else - @endif
         </div>
         <div class="col-md-3"><strong>Status</strong><br>
           <span class="badge bg-{{ $gr->status === 'posted' ? 'green' : 'yellow' }}">{{ ucfirst($gr->status) }}</span>
         </div>
-        <div class="col-md-3"><strong>GR Date</strong><br>{{ $gr->gr_date ?? '—' }}</div>
+        <div class="col-md-3"><strong>GR Date</strong><br>{{ optional($gr->gr_date)->format('Y-m-d') ?? '-' }}</div>
+        <div class="col-md-3"><strong>Received At</strong><br>{{ optional($gr->received_at)->format('Y-m-d H:i') ?? '-' }}</div>
       </div>
 
       <hr class="my-3">
@@ -43,12 +44,12 @@
           <tbody>
             @foreach($gr->lines as $ln)
             <tr>
-              <td>{{ $ln->item->sku ?? '' }} — {{ $ln->item->name ?? '' }}</td>
-              <td>{{ $ln->itemVariant->sku ?? '—' }}</td>
-              <td class="text-end">{{ number_format($ln->qty_received,4,'.',',') }}</td>
-              <td class="text-end">{{ $ln->uom ?? '—' }}</td>
-              <td class="text-end">{{ number_format($ln->unit_cost ?? 0,2,'.',',') }}</td>
-              <td class="text-end">{{ number_format($ln->line_total ?? ($ln->qty_received * ($ln->unit_cost ?? 0)),2,'.',',') }}</td>
+              <td>{{ $ln->item->sku ?? '' }} - {{ $ln->item->name ?? '' }}</td>
+              <td>{{ $ln->variant->sku ?? '-' }}</td>
+              <td class="text-end">{{ number_format((float) $ln->qty_received, 4, '.', ',') }}</td>
+              <td class="text-end">{{ $ln->uom ?? '-' }}</td>
+              <td class="text-end">{{ number_format((float) ($ln->unit_cost ?? 0), 2, '.', ',') }}</td>
+              <td class="text-end">{{ number_format((float) ($ln->line_total ?? ((float) $ln->qty_received * (float) ($ln->unit_cost ?? 0))), 2, '.', ',') }}</td>
             </tr>
             @endforeach
           </tbody>

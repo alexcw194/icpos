@@ -425,6 +425,8 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::get('/po',               [PurchaseOrderController::class, 'index'])->name('po.index');
     Route::get('/po/create',        [PurchaseOrderController::class, 'create'])->name('po.create');
     Route::post('/po',              [PurchaseOrderController::class, 'store'])->name('po.store');
+    Route::get('/po/{po}/edit',     [PurchaseOrderController::class, 'edit'])->name('po.edit');
+    Route::put('/po/{po}',          [PurchaseOrderController::class, 'update'])->name('po.update');
     Route::get('/po/{po}',          [PurchaseOrderController::class, 'show'])->name('po.show');
     Route::get('/po/{po}/pdf',      [PurchaseOrderController::class, 'pdf'])->name('po.pdf');
     Route::get('/po/{po}/pdf/download', [PurchaseOrderController::class, 'pdfDownload'])->name('po.pdf-download');

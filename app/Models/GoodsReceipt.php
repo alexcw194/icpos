@@ -7,7 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 class GoodsReceipt extends Model
 {
     protected $fillable = [
-        'company_id','warehouse_id','purchase_order_id','number','gr_date','status','notes','posted_at','posted_by'
+        'company_id','warehouse_id','purchase_order_id','number','gr_date','received_at','status','notes','posted_at','posted_by'
+    ];
+
+    protected $casts = [
+        'gr_date' => 'date',
+        'received_at' => 'datetime',
+        'posted_at' => 'datetime',
     ];
 
     public function lines()     { return $this->hasMany(GoodsReceiptLine::class); }

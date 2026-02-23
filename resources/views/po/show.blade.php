@@ -8,6 +8,9 @@
     $pdfDownloadUrl = route('po.pdf-download', $po);
     $shareTitle = $isDraft ? ('PO Draft #' . $po->id) : ('PO ' . ($po->number ?? $po->id));
     $canReceive = in_array($po->status, ['approved','partial','partially_received'], true);
+    $canEdit = in_array($po->status, ['draft','approved'], true)
+      && $po->lines->sum(fn ($line) => (float) ($line->qty_received ?? 0)) <= 0
+      && empty($hasGoodsReceipts);
   @endphp
 
   <div class="card">
@@ -20,13 +23,12 @@
       </div>
 
       <div class="ms-auto d-flex align-items-center gap-2">
-        <a href="{{ $pdfViewUrl }}" target="_blank" rel="noopener" class="btn btn-outline-secondary">Lihat PDF</a>
-
         <div class="dropdown">
           <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
             PDF
           </button>
           <div class="dropdown-menu dropdown-menu-end">
+            <a class="dropdown-item" href="{{ $pdfViewUrl }}" target="_blank" rel="noopener">Lihat PDF</a>
             <a class="dropdown-item" href="{{ $pdfDownloadUrl }}">Unduh PDF</a>
             <button type="button"
                     class="dropdown-item"
@@ -37,6 +39,10 @@
             </button>
           </div>
         </div>
+
+        @if($canEdit)
+          <a href="{{ route('po.edit', $po) }}" class="btn btn-outline-primary">Edit</a>
+        @endif
 
         @if($po->status === 'draft')
           <form action="{{ route('po.approve', $po) }}" method="POST" class="d-inline">@csrf

@@ -31,13 +31,16 @@
               {{ ucfirst($po->status) }}</span></td>
             <td class="text-end">
               <a href="{{ route('po.show', $po) }}" class="btn btn-sm btn-primary">View</a>
+              @if(in_array($po->status, ['draft','approved'], true))
+              <a href="{{ route('po.edit', $po) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+              @endif
               @if($po->status === 'draft')
               <form action="{{ route('po.approve', $po) }}" method="POST" class="d-inline">
                 @csrf
                 <button class="btn btn-sm btn-outline-success" type="submit">Approve</button>
               </form>
               @endif
-              @if(in_array($po->status, ['approved','partial']))
+              @if(in_array($po->status, ['approved','partial','partially_received'], true))
               <a href="{{ route('po.receive', $po) }}" class="btn btn-sm btn-outline-primary">Receive</a>
               @endif
             </td>

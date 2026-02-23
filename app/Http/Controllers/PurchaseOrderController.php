@@ -65,6 +65,225 @@ class PurchaseOrderController extends Controller
         return view('po.create', compact('companies', 'warehouses', 'suppliers', 'topOptions', 'defaultCompanyId', 'billingTermsData'));
     }
 
+    public function edit(PurchaseOrder $po)
+    {
+        $po->load(['lines.item:id,sku,name','lines.variant:id,sku','billingTerms']);
+
+        if (!in_array($po->status, ['draft', 'approved'], true)) {
+            abort(400, 'PO pada status ini tidak dapat diedit.');
+        }
+
+        if ($po->lines->contains(fn ($line) => (float) ($line->qty_received ?? 0) > 0)) {
+            throw ValidationException::withMessages([
+                'lines' => 'PO yang sudah menerima barang tidak bisa diedit.',
+            ]);
+        }
+
+        if (GoodsReceipt::query()->where('purchase_order_id', $po->id)->exists()) {
+            throw ValidationException::withMessages([
+                'lines' => 'PO yang sudah memiliki draft/pencatatan receiving tidak bisa diedit.',
+            ]);
+        }
+
+        $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent']);
+        $warehouses = Warehouse::orderBy('name')->get(['id','name']);
+        $suppliers = Supplier::orderBy('name')->get(['id','name','is_active','default_billing_terms']);
+        $topOptions = TermOfPayment::query()
+            ->whereIn('code', TermOfPayment::ALLOWED_CODES)
+            ->orderBy('code')
+            ->get(['code','description','is_active','applicable_to']);
+
+        $defaultCompanyId = old('company_id', $po->company_id);
+
+        $billingTermsData = old('billing_terms');
+        if (!is_array($billingTermsData) || count($billingTermsData) < 1) {
+            $billingTermsData = $po->billingTerms->map(function ($term) {
+                return [
+                    'top_code' => $term->top_code,
+                    'percent' => (float) $term->percent,
+                    'due_trigger' => $term->due_trigger,
+                    'offset_days' => $term->offset_days,
+                    'day_of_month' => $term->day_of_month,
+                    'note' => $term->note,
+                ];
+            })->values()->all();
+        }
+
+        if (!is_array($billingTermsData) || count($billingTermsData) < 1) {
+            $billingTermsData = [
+                ['top_code' => 'FINISH', 'percent' => 100, 'due_trigger' => 'on_invoice'],
+            ];
+        }
+
+        $linesData = old('lines');
+        if (!is_array($linesData) || count($linesData) < 1) {
+            $linesData = $po->lines->map(function ($line) {
+                $itemSku = $line->sku_snapshot ?: ($line->item->sku ?? '');
+                $itemName = $line->item_name_snapshot ?: ($line->item->name ?? '');
+                return [
+                    'item_id' => $line->item_id,
+                    'item_variant_id' => $line->item_variant_id,
+                    'item_label' => trim($itemSku . ' - ' . $itemName, ' -'),
+                    'qty_ordered' => (float) $line->qty_ordered,
+                    'uom' => $line->uom,
+                    'unit_price' => (float) ($line->unit_price ?? 0),
+                ];
+            })->values()->all();
+        } else {
+            $itemIds = collect($linesData)->pluck('item_id')->filter()->unique()->values()->all();
+            $items = Item::query()->whereIn('id', $itemIds)->get(['id', 'sku', 'name'])->keyBy('id');
+            foreach ($linesData as &$line) {
+                if (!isset($line['item_label']) || trim((string) $line['item_label']) === '') {
+                    $item = $items->get((int) ($line['item_id'] ?? 0));
+                    if ($item) {
+                        $line['item_label'] = trim(($item->sku ?? '') . ' - ' . ($item->name ?? ''), ' -');
+                    }
+                }
+            }
+            unset($line);
+        }
+
+        return view('po.edit', compact(
+            'po',
+            'companies',
+            'warehouses',
+            'suppliers',
+            'topOptions',
+            'defaultCompanyId',
+            'billingTermsData',
+            'linesData'
+        ));
+    }
+
+    public function update(Request $r, PurchaseOrder $po)
+    {
+        $data = $r->validate([
+            'company_id' => ['required','exists:companies,id'],
+            'supplier_id' => ['required','exists:suppliers,id'],
+            'warehouse_id' => ['nullable','exists:warehouses,id'],
+            'order_date' => ['nullable','date'],
+            'notes' => ['nullable','string'],
+            'lines' => ['required','array','min:1'],
+            'lines.*.item_id' => ['required','exists:items,id'],
+            'lines.*.item_variant_id' => ['nullable','exists:item_variants,id'],
+            'lines.*.qty_ordered' => ['required','numeric','min:0.0001'],
+            'lines.*.uom' => ['nullable','string','max:16'],
+            'lines.*.unit_price' => ['nullable','numeric','min:0'],
+            'tax_mode' => ['nullable', Rule::in(['none','exclude','include'])],
+            'tax_percent' => ['nullable','numeric','min:0','max:100'],
+            'billing_terms' => ['required','array','min:1'],
+            'billing_terms.*.top_code' => ['required','string','max:64'],
+            'billing_terms.*.percent' => ['required','string'],
+            'billing_terms.*.note' => ['nullable','string','max:190'],
+            'billing_terms.*.due_trigger' => ['nullable', Rule::in(self::BILLING_DUE_TRIGGERS)],
+            'billing_terms.*.offset_days' => ['nullable','integer','min:0'],
+            'billing_terms.*.day_of_month' => ['nullable','integer','min:1','max:28'],
+        ]);
+
+        $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? []);
+        $orderDate = $data['order_date'] ? Carbon::parse($data['order_date']) : now();
+
+        $taxMode = $data['tax_mode'] ?? 'none';
+        $taxPctInput = $this->toNumber($data['tax_percent'] ?? 0);
+        $taxPct = max(min($taxPctInput, 100), 0.0);
+        if ($taxMode === 'none') {
+            $taxPct = 0.0;
+        }
+
+        $wasApproved = false;
+
+        DB::transaction(function () use (&$wasApproved, $data, $billingTerms, $orderDate, $taxMode, $taxPct, $po) {
+            $po = PurchaseOrder::query()->whereKey($po->id)->lockForUpdate()->firstOrFail();
+
+            if (!in_array($po->status, ['draft', 'approved'], true)) {
+                abort(400, 'PO pada status ini tidak dapat diedit.');
+            }
+
+            if ($po->lines()->where('qty_received', '>', 0)->exists()) {
+                throw ValidationException::withMessages([
+                    'lines' => 'PO yang sudah menerima barang tidak bisa diedit.',
+                ]);
+            }
+
+            if (GoodsReceipt::query()->where('purchase_order_id', $po->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'lines' => 'PO yang sudah memiliki draft/pencatatan receiving tidak bisa diedit.',
+                ]);
+            }
+
+            $wasApproved = $po->status === 'approved';
+
+            $po->update([
+                'company_id' => $data['company_id'],
+                'supplier_id' => $data['supplier_id'],
+                'warehouse_id' => $data['warehouse_id'] ?? null,
+                'order_date' => $orderDate->toDateString(),
+                'notes' => $data['notes'] ?? null,
+                'status' => $wasApproved ? 'draft' : $po->status,
+                'approved_at' => $wasApproved ? null : $po->approved_at,
+                'approved_by' => $wasApproved ? null : $po->approved_by,
+            ]);
+
+            $po->lines()->delete();
+            $subtotal = 0.0;
+
+            foreach ($data['lines'] ?? [] as $ln) {
+                $item = Item::findOrFail($ln['item_id']);
+                $variantId = $ln['item_variant_id'] ?? null;
+                $qty = $this->toNumber($ln['qty_ordered'] ?? 0);
+                $price = $this->toNumber($ln['unit_price'] ?? 0);
+                $lineTotal = $price * $qty;
+                $subtotal += $lineTotal;
+
+                $variantSku = null;
+                if ($variantId) {
+                    $variantSku = ItemVariant::where('id', $variantId)->value('sku');
+                }
+
+                PurchaseOrderLine::create([
+                    'purchase_order_id'  => $po->id,
+                    'item_id'            => $item->id,
+                    'item_variant_id'    => $variantId,
+                    'item_name_snapshot' => $item->name,
+                    'sku_snapshot'       => $variantSku ?: $item->sku,
+                    'qty_ordered'        => $qty,
+                    'uom'                => $ln['uom'] ?? null,
+                    'unit_price'         => $price,
+                    'line_total'         => $lineTotal,
+                ]);
+            }
+
+            $taxAmount = 0.0;
+            $total = $subtotal;
+            if ($taxMode === 'exclude' && $taxPct > 0) {
+                $taxAmount = round($subtotal * ($taxPct / 100), 2);
+                $total = $subtotal + $taxAmount;
+            } elseif ($taxMode === 'include' && $taxPct > 0) {
+                $taxAmount = round($subtotal * ($taxPct / (100 + $taxPct)), 2);
+                $total = $subtotal;
+            }
+
+            $po->update([
+                'subtotal' => $subtotal,
+                'discount_amount' => 0,
+                'tax_percent' => $taxPct,
+                'tax_amount' => $taxAmount,
+                'total' => $total,
+            ]);
+
+            $po->billingTerms()->delete();
+            if (!empty($billingTerms)) {
+                $po->billingTerms()->createMany($billingTerms);
+            }
+        });
+
+        $message = $wasApproved
+            ? 'PO updated. Karena ada perubahan, status dikembalikan ke draft dan wajib approve ulang.'
+            : 'PO updated.';
+
+        return redirect()->route('po.show', $po)->with('success', $message);
+    }
+
     public function store(Request $r) {
         $data = $r->validate([
             'company_id' => ['required','exists:companies,id'],
@@ -184,7 +403,8 @@ class PurchaseOrderController extends Controller
 
     public function show(PurchaseOrder $po) {
         $po->load('lines.item','lines.variant','billingTerms','supplier','company','warehouse');
-        return view('po.show', compact('po'));
+        $hasGoodsReceipts = GoodsReceipt::query()->where('purchase_order_id', $po->id)->exists();
+        return view('po.show', compact('po', 'hasGoodsReceipts'));
     }
 
     public function pdf(PurchaseOrder $po)
@@ -229,40 +449,79 @@ class PurchaseOrderController extends Controller
 
     /** Receive entry point: create a GR draft from PO lines (remaining qty) */
     public function receive(PurchaseOrder $po) {
-        $po->load('lines');
+        $po->load('lines.item','lines.variant');
         return view('po.receive', compact('po'));
     }
 
     /** Persist GR draft (not posted) */
     public function receiveStore(Request $r, PurchaseOrder $po) {
-        $gr = DB::transaction(function () use ($r, $po) {
+        abort_unless(in_array($po->status, ['approved', 'partial', 'partially_received'], true), 400, 'PO belum bisa diterima.');
+
+        $data = $r->validate([
+            'gr.number' => ['nullable', 'string', 'max:128'],
+            'gr.gr_date' => ['nullable', 'date'],
+            'gr.received_at' => ['nullable', 'date'],
+            'gr.notes' => ['nullable', 'string'],
+            'lines' => ['nullable', 'array'],
+            'lines.*.qty_received' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $grData = $data['gr'] ?? [];
+        $receivedAt = !empty($grData['received_at']) ? Carbon::parse($grData['received_at']) : now();
+        $grDate = !empty($grData['gr_date'])
+            ? Carbon::parse($grData['gr_date'])->toDateString()
+            : $receivedAt->toDateString();
+
+        $number = trim((string) ($grData['number'] ?? ''));
+        if ($number === '') {
+            $company = Company::findOrFail($po->company_id);
+            $number = app(DocNumberService::class)->next('goods_receipt', $company, $receivedAt);
+        }
+
+        $gr = DB::transaction(function () use ($data, $po, $number, $grDate, $receivedAt, $grData) {
             $gr = GoodsReceipt::create([
-                'company_id'      => $po->company_id,
-                'warehouse_id'    => $po->warehouse_id,
-                'purchase_order_id'=> $po->id,
-                'number'          => $r->number,
-                'gr_date'         => $r->gr_date,
-                'status'          => 'draft',
-                'notes'           => $r->notes,
+                'company_id' => $po->company_id,
+                'warehouse_id' => $po->warehouse_id,
+                'purchase_order_id' => $po->id,
+                'number' => $number,
+                'gr_date' => $grDate,
+                'received_at' => $receivedAt,
+                'status' => 'draft',
+                'notes' => $grData['notes'] ?? null,
             ]);
-            foreach ($r->lines ?? [] as $ln) {
-                if (($ln['qty_received'] ?? 0) > 0) {
-                    $line = $po->lines()->findOrFail($ln['po_line_id']);
-                    GoodsReceiptLine::create([
-                        'goods_receipt_id'  => $gr->id,
-                        'item_id'           => $line->item_id,
-                        'item_variant_id'   => $line->item_variant_id,
-                        'item_name_snapshot'=> $line->item_name_snapshot,
-                        'sku_snapshot'      => $line->sku_snapshot,
-                        'qty_received'      => $ln['qty_received'],
-                        'uom'               => $line->uom,
-                        'unit_cost'         => $ln['unit_cost'] ?? $line->unit_price,
-                        'line_total'        => ($ln['unit_cost'] ?? $line->unit_price) * $ln['qty_received'],
+
+            foreach (($data['lines'] ?? []) as $poLineId => $ln) {
+                $qtyReceived = $this->toNumber($ln['qty_received'] ?? 0);
+                if ($qtyReceived <= 0) {
+                    continue;
+                }
+
+                $line = $po->lines()->findOrFail((int) $poLineId);
+                $remaining = max(0.0, (float) $line->qty_ordered - (float) ($line->qty_received ?? 0));
+                if ($qtyReceived > $remaining + 0.000001) {
+                    throw ValidationException::withMessages([
+                        "lines.$poLineId.qty_received" => 'Qty receive melebihi remaining.',
                     ]);
                 }
+
+                $unitCost = $this->toNumber($ln['unit_cost'] ?? $line->unit_price);
+                GoodsReceiptLine::create([
+                    'goods_receipt_id' => $gr->id,
+                    'item_id' => $line->item_id,
+                    'item_variant_id' => $line->item_variant_id,
+                    'item_name_snapshot' => $line->item_name_snapshot,
+                    'sku_snapshot' => $line->sku_snapshot,
+                    'qty_received' => $qtyReceived,
+                    'uom' => $line->uom,
+                    'unit_cost' => $unitCost,
+                    'line_total' => $unitCost * $qtyReceived,
+                ]);
             }
+
             return $gr;
         });
+
         return redirect()->route('gr.show', $gr);
     }
 
