@@ -23,8 +23,8 @@
     .doc-row{ margin-top:2px; }
 
     .grid { width:100%; border-collapse: collapse; }
-    .grid th, .grid td { border:1px solid #999; padding:6px; font-size:11px; }
-    .terms th, .terms td { padding:4px; font-size:11px; }
+    .grid th, .grid td { border:1px solid #999; padding:6px; }
+    .terms th, .terms td { padding:4px; }
 
     .sign-wrap { width: 100%; margin-top: 16px; }
     .sign-space { height: 60px; }
@@ -49,8 +49,7 @@
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
 
   $co = [
-    'name' => $po->company->name ?? ($po->company->alias ?? ''),
-    'alias' => $po->company->alias ?? '',
+    'name' => $po->company->name ?? '',
     'address' => $po->company->address ?? '',
     'email' => $po->company->email ?? '',
     'phone' => $po->company->phone ?? '',
@@ -92,7 +91,7 @@
       @if($logoSrc)
         <img class="logo-top" src="{{ $logoSrc }}" alt="">
       @endif
-      <p class="co-name">{{ $co['alias'] ?: $co['name'] }}</p>
+      <p class="co-name">{{ $co['name'] ?: '-' }}</p>
       <div class="co-meta">
         @if($co['address'])  <div>{{ $co['address'] }}</div>@endif
         @if($co['phone'])    <div>Telp: {{ $co['phone'] }}</div>@endif
