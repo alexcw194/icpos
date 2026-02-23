@@ -118,6 +118,7 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
 
     // Quick search items (tetap auth)
     Route::get('/api/items/search', [ItemController::class, 'quickSearch'])->name('items.search'); // <- tanpa ->middleware(['auth'])
+    Route::get('/api/items/latest-price', [ItemController::class, 'latestPrice'])->name('items.latest-price');
     Route::get('/api/inventory/rows/search', [InventoryRowController::class, 'search'])
         ->name('inventory.rows.search');
     Route::get('/api/bq-line-catalogs/search', [BqLineCatalogController::class, 'search'])

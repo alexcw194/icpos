@@ -633,7 +633,66 @@ class ItemController extends Controller
 
         return response()->json($out);
     }
+    public function latestPrice(Request $request)
+    {
+        $data = $request->validate([
+            'source' => ['nullable', Rule::in(['item', 'project'])],
+            'item_id' => ['required', 'integer', 'min:1'],
+            'variant_id' => ['nullable', 'integer', 'min:1'],
+        ]);
 
+        $source = (string) ($data['source'] ?? 'item');
+        $itemId = (int) $data['item_id'];
+        $variantId = isset($data['variant_id']) ? (int) $data['variant_id'] : 0;
+
+        $itemQuery = Item::query()
+            ->with(['unit:id,code'])
+            ->whereKey($itemId);
+
+        if ($source === 'project') {
+            $itemQuery->where('list_type', 'project');
+        } else {
+            $itemQuery->where('list_type', '!=', 'project');
+        }
+
+        $item = $itemQuery->first();
+
+        if (!$item) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Item tidak ditemukan.',
+                'price' => null,
+            ], 404);
+        }
+
+        $variant = null;
+        if ($variantId > 0) {
+            $variant = $item->variants()
+                ->select(['id', 'item_id', 'price'])
+                ->whereKey($variantId)
+                ->first();
+
+            if (!$variant) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Variant tidak sesuai dengan item.',
+                    'price' => null,
+                ], 422);
+            }
+        }
+
+        $price = $variant && $variant->price !== null
+            ? (float) $variant->price
+            : (float) ($item->price ?? 0);
+
+        return response()->json([
+            'ok' => true,
+            'item_id' => $item->id,
+            'variant_id' => $variant?->id,
+            'unit_code' => optional($item->unit)->code ?? 'PCS',
+            'price' => $price,
+        ]);
+    }
     // ======================
     // Helpers
     // ======================
@@ -1137,4 +1196,3 @@ class ItemController extends Controller
     }
 
 }
-

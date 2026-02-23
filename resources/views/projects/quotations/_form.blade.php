@@ -271,6 +271,12 @@
   <div class="card-header d-flex align-items-center">
     <h3 class="card-title">BQ Sections & Lines</h3>
     <div class="ms-auto btn-list">
+      <button type="button" class="btn btn-sm btn-outline-warning" id="btn-bq-update-item-prices">
+        Update Harga Barang
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-warning" id="btn-bq-update-costs">
+        Update Cost
+      </button>
       <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-section">
         + Add Section
       </button>
@@ -531,6 +537,7 @@
   if (!sectionsEl) return;
 
   const ITEM_SEARCH_URL = {!! json_encode(route('items.search', [], false)) !!};
+  const ITEM_LATEST_PRICE_URL = {!! json_encode(route('items.latest-price', [], false)) !!};
   const LABOR_RATE_URL = {!! json_encode(route('labor-rates.show', [], false)) !!};
   const CATALOG_SEARCH_URL = {!! json_encode(route('bq-line-catalogs.search', [], false)) !!};
   const REPRICE_LABOR_URL = {!! json_encode($repriceLaborUrl) !!};
@@ -538,6 +545,8 @@
   const termTable = document.getElementById('terms-table');
   const btnAddTerm = document.getElementById('btn-add-term');
   const btnAddSection = document.getElementById('btn-add-section');
+  const btnUpdateItemPrices = document.getElementById('btn-bq-update-item-prices');
+  const btnUpdateCosts = document.getElementById('btn-bq-update-costs');
 
   const parseNumber = (val) => {
     if (val === null || val === undefined) return 0;
@@ -872,28 +881,48 @@
       .catch(() => null);
   };
 
-  const applyLaborRate = (row, sourceType, rateData) => {
+  const fetchLatestItemPrice = (sourceType, itemId, variantId) => {
+    const params = new URLSearchParams();
+    params.set('source', sourceType);
+    params.set('item_id', itemId);
+    if (variantId) {
+      params.set('variant_id', variantId);
+    }
+    return fetch(`${ITEM_LATEST_PRICE_URL}?${params.toString()}`, {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+      cache: 'no-store',
+    })
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null);
+  };
+
+  const applyLaborRate = (row, sourceType, rateData, options = {}) => {
+    const { skipRecalc = false, resetWhenMissing = true } = options;
     const laborUnitInput = row.querySelector('.js-line-labor-unit');
     const laborInput = row.querySelector('.js-line-labor');
     const unitCost = parseNumber(rateData?.unit_cost);
     const hasMaster = rateData?.unit_cost != null;
     const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
 
-    if (!laborInput || !laborUnitInput) return;
+    if (!laborInput || !laborUnitInput) return false;
 
     if (!hasMaster) {
-      laborUnitInput.value = formatNumber(0);
-      laborInput.value = formatNumber(0);
-      setLaborSource(row, 'manual');
-      recalcTotals();
-      return;
+      if (resetWhenMissing) {
+        laborUnitInput.value = formatNumber(0);
+        laborInput.value = formatNumber(0);
+        setLaborSource(row, 'manual');
+      }
+      if (!skipRecalc) recalcTotals();
+      return false;
     }
 
     laborUnitInput.value = formatNumber(unitCost);
     const laborTotal = qty * unitCost;
     laborInput.value = formatNumber(laborTotal);
     setLaborSource(row, sourceType === 'project' ? 'master_project' : 'master_item');
-    recalcTotals();
+    if (!skipRecalc) recalcTotals();
+    return true;
   };
 
   const formatLineNumbers = (scope) => {
@@ -1835,6 +1864,153 @@
     rows.forEach((row) => syncLineTypeRow(row));
   };
 
+  const getProductRowsWithItem = () => {
+    return [...sectionsEl.querySelectorAll('.bq-line')].filter((row) => {
+      if (getLineType(row) !== 'product') return false;
+      const itemId = row.querySelector('.bq-line-item-id')?.value || '';
+      return itemId !== '';
+    });
+  };
+
+  const setButtonBusy = (button, busy, busyLabel) => {
+    if (!button) return;
+    if (busy) {
+      if (!button.dataset.originalLabel) {
+        button.dataset.originalLabel = button.textContent || '';
+      }
+      button.textContent = busyLabel;
+      button.disabled = true;
+      return;
+    }
+    if (button.dataset.originalLabel) {
+      button.textContent = button.dataset.originalLabel;
+    }
+    button.disabled = false;
+  };
+
+  const updateItemPricesFromMaster = async () => {
+    const rows = getProductRowsWithItem();
+    if (rows.length < 1) {
+      alert('Tidak ada line product dengan item yang bisa di-update.');
+      return;
+    }
+
+    const proceed = window.confirm('Peringatan: semua harga barang pada line product akan dioverride dengan harga terbaru dari list item. Lanjutkan?');
+    if (!proceed) return;
+
+    setButtonBusy(btnUpdateItemPrices, true, 'Updating...');
+
+    let updated = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    const tasks = rows.map(async (row) => {
+      const sourceType = getSourceType(row);
+      const itemId = row.querySelector('.bq-line-item-id')?.value || '';
+      const variantId = row.querySelector('.bq-line-variant-id')?.value || '';
+      if (!itemId) {
+        skipped += 1;
+        return;
+      }
+
+      const data = await fetchLatestItemPrice(sourceType, itemId, variantId);
+      if (!data || data.price == null) {
+        failed += 1;
+        return;
+      }
+
+      const unitPriceEl = row.querySelector('.js-line-unit-price');
+      const materialEl = row.querySelector('.js-line-material');
+      const qty = parseNumber(row.querySelector('input[name$="[qty]"]')?.value);
+      const latestPrice = parseNumber(data.price);
+
+      if (!unitPriceEl || !materialEl) {
+        skipped += 1;
+        return;
+      }
+
+      unitPriceEl.value = formatNumber(latestPrice);
+      materialEl.value = formatNumber(qty * latestPrice);
+      updated += 1;
+    });
+
+    await Promise.all(tasks);
+    formatLineNumbers(sectionsEl);
+    recalcTotals();
+    setButtonBusy(btnUpdateItemPrices, false);
+
+    alert(`Update harga barang selesai.\nDiperbarui: ${updated}\nDilewati: ${skipped}\nGagal ambil data: ${failed}`);
+  };
+
+  const updateLaborCostsFromMaster = async () => {
+    const rows = getProductRowsWithItem();
+    if (rows.length < 1) {
+      alert('Tidak ada line product dengan item yang bisa di-update.');
+      return;
+    }
+
+    const proceed = window.confirm('Peringatan: semua cost labor pada line product akan dioverride dengan cost terbaru dari daftar cost. Lanjutkan?');
+    if (!proceed) return;
+
+    setButtonBusy(btnUpdateCosts, true, 'Updating...');
+
+    let updated = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    const tasks = rows.map(async (row) => {
+      const sourceType = getSourceType(row);
+      const itemId = row.querySelector('.bq-line-item-id')?.value || '';
+      const variantId = row.querySelector('.bq-line-variant-id')?.value || '';
+      if (!itemId) {
+        skipped += 1;
+        return;
+      }
+
+      const rateData = await fetchLaborRate(sourceType, itemId, variantId);
+      if (!rateData) {
+        failed += 1;
+        return;
+      }
+
+      const applied = applyLaborRate(row, sourceType, rateData, {
+        skipRecalc: true,
+        resetWhenMissing: false,
+      });
+
+      if (applied) {
+        updated += 1;
+      } else {
+        skipped += 1;
+      }
+    });
+
+    await Promise.all(tasks);
+    formatLineNumbers(sectionsEl);
+    recalcTotals();
+    setButtonBusy(btnUpdateCosts, false);
+
+    alert(`Update cost selesai.\nDiperbarui: ${updated}\nTidak ada master cost: ${skipped}\nGagal ambil data: ${failed}`);
+  };
+
+  if (btnUpdateItemPrices) {
+    btnUpdateItemPrices.addEventListener('click', () => {
+      updateItemPricesFromMaster().catch(() => {
+        setButtonBusy(btnUpdateItemPrices, false);
+        alert('Gagal update harga barang.');
+      });
+    });
+  }
+
+  if (btnUpdateCosts) {
+    btnUpdateCosts.addEventListener('click', () => {
+      updateLaborCostsFromMaster().catch(() => {
+        setButtonBusy(btnUpdateCosts, false);
+        alert('Gagal update cost.');
+      });
+    });
+  }
+
   sectionsEl.addEventListener('change', (e) => {
     if (e.target.classList.contains('bq-line-source')) {
       const row = e.target.closest('.bq-line');
@@ -2036,4 +2212,3 @@
   }
 </style>
 @endpush
-
