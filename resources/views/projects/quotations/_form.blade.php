@@ -84,6 +84,8 @@
   </div>
 @endif
 
+<input type="hidden" name="sections_payload" id="bq-sections-payload">
+
 <div class="card mb-3">
   <div class="card-header">
     <h3 class="card-title">BQ Header</h3>
@@ -1947,25 +1949,65 @@
   }
 
   const formEl = sectionsEl.closest('form');
+  const sectionsPayloadInput = document.getElementById('bq-sections-payload');
   if (formEl) {
     formEl.addEventListener('submit', () => {
       updateSectionSortOrder();
+      recalcTotals();
+
+      const toNumericString = (val) => {
+        const n = parseNumber(val);
+        return Number.isNaN(n) ? '0' : String(n);
+      };
+
       formEl.querySelectorAll('.bq-line').forEach((row) => {
         const materialEl = row.querySelector('.js-line-material');
         const laborEl = row.querySelector('.js-line-labor');
         if (materialEl && String(materialEl.value || '').trim() === '') materialEl.value = '0';
         if (laborEl && String(laborEl.value || '').trim() === '') laborEl.value = '0';
       });
+
+      if (sectionsPayloadInput) {
+        const payload = [...sectionsEl.querySelectorAll('.bq-section')].map((section, sIdx) => {
+          const sectionName = section.querySelector('.section-name')?.value || 'Section';
+          const sectionSortOrder = section.querySelector('.section-sort-order')?.value || String(sIdx);
+          const lines = [...section.querySelectorAll('.bq-line')].map((row) => ({
+            line_no: row.querySelector('input[name$="[line_no]"]')?.value || '',
+            description: row.querySelector('.bq-line-desc')?.value || '',
+            source_type: row.querySelector('.bq-line-source')?.value || 'item',
+            item_id: row.querySelector('.bq-line-item-id')?.value || null,
+            item_variant_id: row.querySelector('.bq-line-variant-id')?.value || null,
+            item_label: row.querySelector('.bq-item-search')?.value || '',
+            line_type: row.querySelector('.bq-line-type')?.value || 'product',
+            catalog_id: row.querySelector('.bq-line-catalog-id')?.value || null,
+            percent_value: toNumericString(row.querySelector('.js-line-percent')?.value || 0),
+            percent_basis: row.querySelector('.bq-line-percent-basis')?.value || 'product_subtotal',
+            computed_amount: toNumericString(row.querySelector('.bq-line-computed')?.value || 0),
+            cost_bucket: row.querySelector('.bq-line-cost-bucket')?.value || 'material',
+            qty: toNumericString(row.querySelector('input[name$="[qty]"]')?.value || 0),
+            unit: row.querySelector('input[name$="[unit]"]')?.value || 'LS',
+            unit_price: toNumericString(row.querySelector('.js-line-unit-price')?.value || 0),
+            material_total: toNumericString(row.querySelector('.js-line-material')?.value || 0),
+            labor_total: toNumericString(row.querySelector('.js-line-labor')?.value || 0),
+            labor_source: row.querySelector('.bq-line-labor-source')?.value || 'manual',
+            labor_unit_cost_snapshot: toNumericString(row.querySelector('.js-line-labor-unit')?.value || 0),
+          }));
+
+          return {
+            name: sectionName,
+            sort_order: sectionSortOrder,
+            lines,
+          };
+        });
+
+        sectionsPayloadInput.value = JSON.stringify(payload);
+
+        formEl.querySelectorAll('input[name^="sections["], select[name^="sections["], textarea[name^="sections["]').forEach((el) => {
+          el.disabled = true;
+        });
+      }
+
       const numericInputs = formEl.querySelectorAll(
-        'input[name$="[qty]"],' +
-        'input[name$="[unit_price]"],' +
-        'input[name$="[material_total]"],' +
-        'input[name$="[labor_total]"],' +
-        'input[name$="[percent_value]"],' +
-        'input[name$="[computed_amount]"],' +
-        'input[name$="[labor_unit_cost_snapshot]"],' +
-        'input[name$="[labor_cost_amount]"],' +
-        'input[name$="[labor_margin_amount]"],' +
         'input[name^="payment_terms["][name$="[percent]"],' +
         'input[name="tax_percent"]'
       );

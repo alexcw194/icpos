@@ -711,6 +711,18 @@ class ProjectQuotationController extends Controller
     private function validateQuotation(Request $request): array
     {
         $input = $request->all();
+
+        if (
+            (!isset($input['sections']) || !is_array($input['sections']))
+            && !empty($input['sections_payload'])
+        ) {
+            $decodedSections = json_decode((string) $input['sections_payload'], true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedSections)) {
+                $input['sections'] = $decodedSections;
+                $request->merge(['sections' => $decodedSections]);
+            }
+        }
+
         foreach (($input['sections'] ?? []) as $sIndex => $section) {
             foreach (($section['lines'] ?? []) as $lIndex => $line) {
                 $input['sections'][$sIndex]['lines'][$lIndex]['cost_bucket']
@@ -1045,4 +1057,5 @@ class ProjectQuotationController extends Controller
             ]);
     }
 }
+
 
