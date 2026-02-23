@@ -1768,7 +1768,9 @@
         const itemIdEl = row.querySelector('.bq-line-item-id');
         const variantIdEl = row.querySelector('.bq-line-variant-id');
 
-        if (descEl && !descEl.value) descEl.value = data.name || '';
+        const displayLabel = ((data.label || data.name || '') + '').replace(/^\([^)]*\)\s*/, '').trim();
+        if (descEl && !descEl.value) descEl.value = displayLabel || data.name || '';
+        this.setTextboxValue(displayLabel || data.name || '');
         if (unitEl) unitEl.value = (data.unit_code || 'LS').toString().toLowerCase();
         const price = parseNumber(data.price);
         if (unitPriceEl) unitPriceEl.value = formatNumber(price);
@@ -1992,3 +1994,4 @@
   }
 </style>
 @endpush
+

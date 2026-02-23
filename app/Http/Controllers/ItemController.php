@@ -555,7 +555,25 @@ class ItemController extends Controller
                 $label = $it->renderVariantLabel($attrs);
                 $attrsText = collect($attrs)->map(fn($val, $key) => ucfirst($key).': '.$val)->implode(' · ');
 
-                $displayLabel = $label;
+                $displayLabel = trim((string) $label);
+                $itemName = trim((string) $it->name);
+                if ($displayLabel === '') {
+                    $displayLabel = $itemName;
+                }
+                if ($itemName !== '' && strcasecmp($displayLabel, $itemName) === 0) {
+                    $attrsText = collect($attrs)
+                        ->filter(fn ($val) => $val !== null && $val !== '')
+                        ->map(fn ($val, $key) => ucfirst((string) $key).': '.(string) $val)
+                        ->implode(', ');
+
+                    if ($attrsText !== '') {
+                        $displayLabel = $itemName.' - '.$attrsText;
+                    } elseif (!empty($v->sku) && strcasecmp((string) $v->sku, (string) $it->sku) !== 0) {
+                        $displayLabel = $itemName.' - '.trim((string) $v->sku);
+                    }
+                } elseif ($itemName !== '' && stripos($displayLabel, $itemName) !== 0) {
+                    $displayLabel = $itemName.' - '.$displayLabel;
+                }
                 $price = (float) (($v->price ?? null) !== null ? $v->price : $it->price);
                 $sku   = $v->sku ?: $it->sku;
                 $variantLastCost = $v->last_cost !== null ? (float) $v->last_cost : null;
@@ -1119,3 +1137,4 @@ class ItemController extends Controller
     }
 
 }
+
