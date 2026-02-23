@@ -191,9 +191,7 @@
 <script>
 const ITEM_SEARCH_URL = @json(route('items.search', [], false));
 const HAS_OLD_BILLING_TERMS = true;
-const FALLBACK_BILLING_TERMS = @json([
-  ['top_code' => 'FINISH', 'percent' => 100, 'due_trigger' => 'on_invoice'],
-]);
+const FALLBACK_BILLING_TERMS = [{ top_code: 'FINISH', percent: 100, due_trigger: 'on_invoice' }];
 let lineIdx = {{ max(count($linesData), 1) }};
 const moneyFormatter = new Intl.NumberFormat('id-ID', {
   minimumFractionDigits: 2,
