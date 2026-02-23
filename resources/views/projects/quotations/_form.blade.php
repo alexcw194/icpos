@@ -310,7 +310,7 @@
                 <th style="width:140px;" class="text-end">Labor Unit</th>
                 <th style="width:160px;" class="text-end">Labor</th>
                 <th style="width:140px;" class="text-end">Line Total</th>
-                <th style="width:1%"></th>
+                <th style="width:200px;" class="text-end">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -397,7 +397,13 @@
                     <input type="hidden" name="sections[{{ $sIndex }}][lines][{{ $lIndex }}][labor_margin_amount]" class="js-line-labor-margin" value="{{ $line['labor_margin_amount'] ?? '' }}">
                   </td>
                   <td class="text-end"><span class="js-line-total">0</span></td>
-                  <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line">Remove</button></td>
+                  <td class="text-nowrap text-end">
+                    <div class="btn-group btn-group-sm">
+                      <button type="button" class="btn btn-outline-secondary btn-move-line-up" title="Move up">Up</button>
+                      <button type="button" class="btn btn-outline-secondary btn-move-line-down" title="Move down">Down</button>
+                      <button type="button" class="btn btn-outline-danger btn-remove-line" title="Remove">Remove</button>
+                    </div>
+                  </td>
                 </tr>
               @endforeach
             </tbody>
@@ -1148,6 +1154,22 @@
     return next;
   };
 
+  const findPrevLine = (row) => {
+    let prev = row?.previousElementSibling;
+    while (prev && !prev.classList.contains('bq-line')) {
+      prev = prev.previousElementSibling;
+    }
+    return prev;
+  };
+
+  const findNextLine = (row) => {
+    let next = row?.nextElementSibling;
+    while (next && !next.classList.contains('bq-line')) {
+      next = next.nextElementSibling;
+    }
+    return next;
+  };
+
   const nextSectionIndex = () => {
     const indices = [...sectionsEl.querySelectorAll('.bq-section')].map((el) => parseInt(el.dataset.sectionIndex || '0', 10));
     return indices.length ? Math.max(...indices) + 1 : 0;
@@ -1264,7 +1286,13 @@
           <input type="hidden" name="sections[${sIndex}][lines][${lIndex}][labor_margin_amount]" class="js-line-labor-margin" value="${laborMarginAmount}">
         </td>
         <td class="text-end"><span class="js-line-total">0</span></td>
-        <td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-line">Remove</button></td>
+        <td class="text-nowrap text-end">
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-secondary btn-move-line-up" title="Move up">Up</button>
+            <button type="button" class="btn btn-outline-secondary btn-move-line-down" title="Move down">Down</button>
+            <button type="button" class="btn btn-outline-danger btn-remove-line" title="Remove">Remove</button>
+          </div>
+        </td>
       </tr>
     `;
   };
@@ -1304,7 +1332,7 @@
                 <th style="width:140px;" class="text-end">Labor Unit</th>
                 <th style="width:160px;" class="text-end">Labor</th>
                 <th style="width:140px;" class="text-end">Line Total</th>
-                <th style="width:1%"></th>
+                <th style="width:200px;" class="text-end">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1447,8 +1475,13 @@
   };
 
   sectionsEl.addEventListener('click', (e) => {
-    if (e.target.classList.contains('btn-move-section-up')) {
-      const section = e.target.closest('.bq-section');
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    const actionBtn = target.closest('button');
+    if (!actionBtn) return;
+
+    if (actionBtn.classList.contains('btn-move-section-up')) {
+      const section = actionBtn.closest('.bq-section');
       const prev = findPrevSection(section);
       if (section && prev) {
         sectionsEl.insertBefore(section, prev);
@@ -1457,8 +1490,8 @@
       return;
     }
 
-    if (e.target.classList.contains('btn-move-section-down')) {
-      const section = e.target.closest('.bq-section');
+    if (actionBtn.classList.contains('btn-move-section-down')) {
+      const section = actionBtn.closest('.bq-section');
       const next = findNextSection(section);
       if (section && next) {
         sectionsEl.insertBefore(next, section);
@@ -1467,8 +1500,28 @@
       return;
     }
 
-    if (e.target.classList.contains('btn-add-line')) {
-      const section = e.target.closest('.bq-section');
+    if (actionBtn.classList.contains('btn-move-line-up')) {
+      const row = actionBtn.closest('.bq-line');
+      const prev = findPrevLine(row);
+      if (row && prev && prev.parentElement) {
+        prev.parentElement.insertBefore(row, prev);
+        recalcTotals();
+      }
+      return;
+    }
+
+    if (actionBtn.classList.contains('btn-move-line-down')) {
+      const row = actionBtn.closest('.bq-line');
+      const next = findNextLine(row);
+      if (row && next && next.parentElement) {
+        next.parentElement.insertBefore(next, row);
+        recalcTotals();
+      }
+      return;
+    }
+
+    if (actionBtn.classList.contains('btn-add-line')) {
+      const section = actionBtn.closest('.bq-section');
       const sIndex = parseInt(section.dataset.sectionIndex || '0', 10);
       const body = section.querySelector('tbody');
       const lIndex = nextLineIndex(section);
@@ -1477,16 +1530,18 @@
       renumberLines(section);
       formatLineNumbers(section);
       recalcTotals();
+      return;
     }
 
-    if (e.target.classList.contains('btn-remove-line')) {
-      const row = e.target.closest('.bq-line');
+    if (actionBtn.classList.contains('btn-remove-line')) {
+      const row = actionBtn.closest('.bq-line');
       row?.remove();
       recalcTotals();
+      return;
     }
 
-    if (e.target.classList.contains('btn-remove-section')) {
-      e.target.closest('.bq-section')?.remove();
+    if (actionBtn.classList.contains('btn-remove-section')) {
+      actionBtn.closest('.bq-section')?.remove();
       updateSectionSortOrder();
       recalcTotals();
     }
@@ -1895,3 +1950,4 @@
   }
 </style>
 @endpush
+
