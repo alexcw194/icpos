@@ -12,6 +12,8 @@ use App\Services\PurchasePriceSyncService;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Carbon;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class PurchaseOrderController extends Controller
 {
@@ -181,8 +183,48 @@ class PurchaseOrderController extends Controller
     }
 
     public function show(PurchaseOrder $po) {
-        $po->load('lines.item','lines.variant','billingTerms');
+        $po->load('lines.item','lines.variant','billingTerms','supplier','company','warehouse');
         return view('po.show', compact('po'));
+    }
+
+    public function pdf(PurchaseOrder $po)
+    {
+        return $this->buildPdfResponse($po, false);
+    }
+
+    public function pdfDownload(PurchaseOrder $po)
+    {
+        return $this->buildPdfResponse($po, true);
+    }
+
+    private function buildPdfResponse(PurchaseOrder $po, bool $download)
+    {
+        $po->load('lines.item','lines.variant','billingTerms','supplier','company','warehouse');
+        $html = view('po.pdf', compact('po'))->render();
+
+        $opt = new Options();
+        $opt->set('isRemoteEnabled', true);
+        $opt->set('isHtml5ParserEnabled', true);
+
+        $pdf = new Dompdf($opt);
+        $pdf->loadHtml($html);
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->render();
+
+        $rawName = $po->status === 'draft'
+            ? ('PO-DRAFT-' . $po->id)
+            : ((string) ($po->number ?: ('PO-' . $po->id)));
+
+        $safe = trim($rawName);
+        $safe = str_replace(['/', '\\'], '-', $safe);
+        $safe = preg_replace('/[^A-Za-z0-9._-]+/', '-', $safe);
+        $safe = preg_replace('/-+/', '-', $safe);
+        $safe = trim($safe, '-');
+        $filename = ($safe !== '' ? $safe : 'purchase-order') . '.pdf';
+
+        return response($pdf->output(), 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', ($download ? 'attachment' : 'inline') . '; filename="' . $filename . '"');
     }
 
     /** Receive entry point: create a GR draft from PO lines (remaining qty) */

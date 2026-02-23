@@ -23,10 +23,10 @@
         <tbody>
           @forelse($pos as $po)
           <tr>
-            <td>{{ $po->number }}</td>
-            <td>{{ $po->supplier->name ?? '—' }}</td>
-            <td>{{ $po->company->alias ?? $po->company->name ?? '—' }}</td>
-            <td>{{ $po->warehouse->name ?? '—' }}</td>
+            <td>{{ $po->status === 'draft' ? ('DRAFT-'.$po->id) : $po->number }}</td>
+            <td>{{ $po->supplier->name ?? '-' }}</td>
+            <td>{{ $po->company->alias ?? $po->company->name ?? '-' }}</td>
+            <td>{{ $po->warehouse->name ?? '-' }}</td>
             <td><span class="badge bg-{{ $po->status === 'approved' ? 'blue' : ($po->status === 'closed' ? 'green' : 'yellow') }}">
               {{ ucfirst($po->status) }}</span></td>
             <td class="text-end">

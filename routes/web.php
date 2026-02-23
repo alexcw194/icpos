@@ -426,6 +426,8 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::get('/po/create',        [PurchaseOrderController::class, 'create'])->name('po.create');
     Route::post('/po',              [PurchaseOrderController::class, 'store'])->name('po.store');
     Route::get('/po/{po}',          [PurchaseOrderController::class, 'show'])->name('po.show');
+    Route::get('/po/{po}/pdf',      [PurchaseOrderController::class, 'pdf'])->name('po.pdf');
+    Route::get('/po/{po}/pdf/download', [PurchaseOrderController::class, 'pdfDownload'])->name('po.pdf-download');
     Route::post('/po/{po}/approve', [PurchaseOrderController::class, 'approve'])->name('po.approve');
 
     // Receive from PO → build GR draft

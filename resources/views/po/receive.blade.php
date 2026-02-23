@@ -37,9 +37,9 @@
               @php $remaining = ($ln->qty_ordered - ($ln->qty_received ?? 0)); @endphp
               @if($remaining > 0)
               <tr>
-                <td>{{ $ln->item->sku ?? '' }} — {{ $ln->item->name ?? '' }}</td>
-                <td>{{ $ln->variant->sku ?? '—' }}</td>
-                <td class="text-end">{{ number_format($remaining,4,'.',',') }} {{ $ln->uom ?? '' }}</td>
+                <td>{{ $ln->item->sku ?? '' }} - {{ $ln->item->name ?? '' }}</td>
+                <td>{{ $ln->variant->sku ?? '-' }}</td>
+                <td class="text-end">{{ number_format($remaining,2,'.',',') }} {{ $ln->uom ?? '' }}</td>
                 <td class="text-end">
                   <input type="number" name="lines[{{ $ln->id }}][qty_received]" step="0.0001" min="0" max="{{ $remaining }}" class="form-control text-end">
                 </td>

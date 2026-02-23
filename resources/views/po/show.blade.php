@@ -2,25 +2,59 @@
 
 @section('content')
 <div class="container-xl">
+  @php
+    $isDraft = $po->status === 'draft';
+    $pdfViewUrl = route('po.pdf', $po);
+    $pdfDownloadUrl = route('po.pdf-download', $po);
+    $shareTitle = $isDraft ? ('PO Draft #' . $po->id) : ('PO ' . ($po->number ?? $po->id));
+    $canReceive = in_array($po->status, ['approved','partial','partially_received'], true);
+  @endphp
+
   <div class="card">
     <div class="card-header d-flex">
-      <h3 class="card-title">PO {{ $po->number }}</h3>
-      <div class="ms-auto">
+      <div>
+        <h3 class="card-title mb-1">{{ $isDraft ? 'PO Draft' : ('PO ' . $po->number) }}</h3>
+        <div class="text-muted small">
+          {{ $isDraft ? ('Draft ID: ' . $po->id) : ('PO Number: ' . $po->number) }}
+        </div>
+      </div>
+
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <a href="{{ $pdfViewUrl }}" target="_blank" rel="noopener" class="btn btn-outline-secondary">Lihat PDF</a>
+
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+            PDF
+          </button>
+          <div class="dropdown-menu dropdown-menu-end">
+            <a class="dropdown-item" href="{{ $pdfDownloadUrl }}">Unduh PDF</a>
+            <button type="button"
+                    class="dropdown-item"
+                    data-share-url="{{ $pdfViewUrl }}"
+                    data-share-title="{{ $shareTitle }}"
+                    onclick="return icposSharePdfFile(this)">
+              Bagikan PDF...
+            </button>
+          </div>
+        </div>
+
         @if($po->status === 'draft')
-        <form action="{{ route('po.approve', $po) }}" method="POST" class="d-inline">@csrf
-          <button class="btn btn-success">Approve</button>
-        </form>
+          <form action="{{ route('po.approve', $po) }}" method="POST" class="d-inline">@csrf
+            <button class="btn btn-success">Approve</button>
+          </form>
         @endif
-        @if(in_array($po->status,['approved','partial']))
+
+        @if($canReceive)
           <a href="{{ route('po.receive', $po) }}" class="btn btn-primary">Receive</a>
         @endif
       </div>
     </div>
+
     <div class="card-body">
       <div class="row g-3">
-        <div class="col-md-3"><strong>Supplier</strong><br>{{ $po->supplier->name ?? '—' }}</div>
-        <div class="col-md-3"><strong>Company</strong><br>{{ $po->company->alias ?? $po->company->name ?? '—' }}</div>
-        <div class="col-md-3"><strong>Warehouse</strong><br>{{ $po->warehouse->name ?? '—' }}</div>
+        <div class="col-md-3"><strong>Supplier</strong><br>{{ $po->supplier->name ?? '-' }}</div>
+        <div class="col-md-3"><strong>Company</strong><br>{{ $po->company->alias ?? $po->company->name ?? '-' }}</div>
+        <div class="col-md-3"><strong>Warehouse</strong><br>{{ $po->warehouse->name ?? '-' }}</div>
         <div class="col-md-3"><strong>Status</strong><br><span class="badge bg-blue">{{ ucfirst($po->status) }}</span></div>
       </div>
 
@@ -34,12 +68,12 @@
           <tbody>
             @foreach($po->lines as $ln)
             <tr>
-              <td>{{ $ln->sku_snapshot ?? ($ln->item->sku ?? '') }} — {{ $ln->item_name_snapshot ?? ($ln->item->name ?? '') }}</td>
-              <td>{{ $ln->variant->sku ?? '—' }}</td>
-              <td class="text-end">{{ number_format($ln->qty_ordered,4,'.',',') }} {{ $ln->uom ?? '' }}</td>
-              <td class="text-end">{{ number_format($ln->qty_received ?? 0,4,'.',',') }}</td>
-              <td class="text-end">{{ number_format(($ln->qty_ordered - ($ln->qty_received ?? 0)),4,'.',',') }}</td>
-              <td class="text-end">{{ number_format($ln->unit_price ?? 0,2,'.',',') }}</td>
+              <td>{{ $ln->sku_snapshot ?? ($ln->item->sku ?? '') }} - {{ $ln->item_name_snapshot ?? ($ln->item->name ?? '') }}</td>
+              <td>{{ $ln->variant->sku ?? '-' }}</td>
+              <td class="text-end">{{ number_format((float)$ln->qty_ordered,2,'.',',') }} {{ $ln->uom ?? '' }}</td>
+              <td class="text-end">{{ number_format((float)($ln->qty_received ?? 0),2,'.',',') }}</td>
+              <td class="text-end">{{ number_format((float)($ln->qty_ordered - ($ln->qty_received ?? 0)),2,'.',',') }}</td>
+              <td class="text-end">{{ number_format((float)($ln->unit_price ?? 0),2,'.',',') }}</td>
             </tr>
             @endforeach
           </tbody>
@@ -51,15 +85,15 @@
           <table class="table table-sm">
             <tr>
               <td>Subtotal</td>
-              <td class="text-end">{{ number_format($po->subtotal ?? 0, 2, '.', ',') }}</td>
+              <td class="text-end">{{ number_format((float)($po->subtotal ?? 0), 2, '.', ',') }}</td>
             </tr>
             <tr>
-              <td>Tax ({{ number_format($po->tax_percent ?? 0, 2, '.', ',') }}%)</td>
-              <td class="text-end">{{ number_format($po->tax_amount ?? 0, 2, '.', ',') }}</td>
+              <td>Tax ({{ number_format((float)($po->tax_percent ?? 0), 2, '.', ',') }}%)</td>
+              <td class="text-end">{{ number_format((float)($po->tax_amount ?? 0), 2, '.', ',') }}</td>
             </tr>
             <tr class="fw-bold">
               <td>Total</td>
-              <td class="text-end">{{ number_format($po->total ?? 0, 2, '.', ',') }}</td>
+              <td class="text-end">{{ number_format((float)($po->total ?? 0), 2, '.', ',') }}</td>
             </tr>
           </table>
         </div>
@@ -89,14 +123,14 @@
                   <td>{{ $term->top_code }}</td>
                   <td class="text-end">{{ number_format((float) $term->percent, 2, ',', '.') }}%</td>
                   <td>
-                    {{ $term->due_trigger ?? '—' }}
+                    {{ $term->due_trigger ?? '-' }}
                     @if($term->offset_days !== null)
                       ({{ $term->offset_days }}d)
                     @elseif($term->day_of_month !== null)
                       (day {{ $term->day_of_month }})
                     @endif
                   </td>
-                  <td>{{ $term->note ?? '—' }}</td>
+                  <td>{{ $term->note ?? '-' }}</td>
                 </tr>
               @endforeach
             </tbody>
@@ -108,3 +142,53 @@
   </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+window.icposSharePdfFile = async function (btn) {
+  const url = btn.getAttribute('data-share-url');
+  const title = btn.getAttribute('data-share-title') || 'Purchase Order';
+  const safe = (title || 'Purchase-Order')
+    .trim()
+    .replaceAll('/', '-')
+    .replaceAll('\\', '-')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const filename = `${safe}.pdf`;
+
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error('PDF download failed: ' + res.status);
+
+    const blob = await res.blob();
+    const file = new File([blob], filename, { type: 'application/pdf' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share({ title, files: [file] });
+      return false;
+    }
+
+    if (navigator.share) {
+      await navigator.share({ title, url });
+      return false;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+
+    alert('Browser tidak mendukung share. PDF sudah diunduh.');
+    return false;
+  } catch (e) {
+    return false;
+  }
+};
+</script>
+@endpush
