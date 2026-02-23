@@ -69,7 +69,7 @@ class PurchaseOrderController extends Controller
 
     public function edit(PurchaseOrder $po)
     {
-        $po->load(['lines.item:id,sku,name','lines.variant:id,sku','billingTerms']);
+        $po->load(['lines.item:id,sku,name','lines.variant:id,item_id,sku,attributes','billingTerms']);
 
         if (!in_array($po->status, ['draft', 'approved'], true)) {
             return redirect()->route('po.show', $po)->with('error', 'PO pada status ini tidak dapat diedit.');
@@ -116,8 +116,17 @@ class PurchaseOrderController extends Controller
         $linesData = old('lines');
         if (!is_array($linesData) || count($linesData) < 1) {
             $linesData = $po->lines->map(function ($line) {
-                $itemSku = $line->sku_snapshot ?: ($line->item->sku ?? '');
+                $itemSku = $line->sku_snapshot ?: ($line->variant->sku ?? ($line->item->sku ?? ''));
                 $itemName = $line->item_name_snapshot ?: ($line->item->name ?? '');
+                if ($line->item_variant_id && $line->variant && $line->item) {
+                    $variantAttrs = is_array($line->variant->attributes) ? $line->variant->attributes : [];
+                    $variantLabel = trim((string) $line->item->renderVariantLabel($variantAttrs));
+                    $parentName = trim((string) ($line->item->name ?? ''));
+                    if ($variantLabel !== '' && ($itemName === '' || strcasecmp(trim((string) $itemName), $parentName) === 0)) {
+                        $itemName = $variantLabel;
+                    }
+                }
+
                 return [
                     'item_id' => $line->item_id,
                     'item_variant_id' => $line->item_variant_id,
@@ -129,12 +138,30 @@ class PurchaseOrderController extends Controller
             })->values()->all();
         } else {
             $itemIds = collect($linesData)->pluck('item_id')->filter()->unique()->values()->all();
+            $variantIds = collect($linesData)->pluck('item_variant_id')->filter()->unique()->values()->all();
             $items = Item::query()->whereIn('id', $itemIds)->get(['id', 'sku', 'name'])->keyBy('id');
+            $variants = ItemVariant::query()->whereIn('id', $variantIds)->get(['id', 'item_id', 'sku', 'attributes'])->keyBy('id');
             foreach ($linesData as &$line) {
                 if (!isset($line['item_label']) || trim((string) $line['item_label']) === '') {
                     $item = $items->get((int) ($line['item_id'] ?? 0));
+                    $variant = $variants->get((int) ($line['item_variant_id'] ?? 0));
+
                     if ($item) {
-                        $line['item_label'] = trim(($item->sku ?? '') . ' - ' . ($item->name ?? ''), ' -');
+                        $itemSku = $item->sku ?? '';
+                        $itemName = $item->name ?? '';
+
+                        if ($variant && (int) $variant->item_id === (int) $item->id) {
+                            $variantAttrs = is_array($variant->attributes) ? $variant->attributes : [];
+                            $variantLabel = trim((string) $item->renderVariantLabel($variantAttrs));
+                            if ($variantLabel !== '') {
+                                $itemName = $variantLabel;
+                            }
+                            if (!empty($variant->sku)) {
+                                $itemSku = (string) $variant->sku;
+                            }
+                        }
+
+                        $line['item_label'] = trim($itemSku . ' - ' . $itemName, ' -');
                     }
                 }
             }
@@ -225,25 +252,21 @@ class PurchaseOrderController extends Controller
             $po->lines()->delete();
             $subtotal = 0.0;
 
-            foreach ($data['lines'] ?? [] as $ln) {
+            foreach ($data['lines'] ?? [] as $lineIndex => $ln) {
                 $item = Item::findOrFail($ln['item_id']);
                 $variantId = $ln['item_variant_id'] ?? null;
                 $qty = $this->toNumber($ln['qty_ordered'] ?? 0);
                 $price = $this->toNumber($ln['unit_price'] ?? 0);
                 $lineTotal = $price * $qty;
                 $subtotal += $lineTotal;
-
-                $variantSku = null;
-                if ($variantId) {
-                    $variantSku = ItemVariant::where('id', $variantId)->value('sku');
-                }
+                $snapshot = $this->resolveItemSnapshot($item, $variantId, $lineIndex);
 
                 PurchaseOrderLine::create([
                     'purchase_order_id'  => $po->id,
                     'item_id'            => $item->id,
                     'item_variant_id'    => $variantId,
-                    'item_name_snapshot' => $item->name,
-                    'sku_snapshot'       => $variantSku ?: $item->sku,
+                    'item_name_snapshot' => $snapshot['item_name_snapshot'],
+                    'sku_snapshot'       => $snapshot['sku_snapshot'],
                     'qty_ordered'        => $qty,
                     'uom'                => $ln['uom'] ?? null,
                     'unit_price'         => $price,
@@ -331,25 +354,21 @@ class PurchaseOrderController extends Controller
             ]);
 
             $subtotal = 0;
-            foreach ($data['lines'] ?? [] as $ln) {
+            foreach ($data['lines'] ?? [] as $lineIndex => $ln) {
                 $item = Item::findOrFail($ln['item_id']);
                 $variantId = $ln['item_variant_id'] ?? null;
                 $qty = $this->toNumber($ln['qty_ordered'] ?? 0);
                 $price = $this->toNumber($ln['unit_price'] ?? 0);
                 $lineTotal = $price * $qty;
                 $subtotal += $lineTotal;
-
-                $variantSku = null;
-                if ($variantId) {
-                    $variantSku = ItemVariant::where('id', $variantId)->value('sku');
-                }
+                $snapshot = $this->resolveItemSnapshot($item, $variantId, $lineIndex);
 
                 PurchaseOrderLine::create([
                     'purchase_order_id'  => $po->id,
                     'item_id'            => $item->id,
                     'item_variant_id'    => $variantId,
-                    'item_name_snapshot' => $item->name,
-                    'sku_snapshot'       => $variantSku ?: $item->sku,
+                    'item_name_snapshot' => $snapshot['item_name_snapshot'],
+                    'sku_snapshot'       => $snapshot['sku_snapshot'],
                     'qty_ordered'        => $qty,
                     'uom'                => $ln['uom'] ?? null,
                     'unit_price'         => $price,
@@ -538,6 +557,42 @@ class PurchaseOrderController extends Controller
         return (float) $s;
     }
 
+    /**
+     * Simpan snapshot nama/SKU berdasarkan item + variant terpilih.
+     * Nama snapshot harus ikut varian agar tidak balik ke parent name.
+     */
+    private function resolveItemSnapshot(Item $item, $variantId, int $lineIndex): array
+    {
+        $skuSnapshot = (string) ($item->sku ?? '');
+        $itemNameSnapshot = (string) ($item->name ?? '');
+
+        if (!$variantId) {
+            return [
+                'sku_snapshot' => $skuSnapshot,
+                'item_name_snapshot' => $itemNameSnapshot,
+            ];
+        }
+
+        $variant = ItemVariant::query()
+            ->where('id', (int) $variantId)
+            ->where('item_id', (int) $item->id)
+            ->first(['id', 'item_id', 'sku', 'attributes']);
+
+        if (!$variant) {
+            throw ValidationException::withMessages([
+                "lines.$lineIndex.item_variant_id" => 'Variant tidak sesuai dengan item yang dipilih.',
+            ]);
+        }
+
+        $variantAttrs = is_array($variant->attributes) ? $variant->attributes : [];
+        $variantLabel = trim((string) $item->renderVariantLabel($variantAttrs));
+
+        return [
+            'sku_snapshot' => (string) ($variant->sku ?: $skuSnapshot),
+            'item_name_snapshot' => $variantLabel !== '' ? $variantLabel : $itemNameSnapshot,
+        ];
+    }
+
     private function normalizeBillingTerms(array $terms): array
     {
         $tops = TermOfPayment::query()
@@ -662,3 +717,4 @@ class PurchaseOrderController extends Controller
         return $clean;
     }
 }
+
