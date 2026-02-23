@@ -217,7 +217,7 @@
                   @php
                     $label = $opt->code;
                     if (!empty($opt->description)) {
-                      $label .= ' — '.$opt->description;
+                      $label .= ' - '.$opt->description;
                     }
                     if (!$opt->is_active) {
                       $label .= ' (inactive)';
@@ -959,6 +959,37 @@
     });
   };
 
+  const reindexSectionAndLineNames = () => {
+    const sections = [...sectionsEl.querySelectorAll('.bq-section')];
+    sections.forEach((section, sIndex) => {
+      section.dataset.sectionIndex = String(sIndex);
+
+      const sectionFields = section.querySelectorAll(
+        'input[name^="sections["], select[name^="sections["], textarea[name^="sections["]'
+      );
+      sectionFields.forEach((field) => {
+        if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) return;
+        if (!field.name || field.closest('.bq-line')) return;
+        field.name = field.name.replace(/^sections\[\d+\]/, `sections[${sIndex}]`);
+      });
+
+      const rows = [...section.querySelectorAll('.bq-line')];
+      rows.forEach((row, lIndex) => {
+        row.dataset.lineIndex = String(lIndex);
+        const rowFields = row.querySelectorAll(
+          'input[name^="sections["], select[name^="sections["], textarea[name^="sections["]'
+        );
+        rowFields.forEach((field) => {
+          if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) return;
+          if (!field.name) return;
+          field.name = field.name
+            .replace(/^sections\[\d+\]/, `sections[${sIndex}]`)
+            .replace(/\[lines\]\[\d+\]/, `[lines][${lIndex}]`);
+        });
+      });
+    });
+  };
+
   const recalcTotals = () => {
     let subMat = 0;
     let subLab = 0;
@@ -1131,6 +1162,7 @@
   };
 
   const updateSectionSortOrder = () => {
+    reindexSectionAndLineNames();
     const sections = [...sectionsEl.querySelectorAll('.bq-section')];
     sections.forEach((section, idx) => {
       const input = section.querySelector('input[name$="[sort_order]"]');
@@ -1354,7 +1386,7 @@
               @php
                 $label = $opt->code;
                 if (!empty($opt->description)) {
-                  $label .= ' — '.$opt->description;
+                  $label .= ' - '.$opt->description;
                 }
                 if (!$opt->is_active) {
                   $label .= ' (inactive)';
@@ -1505,6 +1537,7 @@
       const prev = findPrevLine(row);
       if (row && prev && prev.parentElement) {
         prev.parentElement.insertBefore(row, prev);
+        updateSectionSortOrder();
         recalcTotals();
       }
       return;
@@ -1515,6 +1548,7 @@
       const next = findNextLine(row);
       if (row && next && next.parentElement) {
         next.parentElement.insertBefore(next, row);
+        updateSectionSortOrder();
         recalcTotals();
       }
       return;
@@ -1536,6 +1570,7 @@
     if (actionBtn.classList.contains('btn-remove-line')) {
       const row = actionBtn.closest('.bq-line');
       row?.remove();
+      updateSectionSortOrder();
       recalcTotals();
       return;
     }
@@ -1912,6 +1947,13 @@
   const formEl = sectionsEl.closest('form');
   if (formEl) {
     formEl.addEventListener('submit', () => {
+      updateSectionSortOrder();
+      formEl.querySelectorAll('.bq-line').forEach((row) => {
+        const materialEl = row.querySelector('.js-line-material');
+        const laborEl = row.querySelector('.js-line-labor');
+        if (materialEl && String(materialEl.value || '').trim() === '') materialEl.value = '0';
+        if (laborEl && String(laborEl.value || '').trim() === '') laborEl.value = '0';
+      });
       const numericInputs = formEl.querySelectorAll(
         'input[name$="[qty]"],' +
         'input[name$="[unit_price]"],' +
@@ -1950,4 +1992,3 @@
   }
 </style>
 @endpush
-
