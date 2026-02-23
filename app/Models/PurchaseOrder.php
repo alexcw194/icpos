@@ -18,6 +18,7 @@ class PurchaseOrder extends Model
     public function supplier()  { return $this->belongsTo(Supplier::class, 'supplier_id'); }
     public function warehouse() { return $this->belongsTo(Warehouse::class); }
     public function billingTerms() { return $this->hasMany(PurchaseOrderTerm::class)->orderBy('seq'); }
+    public function goodsReceipts() { return $this->hasMany(GoodsReceipt::class, 'purchase_order_id'); }
 
     public function markReceivedStats(): void {
         $ordered  = $this->lines()->sum('qty_ordered');

@@ -31,7 +31,7 @@
               {{ ucfirst($po->status) }}</span></td>
             <td class="text-end">
               <a href="{{ route('po.show', $po) }}" class="btn btn-sm btn-primary">View</a>
-              @if(in_array($po->status, ['draft','approved'], true))
+              @if(in_array($po->status, ['draft','approved'], true) && (float)($po->qty_received_sum ?? 0) <= 0 && !($po->has_goods_receipts ?? false))
               <a href="{{ route('po.edit', $po) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
               @endif
               @if($po->status === 'draft')

@@ -35,6 +35,8 @@ class PurchaseOrderController extends Controller
 
     public function index(Request $request) {
         $pos = PurchaseOrder::withCount('lines')
+            ->withExists(['goodsReceipts as has_goods_receipts'])
+            ->withSum('lines as qty_received_sum', 'qty_received')
             ->with([
                 'supplier:id,name',
                 'company:id,name,alias',
@@ -70,19 +72,15 @@ class PurchaseOrderController extends Controller
         $po->load(['lines.item:id,sku,name','lines.variant:id,sku','billingTerms']);
 
         if (!in_array($po->status, ['draft', 'approved'], true)) {
-            abort(400, 'PO pada status ini tidak dapat diedit.');
+            return redirect()->route('po.show', $po)->with('error', 'PO pada status ini tidak dapat diedit.');
         }
 
         if ($po->lines->contains(fn ($line) => (float) ($line->qty_received ?? 0) > 0)) {
-            throw ValidationException::withMessages([
-                'lines' => 'PO yang sudah menerima barang tidak bisa diedit.',
-            ]);
+            return redirect()->route('po.show', $po)->with('error', 'PO yang sudah menerima barang tidak bisa diedit.');
         }
 
         if (GoodsReceipt::query()->where('purchase_order_id', $po->id)->exists()) {
-            throw ValidationException::withMessages([
-                'lines' => 'PO yang sudah memiliki draft/pencatatan receiving tidak bisa diedit.',
-            ]);
+            return redirect()->route('po.show', $po)->with('error', 'PO yang sudah memiliki draft/pencatatan receiving tidak bisa diedit.');
         }
 
         $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent']);
