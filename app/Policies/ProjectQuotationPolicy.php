@@ -57,4 +57,9 @@ class ProjectQuotationPolicy
     {
         return $user->hasAnyRole(['Admin', 'SuperAdmin']);
     }
+
+    public function manageBqCsvMappings(User $user, ProjectQuotation $quotation): bool
+    {
+        return $user->hasAnyRole(['Admin', 'SuperAdmin']);
+    }
 }

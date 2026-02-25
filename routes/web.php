@@ -33,6 +33,8 @@ use App\Http\Controllers\{
     ManufactureJobController,
     ManufactureRecipeController,
     BqLineCatalogController,
+    BqCsvConversionController,
+    ProjectQuotationBqCsvController,
     SubContractorController,
     TermOfPaymentController,
     SupplierController,
@@ -139,6 +141,12 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('projects.quotations.pdf-download');
     Route::post('projects/{project}/quotations/{quotation}/reprice-labor', [ProjectQuotationController::class, 'repriceLabor'])
         ->name('projects.quotations.reprice-labor');
+    Route::post('projects/{project}/quotations/{quotation}/bq-csv/upload', [ProjectQuotationBqCsvController::class, 'upload'])
+        ->name('projects.quotations.bq-csv.upload');
+    Route::post('projects/{project}/quotations/{quotation}/bq-csv/mappings', [ProjectQuotationBqCsvController::class, 'storeMappings'])
+        ->name('projects.quotations.bq-csv.mappings');
+    Route::get('projects/{project}/quotations/{quotation}/bq-csv/export', [ProjectQuotationBqCsvController::class, 'export'])
+        ->name('projects.quotations.bq-csv.export');
     Route::post('projects/{project}/quotations/{quotation}/won', [ProjectQuotationController::class, 'markWon'])
         ->name('projects.quotations.won');
     Route::post('projects/{project}/quotations/{quotation}/lost', [ProjectQuotationController::class, 'markLost'])
@@ -408,6 +416,9 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::resource('warehouses', WarehouseController::class)->except(['show']);
     Route::resource('banks', \App\Http\Controllers\BankController::class)->except(['show']);
     Route::resource('bq-line-catalogs', BqLineCatalogController::class)->except(['show']);
+    Route::resource('bq-csv-conversions', BqCsvConversionController::class)
+        ->parameters(['bq-csv-conversions' => 'bqCsvConversion'])
+        ->except(['show']);
     Route::resource('bq-system-notes', \App\Http\Controllers\BqSystemNoteController::class)
         ->parameters(['bq-system-notes' => 'bqSystemNote'])
         ->except(['show']);
