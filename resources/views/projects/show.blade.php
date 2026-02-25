@@ -106,6 +106,22 @@
           <div class="card-header">
             <div class="card-title">Project Quotations (BQ)</div>
             <div class="ms-auto btn-list">
+              @if($project->quotations->count() > 0)
+                <div class="dropdown">
+                  <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    Export CSV BQ
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-end">
+                    @foreach($project->quotations as $bq)
+                      <a
+                        class="dropdown-item"
+                        href="{{ route('projects.quotations.show', ['project' => $project, 'quotation' => $bq, 'open_export_csv' => 1]) }}">
+                        {{ $bq->number }}
+                      </a>
+                    @endforeach
+                  </div>
+                </div>
+              @endif
               @can('create', \App\Models\ProjectQuotation::class)
                 <a href="{{ route('projects.quotations.create', $project) }}" class="btn btn-primary">
                   + New BQ

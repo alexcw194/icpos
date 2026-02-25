@@ -8,13 +8,31 @@
         <div class="page-pretitle">{{ $project->code }}</div>
         <h2 class="page-title">Project Quotations (BQ)</h2>
       </div>
-      @can('create', \App\Models\ProjectQuotation::class)
-        <div class="col-auto ms-auto">
-          <a href="{{ route('projects.quotations.create', $project) }}" class="btn btn-primary">
-            + New BQ
-          </a>
+      <div class="col-auto ms-auto">
+        <div class="btn-list">
+          @if($quotations->count() > 0)
+            <div class="dropdown">
+              <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                Export CSV BQ
+              </button>
+              <div class="dropdown-menu dropdown-menu-end">
+                @foreach($quotations as $bq)
+                  <a
+                    class="dropdown-item"
+                    href="{{ route('projects.quotations.show', ['project' => $project, 'quotation' => $bq, 'open_export_csv' => 1]) }}">
+                    {{ $bq->number }}
+                  </a>
+                @endforeach
+              </div>
+            </div>
+          @endif
+          @can('create', \App\Models\ProjectQuotation::class)
+            <a href="{{ route('projects.quotations.create', $project) }}" class="btn btn-primary">
+              + New BQ
+            </a>
+          @endcan
         </div>
-      @endcan
+      </div>
     </div>
   </div>
 

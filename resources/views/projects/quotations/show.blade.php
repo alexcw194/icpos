@@ -349,6 +349,7 @@ window.icposSharePdfFile = window.icposSharePdfFile || async function (btn) {
   const mappingsUrl = @json($bqCsvMappingsUrl);
   const exportBaseUrl = @json($bqCsvExportBaseUrl);
   const canManageMappings = @json((bool) $canManageCsvMappings);
+  const openOnLoad = @json(request()->boolean('open_export_csv'));
 
   const alertEl = document.getElementById('bqCsvAlert');
   const fileEl = document.getElementById('bqCsvFile');
@@ -560,6 +561,11 @@ window.icposSharePdfFile = window.icposSharePdfFile || async function (btn) {
     params.set('breakdown', breakdownInput.checked ? '1' : '0');
     window.location.href = `${exportBaseUrl}?${params.toString()}`;
   });
+
+  if (openOnLoad && window.bootstrap?.Modal) {
+    const modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+    modalInstance.show();
+  }
 })();
 </script>
 @endpush
