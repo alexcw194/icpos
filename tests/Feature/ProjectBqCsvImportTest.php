@@ -382,4 +382,58 @@ CSV;
                 && (string) ($row['source_item'] ?? '') === 'Indoor Hydrant Box';
         }));
     }
+
+    public function test_prefill_uses_master_item_or_variant_name_not_csv_name(): void
+    {
+        $admin = $this->makeUser('Admin');
+        $ctx = $this->makeContext($admin);
+
+        $item = Item::create([
+            'name' => 'Master Pipe Name',
+            'sku' => 'MASTER-PIPE-01',
+            'price' => 1200,
+            'list_type' => 'retail',
+            'variant_type' => 'size',
+            'name_template' => '{name} {size}',
+        ]);
+        $variant = ItemVariant::create([
+            'item_id' => $item->id,
+            'sku' => 'MASTER-PIPE-01-4IN',
+            'price' => 1300,
+            'attributes' => ['size' => '4"'],
+            'is_active' => true,
+        ]);
+
+        BqCsvConversion::create([
+            'source_category' => 'Pipe',
+            'source_item' => 'PIPE CSV NAME',
+            'mapped_item' => 'PIPE CSV NAME',
+            'target_source_type' => 'item',
+            'target_item_id' => $item->id,
+            'target_item_variant_id' => $variant->id,
+            'is_active' => true,
+        ]);
+
+        $csv = <<<CSV
+Sheet,Category,Item,Quantity,Unit,Specification,LJR
+Floor 1,Pipe,PIPE CSV NAME,53.16,m,+10% waste = 58.48 m,10
+CSV;
+
+        $upload = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.upload', $ctx['project']),
+            ['file' => $this->csvFile($csv)]
+        )->assertOk();
+        $token = (string) $upload->json('token');
+
+        $prepared = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.prepare', $ctx['project']),
+            ['token' => $token]
+        )->assertOk();
+
+        $redirectUrl = (string) $prepared->json('redirect_url');
+        $create = $this->actingAs($admin)->get($redirectUrl);
+        $create->assertOk();
+        $create->assertSee('Master Pipe Name');
+        $create->assertDontSee('PIPE CSV NAME');
+    }
 }

@@ -482,8 +482,13 @@ class BqCsvImportService
                 }
             }
 
+            $resolvedMappedItem = trim((string) $this->formatTargetItemLabel($targetItem, $targetVariant));
+            if ($resolvedMappedItem === '') {
+                $resolvedMappedItem = $mappedItem;
+            }
+
             $row['is_ignored'] = $isIgnored;
-            $row['mapped_item'] = $mappedItem !== '' ? $mappedItem : null;
+            $row['mapped_item'] = $resolvedMappedItem !== '' ? $resolvedMappedItem : null;
             $row['target_source_type'] = $targetSourceType !== '' ? $targetSourceType : null;
             $row['target_item_id'] = $targetItemId > 0 ? $targetItemId : null;
             $row['target_item_variant_id'] = $targetVariantId > 0 ? $targetVariantId : null;
