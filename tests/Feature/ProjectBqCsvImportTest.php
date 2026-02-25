@@ -436,4 +436,58 @@ CSV;
         $create->assertSee('Master Pipe Name');
         $create->assertDontSee('PIPE CSV NAME');
     }
+
+    public function test_prefill_variant_label_falls_back_to_attribute_when_variant_template_equals_parent(): void
+    {
+        $admin = $this->makeUser('Admin');
+        $ctx = $this->makeContext($admin);
+
+        $item = Item::create([
+            'name' => 'Elbow',
+            'sku' => 'ELBOW-PARENT',
+            'price' => 15000,
+            'list_type' => 'project',
+            'variant_type' => 'none',
+            'name_template' => '{name}',
+        ]);
+        $variant = ItemVariant::create([
+            'item_id' => $item->id,
+            'sku' => 'ELBOW-90A-3IN',
+            'price' => 17000,
+            'attributes' => ['size' => '3"'],
+            'is_active' => true,
+        ]);
+
+        BqCsvConversion::create([
+            'source_category' => 'Fitting',
+            'source_item' => 'ELBOW CSV',
+            'mapped_item' => 'ELBOW CSV',
+            'target_source_type' => 'project',
+            'target_item_id' => $item->id,
+            'target_item_variant_id' => $variant->id,
+            'is_active' => true,
+        ]);
+
+        $csv = <<<CSV
+Sheet,Category,Item,Quantity,Unit,Specification,LJR
+Floor 1,Fitting,ELBOW CSV,2,pcs,,0
+CSV;
+
+        $upload = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.upload', $ctx['project']),
+            ['file' => $this->csvFile($csv)]
+        )->assertOk();
+        $token = (string) $upload->json('token');
+
+        $prepared = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.prepare', $ctx['project']),
+            ['token' => $token]
+        )->assertOk();
+
+        $redirectUrl = (string) $prepared->json('redirect_url');
+        $create = $this->actingAs($admin)->get($redirectUrl);
+        $create->assertOk();
+        $create->assertSee('value="Elbow - Size: 3&quot;"', false);
+        $create->assertDontSee('ELBOW CSV');
+    }
 }

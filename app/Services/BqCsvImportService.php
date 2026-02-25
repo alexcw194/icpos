@@ -824,15 +824,41 @@ class BqCsvImportService
             return null;
         }
 
+        $itemName = trim((string) $item->name);
+
         if ($variant) {
             $attrs = is_array($variant->attributes) ? $variant->attributes : [];
-            $label = trim((string) $item->renderVariantLabel($attrs));
-            if ($label !== '') {
-                return $label;
+            $displayLabel = trim((string) $item->renderVariantLabel($attrs));
+            if ($displayLabel === '') {
+                $displayLabel = $itemName;
+            }
+
+            if ($itemName !== '' && strcasecmp($displayLabel, $itemName) === 0) {
+                $attrsText = collect($attrs)
+                    ->filter(fn ($value) => $value !== null && $value !== '')
+                    ->map(fn ($value, $key) => ucfirst((string) $key).': '.(string) $value)
+                    ->implode(', ');
+
+                if ($attrsText !== '') {
+                    $displayLabel = $itemName.' - '.$attrsText;
+                } else {
+                    $variantSku = trim((string) ($variant->sku ?? ''));
+                    $itemSku = trim((string) ($item->sku ?? ''));
+                    if ($variantSku !== '' && strcasecmp($variantSku, $itemSku) !== 0) {
+                        $displayLabel = $itemName.' - '.$variantSku;
+                    }
+                }
+            } elseif ($itemName !== '' && stripos($displayLabel, $itemName) !== 0) {
+                $displayLabel = $itemName.' - '.$displayLabel;
+            }
+
+            $displayLabel = trim($displayLabel);
+            if ($displayLabel !== '') {
+                return $displayLabel;
             }
         }
 
-        return trim((string) $item->name);
+        return $itemName;
     }
 
     private function resolveGroupName(string $categoryNorm, string $mappedItem, string $rawItem): string
