@@ -42,7 +42,10 @@ class BqCsvImportService
             ]);
         }
 
-        $header = fgetcsv($handle);
+        $headerLine = fgets($handle);
+        $header = $headerLine !== false
+            ? $this->splitCsvLineByCommaOnly((string) $headerLine)
+            : null;
         if (!is_array($header) || count($header) === 0) {
             fclose($handle);
             throw ValidationException::withMessages([
@@ -54,7 +57,8 @@ class BqCsvImportService
         $rows = [];
         $sheetSet = [];
 
-        while (($cols = fgetcsv($handle)) !== false) {
+        while (($line = fgets($handle)) !== false) {
+            $cols = $this->splitCsvLineByCommaOnly((string) $line);
             if ($this->rowIsBlank($cols)) {
                 continue;
             }
@@ -328,6 +332,23 @@ class BqCsvImportService
         }
 
         return true;
+    }
+
+    private function splitCsvLineByCommaOnly(string $line): array
+    {
+        $line = rtrim($line, "\r\n");
+        $parts = str_getcsv($line, ',', "\0");
+
+        return array_map(function ($value) {
+            $value = preg_replace('/^\x{FEFF}/u', '', (string) $value) ?? (string) $value;
+            $value = trim($value);
+
+            if (strlen($value) >= 2 && $value[0] === '"' && substr($value, -1) === '"') {
+                $value = substr($value, 1, -1);
+            }
+
+            return str_replace('""', '"', $value);
+        }, $parts);
     }
 
     private function toFloat($value): float

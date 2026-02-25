@@ -212,4 +212,25 @@ CSV;
             ->assertSee('Import CSV BQ')
             ->assertSee('New BQ');
     }
+
+    public function test_upload_parses_item_name_with_double_quote_character_using_comma_split(): void
+    {
+        $admin = $this->makeUser('Admin');
+        $ctx = $this->makeContext($admin);
+
+        $csv = <<<CSV
+Sheet,Category,Item,Quantity,Unit,Specification,LJR
+Floor 1,Fitting,Elbow 90 4",1,pcs,,
+CSV;
+
+        $response = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.upload', $ctx['project']),
+            ['file' => $this->csvFile($csv)]
+        )->assertOk();
+
+        $missing = collect($response->json('missing_mappings'));
+        $this->assertTrue($missing->contains(function ($row) {
+            return (string) ($row['source_item'] ?? '') === 'Elbow 90 4"';
+        }));
+    }
 }
