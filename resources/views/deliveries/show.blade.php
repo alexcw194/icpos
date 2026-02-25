@@ -1,7 +1,12 @@
 @extends('layouts.tabler')
 
 @section('content')
-@php $financeOnly = auth()->user()?->isFinanceOnly() ?? false; @endphp
+@php
+  $financeOnly = auth()->user()?->isFinanceOnly() ?? false;
+  $pdfViewUrl = route('deliveries.pdf', $delivery);
+  $pdfDownloadUrl = route('deliveries.pdf-download', $delivery);
+  $shareTitle = $delivery->number ? ('Delivery ' . $delivery->number) : ('Delivery Draft #' . $delivery->id);
+@endphp
 <div class="container-xl">
   @if($errors->any())
     <div class="alert alert-danger mb-3">
@@ -37,7 +42,22 @@
           @can('deliveries.cancel')
             <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modal-cancel">Cancel Delivery</button>
           @endcan
-          <a href="{{ route('deliveries.pdf', $delivery) }}" target="_blank" class="btn btn-outline-primary">PDF</a>
+          <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+              PDF
+            </button>
+            <div class="dropdown-menu dropdown-menu-end">
+              <a class="dropdown-item" href="{{ $pdfViewUrl }}" target="_blank" rel="noopener">Lihat PDF</a>
+              <a class="dropdown-item" href="{{ $pdfDownloadUrl }}">Unduh PDF</a>
+              <button type="button"
+                      class="dropdown-item"
+                      data-share-url="{{ $pdfViewUrl }}"
+                      data-share-title="{{ $shareTitle }}"
+                      onclick="return icposSharePdfFile(this)">
+                Bagikan PDF
+              </button>
+            </div>
+          </div>
         @endif
       </div>
     </div>
@@ -228,3 +248,52 @@
 @endcan
 @endsection
 
+@push('scripts')
+<script>
+window.icposSharePdfFile = async function (btn) {
+  const url = btn.getAttribute('data-share-url');
+  const title = btn.getAttribute('data-share-title') || 'Delivery';
+  const safe = (title || 'Delivery')
+    .trim()
+    .replaceAll('/', '-')
+    .replaceAll('\\', '-')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const filename = `${safe || 'Delivery'}.pdf`;
+
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error('PDF download failed: ' + res.status);
+
+    const blob = await res.blob();
+    const file = new File([blob], filename, { type: 'application/pdf' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share({ title, files: [file] });
+      return false;
+    }
+
+    if (navigator.share) {
+      await navigator.share({ title, url });
+      return false;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+
+    alert('Browser tidak mendukung share. PDF sudah diunduh.');
+    return false;
+  } catch (e) {
+    return false;
+  }
+};
+</script>
+@endpush

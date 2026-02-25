@@ -391,10 +391,22 @@ class DeliveryController extends Controller
         return response()->json($out);
     }
 
-
     public function pdf(Delivery $delivery)
     {
         $this->authorizePermission('deliveries.view');
+
+        return $this->renderPdfResponse($delivery, false);
+    }
+
+    public function pdfDownload(Delivery $delivery)
+    {
+        $this->authorizePermission('deliveries.view');
+
+        return $this->renderPdfResponse($delivery, true);
+    }
+
+    private function renderPdfResponse(Delivery $delivery, bool $download)
+    {
         $delivery->load(['company', 'customer', 'warehouse', 'lines.item', 'lines.variant']);
 
         $options = new Options();
@@ -407,10 +419,11 @@ class DeliveryController extends Controller
         $pdf->render();
 
         $filename = 'delivery-'.($delivery->number ?: $delivery->id).'.pdf';
+        $disposition = $download ? 'attachment' : 'inline';
 
         return response($pdf->output(), 200, [
             'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+            'Content-Disposition' => $disposition.'; filename="'.$filename.'"',
         ]);
     }
 

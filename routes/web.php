@@ -161,6 +161,7 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
     Route::post('deliveries/{delivery}/post', [DeliveryController::class, 'post'])->name('deliveries.post');
     Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');
     Route::get('deliveries/{delivery}/pdf', [DeliveryController::class, 'pdf'])->name('deliveries.pdf');
+    Route::get('deliveries/{delivery}/pdf/download', [DeliveryController::class, 'pdfDownload'])->name('deliveries.pdf-download');
     Route::get('invoices/{invoice}/pdf-proforma', [\App\Http\Controllers\InvoiceController::class, 'pdfProforma'])
         ->name('invoices.pdf.proforma'); // allowed anytime
     Route::get('invoices/{invoice}/pdf', [\App\Http\Controllers\InvoiceController::class, 'pdfInvoice'])
