@@ -11,6 +11,7 @@ use App\Models\ItemVariant;
 use App\Models\Project;
 use App\Models\ProjectItemLaborRate;
 use App\Models\ProjectQuotation;
+use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -85,6 +86,7 @@ CSV;
             'sku' => 'PIPE-MAP-01',
             'price' => 1000,
             'list_type' => 'retail',
+            'unit_id' => Unit::create(['code' => 'btg', 'name' => 'Batang', 'is_active' => true])->id,
         ]);
         $pipeVariant = ItemVariant::create([
             'item_id' => $pipeItem->id,
@@ -98,6 +100,7 @@ CSV;
             'sku' => 'DIESEL-01',
             'price' => 8000,
             'list_type' => 'project',
+            'unit_id' => Unit::create(['code' => 'set', 'name' => 'Set', 'is_active' => true])->id,
         ]);
 
         ItemLaborRate::create([
@@ -164,6 +167,10 @@ CSV;
         $create->assertSee('Pipe Mapped');
         $create->assertSee('Diesel Pump Mapped');
         $create->assertSee('value="10"', false);
+        $create->assertSee('value="btg"', false);
+        $create->assertSee('value="set"', false);
+        $create->assertDontSee('+10% waste');
+        $create->assertDontSee('Fire Hydrant - EQUIPMENT');
     }
 
     public function test_prepare_rejects_mapping_without_target_item_link(): void
@@ -487,7 +494,7 @@ CSV;
         $redirectUrl = (string) $prepared->json('redirect_url');
         $create = $this->actingAs($admin)->get($redirectUrl);
         $create->assertOk();
-        $create->assertSee('value="Elbow - Size: 3&quot;"', false);
+        $create->assertSee('value="Elbow - 3&quot;"', false);
         $create->assertDontSee('ELBOW CSV');
     }
 }

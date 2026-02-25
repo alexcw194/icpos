@@ -435,7 +435,7 @@ class BqCsvImportService
 
         $items = Item::query()
             ->whereIn('id', array_keys($targetItemIds))
-            ->get(['id', 'name', 'list_type', 'price'])
+            ->get(['id', 'name', 'sku', 'list_type', 'price'])
             ->keyBy('id');
         $variants = ItemVariant::query()
             ->whereIn('id', array_keys($targetVariantIds))
@@ -546,8 +546,6 @@ class BqCsvImportService
                 $targetSourceType,
                 $targetItemId,
                 $targetVariantId > 0 ? $targetVariantId : 0,
-                BqCsvConversion::normalizeTerm((string) ($row['unit'] ?? '')),
-                BqCsvConversion::normalizeTerm((string) ($row['specification'] ?? '')),
             ]);
 
             if (!isset($bucket[$key])) {
@@ -559,8 +557,6 @@ class BqCsvImportService
                     'source_type' => $targetSourceType,
                     'item_id' => $targetItemId,
                     'item_variant_id' => $targetVariantId > 0 ? $targetVariantId : null,
-                    'unit' => (string) ($row['unit'] ?? ''),
-                    'specification' => (string) ($row['specification'] ?? ''),
                     'qty' => 0.0,
                 ];
             }
@@ -604,8 +600,9 @@ class BqCsvImportService
         }
 
         $items = Item::query()
+            ->with(['unit:id,code'])
             ->whereIn('id', array_keys($itemIds))
-            ->get(['id', 'name', 'list_type', 'price'])
+            ->get(['id', 'name', 'sku', 'list_type', 'price', 'unit_id'])
             ->keyBy('id');
         $variants = ItemVariant::query()
             ->whereIn('id', array_keys($variantIds))
@@ -621,8 +618,6 @@ class BqCsvImportService
             $variantId = (int) ($row['item_variant_id'] ?? 0);
             $sourceType = (string) ($row['source_type'] ?? 'item');
             $qty = (float) ($row['qty'] ?? 0);
-            $unit = trim((string) ($row['unit'] ?? ''));
-            $specification = trim((string) ($row['specification'] ?? ''));
 
             $item = $items->get($itemId);
             if (!$item) {
@@ -651,8 +646,9 @@ class BqCsvImportService
             $materialTotal = $qty * $unitPrice;
             $laborTotal = $qty * $laborUnitCost;
             $description = trim((string) ($row['mapped_item'] ?? ''));
-            if ($specification !== '') {
-                $description .= ' - '.$specification;
+            $unit = trim((string) optional($item->unit)->code);
+            if ($unit === '') {
+                $unit = 'PCS';
             }
 
             $lines[] = [
@@ -670,7 +666,7 @@ class BqCsvImportService
                 'computed_amount' => null,
                 'cost_bucket' => 'material',
                 'qty' => $qty,
-                'unit' => $unit !== '' ? $unit : 'PCS',
+                'unit' => $unit,
                 'unit_price' => $unitPrice,
                 'material_total' => $materialTotal,
                 'labor_total' => $laborTotal,
@@ -836,8 +832,9 @@ class BqCsvImportService
             if ($itemName !== '' && strcasecmp($displayLabel, $itemName) === 0) {
                 $attrsText = collect($attrs)
                     ->filter(fn ($value) => $value !== null && $value !== '')
-                    ->map(fn ($value, $key) => ucfirst((string) $key).': '.(string) $value)
-                    ->implode(', ');
+                    ->map(fn ($value) => trim((string) $value))
+                    ->filter(fn (string $value) => $value !== '')
+                    ->implode(' x ');
 
                 if ($attrsText !== '') {
                     $displayLabel = $itemName.' - '.$attrsText;
@@ -852,6 +849,8 @@ class BqCsvImportService
                 $displayLabel = $itemName.' - '.$displayLabel;
             }
 
+            $displayLabel = str_replace(['—', 'â€”'], '-', $displayLabel);
+            $displayLabel = preg_replace('/\s*-\s*/', ' - ', $displayLabel) ?? $displayLabel;
             $displayLabel = trim($displayLabel);
             if ($displayLabel !== '') {
                 return $displayLabel;
