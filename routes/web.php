@@ -34,6 +34,7 @@ use App\Http\Controllers\{
     ManufactureRecipeController,
     BqLineCatalogController,
     BqCsvConversionController,
+    ProjectBqCsvImportController,
     ProjectQuotationBqCsvController,
     SubContractorController,
     TermOfPaymentController,
@@ -141,6 +142,12 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('projects.quotations.pdf-download');
     Route::post('projects/{project}/quotations/{quotation}/reprice-labor', [ProjectQuotationController::class, 'repriceLabor'])
         ->name('projects.quotations.reprice-labor');
+    Route::post('projects/{project}/bq-csv/import/upload', [ProjectBqCsvImportController::class, 'upload'])
+        ->name('projects.bq-csv.import.upload');
+    Route::post('projects/{project}/bq-csv/import/mappings', [ProjectBqCsvImportController::class, 'storeMappings'])
+        ->name('projects.bq-csv.import.mappings');
+    Route::post('projects/{project}/bq-csv/import/prepare', [ProjectBqCsvImportController::class, 'prepare'])
+        ->name('projects.bq-csv.import.prepare');
     Route::post('projects/{project}/quotations/{quotation}/bq-csv/upload', [ProjectQuotationBqCsvController::class, 'upload'])
         ->name('projects.quotations.bq-csv.upload');
     Route::post('projects/{project}/quotations/{quotation}/bq-csv/mappings', [ProjectQuotationBqCsvController::class, 'storeMappings'])

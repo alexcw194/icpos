@@ -45,6 +45,22 @@
                    value="{{ old('mapped_item', $row->mapped_item) }}" required>
             @error('mapped_item') <div class="invalid-feedback">{{ $message }}</div> @enderror
           </div>
+          <div class="col-md-4">
+            <label class="form-label">Target Item ID <span class="text-danger">*</span></label>
+            <input type="number" name="target_item_id" min="1"
+                   class="form-control @error('target_item_id') is-invalid @enderror"
+                   value="{{ old('target_item_id', $row->target_item_id) }}" required>
+            <div class="form-text">Isi ID item master (retail/project).</div>
+            @error('target_item_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Target Variant ID</label>
+            <input type="number" name="target_item_variant_id" min="1"
+                   class="form-control @error('target_item_variant_id') is-invalid @enderror"
+                   value="{{ old('target_item_variant_id', $row->target_item_variant_id) }}">
+            <div class="form-text">Opsional. Harus milik item di atas.</div>
+            @error('target_item_variant_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+          </div>
         </div>
 
         <div class="mt-3">

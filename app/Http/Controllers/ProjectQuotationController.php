@@ -16,6 +16,7 @@ use App\Models\ItemVariant;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\ProjectQuotationTotalsService;
+use App\Services\BqCsvImportService;
 use App\Support\Number;
 use App\Support\ProjectSystems;
 use Dompdf\Dompdf;
@@ -67,7 +68,7 @@ class ProjectQuotationController extends Controller
         return view('projects.quotations.index', compact('project', 'quotations'));
     }
 
-    public function create(Project $project)
+    public function create(Request $request, Project $project, BqCsvImportService $bqCsvImportService)
     {
         $this->authorize('create', ProjectQuotation::class);
 
@@ -134,6 +135,28 @@ class ProjectQuotationController extends Controller
                 ]),
             ],
         ]);
+
+        $importToken = trim((string) $request->query('import_token', ''));
+        if ($importToken !== '') {
+            try {
+                $importPayload = $bqCsvImportService->loadPreparedPayload($request, $project, $importToken);
+                $importSections = collect((array) ($importPayload['sections'] ?? []));
+                if ($importSections->isNotEmpty()) {
+                    $sections = $importSections->map(function (array $section, int $index) {
+                        return (object) [
+                            'name' => (string) ($section['name'] ?? 'Section'),
+                            'sort_order' => (int) ($section['sort_order'] ?? ($index + 1)),
+                            'lines' => collect((array) ($section['lines'] ?? []))->map(function (array $line) {
+                                return (object) $line;
+                            }),
+                        ];
+                    })->values();
+                }
+            } catch (ValidationException $e) {
+                $message = (string) collect($e->errors())->flatten()->first();
+                $request->session()->flash('warning', $message !== '' ? $message : 'Token import CSV tidak valid.');
+            }
+        }
 
         return view('projects.quotations.create', compact(
             'project',

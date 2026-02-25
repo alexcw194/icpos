@@ -10,23 +10,10 @@
       </div>
       <div class="col-auto ms-auto">
         <div class="btn-list">
-          <div class="dropdown">
-            <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-              Export CSV BQ
-            </button>
-            <div class="dropdown-menu dropdown-menu-end">
-              @forelse($quotations as $bq)
-                <a
-                  class="dropdown-item"
-                  href="{{ route('projects.quotations.show', ['project' => $project, 'quotation' => $bq, 'open_export_csv' => 1]) }}">
-                  {{ $bq->number }}
-                </a>
-              @empty
-                <span class="dropdown-item text-muted">Belum ada BQ</span>
-              @endforelse
-            </div>
-          </div>
           @can('create', \App\Models\ProjectQuotation::class)
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalImportBqCsv">
+              Import CSV BQ
+            </button>
             <a href="{{ route('projects.quotations.create', $project) }}" class="btn btn-primary">
               + New BQ
             </a>
@@ -74,4 +61,7 @@
     </div>
   </div>
 </div>
+@can('create', \App\Models\ProjectQuotation::class)
+  @include('projects.quotations._import_csv_modal')
+@endcan
 @endsection

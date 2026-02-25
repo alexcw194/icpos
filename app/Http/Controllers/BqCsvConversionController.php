@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\BqCsvConversion;
+use App\Models\Item;
+use App\Models\ItemVariant;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -14,11 +16,14 @@ class BqCsvConversionController extends Controller
         $status = $request->string('status')->toString();
 
         $rows = BqCsvConversion::query()
+            ->with(['targetItem:id,name,list_type', 'targetItemVariant:id,item_id,sku,attributes'])
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($sub) use ($q) {
                     $sub->where('source_category', 'like', "%{$q}%")
                         ->orWhere('source_item', 'like', "%{$q}%")
-                        ->orWhere('mapped_item', 'like', "%{$q}%");
+                        ->orWhere('mapped_item', 'like', "%{$q}%")
+                        ->orWhere('target_source_type', 'like', "%{$q}%")
+                        ->orWhere('target_item_id', 'like', "%{$q}%");
                 });
             })
             ->when($status === 'active', fn ($query) => $query->where('is_active', true))
@@ -84,6 +89,8 @@ class BqCsvConversionController extends Controller
             'source_category' => ['required', 'string', 'max:190'],
             'source_item' => ['required', 'string', 'max:255'],
             'mapped_item' => ['required', 'string', 'max:255'],
+            'target_item_id' => ['required', 'integer', 'exists:items,id'],
+            'target_item_variant_id' => ['nullable', 'integer', 'exists:item_variants,id'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
@@ -111,10 +118,33 @@ class BqCsvConversionController extends Controller
             ]);
         }
 
+        $targetItemId = (int) ($data['target_item_id'] ?? 0);
+        $targetVariantId = (int) ($data['target_item_variant_id'] ?? 0);
+        $targetItem = Item::query()->find($targetItemId);
+        if (!$targetItem) {
+            throw ValidationException::withMessages([
+                'target_item_id' => 'Item target tidak ditemukan.',
+            ]);
+        }
+
+        if ($targetVariantId > 0) {
+            $variant = ItemVariant::query()->find($targetVariantId);
+            if (!$variant || (int) $variant->item_id !== $targetItemId) {
+                throw ValidationException::withMessages([
+                    'target_item_variant_id' => 'Variant tidak sesuai dengan item.',
+                ]);
+            }
+        }
+
+        $targetSourceType = BqCsvConversion::sourceTypeFromItemListType((string) ($targetItem->list_type ?? 'retail'));
+
         return [
             'source_category' => $sourceCategory,
             'source_item' => $sourceItem,
             'mapped_item' => trim((string) $data['mapped_item']),
+            'target_source_type' => $targetSourceType,
+            'target_item_id' => $targetItemId,
+            'target_item_variant_id' => $targetVariantId > 0 ? $targetVariantId : null,
             'is_active' => $request->boolean('is_active'),
         ];
     }

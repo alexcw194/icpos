@@ -43,6 +43,7 @@
               <th class="w-1">#</th>
               <th>Source</th>
               <th>Mapped Item</th>
+              <th>Target Item</th>
               <th class="w-1">Status</th>
               <th>Updated</th>
               <th class="w-1"></th>
@@ -57,6 +58,20 @@
                   <div class="text-muted">{{ $row->source_item }}</div>
                 </td>
                 <td>{{ $row->mapped_item }}</td>
+                <td>
+                  <div class="fw-semibold">
+                    {{ $row->targetItem?->name ?? '-' }}
+                  </div>
+                  <div class="text-muted small">
+                    {{ $row->target_source_type ?: '-' }}
+                    @if($row->target_item_id)
+                      - item#{{ $row->target_item_id }}
+                    @endif
+                    @if($row->target_item_variant_id)
+                      - variant#{{ $row->target_item_variant_id }}
+                    @endif
+                  </div>
+                </td>
                 <td>
                   @if($row->is_active)
                     <span class="badge bg-green">Active</span>
@@ -74,7 +89,7 @@
                 </td>
               </tr>
             @empty
-              <tr><td colspan="6" class="text-center text-muted">Tidak ada data</td></tr>
+              <tr><td colspan="7" class="text-center text-muted">Tidak ada data</td></tr>
             @endforelse
           </tbody>
         </table>
