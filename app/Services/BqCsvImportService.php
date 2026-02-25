@@ -208,9 +208,9 @@ class BqCsvImportService
         );
     }
 
-    public function buildPrefillSections(array $rawRows): array
+    public function buildPrefillSections(array $rawRows, array $ignoredPairs = []): array
     {
-        $mappingResult = $this->applyConversions($rawRows);
+        $mappingResult = $this->applyConversions($rawRows, $ignoredPairs);
         if (!empty($mappingResult['missing_mappings'])) {
             return [
                 'sections' => [],
@@ -219,20 +219,8 @@ class BqCsvImportService
         }
 
         $aggregated = $this->aggregateRowsForPrefill($mappingResult['rows']);
-        if (empty($aggregated)) {
-            throw ValidationException::withMessages([
-                'file' => 'Tidak ada baris yang bisa dipakai untuk prefill BQ.',
-            ]);
-        }
-
         $lines = $this->enrichAggregatesWithPriceAndLabor($aggregated);
         $sections = $this->buildSectionsFromLines($lines);
-
-        if (empty($sections)) {
-            throw ValidationException::withMessages([
-                'file' => 'Tidak ada section yang berhasil dibentuk dari file CSV.',
-            ]);
-        }
 
         return [
             'sections' => $sections,
@@ -379,8 +367,10 @@ class BqCsvImportService
         return $number;
     }
 
-    private function applyConversions(array $rows): array
+    private function applyConversions(array $rows, array $ignoredPairs = []): array
     {
+        $ignoredMap = $this->normalizeIgnoredPairs($ignoredPairs);
+
         $pairMap = [];
         foreach ($rows as $row) {
             $categoryNorm = (string) ($row['category_norm'] ?? '');
@@ -472,12 +462,13 @@ class BqCsvImportService
                 $targetVariantId = 0;
             }
 
+            $isIgnored = isset($ignoredMap[$key]);
             $isComplete = $mappedItem !== ''
                 && $targetItemId > 0
                 && in_array($targetSourceType, ['item', 'project'], true)
                 && $targetItem !== null;
 
-            if (!$isComplete) {
+            if (!$isComplete && !$isIgnored) {
                 if (!isset($missing[$key])) {
                     $missing[$key] = [
                         'source_category' => (string) ($row['category'] ?? ''),
@@ -491,6 +482,7 @@ class BqCsvImportService
                 }
             }
 
+            $row['is_ignored'] = $isIgnored;
             $row['mapped_item'] = $mappedItem !== '' ? $mappedItem : null;
             $row['target_source_type'] = $targetSourceType !== '' ? $targetSourceType : null;
             $row['target_item_id'] = $targetItemId > 0 ? $targetItemId : null;
@@ -517,6 +509,10 @@ class BqCsvImportService
     {
         $bucket = [];
         foreach ($rows as $row) {
+            if ((bool) ($row['is_ignored'] ?? false)) {
+                continue;
+            }
+
             $mappedItem = trim((string) ($row['mapped_item'] ?? ''));
             $targetSourceType = (string) ($row['target_source_type'] ?? '');
             $targetItemId = (int) ($row['target_item_id'] ?? 0);
@@ -859,6 +855,26 @@ class BqCsvImportService
     private function isPipeCategory(string $categoryNorm): bool
     {
         return $categoryNorm === 'pipe';
+    }
+
+    private function normalizeIgnoredPairs(array $ignoredPairs): array
+    {
+        $map = [];
+        foreach ($ignoredPairs as $pair) {
+            if (!is_array($pair)) {
+                continue;
+            }
+
+            $categoryNorm = BqCsvConversion::normalizeTerm((string) ($pair['source_category'] ?? ''));
+            $itemNorm = BqCsvConversion::normalizeTerm((string) ($pair['source_item'] ?? ''));
+            if ($categoryNorm === '' || $itemNorm === '') {
+                continue;
+            }
+
+            $map[$categoryNorm.'|'.$itemNorm] = true;
+        }
+
+        return $map;
     }
 
     private function pruneExpiredTokens(array $tokens): array

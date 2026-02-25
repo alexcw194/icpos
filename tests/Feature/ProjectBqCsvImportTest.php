@@ -233,4 +233,153 @@ CSV;
             return (string) ($row['source_item'] ?? '') === 'Elbow 90 4"';
         }));
     }
+
+    public function test_prepare_supports_mixed_mapping_and_ignored_rows(): void
+    {
+        $admin = $this->makeUser('Admin');
+        $ctx = $this->makeContext($admin);
+
+        $pipeItem = Item::create([
+            'name' => 'Pipe Mapped',
+            'sku' => 'PIPE-MAP-02',
+            'price' => 1000,
+            'list_type' => 'retail',
+        ]);
+
+        $csv = <<<CSV
+Sheet,Category,Item,Quantity,Unit,Specification,LJR
+Floor 1,Pipe,Pipe MED,53.16,m,+10% waste = 58.48 m,10
+Floor 1,Device,Indoor Hydrant Box,12,pcs,Fire Hydrant - EQUIPMENT,
+CSV;
+
+        $upload = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.upload', $ctx['project']),
+            ['file' => $this->csvFile($csv)]
+        )->assertOk();
+        $token = (string) $upload->json('token');
+
+        $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.mappings', $ctx['project']),
+            [
+                'mappings' => [
+                    [
+                        'source_category' => 'Pipe',
+                        'source_item' => 'Pipe MED',
+                        'mapped_item' => 'Pipe Mapped',
+                        'target_item_id' => $pipeItem->id,
+                        'target_item_variant_id' => null,
+                    ],
+                ],
+            ]
+        )->assertOk();
+
+        $prepared = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.prepare', $ctx['project']),
+            [
+                'token' => $token,
+                'ignored' => [
+                    ['source_category' => 'Device', 'source_item' => 'Indoor Hydrant Box'],
+                ],
+            ]
+        )->assertOk();
+
+        $redirectUrl = (string) $prepared->json('redirect_url');
+        $this->assertStringContainsString('/projects/'.$ctx['project']->id.'/quotations/create', $redirectUrl);
+
+        $create = $this->actingAs($admin)->get($redirectUrl);
+        $create->assertOk();
+        $create->assertSee('Pipe Mapped');
+        $create->assertSee('value="10"', false);
+        $create->assertDontSee('Indoor Hydrant Box');
+
+        $this->assertDatabaseHas('bq_csv_conversions', [
+            'source_category_norm' => 'pipe',
+            'source_item_norm' => 'pipe med',
+            'target_item_id' => $pipeItem->id,
+        ]);
+        $this->assertDatabaseMissing('bq_csv_conversions', [
+            'source_category_norm' => 'device',
+            'source_item_norm' => 'indoor hydrant box',
+        ]);
+    }
+
+    public function test_prepare_allows_all_rows_ignored_and_redirects_to_create(): void
+    {
+        $admin = $this->makeUser('Admin');
+        $ctx = $this->makeContext($admin);
+
+        $csv = <<<CSV
+Sheet,Category,Item,Quantity,Unit,Specification,LJR
+Floor 1,Pipe,Pipe MED,53.16,m,+10% waste = 58.48 m,10
+Floor 1,Device,Indoor Hydrant Box,12,pcs,Fire Hydrant - EQUIPMENT,
+CSV;
+
+        $upload = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.upload', $ctx['project']),
+            ['file' => $this->csvFile($csv)]
+        )->assertOk();
+        $token = (string) $upload->json('token');
+
+        $prepared = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.prepare', $ctx['project']),
+            [
+                'token' => $token,
+                'ignored' => [
+                    ['source_category' => 'Pipe', 'source_item' => 'Pipe MED'],
+                    ['source_category' => 'Device', 'source_item' => 'Indoor Hydrant Box'],
+                ],
+            ]
+        )->assertOk();
+
+        $redirectUrl = (string) $prepared->json('redirect_url');
+        $this->assertStringContainsString('import_token=', $redirectUrl);
+
+        $create = $this->actingAs($admin)->get($redirectUrl);
+        $create->assertOk();
+        $create->assertDontSee('Pipe MED');
+        $create->assertDontSee('Indoor Hydrant Box');
+    }
+
+    public function test_ignored_rows_are_not_persisted_and_reappear_on_next_upload(): void
+    {
+        $admin = $this->makeUser('Admin');
+        $ctx = $this->makeContext($admin);
+
+        $csv = <<<CSV
+Sheet,Category,Item,Quantity,Unit,Specification,LJR
+Floor 1,Device,Indoor Hydrant Box,12,pcs,Fire Hydrant - EQUIPMENT,
+CSV;
+
+        $uploadFirst = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.upload', $ctx['project']),
+            ['file' => $this->csvFile($csv)]
+        )->assertOk();
+        $firstToken = (string) $uploadFirst->json('token');
+
+        $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.prepare', $ctx['project']),
+            [
+                'token' => $firstToken,
+                'ignored' => [
+                    ['source_category' => 'Device', 'source_item' => 'Indoor Hydrant Box'],
+                ],
+            ]
+        )->assertOk();
+
+        $this->assertDatabaseMissing('bq_csv_conversions', [
+            'source_category_norm' => 'device',
+            'source_item_norm' => 'indoor hydrant box',
+        ]);
+
+        $uploadSecond = $this->actingAs($admin)->postJson(
+            route('projects.bq-csv.import.upload', $ctx['project']),
+            ['file' => $this->csvFile($csv)]
+        )->assertOk();
+
+        $missing = collect($uploadSecond->json('missing_mappings'));
+        $this->assertTrue($missing->contains(function ($row) {
+            return (string) ($row['source_category'] ?? '') === 'Device'
+                && (string) ($row['source_item'] ?? '') === 'Indoor Hydrant Box';
+        }));
+    }
 }

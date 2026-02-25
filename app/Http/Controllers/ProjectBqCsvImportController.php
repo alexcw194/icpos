@@ -143,10 +143,16 @@ class ProjectBqCsvImportController extends Controller
 
         $data = $request->validate([
             'token' => ['required', 'string', 'max:100'],
+            'ignored' => ['nullable', 'array'],
+            'ignored.*.source_category' => ['required_with:ignored', 'string', 'max:190'],
+            'ignored.*.source_item' => ['required_with:ignored', 'string', 'max:255'],
         ]);
 
         $payload = $this->bqCsvImportService->loadUploadPayload($request, $project, (string) $data['token']);
-        $built = $this->bqCsvImportService->buildPrefillSections((array) ($payload['rows'] ?? []));
+        $built = $this->bqCsvImportService->buildPrefillSections(
+            (array) ($payload['rows'] ?? []),
+            (array) ($data['ignored'] ?? [])
+        );
         $missing = (array) ($built['missing_mappings'] ?? []);
         if (!empty($missing)) {
             throw ValidationException::withMessages([
@@ -155,12 +161,6 @@ class ProjectBqCsvImportController extends Controller
         }
 
         $sections = (array) ($built['sections'] ?? []);
-        if (empty($sections)) {
-            throw ValidationException::withMessages([
-                'file' => 'Tidak ada data yang bisa dipakai untuk prefill New BQ.',
-            ]);
-        }
-
         $importToken = $this->bqCsvImportService->storePreparedPayload($request, $project, $sections);
 
         return response()->json([
@@ -173,4 +173,3 @@ class ProjectBqCsvImportController extends Controller
         ]);
     }
 }
-

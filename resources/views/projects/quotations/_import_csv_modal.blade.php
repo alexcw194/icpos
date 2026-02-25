@@ -25,6 +25,7 @@
 
         <div id="bqImportMappingWrap" class="d-none">
           <div class="fw-semibold mb-2">Mapping Konversi yang Harus Dilengkapi</div>
+          <div class="small text-muted mb-2">Pilih <strong>ignore</strong> jika row tidak dipakai untuk import saat ini. Row ini tidak disimpan ke master conversion dan akan ditanyakan lagi pada upload berikutnya.</div>
           <div class="table-responsive border rounded">
             <table class="table table-sm mb-0">
               <thead>
@@ -75,6 +76,7 @@
 
   let uploadToken = '';
   let missingMappings = [];
+  let ignoredPairs = [];
 
   const escapeHtml = (value) => {
     return String(value ?? '')
@@ -98,6 +100,7 @@
   const resetState = () => {
     uploadToken = '';
     missingMappings = [];
+    ignoredPairs = [];
     setAlert('', '');
     metaEl.textContent = '';
     metaEl.classList.add('d-none');
@@ -126,13 +129,80 @@
     variantIdEl.value = variantId > 0 ? String(variantId) : '';
   };
 
+  const collectIgnoredPairs = () => {
+    const rows = [...missingBody.querySelectorAll('.bq-import-row')];
+    const seen = new Set();
+    const out = [];
+    for (const row of rows) {
+      const sourceType = String(row.querySelector('.bq-import-source-type')?.value || 'item').toLowerCase();
+      if (sourceType !== 'ignore') continue;
+
+      const sourceCategory = row.children[0]?.textContent?.trim() || '';
+      const sourceItem = row.children[1]?.textContent?.trim() || '';
+      if (!sourceCategory || !sourceItem) continue;
+
+      const key = `${sourceCategory.toLowerCase()}|${sourceItem.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      out.push({
+        source_category: sourceCategory,
+        source_item: sourceItem,
+      });
+    }
+
+    return out;
+  };
+
+  const syncRowMode = (row) => {
+    const sourceTypeEl = row.querySelector('.bq-import-source-type');
+    const picker = row.querySelector('.bq-import-item-picker');
+    const itemIdEl = row.querySelector('.bq-import-item-id');
+    const variantIdEl = row.querySelector('.bq-import-variant-id');
+    const mappedEl = row.querySelector('.bq-import-mapped-item');
+    if (!sourceTypeEl || !picker || !itemIdEl || !variantIdEl) return;
+
+    const sourceType = String(sourceTypeEl.value || 'item').toLowerCase();
+    const isIgnore = sourceType === 'ignore';
+
+    if (isIgnore) {
+      itemIdEl.value = '';
+      variantIdEl.value = '';
+      if (picker.tomselect) {
+        picker.tomselect.clear(true);
+        picker.tomselect.disable();
+      }
+      picker.disabled = true;
+      if (mappedEl) {
+        mappedEl.required = false;
+      }
+      return;
+    }
+
+    if (picker.tomselect) {
+      picker.tomselect.enable();
+    }
+    picker.disabled = false;
+    if (mappedEl) {
+      mappedEl.required = true;
+    }
+  };
+
   const initItemPicker = (row) => {
     const picker = row.querySelector('.bq-import-item-picker');
     if (!picker) return;
-    if (!window.TomSelect) return;
-    if (picker.tomselect) return;
-
     const sourceTypeEl = row.querySelector('.bq-import-source-type');
+
+    if (!window.TomSelect) {
+      sourceTypeEl?.addEventListener('change', () => syncRowMode(row));
+      syncRowMode(row);
+      return;
+    }
+    if (picker.tomselect) {
+      syncRowMode(row);
+      return;
+    }
+
     const selectedUid = row.getAttribute('data-selected-uid') || '';
     const selectedLabel = row.getAttribute('data-selected-label') || '';
 
@@ -194,10 +264,17 @@
     });
 
     sourceTypeEl?.addEventListener('change', () => {
-      ts.clear(true);
-      ts.clearOptions();
-      syncTargetFromOption(row, null);
+      if (sourceTypeEl.value === 'ignore') {
+        syncTargetFromOption(row, null);
+      } else {
+        ts.clear(true);
+        ts.clearOptions();
+        syncTargetFromOption(row, null);
+      }
+      syncRowMode(row);
     });
+
+    syncRowMode(row);
   };
 
   const renderMissingRows = (rows) => {
@@ -227,6 +304,7 @@
             <select class="form-select form-select-sm bq-import-source-type">
               <option value="item" ${sourceType === 'item' ? 'selected' : ''}>item</option>
               <option value="project" ${sourceType === 'project' ? 'selected' : ''}>project</option>
+              <option value="ignore">ignore</option>
             </select>
           </td>
           <td>
@@ -299,7 +377,7 @@
 
         if (canManageMappings) {
           btnSaveMappings.classList.remove('d-none');
-          setAlert('warning', `${missingMappings.length} mapping belum lengkap. Isi mapping dan link item dulu.`);
+          setAlert('warning', `${missingMappings.length} mapping belum lengkap. Isi mapping + link item atau pilih ignore.`);
         } else {
           btnSaveMappings.classList.add('d-none');
           setAlert('warning', `${missingMappings.length} mapping belum lengkap. Hubungi Admin/SuperAdmin.`);
@@ -325,15 +403,26 @@
       return;
     }
 
+    ignoredPairs = collectIgnoredPairs();
     const mappings = [];
     for (const row of rows) {
       const sourceCategory = row.children[0]?.textContent?.trim() || '';
       const sourceItem = row.children[1]?.textContent?.trim() || '';
+      const sourceType = String(row.querySelector('.bq-import-source-type')?.value || 'item').toLowerCase();
       const mappedItem = String(row.querySelector('.bq-import-mapped-item')?.value || '').trim();
       const targetItemId = Number(row.querySelector('.bq-import-item-id')?.value || 0);
       const targetVariantId = Number(row.querySelector('.bq-import-variant-id')?.value || 0);
 
-      if (!sourceCategory || !sourceItem || !mappedItem) {
+      if (!sourceCategory || !sourceItem) {
+        setAlert('danger', 'Source category dan source item wajib ada.');
+        return;
+      }
+
+      if (sourceType === 'ignore') {
+        continue;
+      }
+
+      if (!mappedItem) {
         setAlert('danger', 'Source category, source item, dan mapped item wajib diisi.');
         return;
       }
@@ -349,6 +438,13 @@
         target_item_id: targetItemId,
         target_item_variant_id: targetVariantId > 0 ? targetVariantId : null,
       });
+    }
+
+    if (mappings.length === 0) {
+      btnSaveMappings.classList.add('d-none');
+      btnContinue.classList.remove('d-none');
+      setAlert('success', 'Semua row ditandai ignore untuk import ini. Klik "Lanjut ke New BQ".');
+      return;
     }
 
     btnSaveMappings.disabled = true;
@@ -376,7 +472,11 @@
       mappingWrap.classList.add('d-none');
       btnSaveMappings.classList.add('d-none');
       btnContinue.classList.remove('d-none');
-      setAlert('success', 'Mapping berhasil disimpan. Lanjutkan ke New BQ.');
+      if (ignoredPairs.length > 0) {
+        setAlert('success', `Mapping berhasil disimpan. ${ignoredPairs.length} row di-ignore untuk import ini.`);
+      } else {
+        setAlert('success', 'Mapping berhasil disimpan. Lanjutkan ke New BQ.');
+      }
     } catch (e) {
       setAlert('danger', 'Terjadi kesalahan saat menyimpan mapping.');
     } finally {
@@ -392,6 +492,8 @@
 
     btnContinue.disabled = true;
     setAlert('', '');
+    const ignored = collectIgnoredPairs();
+    ignoredPairs = ignored;
 
     try {
       const resp = await fetch(prepareUrl, {
@@ -402,7 +504,7 @@
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify({ token: uploadToken }),
+        body: JSON.stringify({ token: uploadToken, ignored }),
         credentials: 'same-origin',
       });
 
