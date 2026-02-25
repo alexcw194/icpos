@@ -153,7 +153,7 @@ class IncomeReportService
 
         $query = SalesOrderLine::query()
             ->with([
-                'salesOrder:id,company_id,customer_id,so_number,order_date,created_at,currency,status,po_type',
+                'salesOrder:id,company_id,customer_id,so_number,order_date,created_at,currency,status,po_type,fee_amount,under_amount',
                 'salesOrder.company:id,alias,name',
                 'salesOrder.customer:id,name',
                 'item:id,name,default_cost',
@@ -176,8 +176,17 @@ class IncomeReportService
             ->limit($limit);
 
         $rows = $query->get();
+        $soIds = $rows->pluck('sales_order_id')->filter()->unique()->values();
+        $soRevenueTotals = collect();
+        if ($soIds->isNotEmpty()) {
+            $soRevenueTotals = DB::table('sales_order_lines')
+                ->whereIn('sales_order_id', $soIds)
+                ->selectRaw('sales_order_id, SUM(COALESCE(line_total, 0)) as so_revenue_total')
+                ->groupBy('sales_order_id')
+                ->pluck('so_revenue_total', 'sales_order_id');
+        }
 
-        return $rows->map(function (SalesOrderLine $line) {
+        return $rows->map(function (SalesOrderLine $line) use ($soRevenueTotals) {
             $so = $line->salesOrder;
             $soDate = $so?->order_date
                 ? Carbon::parse($so->order_date)->startOfDay()
@@ -194,6 +203,12 @@ class IncomeReportService
             $costUnit = $cost['cost_unit'] !== null ? (float) $cost['cost_unit'] : null;
             $costTotal = $costUnit !== null ? round($costUnit * $qty, 2) : null;
             $grossProfit = $costTotal !== null ? round($revenue - $costTotal, 2) : null;
+            $commissionTotalSo = (float) ($so?->fee_amount ?? 0) + (float) ($so?->under_amount ?? 0);
+            $soRevenueTotal = (float) ($soRevenueTotals[$so?->id] ?? 0);
+            $commissionAllocated = $soRevenueTotal > 0
+                ? round($commissionTotalSo * ($revenue / $soRevenueTotal), 2)
+                : 0.0;
+            $netProfit = $grossProfit !== null ? round($grossProfit - $commissionAllocated, 2) : null;
 
             return (object) [
                 'so_id' => $so?->id,
@@ -208,6 +223,9 @@ class IncomeReportService
                 'cost_unit_used' => $costUnit,
                 'cost_total' => $costTotal,
                 'gross_profit' => $grossProfit,
+                'commission_total_so' => $commissionTotalSo,
+                'commission_allocated' => $commissionAllocated,
+                'net_profit' => $netProfit,
                 'cost_source' => $cost['source'],
                 'cost_effective_date' => $cost['effective_date'],
                 'cost_missing' => (bool) $cost['cost_missing'],

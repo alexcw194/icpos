@@ -115,6 +115,8 @@
     <td><strong>Revenue</strong><br>{{ $money($salesSummary['revenue'] ?? 0) }}</td>
     <td><strong>Cost</strong><br>{{ $money($salesSummary['cost'] ?? 0) }}</td>
     <td><strong>Gross Profit</strong><br>{{ $money($salesSummary['gross_profit'] ?? 0) }}</td>
+    <td><strong>Commission</strong><br>{{ $money($salesSummary['commission_total'] ?? 0) }}</td>
+    <td><strong>Net Profit</strong><br>{{ $money($salesSummary['net_profit'] ?? 0) }}</td>
     <td><strong>Missing Cost Line</strong><br>{{ number_format((int) ($salesSummary['missing_count'] ?? 0), 0, ',', '.') }}</td>
   </tr>
 </table>
@@ -131,6 +133,8 @@
       <th class="right">Cost Unit</th>
       <th class="right">Cost Total</th>
       <th class="right">Gross Profit</th>
+      <th class="right">Commission</th>
+      <th class="right">Net Profit</th>
       <th>Source</th>
     </tr>
   </thead>
@@ -161,6 +165,8 @@
         <td class="right">{{ $row->cost_unit_used !== null ? $money($row->cost_unit_used) : '-' }}</td>
         <td class="right">{{ $row->cost_total !== null ? $money($row->cost_total) : '-' }}</td>
         <td class="right">{{ $row->gross_profit !== null ? $money($row->gross_profit) : '-' }}</td>
+        <td class="right">{{ $money($row->commission_allocated ?? 0) }}</td>
+        <td class="right">{{ $row->net_profit !== null ? $money($row->net_profit) : '-' }}</td>
         <td>
           {{ $srcLabel }}
           @if($row->cost_effective_date)
@@ -170,7 +176,7 @@
       </tr>
     @empty
       <tr>
-        <td colspan="10" class="right">No sales item data.</td>
+        <td colspan="12" class="right">No sales item data.</td>
       </tr>
     @endforelse
   </tbody>

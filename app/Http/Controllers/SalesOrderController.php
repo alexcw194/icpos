@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use App\Services\DocNumberService;
+use App\Services\SalesCostAsOfDateService;
 use App\Http\Controllers\SalesOrderAttachmentController as SOAtt;
 
 class SalesOrderController extends Controller
@@ -161,6 +162,7 @@ class SalesOrderController extends Controller
             'private_notes'        => ['nullable','string'],
             'discount_mode'        => ['required','in:total,per_item'],
             'tax_percent'          => ['nullable','string'], // akan diparse manual
+            'fee_amount'           => ['nullable','numeric','min:0'],
             'under_amount'         => ['nullable','numeric','min:0'],
             'sales_user_id'        => ['nullable','exists:users,id'],
             'draft_token'          => ['nullable','string','max:64'],
@@ -321,6 +323,7 @@ class SalesOrderController extends Controller
                 'bill_to'             => $data['bill_to'] ?? null,
                 'notes'               => $data['notes'] ?? null,
                 'private_notes'       => $data['private_notes'] ?? null,
+                'fee_amount'          => (float) ($data['fee_amount'] ?? 0),
                 'under_amount'        => (float) ($data['under_amount'] ?? 0),
                 'discount_mode'       => $mode,
                 'tax_percent'         => $taxPct, // simpan numeric
@@ -423,14 +426,55 @@ class SalesOrderController extends Controller
     {
         $this->authorize('view', $salesOrder);
 
-        $salesOrder->load(['company','customer','salesUser','lines.variant.item','attachments','quotation','project','billingTerms','variations']);
+        $salesOrder->load(['company','customer','salesUser','lines.item','lines.variant.item','attachments','quotation','project','billingTerms','variations']);
         $billingDoc = BillingDocument::query()
             ->where('sales_order_id', $salesOrder->id)
             ->where('status', '!=', 'void')
             ->orderByDesc('id')
             ->first();
 
-        return view('sales_orders.show', compact('salesOrder', 'billingDoc'));
+        $costService = app(SalesCostAsOfDateService::class);
+        $soDate = $salesOrder->order_date ?: $salesOrder->created_at?->toDateString() ?: now()->toDateString();
+        $revenue = 0.0;
+        $cost = 0.0;
+        $missingCostLines = 0;
+
+        foreach ($salesOrder->lines as $line) {
+            if (!$line->item_id) {
+                continue;
+            }
+
+            $lineRevenue = (float) ($line->line_total ?? 0);
+            $qty = (float) ($line->qty_ordered ?? 0);
+            $costInfo = $costService->resolve(
+                itemId: (int) $line->item_id,
+                variantId: $line->item_variant_id ? (int) $line->item_variant_id : null,
+                soDate: $soDate
+            );
+
+            $revenue += $lineRevenue;
+            if ($costInfo['cost_unit'] === null) {
+                $missingCostLines++;
+                continue;
+            }
+
+            $cost += round(((float) $costInfo['cost_unit']) * $qty, 2);
+        }
+
+        $grossProfit = $revenue - $cost;
+        $commissionTotal = (float) ($salesOrder->fee_amount ?? 0) + (float) ($salesOrder->under_amount ?? 0);
+        $netProfit = $grossProfit - $commissionTotal;
+
+        $commissionSummary = [
+            'revenue' => $revenue,
+            'cost' => $cost,
+            'gross_profit' => $grossProfit,
+            'commission_total' => $commissionTotal,
+            'net_profit' => $netProfit,
+            'missing_cost_lines' => $missingCostLines,
+        ];
+
+        return view('sales_orders.show', compact('salesOrder', 'billingDoc', 'commissionSummary'));
     }
 
     /** Edit form (header + lines + attachments upload). */
@@ -564,6 +608,7 @@ class SalesOrderController extends Controller
             'lines.*.item_id'         => ['nullable','integer','exists:items,id'],
             'lines.*.item_variant_id' => ['nullable','integer','exists:item_variants,id'],
             'private_notes' => ['nullable','string'],
+            'fee_amount'   => ['nullable','numeric','min:0'],
             'under_amount'  => ['nullable','numeric','min:0'],
 
             // optional upload saat edit
@@ -726,6 +771,7 @@ class SalesOrderController extends Controller
                 'tax_amount'            => $ppn,
                 'total'                 => $grand,
                 'contract_value'        => $grand,
+                'fee_amount'            => (float) ($data['fee_amount'] ?? 0),
                 'under_amount'          => (float) ($data['under_amount'] ?? 0),
             ]);
 
@@ -799,6 +845,39 @@ class SalesOrderController extends Controller
         }
 
         return redirect()->route('sales-orders.show', $salesOrder)->with('ok','Sales Order updated.');
+    }
+
+    public function updateCommission(Request $request, SalesOrder $salesOrder)
+    {
+        $this->authorize('manageCommission', $salesOrder);
+
+        $data = $request->validate([
+            'fee_amount' => ['nullable', 'numeric', 'min:0'],
+            'under_amount' => ['nullable', 'numeric', 'min:0'],
+            'fee_paid_at' => ['nullable', 'date'],
+            'under_paid_at' => ['nullable', 'date'],
+        ]);
+
+        $feeAmount = (float) ($data['fee_amount'] ?? 0);
+        $underAmount = (float) ($data['under_amount'] ?? 0);
+        $feePaidAt = $data['fee_paid_at'] ?? null;
+        $underPaidAt = $data['under_paid_at'] ?? null;
+
+        if ($feeAmount <= 0) {
+            $feePaidAt = null;
+        }
+        if ($underAmount <= 0) {
+            $underPaidAt = null;
+        }
+
+        $salesOrder->update([
+            'fee_amount' => $feeAmount,
+            'under_amount' => $underAmount,
+            'fee_paid_at' => $feePaidAt,
+            'under_paid_at' => $underPaidAt,
+        ]);
+
+        return redirect()->route('sales-orders.show', $salesOrder)->with('ok', 'Komisi SO berhasil diperbarui.');
     }
 
     /** Cancel SO (status -> cancelled) dengan alasan. */
@@ -920,6 +999,7 @@ class SalesOrderController extends Controller
             'sales_user_id'  => ['nullable','exists:users,id'], // ✅ PERBAIKI INI
 
             'private_notes'  => ['nullable','string'],
+            'fee_amount'     => ['nullable','numeric','min:0'],
             'under_amount'   => ['nullable','numeric','min:0'],
 
             'discount_mode'  => ['nullable','in:total,per_item'],
@@ -937,6 +1017,7 @@ class SalesOrderController extends Controller
         ]);
 
         // 2) Normalisasi nilai
+        $fee          = $this->toNumber($data['fee_amount'] ?? 0);
         $under        = $this->toNumber($data['under_amount'] ?? 0);
         $poNumber     = trim((string) ($data['po_number'] ?? ''));
         $poNumber     = $poNumber !== '' ? $poNumber : null;
@@ -967,7 +1048,7 @@ class SalesOrderController extends Controller
             ?: ($quotation->sales_user_id ?: auth()->id());
 
         /** @var SalesOrder $so */
-        $so = DB::transaction(function() use ($quotation, $company, $data, $under, $poNumber, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms, $isScope) {
+        $so = DB::transaction(function() use ($quotation, $company, $data, $fee, $under, $poNumber, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms, $isScope) {
 
             // Nomor SO
             $number = app(DocNumberService::class)->next('sales_order', $company, now());
@@ -995,6 +1076,7 @@ class SalesOrderController extends Controller
                 'status'              => 'open',
                 'notes'               => $data['notes'] ?? null,
                 'private_notes'       => $data['private_notes'] ?? null,
+                'fee_amount'          => $fee,
                 'under_amount'        => $under,
 
                 'discount_mode'       => $discountMode,

@@ -124,6 +124,8 @@ class IncomeReportController extends Controller
                 'Cost Unit Used',
                 'Cost Total',
                 'Gross Profit',
+                'Commission Allocated',
+                'Net Profit',
                 'Cost Source',
                 'Cost Effective Date',
                 'Cost Missing',
@@ -142,6 +144,8 @@ class IncomeReportController extends Controller
                     $row->cost_unit_used !== null ? (float) $row->cost_unit_used : '',
                     $row->cost_total !== null ? (float) $row->cost_total : '',
                     $row->gross_profit !== null ? (float) $row->gross_profit : '',
+                    (float) ($row->commission_allocated ?? 0),
+                    $row->net_profit !== null ? (float) $row->net_profit : '',
                     $row->cost_source,
                     $row->cost_effective_date ?: '',
                     $row->cost_missing ? 'yes' : 'no',
@@ -243,12 +247,16 @@ class IncomeReportController extends Controller
             ->filter(fn ($row) => $row->cost_total !== null)
             ->sum(fn ($row) => (float) $row->cost_total);
         $grossProfit = $revenue - $cost;
+        $commissionTotal = (float) $salesItems->sum(fn ($row) => (float) ($row->commission_allocated ?? 0));
+        $netProfit = $grossProfit - $commissionTotal;
         $missing = (int) $salesItems->where('cost_missing', true)->count();
 
         return [
             'revenue' => $revenue,
             'cost' => $cost,
             'gross_profit' => $grossProfit,
+            'commission_total' => $commissionTotal,
+            'net_profit' => $netProfit,
             'missing_count' => $missing,
             'line_count' => (int) $salesItems->count(),
         ];

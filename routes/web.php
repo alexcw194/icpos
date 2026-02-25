@@ -230,6 +230,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('sales-orders.edit');
     Route::match (['put','patch'], 'sales-orders/{salesOrder}', [SalesOrderController::class, 'update'])
         ->name('sales-orders.update');
+    Route::patch('sales-orders/{salesOrder}/commission', [SalesOrderController::class, 'updateCommission'])
+        ->name('sales-orders.commission.update');
     Route::post  ('sales-orders/{salesOrder}/cancel', [SalesOrderController::class, 'cancel'])
         ->name('sales-orders.cancel');
     Route::delete('sales-orders/{salesOrder}', [SalesOrderController::class, 'destroy'])

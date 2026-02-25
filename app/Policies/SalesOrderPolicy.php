@@ -86,6 +86,11 @@ class SalesOrderPolicy
         return $user->hasAnyRole(['Sales', 'SalesManager', 'Admin', 'SuperAdmin']);
     }
 
+    public function manageCommission(User $user, SalesOrder $so): bool
+    {
+        return $this->isSuperAdmin($user) || $this->isAdmin($user);
+    }
+
     protected function isOpenAndUnlocked(SalesOrder $so): bool
     {
         if ($so->status !== 'open') {

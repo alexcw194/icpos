@@ -214,7 +214,7 @@
   </div>
 
   <div class="row row-deck row-cards mt-3 mb-3">
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-2">
       <div class="card card-sm">
         <div class="card-body">
           <div class="subheader">SO Item Revenue</div>
@@ -222,7 +222,7 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-2">
       <div class="card card-sm">
         <div class="card-body">
           <div class="subheader">SO Item Cost</div>
@@ -230,7 +230,7 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-2">
       <div class="card card-sm">
         <div class="card-body">
           <div class="subheader">SO Gross Profit</div>
@@ -240,7 +240,25 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-2">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">SO Commission</div>
+          <div class="h2 m-0">{{ $money($salesSummary['commission_total'] ?? 0) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="subheader">SO Net Profit</div>
+          <div class="h2 m-0 {{ ($salesSummary['net_profit'] ?? 0) < 0 ? 'text-danger' : 'text-success' }}">
+            {{ $money($salesSummary['net_profit'] ?? 0) }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
       <div class="card card-sm">
         <div class="card-body">
           <div class="subheader">Missing Cost Line</div>
@@ -269,6 +287,8 @@
             <th class="text-end">Cost Unit</th>
             <th class="text-end">Cost Total</th>
             <th class="text-end">Gross Profit</th>
+            <th class="text-end">Commission</th>
+            <th class="text-end">Net Profit</th>
             <th>Cost Source</th>
           </tr>
         </thead>
@@ -318,6 +338,16 @@
                   -
                 @endif
               </td>
+              <td class="text-end">{{ $money($row->commission_allocated ?? 0) }}</td>
+              <td class="text-end">
+                @if($row->net_profit !== null)
+                  <span class="{{ $row->net_profit < 0 ? 'text-danger' : 'text-success' }}">
+                    {{ $money($row->net_profit) }}
+                  </span>
+                @else
+                  -
+                @endif
+              </td>
               <td>
                 @php
                   $src = (string) ($row->cost_source ?? 'missing');
@@ -337,7 +367,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="11" class="text-center text-muted">No sales item data.</td>
+              <td colspan="13" class="text-center text-muted">No sales item data.</td>
             </tr>
           @endforelse
         </tbody>

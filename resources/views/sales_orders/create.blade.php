@@ -297,6 +297,12 @@
           </div>
 
           <div class="mb-3">
+            <label class="form-label">Fee (Rp)</label>
+            <input type="text" name="fee_amount" class="form-control text-end"
+                  value="{{ old('fee_amount', 0) }}">
+          </div>
+
+          <div class="mb-3">
             <label class="form-label">Under (Rp)</label>
             <input type="text" name="under_amount" class="form-control text-end"
                   value="{{ old('under_amount', 0) }}">

@@ -32,6 +32,11 @@
     'maintenance' => ['Maintenance','bg-teal-lt text-dark'],
   ];
   [$poLabel, $poClass] = $poTypeMap[$o->po_type ?? 'goods'] ?? ['Goods','bg-azure-lt text-dark'];
+  $feeAmount = (float) ($o->fee_amount ?? 0);
+  $underAmount = (float) ($o->under_amount ?? 0);
+  $commissionTotal = $feeAmount + $underAmount;
+  $grossProfit = (float) ($commissionSummary['gross_profit'] ?? 0);
+  $netProfit = (float) ($commissionSummary['net_profit'] ?? ($grossProfit - $commissionTotal));
 @endphp
 
 <div class="container-xl">
@@ -152,6 +157,62 @@
           <div class="mb-0"><strong>Alamat:</strong><br><pre class="mb-0">{{ $o->tax_npwp_address }}</pre></div>
         @endif
       </div></div>
+    </div>
+
+    <div class="col-12">
+      <div class="card mb-3">
+        <div class="card-header">
+          <h3 class="card-title">Komisi</h3>
+          <div class="ms-auto">
+            @can('manageCommission', $o)
+              <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalCommissionSo">
+                Update Komisi
+              </button>
+            @endcan
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <div class="text-muted">Fee</div>
+              <div class="fw-semibold">{{ number_format($feeAmount, 2, ',', '.') }}</div>
+              <div class="small {{ $o->fee_paid_at ? 'text-success' : 'text-muted' }}">
+                {{ $o->fee_paid_at ? ('Paid: ' . $o->fee_paid_at->format('d-m-Y')) : 'Belum dibayar' }}
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="text-muted">Under</div>
+              <div class="fw-semibold">{{ number_format($underAmount, 2, ',', '.') }}</div>
+              <div class="small {{ $o->under_paid_at ? 'text-success' : 'text-muted' }}">
+                {{ $o->under_paid_at ? ('Paid: ' . $o->under_paid_at->format('d-m-Y')) : 'Belum dibayar' }}
+              </div>
+            </div>
+            <div class="col-md-2">
+              <div class="text-muted">Total Komisi</div>
+              <div class="fw-semibold">{{ number_format($commissionTotal, 2, ',', '.') }}</div>
+            </div>
+            <div class="col-md-2">
+              <div class="text-muted">Gross Margin</div>
+              <div class="fw-semibold {{ $grossProfit < 0 ? 'text-danger' : 'text-success' }}">
+                {{ number_format($grossProfit, 2, ',', '.') }}
+              </div>
+            </div>
+            <div class="col-md-2">
+              <div class="text-muted">Net Income</div>
+              <div class="fw-bold {{ $netProfit < 0 ? 'text-danger' : 'text-success' }}">
+                {{ number_format($netProfit, 2, ',', '.') }}
+              </div>
+            </div>
+            @if(($commissionSummary['missing_cost_lines'] ?? 0) > 0)
+              <div class="col-12">
+                <div class="text-muted small">
+                  Ada {{ number_format((int) ($commissionSummary['missing_cost_lines'] ?? 0), 0, ',', '.') }} line tanpa cost; gross/net memakai cost yang tersedia.
+                </div>
+              </div>
+            @endif
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="col-12">
@@ -392,9 +453,17 @@
                       {{ $o->private_notes ?: '—' }}
                     </div>
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-2">
+                    <div class="mb-2 text-muted">Fee Amount</div>
+                    <div>{{ number_format((float)($o->fee_amount ?? 0), 2, ',', '.') }}</div>
+                  </div>
+                  <div class="col-md-2">
                     <div class="mb-2 text-muted">Under Amount</div>
-                    <div>{{ number_format((float)($o->under_amount ?? 0), 0, ',', '.') }}</div>
+                    <div>{{ number_format((float)($o->under_amount ?? 0), 2, ',', '.') }}</div>
+                  </div>
+                  <div class="col-md-2">
+                    <div class="mb-2 text-muted">Total Komisi</div>
+                    <div class="fw-semibold">{{ number_format((float) (($o->fee_amount ?? 0) + ($o->under_amount ?? 0)), 2, ',', '.') }}</div>
                   </div>
                 </div>
               </div>
@@ -501,6 +570,50 @@
     </div>
   </div>
 @endif
+
+@can('manageCommission', $o)
+  <div class="modal fade" id="modalCommissionSo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" method="POST" action="{{ route('sales-orders.commission.update', $o) }}">
+        @csrf
+        @method('PATCH')
+        <div class="modal-header">
+          <h5 class="modal-title">Update Komisi SO</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Fee (Rp)</label>
+            <input type="number" step="0.01" min="0" name="fee_amount" class="form-control"
+                   value="{{ old('fee_amount', (float) ($o->fee_amount ?? 0)) }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tanggal Bayar Fee</label>
+            <input type="date" name="fee_paid_at" class="form-control"
+                   value="{{ old('fee_paid_at', optional($o->fee_paid_at)->toDateString()) }}">
+            <div class="form-text">Akan dikosongkan otomatis bila nilai fee = 0.</div>
+          </div>
+          <hr>
+          <div class="mb-3">
+            <label class="form-label">Under (Rp)</label>
+            <input type="number" step="0.01" min="0" name="under_amount" class="form-control"
+                   value="{{ old('under_amount', (float) ($o->under_amount ?? 0)) }}">
+          </div>
+          <div class="mb-0">
+            <label class="form-label">Tanggal Bayar Under</label>
+            <input type="date" name="under_paid_at" class="form-control"
+                   value="{{ old('under_paid_at', optional($o->under_paid_at)->toDateString()) }}">
+            <div class="form-text">Akan dikosongkan otomatis bila nilai under = 0.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+@endcan
 
 {{-- Modal Cancel SO --}}
 <div class="modal fade" id="modalCancelSo" tabindex="-1" aria-hidden="true">

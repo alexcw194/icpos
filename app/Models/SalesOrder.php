@@ -18,7 +18,7 @@ class SalesOrder extends Model
         'payment_term_id','payment_term_snapshot',
         'project_id','project_name',
         'ship_to','bill_to','notes',
-        'private_notes','under_amount',
+        'private_notes','fee_amount','under_amount','fee_paid_at','under_paid_at',
         'discount_mode',
         'lines_subtotal','total_discount_type','total_discount_value','total_discount_amount',
         'taxable_base','tax_percent','tax_amount','total',
@@ -46,7 +46,10 @@ class SalesOrder extends Model
         'tax_amount'            => 'decimal:2',
         'total'                 => 'decimal:2',
         'under_amount'          => 'decimal:2',
+        'fee_amount'            => 'decimal:2',
         'contract_value'        => 'decimal:2',
+        'fee_paid_at'           => 'date',
+        'under_paid_at'         => 'date',
 
         // boolean
         'npwp_required' => 'bool',
