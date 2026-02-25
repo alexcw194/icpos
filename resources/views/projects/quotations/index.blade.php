@@ -10,22 +10,22 @@
       </div>
       <div class="col-auto ms-auto">
         <div class="btn-list">
-          @if($quotations->count() > 0)
-            <div class="dropdown">
-              <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                Export CSV BQ
-              </button>
-              <div class="dropdown-menu dropdown-menu-end">
-                @foreach($quotations as $bq)
-                  <a
-                    class="dropdown-item"
-                    href="{{ route('projects.quotations.show', ['project' => $project, 'quotation' => $bq, 'open_export_csv' => 1]) }}">
-                    {{ $bq->number }}
-                  </a>
-                @endforeach
-              </div>
+          <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+              Export CSV BQ
+            </button>
+            <div class="dropdown-menu dropdown-menu-end">
+              @forelse($quotations as $bq)
+                <a
+                  class="dropdown-item"
+                  href="{{ route('projects.quotations.show', ['project' => $project, 'quotation' => $bq, 'open_export_csv' => 1]) }}">
+                  {{ $bq->number }}
+                </a>
+              @empty
+                <span class="dropdown-item text-muted">Belum ada BQ</span>
+              @endforelse
             </div>
-          @endif
+          </div>
           @can('create', \App\Models\ProjectQuotation::class)
             <a href="{{ route('projects.quotations.create', $project) }}" class="btn btn-primary">
               + New BQ
