@@ -148,6 +148,9 @@
       font-weight: 700;
       text-align: left;
     }
+    .sign-name-customer {
+      text-align: left;
+    }
     .sign-title-icp {
       text-align: left;
       color: #111827;
@@ -352,7 +355,7 @@
           </tr>
           <tr>
             <td class="sign-name">{{ $icpSignerName }}</td>
-            <td class="sign-name">{{ $customerSigners[0]['name'] ?? '' }}</td>
+            <td class="sign-name sign-name-customer">{{ $customerSigners[0]['name'] ?? '' }}</td>
           </tr>
           <tr>
             <td class="sign-title">{{ $icpSignerTitle }}</td>
@@ -404,21 +407,21 @@
             <div class="signer-col-4">
               <div class="signer-title">&nbsp;</div>
               @if(isset($customerSigners[0]))
-                <div class="sign-name">{{ $customerSigners[0]['name'] ?? '' }}</div>
+                <div class="sign-name sign-name-customer">{{ $customerSigners[0]['name'] ?? '' }}</div>
                 <div class="sign-title">{{ $customerSigners[0]['title'] ?? '' }}</div>
               @endif
             </div>
             <div class="signer-col-4">
               <div class="signer-title">&nbsp;</div>
               @if(isset($customerSigners[1]))
-                <div class="sign-name">{{ $customerSigners[1]['name'] ?? '' }}</div>
+                <div class="sign-name sign-name-customer">{{ $customerSigners[1]['name'] ?? '' }}</div>
                 <div class="sign-title">{{ $customerSigners[1]['title'] ?? '' }}</div>
               @endif
             </div>
             <div class="signer-col-4">
               <div class="signer-title">&nbsp;</div>
               @if(isset($customerSigners[2]))
-                <div class="sign-name">{{ $customerSigners[2]['name'] ?? '' }}</div>
+                <div class="sign-name sign-name-customer">{{ $customerSigners[2]['name'] ?? '' }}</div>
                 <div class="sign-title">{{ $customerSigners[2]['title'] ?? '' }}</div>
               @endif
             </div>
@@ -431,7 +434,7 @@
                   @foreach($row as $signer)
                     <td>
                       <div class="sign-space sign-space-customer"></div>
-                      <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
+                      <div class="sign-name sign-name-customer">{{ $signer['name'] ?? '' }}</div>
                       <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
                     </td>
                   @endforeach
@@ -475,7 +478,7 @@
                 @foreach($customerSigners as $signer)
                   <div class="customer-cell">
                     <div class="sign-space sign-space-customer"></div>
-                    <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
+                    <div class="sign-name sign-name-customer">{{ $signer['name'] ?? '' }}</div>
                     <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
                   </div>
                 @endforeach
