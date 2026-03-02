@@ -82,7 +82,10 @@
 
   $salesAgentPhone = optional($salesUser)->phone ?? '';
   $salesAgentEmail = optional($salesUser)->email ?? '';
-  $showTaxPercentLabel = (bool) ($quotation->company->show_tax_percent_on_pdf ?? true);
+  $companyAttrs = method_exists($quotation->company ?? null, 'getAttributes')
+    ? ($quotation->company->getAttributes() ?? [])
+    : [];
+  $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true);
 
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
 @endphp

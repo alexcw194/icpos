@@ -85,7 +85,10 @@
   $taxAmount = (float) ($po->tax_amount ?? 0);
   $subtotal = (float) ($po->subtotal ?? 0);
   $total = (float) ($po->total ?? 0);
-  $showTaxPercentLabel = (bool) ($po->company->show_tax_percent_on_pdf ?? true);
+  $companyAttrs = method_exists($po->company ?? null, 'getAttributes')
+    ? ($po->company->getAttributes() ?? [])
+    : [];
+  $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true);
   $isTaxIncluded = $taxAmount > 0 && abs($total - $subtotal) < 0.01;
 
   $stampPath = \App\Models\Setting::get('documents.stamp_path');

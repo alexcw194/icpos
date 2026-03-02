@@ -92,7 +92,14 @@
   }
 
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
-  $showTaxPercentLabel = (bool) ($company->show_tax_percent_on_pdf ?? true) && (bool) ($billing->show_tax_percent_label ?? true);
+  $companyAttrs = method_exists($company ?? null, 'getAttributes')
+    ? ($company->getAttributes() ?? [])
+    : [];
+  $billingAttrs = method_exists($billing ?? null, 'getAttributes')
+    ? ($billing->getAttributes() ?? [])
+    : [];
+  $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true)
+    && (bool) ($billingAttrs['show_tax_percent_label'] ?? true);
   $poNumber = trim((string) ($billing->salesOrder?->customer_po_number ?? ''));
   $poDate = $billing->salesOrder?->customer_po_date
     ? \Illuminate\Support\Carbon::parse($billing->salesOrder->customer_po_date)->format('d-m-Y')

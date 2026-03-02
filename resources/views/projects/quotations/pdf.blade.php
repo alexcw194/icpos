@@ -81,7 +81,10 @@
   $salesAgent = $salesOwner->name ?? '-';
   $salesOwnerPhone = $salesOwner->phone ?? '';
   $salesOwnerEmail = $salesOwner->email ?? '';
-  $showTaxPercentLabel = (bool) ($quotation->company->show_tax_percent_on_pdf ?? true);
+  $companyAttrs = method_exists($quotation->company ?? null, 'getAttributes')
+    ? ($quotation->company->getAttributes() ?? [])
+    : [];
+  $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true);
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
   $validUntil = $quotation->quotation_date
     ? \Illuminate\Support\Carbon::parse($quotation->quotation_date)->addDays((int) ($quotation->validity_days ?? 0))
