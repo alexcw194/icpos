@@ -163,7 +163,7 @@
     .sign-stamp {
       position: absolute;
       left: 50%;
-      top: 50%;
+      top: 58%;
       transform: translate(-50%, -50%);
       max-height: 70px;
       z-index: 1;
@@ -171,7 +171,7 @@
     .sign-signature {
       position: absolute;
       left: 50%;
-      top: 50%;
+      top: 58%;
       transform: translate(-50%, -50%);
       max-height: 70px;
       z-index: 2;
