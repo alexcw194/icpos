@@ -178,7 +178,7 @@
     </div>
 
     <div class="card-footer">
-      {{ $items->links() }}
+      {{ $items->links('vendor.pagination.items') }}
     </div>
   </div>
 </div>
