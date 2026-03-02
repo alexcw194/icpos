@@ -202,7 +202,7 @@
     <td class="text-end">{{ number_format((float)$billing->discount_amount, 2) }}</td>
   </tr>
   <tr>
-    <td>PPN@if($showTaxPercentLabel) ({{ rtrim(rtrim(number_format((float)$billing->tax_percent, 2, '.', ''), '0'), '.') }}%)@endif</td>
+    <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)$billing->tax_percent, 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
     <td class="text-end">{{ number_format((float)$billing->tax_amount, 2) }}</td>
   </tr>
   <tr>

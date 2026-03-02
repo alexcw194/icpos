@@ -201,7 +201,7 @@
         </tr>
         @if(!$isTaxIncluded && $taxAmount > 0)
           <tr>
-            <td>PPN@if($showTaxPercentLabel) ({{ rtrim(rtrim(number_format((float)($po->tax_percent ?? 0), 2, '.', ''), '0'), '.') }}%)@endif</td>
+            <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)($po->tax_percent ?? 0), 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
             <td class="right">{{ number_format($taxAmount, 2, ',', '.') }}</td>
           </tr>
         @endif

@@ -181,7 +181,7 @@
         @endif
         <tr><td>Taxable</td><td class="right">{{ number_format((float)$quotation->taxable_base, 2, ',', '.') }}</td></tr>
         <tr>
-          <td>PPN@if($showTaxPercentLabel) ({{ rtrim(rtrim(number_format((float)$quotation->tax_percent, 2, '.', ''), '0'), '.') }}%)@endif</td>
+          <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)$quotation->tax_percent, 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
           <td class="right">{{ number_format((float)$quotation->tax_amount, 2, ',', '.') }}</td>
         </tr>
         <tr>
