@@ -82,7 +82,7 @@
               @endif
             </th>
             <th>Item</th>
-            <th style="width:140px;">SKU</th>
+            <th style="width:147px;">SKU</th>
             <th style="width:160px;" class="text-end">Labor Unit</th>
             @if(!empty($canManageCost))
               <th style="width:160px;" class="text-end">Labor Cost</th>
@@ -130,7 +130,7 @@
                   @endif
                 @endif
               </td>
-              <td class="text-muted">{{ $item->sku ?? '-' }}</td>
+              <td class="text-muted text-nowrap" style="font-size: 13px;">{{ $item->sku ?? '-' }}</td>
               <td class="text-end">
                 @if($canUpdate)
                   <input type="text" name="labor_unit_cost" form="{{ $formId }}" class="form-control form-control-sm text-end" value="{{ number_format((float)$laborValue, 2, ',', '.') }}" required>
