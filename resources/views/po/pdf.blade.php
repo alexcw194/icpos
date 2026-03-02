@@ -85,6 +85,7 @@
   $taxAmount = (float) ($po->tax_amount ?? 0);
   $subtotal = (float) ($po->subtotal ?? 0);
   $total = (float) ($po->total ?? 0);
+  $showTaxPercentLabel = (bool) ($po->company->show_tax_percent_on_pdf ?? true);
   $isTaxIncluded = $taxAmount > 0 && abs($total - $subtotal) < 0.01;
 
   $stampPath = \App\Models\Setting::get('documents.stamp_path');
@@ -196,7 +197,7 @@
         </tr>
         @if(!$isTaxIncluded && $taxAmount > 0)
           <tr>
-            <td>Tax ({{ rtrim(rtrim(number_format((float)($po->tax_percent ?? 0), 2, '.', ''), '0'), '.') }}%)</td>
+            <td>PPN@if($showTaxPercentLabel) ({{ rtrim(rtrim(number_format((float)($po->tax_percent ?? 0), 2, '.', ''), '0'), '.') }}%)@endif</td>
             <td class="right">{{ number_format($taxAmount, 2, ',', '.') }}</td>
           </tr>
         @endif

@@ -81,6 +81,7 @@
   $salesAgent = $salesOwner->name ?? '-';
   $salesOwnerPhone = $salesOwner->phone ?? '';
   $salesOwnerEmail = $salesOwner->email ?? '';
+  $showTaxPercentLabel = (bool) ($quotation->company->show_tax_percent_on_pdf ?? true);
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
   $validUntil = $quotation->quotation_date
     ? \Illuminate\Support\Carbon::parse($quotation->quotation_date)->addDays((int) ($quotation->validity_days ?? 0))
@@ -213,7 +214,7 @@
         <tr><td>Subtotal Labor</td><td class="right">{{ number_format((float)$quotation->subtotal_labor, 2, ',', '.') }}</td></tr>
         <tr><td>Subtotal</td><td class="right">{{ number_format((float)$quotation->subtotal, 2, ',', '.') }}</td></tr>
         <tr>
-          <td>Tax ({{ rtrim(rtrim(number_format((float)$quotation->tax_percent, 2, '.', ''), '0'), '.') }}%)</td>
+          <td>PPN@if($showTaxPercentLabel) ({{ rtrim(rtrim(number_format((float)$quotation->tax_percent, 2, '.', ''), '0'), '.') }}%)@endif</td>
           <td class="right">{{ number_format((float)$quotation->tax_amount, 2, ',', '.') }}</td>
         </tr>
         <tr>

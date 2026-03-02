@@ -29,6 +29,7 @@ class CompanyController extends Controller
             'alias'               => 'nullable|string|max:16',
             // is_taxable diambil via $request->boolean() di bawah
             'default_tax_percent' => 'nullable|numeric|min:0|max:100',
+            'show_tax_percent_on_pdf' => 'nullable|boolean',
             'quotation_prefix'    => 'nullable|string|max:10',
             'invoice_prefix'      => 'nullable|string|max:10',
             'delivery_prefix'     => 'nullable|string|max:10',
@@ -52,6 +53,9 @@ class CompanyController extends Controller
 
         // Normalisasi flag boolean
         $data['is_taxable'] = $request->boolean('is_taxable');
+        $data['show_tax_percent_on_pdf'] = $request->has('show_tax_percent_on_pdf')
+            ? $request->boolean('show_tax_percent_on_pdf')
+            : true;
 
         // ENFORCE: jika non-taxable, pajak harus 0
         $data['default_tax_percent'] = $data['is_taxable']
@@ -97,6 +101,7 @@ class CompanyController extends Controller
             'alias'               => 'nullable|string|max:16',
             // is_taxable diambil via $request->boolean() di bawah
             'default_tax_percent' => 'nullable|numeric|min:0|max:100',
+            'show_tax_percent_on_pdf' => 'nullable|boolean',
             'quotation_prefix'    => 'nullable|string|max:10',
             'invoice_prefix'      => 'nullable|string|max:10',
             'delivery_prefix'     => 'nullable|string|max:10',
@@ -120,6 +125,9 @@ class CompanyController extends Controller
 
         // Normalisasi flag boolean
         $data['is_taxable'] = $request->boolean('is_taxable');
+        $data['show_tax_percent_on_pdf'] = $request->has('show_tax_percent_on_pdf')
+            ? $request->boolean('show_tax_percent_on_pdf')
+            : (bool) ($company->show_tax_percent_on_pdf ?? true);
 
         // ENFORCE: jika non-taxable, pajak harus 0
         $data['default_tax_percent'] = $data['is_taxable']

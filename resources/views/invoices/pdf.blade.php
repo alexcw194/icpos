@@ -93,6 +93,7 @@
   }
 
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
+  $showTaxPercentLabel = (bool) ($company->show_tax_percent_on_pdf ?? true) && (bool) ($invoice->show_tax_percent_label ?? true);
   $poNumber = trim((string) ($invoice->salesOrder?->customer_po_number ?? ''));
   $poDate = $invoice->salesOrder?->customer_po_date
     ? \Illuminate\Support\Carbon::parse($invoice->salesOrder->customer_po_date)->format('d-m-Y')
@@ -205,7 +206,7 @@
     <td class="text-end">{{ number_format((float)$invoice->discount, 2) }}</td>
   </tr>
   <tr>
-    <td>Tax ({{ (float)$invoice->tax_percent }}%)</td>
+    <td>PPN@if($showTaxPercentLabel) ({{ rtrim(rtrim(number_format((float)$invoice->tax_percent, 2, '.', ''), '0'), '.') }}%)@endif</td>
     <td class="text-end">{{ number_format((float)$invoice->tax_amount, 2) }}</td>
   </tr>
   <tr>

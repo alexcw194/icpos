@@ -52,6 +52,17 @@
     <small class="form-hint">Jika non-taxable, kolom ini otomatis 0.</small>
   </div>
 
+  <div class="col-md-3">
+    <label class="form-label d-block">Tampilkan % PPN di PDF</label>
+    <input type="hidden" name="show_tax_percent_on_pdf" value="0">
+    <label class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" name="show_tax_percent_on_pdf" value="1"
+             @checked(old('show_tax_percent_on_pdf', $co->show_tax_percent_on_pdf ?? true))>
+      <span class="form-check-label">Tampilkan persen di label PPN</span>
+    </label>
+    <small class="form-hint">Jika OFF, semua PDF hanya menampilkan label "PPN" tanpa persen.</small>
+  </div>
+
   {{-- NEW: Require NPWP on SO (ICP) --}}
   <div class="col-md-3">
     <label class="form-label d-block">Require NPWP on SO</label>

@@ -9,7 +9,7 @@ class Company extends Model
 {
     protected $fillable = [
         'name', 'alias',
-        'is_taxable', 'default_tax_percent',
+        'is_taxable', 'default_tax_percent', 'show_tax_percent_on_pdf',
         'quotation_prefix', 'invoice_prefix', 'delivery_prefix',
         'address', 'tax_id', 'email', 'phone',
         'bank_name', 'bank_account_name', 'bank_account_no', 'bank_account_branch',
@@ -23,6 +23,7 @@ class Company extends Model
     protected $casts = [
         'is_taxable'          => 'boolean',
         'is_default'          => 'boolean',
+        'show_tax_percent_on_pdf' => 'boolean',
         'default_tax_percent' => 'decimal:2',
         'require_npwp_on_so'  => 'boolean',
         // NEW
