@@ -92,6 +92,8 @@
     : null;
   $workingTime = ($quotation->working_time_days ? $quotation->working_time_days.' hari' : '-')
     .'@'.($quotation->working_time_hours_per_day ?? '-').' jam';
+  $attnName = trim((string) ($quotation->attn_name ?? ''));
+  $showAttn = $attnName !== '' && $attnName !== '-';
 
   $directorName = 'Christian Widargo';
   $isDirector = $quotation->signatory_name
@@ -144,7 +146,9 @@
       {{ $quotation->customer->address }}
       <div class="small" style="margin-top:6px;">
         <div><strong>To:</strong> {{ $quotation->to_name }}</div>
-        <div><strong>Attn:</strong> {{ $quotation->attn_name ?: '-' }}</div>
+        @if($showAttn)
+          <div><strong>Attn:</strong> {{ $attnName }}</div>
+        @endif
       </div>
     </td>
 
