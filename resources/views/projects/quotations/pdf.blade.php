@@ -81,8 +81,9 @@
   $salesAgent = $salesOwner->name ?? '-';
   $salesOwnerPhone = $salesOwner->phone ?? '';
   $salesOwnerEmail = $salesOwner->email ?? '';
-  $companyAttrs = method_exists($quotation->company ?? null, 'getAttributes')
-    ? ($quotation->company->getAttributes() ?? [])
+  $companyModel = $quotation->company ?? null;
+  $companyAttrs = (is_object($companyModel) && method_exists($companyModel, 'getAttributes'))
+    ? ($companyModel->getAttributes() ?? [])
     : [];
   $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true);
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';

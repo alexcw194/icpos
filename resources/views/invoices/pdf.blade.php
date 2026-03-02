@@ -93,10 +93,10 @@
   }
 
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
-  $companyAttrs = method_exists($company ?? null, 'getAttributes')
+  $companyAttrs = (is_object($company) && method_exists($company, 'getAttributes'))
     ? ($company->getAttributes() ?? [])
     : [];
-  $invoiceAttrs = method_exists($invoice ?? null, 'getAttributes')
+  $invoiceAttrs = (is_object($invoice) && method_exists($invoice, 'getAttributes'))
     ? ($invoice->getAttributes() ?? [])
     : [];
   $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true)
