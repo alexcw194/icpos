@@ -136,7 +136,7 @@
       text-align: center;
     }
     .sign-title {
-      text-align: center;
+      text-align: left;
       color: #111827;
       font-weight: 400;
     }
@@ -425,16 +425,17 @@
           </div>
           @if($customerCount > 3)
             <table class="customer-table customer-table-4" style="margin-top:8px;">
-              @foreach(array_chunk(array_slice($customerSigners, 3), 4) as $row)
+              @foreach(array_chunk(array_slice($customerSigners, 3), 3) as $row)
                 <tr>
+                  <td></td>
                   @foreach($row as $signer)
                     <td>
                       <div class="sign-space sign-space-customer"></div>
-                  <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
-                  <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
+                      <div class="sign-name">{{ $signer['name'] ?? '' }}</div>
+                      <div class="sign-title">{{ $signer['title'] ?? '' }}</div>
                     </td>
                   @endforeach
-                  @for($i = count($row); $i < 4; $i++)
+                  @for($i = count($row); $i < 3; $i++)
                     <td></td>
                   @endfor
                 </tr>
