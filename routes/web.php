@@ -132,6 +132,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
     Route::get('projects/labor', [ProjectLaborController::class, 'index'])->name('projects.labor.index');
     Route::post('projects/labor/default-sub-contractor', [ProjectLaborController::class, 'setDefaultSubContractor'])
         ->name('projects.labor.default-sub-contractor');
+    Route::post('projects/labor/bulk-adjust', [ProjectLaborController::class, 'bulkAdjust'])
+        ->name('projects.labor.bulk-adjust');
     Route::post('projects/labor/{item}', [ProjectLaborController::class, 'update'])
         ->whereNumber('item')
         ->name('projects.labor.update');

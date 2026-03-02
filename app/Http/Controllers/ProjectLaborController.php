@@ -4,13 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Item;
 use App\Models\ItemLaborRate;
+use App\Models\ItemVariant;
 use App\Models\LaborCost;
 use App\Models\ProjectItemLaborRate;
 use App\Models\Setting;
 use App\Support\Number;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 class ProjectLaborController extends Controller
 {
@@ -232,7 +235,7 @@ class ProjectLaborController extends Controller
             return back()->with('warning', 'Labor varian belum bisa disimpan. Jalankan migration terlebih dahulu.');
         }
         if ($variantId) {
-            $variant = \App\Models\ItemVariant::query()->find($variantId);
+            $variant = ItemVariant::query()->find($variantId);
             if (!$variant || (int) $variant->item_id !== (int) $item->id) {
                 return back()->withErrors(['variant_id' => 'Variant tidak sesuai dengan item.']);
             }
@@ -305,6 +308,148 @@ class ProjectLaborController extends Controller
         }
 
         return $redirect;
+    }
+
+    public function bulkAdjust(Request $request)
+    {
+        $type = (string) $request->input('type', 'item');
+        $type = in_array($type, ['item', 'project'], true) ? $type : 'item';
+
+        $user = $request->user();
+        $canUpdateItem = $user?->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']) ?? false;
+        $canUpdateProject = $user?->hasAnyRole(['Admin', 'SuperAdmin', 'PM']) ?? false;
+
+        if ($type === 'project' && !$canUpdateProject) {
+            abort(403);
+        }
+        if ($type === 'item' && !$canUpdateItem) {
+            abort(403);
+        }
+
+        $data = $request->validate([
+            'type' => ['required', 'in:item,project'],
+            'operation' => ['required', 'in:increase,decrease'],
+            'percent' => ['required', 'string'],
+            'selected' => ['required', 'array', 'min:1'],
+            'selected.*' => ['required', 'regex:/^\d+:\d+$/'],
+            'q' => ['nullable', 'string'],
+            'sub_contractor_id' => ['nullable', 'integer'],
+            'page' => ['nullable', 'integer'],
+        ]);
+
+        $percent = Number::idToFloat($data['percent'] ?? 0);
+        if ($percent < 0) {
+            throw ValidationException::withMessages([
+                'percent' => 'Persen tidak boleh negatif.',
+            ]);
+        }
+
+        $multiplier = $data['operation'] === 'increase'
+            ? (1 + ($percent / 100))
+            : (1 - ($percent / 100));
+
+        $selectedPairs = collect($data['selected'] ?? [])
+            ->map(function ($token) {
+                [$itemId, $variantId] = explode(':', (string) $token, 2);
+                return [
+                    'item_id' => (int) $itemId,
+                    'variant_id' => (int) $variantId,
+                    'token' => (string) $token,
+                ];
+            })
+            ->unique(fn ($row) => $row['token'])
+            ->values();
+
+        $itemIds = $selectedPairs->pluck('item_id')->unique()->values();
+        $items = Item::query()
+            ->whereIn('id', $itemIds)
+            ->get(['id', 'list_type'])
+            ->keyBy('id');
+
+        if ($items->count() !== $itemIds->count()) {
+            return back()->with('error', 'Sebagian item pilihan tidak ditemukan.');
+        }
+
+        $variantIds = $selectedPairs->pluck('variant_id')
+            ->filter(fn ($value) => (int) $value > 0)
+            ->unique()
+            ->values();
+        $variants = ItemVariant::query()
+            ->whereIn('id', $variantIds)
+            ->get(['id', 'item_id'])
+            ->keyBy('id');
+
+        $rateTable = $type === 'project' ? 'project_item_labor_rates' : 'item_labor_rates';
+        $rateModel = $type === 'project' ? ProjectItemLaborRate::class : ItemLaborRate::class;
+        $itemColumn = $type === 'project' ? 'project_item_id' : 'item_id';
+        $hasRateVariantColumn = Schema::hasColumn($rateTable, 'item_variant_id');
+
+        if (!$hasRateVariantColumn && $variantIds->isNotEmpty()) {
+            return back()->with('warning', 'Labor varian belum bisa disimpan. Jalankan migration terlebih dahulu.');
+        }
+
+        $updates = [];
+        foreach ($selectedPairs as $pair) {
+            $item = $items->get($pair['item_id']);
+            if (!$item) {
+                return back()->with('error', 'Sebagian item pilihan tidak ditemukan.');
+            }
+
+            if ($type === 'project' && $item->list_type !== 'project') {
+                return back()->with('error', 'Item bukan Project Item.');
+            }
+            if ($type === 'item' && $item->list_type === 'project') {
+                return back()->with('error', 'Gunakan Project Item Labor untuk item ini.');
+            }
+
+            $variantId = (int) $pair['variant_id'];
+            if ($variantId > 0) {
+                $variant = $variants->get($variantId);
+                if (!$variant || (int) $variant->item_id !== (int) $item->id) {
+                    return back()->withErrors(['selected' => 'Variant tidak sesuai dengan item.']);
+                }
+            } else {
+                $variantId = 0;
+            }
+
+            $updates[] = [
+                'item_id' => (int) $item->id,
+                'variant_id' => $variantId,
+            ];
+        }
+
+        DB::transaction(function () use ($updates, $multiplier, $data, $user, $rateModel, $itemColumn, $hasRateVariantColumn) {
+            foreach ($updates as $row) {
+                $attrs = [$itemColumn => $row['item_id']];
+                if ($hasRateVariantColumn) {
+                    $attrs['item_variant_id'] = $row['variant_id'] > 0 ? $row['variant_id'] : null;
+                }
+
+                /** @var \App\Models\ItemLaborRate|\App\Models\ProjectItemLaborRate $rate */
+                $rate = $rateModel::firstOrNew($attrs);
+                $oldValue = (float) ($rate->labor_unit_cost ?? 0);
+                $newValue = round($oldValue * $multiplier, 2);
+
+                if ($data['operation'] === 'decrease' && $newValue < 0) {
+                    throw ValidationException::withMessages([
+                        'percent' => 'Persentase pengurangan terlalu besar: hasil labor unit menjadi negatif.',
+                    ]);
+                }
+
+                $rate->labor_unit_cost = $newValue;
+                $rate->updated_by = $user?->id;
+                $rate->save();
+            }
+        });
+
+        return redirect()
+            ->route('projects.labor.index', [
+                'type' => $type,
+                'q' => $request->input('q'),
+                'sub_contractor_id' => $request->input('sub_contractor_id'),
+                'page' => $request->input('page'),
+            ])
+            ->with('success', 'Mass edit labor unit berhasil diterapkan ke '.count($updates).' item.');
     }
 
     public function setDefaultSubContractor(Request $request)
