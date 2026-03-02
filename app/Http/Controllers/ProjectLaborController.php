@@ -28,6 +28,11 @@ class ProjectLaborController extends Controller
         $type = (string) $request->input('type', 'item');
         $type = in_array($type, ['item', 'project'], true) ? $type : 'item';
         $q = trim((string) $request->input('q', ''));
+        $perPageOptions = [25, 50, 75, 100, 150];
+        $perPage = (int) $request->input('per_page', 25);
+        if (!in_array($perPage, $perPageOptions, true)) {
+            $perPage = 25;
+        }
 
         $itemsQuery = Item::query()
             ->select('id', 'name', 'sku', 'item_type', 'list_type')
@@ -82,7 +87,6 @@ class ProjectLaborController extends Controller
         }
 
         $page = LengthAwarePaginator::resolveCurrentPage();
-        $perPage = 25;
         $items = new LengthAwarePaginator(
             $rows->forPage($page, $perPage)->values(),
             $rows->count(),
@@ -171,7 +175,9 @@ class ProjectLaborController extends Controller
             'subContractors',
             'selectedSubContractorId',
             'defaultSubContractorId',
-            'laborCosts'
+            'laborCosts',
+            'perPage',
+            'perPageOptions'
         ));
     }
 
@@ -300,6 +306,7 @@ class ProjectLaborController extends Controller
                 'q' => $request->input('q'),
                 'sub_contractor_id' => $request->input('sub_contractor_id'),
                 'page' => $request->input('page'),
+                'per_page' => $request->input('per_page'),
             ])
             ->with('success', 'Labor master tersimpan.');
 
@@ -335,6 +342,7 @@ class ProjectLaborController extends Controller
             'q' => ['nullable', 'string'],
             'sub_contractor_id' => ['nullable', 'integer'],
             'page' => ['nullable', 'integer'],
+            'per_page' => ['nullable', 'integer'],
         ]);
 
         $percent = Number::idToFloat($data['percent'] ?? 0);
@@ -448,6 +456,7 @@ class ProjectLaborController extends Controller
                 'q' => $request->input('q'),
                 'sub_contractor_id' => $request->input('sub_contractor_id'),
                 'page' => $request->input('page'),
+                'per_page' => $request->input('per_page'),
             ])
             ->with('success', 'Mass edit labor unit berhasil diterapkan ke '.count($updates).' item.');
     }

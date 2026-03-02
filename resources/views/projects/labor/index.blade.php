@@ -15,14 +15,15 @@
     @php $canUpdate = $type === 'project' ? $canUpdateProject : $canUpdateItem; @endphp
     <div class="card-header d-flex align-items-center gap-2 flex-wrap">
       <div class="btn-group" role="group">
-        <a href="{{ route('projects.labor.index', ['type' => 'item', 'q' => $q, 'sub_contractor_id' => $selectedSubContractorId]) }}" class="btn btn-outline-primary {{ $type === 'item' ? 'active' : '' }}">Item Labor</a>
-        <a href="{{ route('projects.labor.index', ['type' => 'project', 'q' => $q, 'sub_contractor_id' => $selectedSubContractorId]) }}" class="btn btn-outline-primary {{ $type === 'project' ? 'active' : '' }}">Project Item Labor</a>
+        <a href="{{ route('projects.labor.index', ['type' => 'item', 'q' => $q, 'sub_contractor_id' => $selectedSubContractorId, 'per_page' => $perPage]) }}" class="btn btn-outline-primary {{ $type === 'item' ? 'active' : '' }}">Item Labor</a>
+        <a href="{{ route('projects.labor.index', ['type' => 'project', 'q' => $q, 'sub_contractor_id' => $selectedSubContractorId, 'per_page' => $perPage]) }}" class="btn btn-outline-primary {{ $type === 'project' ? 'active' : '' }}">Project Item Labor</a>
       </div>
 
       @if(!empty($canManageCost) && $subContractors->isNotEmpty())
         <form method="get" class="d-flex align-items-center gap-2">
           <input type="hidden" name="type" value="{{ $type }}">
           <input type="hidden" name="q" value="{{ $q }}">
+          <input type="hidden" name="per_page" value="{{ $perPage }}">
           <select name="sub_contractor_id" id="labor-sub-contractor" class="form-select form-select-sm">
             @foreach($subContractors as $sub)
               <option value="{{ $sub->id }}" @selected((string) $selectedSubContractorId === (string) $sub->id)>{{ $sub->name }}</option>
@@ -43,6 +44,7 @@
           <input type="hidden" name="type" value="{{ $type }}">
           <input type="hidden" name="q" value="{{ $q }}">
           <input type="hidden" name="page" value="{{ request('page') }}">
+          <input type="hidden" name="per_page" value="{{ $perPage }}">
           @if(!empty($selectedSubContractorId))
             <input type="hidden" name="sub_contractor_id" value="{{ $selectedSubContractorId }}">
           @endif
@@ -61,6 +63,7 @@
 
       <form method="get" class="ms-auto d-flex align-items-center gap-2">
         <input type="hidden" name="type" value="{{ $type }}">
+        <input type="hidden" name="per_page" value="{{ $perPage }}">
         <input type="search" name="q" class="form-control" placeholder="Cari item / SKU" value="{{ $q }}">
         @if(!empty($selectedSubContractorId))
           <input type="hidden" name="sub_contractor_id" value="{{ $selectedSubContractorId }}">
@@ -117,6 +120,7 @@
                     <input type="hidden" name="type" value="{{ $type }}">
                     <input type="hidden" name="q" value="{{ $q }}">
                     <input type="hidden" name="page" value="{{ request('page') }}">
+                    <input type="hidden" name="per_page" value="{{ $perPage }}">
                     @if(!empty($selectedSubContractorId))
                       <input type="hidden" name="sub_contractor_id" value="{{ $selectedSubContractorId }}">
                     @endif

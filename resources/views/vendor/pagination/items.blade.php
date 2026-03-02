@@ -1,8 +1,32 @@
 @if ($paginator->hasPages())
   <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
     {{-- Left info --}}
-    <div class="text-secondary">
-      Showing {{ $paginator->firstItem() }} to {{ $paginator->lastItem() }} of {{ $paginator->total() }} entries
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <div class="text-secondary">
+        Showing {{ $paginator->firstItem() }} to {{ $paginator->lastItem() }} of {{ $paginator->total() }} entries
+      </div>
+      @if(request()->routeIs('projects.labor.index'))
+        @php
+          $laborPerPageOptions = [25, 50, 75, 100, 150];
+          $laborPerPage = (int) request('per_page', 25);
+          if (!in_array($laborPerPage, $laborPerPageOptions, true)) {
+              $laborPerPage = 25;
+          }
+        @endphp
+        <form method="get" class="d-flex align-items-center gap-2">
+          <input type="hidden" name="type" value="{{ request('type', 'item') }}">
+          <input type="hidden" name="q" value="{{ request('q') }}">
+          @if(request()->filled('sub_contractor_id'))
+            <input type="hidden" name="sub_contractor_id" value="{{ request('sub_contractor_id') }}">
+          @endif
+          <span class="text-secondary">Per page</span>
+          <select name="per_page" class="form-select form-select-sm" style="width: 90px" onchange="this.form.submit()">
+            @foreach($laborPerPageOptions as $option)
+              <option value="{{ $option }}" @selected($laborPerPage === $option)>{{ $option }}</option>
+            @endforeach
+          </select>
+        </form>
+      @endif
     </div>
 
     {{-- Middle: condensed page numbers --}}
