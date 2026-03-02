@@ -335,6 +335,13 @@
       width: 120px;
       white-space: nowrap;
     }
+    .inventory-table-desktop.project-items-table th.col-size,
+    .inventory-table-desktop.project-items-table td.col-size{ width: 7.6%; }
+    .inventory-table-desktop.project-items-table th.col-color,
+    .inventory-table-desktop.project-items-table td.col-color{ width: 9.5%; }
+    .inventory-table-desktop.project-items-table td.col-sku.sku-compact{
+      font-size: 13px;
+    }
 
     .inventory-table-desktop td.col-name{
       overflow: hidden;

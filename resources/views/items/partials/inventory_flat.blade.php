@@ -26,7 +26,7 @@
 
 {{-- ===================== Desktop table ===================== --}}
 <div class="d-none d-md-block inventory-table-wrap">
-  <table class="table table-vcenter table-striped inventory-table inventory-table-desktop">
+  <table class="table table-vcenter table-striped inventory-table inventory-table-desktop {{ $isProjectItems ? 'project-items-table' : '' }}">
     <thead>
       <tr>
         <th class="col-name">Nama</th>
@@ -93,7 +93,7 @@
               @endif
             </div>
           </td>
-          <td class="text-muted col-sku">{{ $row['sku'] ?? '-' }}</td>
+          <td class="text-muted col-sku {{ $isProjectItems ? 'sku-compact' : '' }}">{{ $row['sku'] ?? '-' }}</td>
           <td class="text-muted col-brand">{{ $row['brand'] ?? '-' }}</td>
           <td class="text-muted col-size">{{ $size }}</td>
           <td class="text-muted col-color">{{ $color }}</td>
