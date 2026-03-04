@@ -51,14 +51,6 @@
     .small, small{ font-size: 12px; }
     .fw-semibold{ font-weight: 600 !important; }
 
-    /* Submenu di dalam dropdown (collapse) */
-    .dropdown-menu .dropdown-submenu { padding: .25rem 0 .5rem; }
-    .dropdown-menu .dropdown-submenu .dropdown-item { padding-left: 1.5rem; }
-
-    /* caret animasi pada tombol Master Data */
-    .caret { transition: transform .2s ease; }
-    .caret.rotated { transform: rotate(180deg); }
-
     /* Sidebar brand helpers (logo di partial sidebar) */
     .navbar-vertical .navbar-brand{ padding:.5rem .75rem; }
     .brand-logo{ display:block; width:100%; height:auto; max-height:72px; object-fit:contain; }
@@ -208,6 +200,7 @@
                 $isAdminArea = request()->routeIs('users.*')
                               || request()->routeIs('permissions.*')
                               || request()->routeIs('companies.*')
+                              || request()->routeIs('admin.lead-discovery.*')
                               || request()->routeIs('units.*')
                               || request()->routeIs('jenis.*')
                               || request()->routeIs('brands.*')
@@ -234,41 +227,27 @@
                   <li><a class="dropdown-item {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">Manage Users</a></li>
                   <li><a class="dropdown-item {{ request()->routeIs('companies.*') ? 'active' : '' }}" href="{{ route('companies.index') }}">Companies</a></li>
                   <li><a class="dropdown-item {{ request()->routeIs('permissions.*') ? 'active' : '' }}" href="{{ route('permissions.index') }}">Roles &amp; Permissions</a></li>
+                  @if(Route::has('admin.lead-discovery.config'))
+                    <li><a class="dropdown-item {{ request()->routeIs('admin.lead-discovery.*') ? 'active' : '' }}" href="{{ route('admin.lead-discovery.config') }}">Lead Discovery Config</a></li>
+                  @endif
 
                   <li><hr class="dropdown-divider"></li>
-
-                  {{-- Master Data (collapse di dalam dropdown) --}}
-                  <li>
-                    <button type="button"
-                            class="dropdown-item d-flex align-items-center justify-content-between"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#md-collapse"
-                            aria-expanded="false"
-                            aria-controls="md-collapse">
-                      Master Data
-                      <span class="ms-2 caret">▾</span>
-                    </button>
-
-                    <div class="collapse" id="md-collapse" data-bs-parent="#admin-menu">
-                      <ul class="list-unstyled dropdown-submenu m-0">
-                        <li><a href="{{ route('units.index')  }}"  class="dropdown-item {{ request()->routeIs('units.*')  ? 'active' : '' }}">Units</a></li>
-                        <li><a href="{{ route('jenis.index')  }}"  class="dropdown-item {{ request()->routeIs('jenis.*')  ? 'active' : '' }}">Jenis</a></li>
-                        <li><a href="{{ route('brands.index') }}" class="dropdown-item {{ request()->routeIs('brands.*') ? 'active' : '' }}">Brands</a></li>
-                        <li><a href="{{ route('sizes.index')  }}"  class="dropdown-item {{ request()->routeIs('sizes.*')  ? 'active' : '' }}">Sizes</a></li>
-                        <li><a href="{{ route('colors.index') }}" class="dropdown-item {{ request()->routeIs('colors.*') ? 'active' : '' }}">Colors</a></li>
-                        <li><a href="{{ route('warehouses.index') }}" class="dropdown-item {{ request()->routeIs('warehouses.*') ? 'active' : '' }}">Warehouses</a></li>
-                        <li><a href="{{ route('banks.index') }}" class="dropdown-item {{ request()->routeIs('banks.*') ? 'active' : '' }}">Banks</a></li>
-                        <li><a href="{{ route('bq-line-catalogs.index') }}" class="dropdown-item {{ request()->routeIs('bq-line-catalogs.*') ? 'active' : '' }}">BQ Line Catalog</a></li>
-                        <li><a href="{{ route('bq-csv-conversions.index') }}" class="dropdown-item {{ request()->routeIs('bq-csv-conversions.*') ? 'active' : '' }}">BQ CSV Conversions</a></li>
-                        <li><a href="{{ route('bq-system-notes.index') }}" class="dropdown-item {{ request()->routeIs('bq-system-notes.*') ? 'active' : '' }}">BQ Systems Notes</a></li>
-                        <li><a href="{{ route('sub-contractors.index') }}" class="dropdown-item {{ request()->routeIs('sub-contractors.*') ? 'active' : '' }}">Sub-Contractors</a></li>
-                        <li><a href="{{ route('term-of-payments.index') }}" class="dropdown-item {{ request()->routeIs('term-of-payments.*') ? 'active' : '' }}">Term of Payment (TOP)</a></li>
-                        @role('SuperAdmin')
-                          <li><a href="{{ route('contact-titles.index') }}" class="dropdown-item {{ request()->routeIs('contact-titles.*') ? 'active' : '' }}">Titles</a></li>
-                        @endrole
-                      </ul>
-                    </div>
-                  </li>
+                  <li><h6 class="dropdown-header">Master Data</h6></li>
+                  <li><a href="{{ route('units.index') }}" class="dropdown-item {{ request()->routeIs('units.*') ? 'active' : '' }}">Units</a></li>
+                  <li><a href="{{ route('jenis.index') }}" class="dropdown-item {{ request()->routeIs('jenis.*') ? 'active' : '' }}">Jenis</a></li>
+                  <li><a href="{{ route('brands.index') }}" class="dropdown-item {{ request()->routeIs('brands.*') ? 'active' : '' }}">Brands</a></li>
+                  <li><a href="{{ route('sizes.index') }}" class="dropdown-item {{ request()->routeIs('sizes.*') ? 'active' : '' }}">Sizes</a></li>
+                  <li><a href="{{ route('colors.index') }}" class="dropdown-item {{ request()->routeIs('colors.*') ? 'active' : '' }}">Colors</a></li>
+                  <li><a href="{{ route('warehouses.index') }}" class="dropdown-item {{ request()->routeIs('warehouses.*') ? 'active' : '' }}">Warehouses</a></li>
+                  <li><a href="{{ route('banks.index') }}" class="dropdown-item {{ request()->routeIs('banks.*') ? 'active' : '' }}">Banks</a></li>
+                  <li><a href="{{ route('bq-line-catalogs.index') }}" class="dropdown-item {{ request()->routeIs('bq-line-catalogs.*') ? 'active' : '' }}">BQ Line Catalog</a></li>
+                  <li><a href="{{ route('bq-csv-conversions.index') }}" class="dropdown-item {{ request()->routeIs('bq-csv-conversions.*') ? 'active' : '' }}">BQ CSV Conversions</a></li>
+                  <li><a href="{{ route('bq-system-notes.index') }}" class="dropdown-item {{ request()->routeIs('bq-system-notes.*') ? 'active' : '' }}">BQ Systems Notes</a></li>
+                  <li><a href="{{ route('sub-contractors.index') }}" class="dropdown-item {{ request()->routeIs('sub-contractors.*') ? 'active' : '' }}">Sub-Contractors</a></li>
+                  <li><a href="{{ route('term-of-payments.index') }}" class="dropdown-item {{ request()->routeIs('term-of-payments.*') ? 'active' : '' }}">Term of Payment (TOP)</a></li>
+                  @role('SuperAdmin')
+                    <li><a href="{{ route('contact-titles.index') }}" class="dropdown-item {{ request()->routeIs('contact-titles.*') ? 'active' : '' }}">Titles</a></li>
+                  @endrole
 
                   <li><hr class="dropdown-divider"></li>
 
@@ -393,27 +372,6 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') cleanupBackdrops(); });
     window.addEventListener('load', cleanupBackdrops);
   })();
-  </script>
-
-  {{-- Helper collapse submenu + caret --}}
-  <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const collapseEl = document.getElementById('md-collapse');
-    const caret = document.querySelector('[data-bs-target="#md-collapse"] .caret');
-
-    if (collapseEl && caret) {
-      collapseEl.addEventListener('show.bs.collapse', () => caret.classList.add('rotated'));
-      collapseEl.addEventListener('hide.bs.collapse', () => caret.classList.remove('rotated'));
-    }
-
-    // Saat dropdown Admin ditutup, pastikan collapse juga ikut tertutup
-    document.querySelectorAll('.dropdown').forEach(function (dd) {
-      dd.addEventListener('hide.bs.dropdown', function () {
-        const shown = this.querySelector('.collapse.show');
-        if (shown) new bootstrap.Collapse(shown, { toggle: false }).hide();
-      });
-    });
-  });
   </script>
 
   <script>

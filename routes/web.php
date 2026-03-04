@@ -48,6 +48,11 @@ use App\Http\Controllers\Admin\DocumentCounterController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\LeadDiscovery\Admin\ConfigController as LeadDiscoveryConfigController;
+use App\Http\Controllers\LeadDiscovery\Admin\GridCellController as LeadDiscoveryGridCellController;
+use App\Http\Controllers\LeadDiscovery\Admin\KeywordController as LeadDiscoveryKeywordController;
+use App\Http\Controllers\LeadDiscovery\Admin\ScanController as LeadDiscoveryScanController;
+use App\Http\Controllers\LeadDiscovery\ProspectController as LeadDiscoveryProspectController;
 use Illuminate\Support\Facades\Auth;
 
 // Root -> arahkan ke dashboard/login
@@ -101,6 +106,18 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/places/search', [AiSuggestController::class, 'company'])->name('places.search');
     Route::get('/api/labor-rates', [LaborRateController::class, 'show'])->name('labor-rates.show');
     Route::post('/api/labor-rates', [LaborRateController::class, 'update'])->name('labor-rates.update');
+
+    // Lead Discovery (CRM)
+    Route::get('/lead-discovery/prospects', [LeadDiscoveryProspectController::class, 'index'])
+        ->name('lead-discovery.prospects.index');
+    Route::get('/lead-discovery/prospects/{prospect}', [LeadDiscoveryProspectController::class, 'show'])
+        ->name('lead-discovery.prospects.show');
+    Route::post('/lead-discovery/prospects/{prospect}/assign', [LeadDiscoveryProspectController::class, 'assign'])
+        ->name('lead-discovery.prospects.assign');
+    Route::post('/lead-discovery/prospects/{prospect}/status', [LeadDiscoveryProspectController::class, 'status'])
+        ->name('lead-discovery.prospects.status');
+    Route::post('/lead-discovery/prospects/{prospect}/convert', [LeadDiscoveryProspectController::class, 'convert'])
+        ->name('lead-discovery.prospects.convert');
 
     // =======================
 // Items (READ-ONLY untuk semua user login)
@@ -438,6 +455,36 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
         ->parameters(['term-of-payments' => 'termOfPayment'])
         ->except(['show']);
     Route::resource('suppliers', SupplierController::class)->except(['show']);
+
+    // Lead Discovery (Admin)
+    Route::get('/admin/lead-discovery/config', [LeadDiscoveryConfigController::class, 'index'])
+        ->name('admin.lead-discovery.config');
+    Route::post('/admin/lead-discovery/config', [LeadDiscoveryConfigController::class, 'update'])
+        ->name('admin.lead-discovery.config.update');
+    Route::post('/admin/lead-discovery/scan', [LeadDiscoveryScanController::class, 'runManual'])
+        ->name('admin.lead-discovery.scan.run');
+
+    Route::get('/admin/lead-discovery/keywords', [LeadDiscoveryKeywordController::class, 'index'])
+        ->name('admin.lead-discovery.keywords.index');
+    Route::post('/admin/lead-discovery/keywords', [LeadDiscoveryKeywordController::class, 'store'])
+        ->name('admin.lead-discovery.keywords.store');
+    Route::put('/admin/lead-discovery/keywords/{keyword}', [LeadDiscoveryKeywordController::class, 'update'])
+        ->name('admin.lead-discovery.keywords.update');
+    Route::delete('/admin/lead-discovery/keywords/{keyword}', [LeadDiscoveryKeywordController::class, 'destroy'])
+        ->name('admin.lead-discovery.keywords.destroy');
+    Route::post('/admin/lead-discovery/keywords/{keyword}/toggle-active', [LeadDiscoveryKeywordController::class, 'toggleActive'])
+        ->name('admin.lead-discovery.keywords.toggle-active');
+
+    Route::get('/admin/lead-discovery/grid-cells', [LeadDiscoveryGridCellController::class, 'index'])
+        ->name('admin.lead-discovery.grid-cells.index');
+    Route::post('/admin/lead-discovery/grid-cells', [LeadDiscoveryGridCellController::class, 'store'])
+        ->name('admin.lead-discovery.grid-cells.store');
+    Route::put('/admin/lead-discovery/grid-cells/{gridCell}', [LeadDiscoveryGridCellController::class, 'update'])
+        ->name('admin.lead-discovery.grid-cells.update');
+    Route::delete('/admin/lead-discovery/grid-cells/{gridCell}', [LeadDiscoveryGridCellController::class, 'destroy'])
+        ->name('admin.lead-discovery.grid-cells.destroy');
+    Route::post('/admin/lead-discovery/grid-cells/{gridCell}/toggle-active', [LeadDiscoveryGridCellController::class, 'toggleActive'])
+        ->name('admin.lead-discovery.grid-cells.toggle-active');
 
     // Document Counters (manual numbering)
     Route::get('document-counters', [DocumentCounterController::class, 'index'])

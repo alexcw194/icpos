@@ -1,1 +1,9 @@
-$schedule->command('stock:audit')->dailyAt('23:00');
+<?php
+
+namespace App\Console;
+
+use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+
+class Kernel extends ConsoleKernel
+{
+}
