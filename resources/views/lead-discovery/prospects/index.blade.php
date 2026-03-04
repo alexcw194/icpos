@@ -13,7 +13,7 @@
 
   <div class="card mb-3">
     <div class="card-body">
-      <form method="get" class="row g-2">
+      <form method="get" class="row g-2" id="prospect-filter-form">
         <div class="col-md-3">
           <input type="search" name="q" class="form-control" placeholder="Search name/place/address" value="{{ request('q') }}">
         </div>
@@ -45,11 +45,21 @@
             @endforeach
           </select>
         </div>
-        <div class="col-md-1">
-          <input type="text" name="province" class="form-control" placeholder="Province" value="{{ request('province') }}">
+        <div class="col-md-2">
+          <select name="province" id="prospect-province-filter" class="form-select">
+            <option value="">All Provinces</option>
+            @foreach($provinceOptions as $optionProvince)
+              <option value="{{ $optionProvince }}" @selected($selectedProvince === $optionProvince)>{{ $optionProvince }}</option>
+            @endforeach
+          </select>
         </div>
-        <div class="col-md-1">
-          <input type="text" name="city" class="form-control" placeholder="City" value="{{ request('city') }}">
+        <div class="col-md-2">
+          <select name="city" id="prospect-city-filter" class="form-select" data-selected="{{ $selectedCity }}">
+            <option value="">All Cities</option>
+            @foreach($cityOptions as $optionCity)
+              <option value="{{ $optionCity }}" @selected($selectedCity === $optionCity)>{{ $optionCity }}</option>
+            @endforeach
+          </select>
         </div>
         <div class="col-md-1">
           <select name="has_phone" class="form-select">
@@ -173,3 +183,58 @@
   </div>
 </div>
 @endsection
+
+@push('scripts')
+  <script id="prospect-city-map" type="application/json">@json($cityOptionsByProvince)</script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const provinceSelect = document.getElementById('prospect-province-filter');
+      const citySelect = document.getElementById('prospect-city-filter');
+      const cityMapNode = document.getElementById('prospect-city-map');
+      if (!provinceSelect || !citySelect || !cityMapNode) {
+        return;
+      }
+
+      let cityMap = {};
+      try {
+        cityMap = JSON.parse(cityMapNode.textContent || '{}');
+      } catch (e) {
+        cityMap = {};
+      }
+
+      const selectedCity = citySelect.dataset.selected || '';
+
+      function buildCityOptions(provinceValue, keepCityValue) {
+        const source = provinceValue && cityMap[provinceValue]
+          ? cityMap[provinceValue]
+          : (cityMap.__all || []);
+
+        const allowed = new Set(source);
+        const cityValue = allowed.has(keepCityValue) ? keepCityValue : '';
+        citySelect.innerHTML = '';
+
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = 'All Cities';
+        citySelect.appendChild(allOption);
+
+        source.forEach(function (city) {
+          const option = document.createElement('option');
+          option.value = city;
+          option.textContent = city;
+          if (city === cityValue) {
+            option.selected = true;
+          }
+          citySelect.appendChild(option);
+        });
+      }
+
+      buildCityOptions(provinceSelect.value, selectedCity);
+
+      provinceSelect.addEventListener('change', function () {
+        buildCityOptions(provinceSelect.value, '');
+        provinceSelect.form.submit();
+      });
+    });
+  </script>
+@endpush

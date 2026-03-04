@@ -100,6 +100,73 @@ class LeadDiscoveryProspectFlowTest extends TestCase
             ->assertStatus(403);
     }
 
+    public function test_prospects_index_provides_distinct_province_and_city_options(): void
+    {
+        $sales = $this->makeUserWithRole('Sales');
+
+        $this->makeProspect([
+            'name' => 'Prospect A',
+            'province' => 'Jawa Timur',
+            'city' => 'Surabaya',
+        ]);
+        $this->makeProspect([
+            'name' => 'Prospect B',
+            'province' => 'Bali',
+            'city' => 'Denpasar',
+        ]);
+        $this->makeProspect([
+            'name' => 'Prospect C',
+            'province' => null,
+            'city' => null,
+        ]);
+
+        $this->actingAs($sales)
+            ->get(route('lead-discovery.prospects.index'))
+            ->assertOk()
+            ->assertViewHas('provinceOptions', function ($options) {
+                return in_array('Jawa Timur', $options, true)
+                    && in_array('Bali', $options, true);
+            })
+            ->assertViewHas('cityOptions', function ($options) {
+                return in_array('Surabaya', $options, true)
+                    && in_array('Denpasar', $options, true);
+            });
+    }
+
+    public function test_prospects_city_options_follow_selected_province(): void
+    {
+        $sales = $this->makeUserWithRole('Sales');
+
+        $this->makeProspect([
+            'name' => 'Prospect Jatim 1',
+            'province' => 'Jawa Timur',
+            'city' => 'Surabaya',
+        ]);
+        $this->makeProspect([
+            'name' => 'Prospect Jatim 2',
+            'province' => 'Jawa Timur',
+            'city' => 'Malang',
+        ]);
+        $this->makeProspect([
+            'name' => 'Prospect Bali',
+            'province' => 'Bali',
+            'city' => 'Denpasar',
+        ]);
+
+        $this->actingAs($sales)
+            ->get(route('lead-discovery.prospects.index', [
+                'province' => 'Jawa Timur',
+                'city' => 'Denpasar',
+            ]))
+            ->assertOk()
+            ->assertViewHas('cityOptions', function ($options) {
+                return in_array('Surabaya', $options, true)
+                    && in_array('Malang', $options, true)
+                    && !in_array('Denpasar', $options, true);
+            })
+            ->assertViewHas('selectedCity', '');
+    }
+
     public function test_convert_requires_category_and_owner(): void
     {
         $admin = $this->makeUserWithRole('Admin');

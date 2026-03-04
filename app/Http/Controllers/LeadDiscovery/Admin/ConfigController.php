@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\LdGridCell;
 use App\Models\LdKeyword;
 use App\Models\LdScanRun;
+use App\Models\Prospect;
 use App\Models\Setting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,6 +37,7 @@ class ConfigController extends Controller
             ->latest('id')
             ->limit(10)
             ->get();
+        [$gridProvinceOptions, $gridCityOptionsByProvince, $gridCityOptionsAll] = $this->buildGridLocationOptions();
 
         $settings = [
             'enabled' => (int) Setting::get('lead_discovery.enabled', 0),
@@ -52,7 +54,10 @@ class ConfigController extends Controller
             'keywords',
             'gridCells',
             'scanRuns',
-            'settings'
+            'settings',
+            'gridProvinceOptions',
+            'gridCityOptionsByProvince',
+            'gridCityOptionsAll',
         ));
     }
 
@@ -89,5 +94,49 @@ class ConfigController extends Controller
         if (!$user || !$user->hasAnyRole(['Admin', 'SuperAdmin'])) {
             abort(403);
         }
+    }
+
+    /**
+     * @return array{0: array<int, string>, 1: array<string, array<int, string>>, 2: array<int, string>}
+     */
+    private function buildGridLocationOptions(): array
+    {
+        $gridRows = LdGridCell::query()->select(['province', 'city'])->get();
+        $prospectRows = Prospect::query()->select(['province', 'city'])->get();
+
+        $provinceSet = [];
+        $citySet = [];
+        $cityByProvince = [];
+
+        foreach ($gridRows->concat($prospectRows) as $row) {
+            $province = trim((string) ($row->province ?? ''));
+            $city = trim((string) ($row->city ?? ''));
+
+            if ($province !== '') {
+                $provinceSet[$province] = true;
+            }
+            if ($city !== '') {
+                $citySet[$city] = true;
+            }
+            if ($province !== '' && $city !== '') {
+                $cityByProvince[$province][$city] = true;
+            }
+        }
+
+        $provinceOptions = array_keys($provinceSet);
+        sort($provinceOptions, SORT_NATURAL | SORT_FLAG_CASE);
+
+        $cityOptionsAll = array_keys($citySet);
+        sort($cityOptionsAll, SORT_NATURAL | SORT_FLAG_CASE);
+
+        $normalizedCityByProvince = [];
+        foreach ($cityByProvince as $province => $cities) {
+            $cityList = array_keys($cities);
+            sort($cityList, SORT_NATURAL | SORT_FLAG_CASE);
+            $normalizedCityByProvince[$province] = $cityList;
+        }
+        ksort($normalizedCityByProvince, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return [$provinceOptions, $normalizedCityByProvince, $cityOptionsAll];
     }
 }

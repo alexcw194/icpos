@@ -210,6 +210,13 @@
   @endif
 
   @if($tab === 'cells')
+    @php
+      $addSelectedProvince = (string) old('province', '');
+      $addSelectedCity = (string) old('city', '');
+      $addCityOptions = $addSelectedProvince !== ''
+        ? ($gridCityOptionsByProvince[$addSelectedProvince] ?? [])
+        : $gridCityOptionsAll;
+    @endphp
     <div class="card mb-3">
       <div class="card-header"><h3 class="card-title">Add Grid Cell</h3></div>
       <div class="card-body">
@@ -220,8 +227,22 @@
           <div class="col-md-2"><input type="number" step="0.0000001" name="center_lng" class="form-control" placeholder="Longitude" required></div>
           <div class="col-md-1"><input type="number" name="radius_m" class="form-control" placeholder="Radius m" value="12000" required></div>
           <div class="col-md-1"><input type="text" name="region_code" class="form-control" placeholder="Region"></div>
-          <div class="col-md-2"><input type="text" name="city" class="form-control" placeholder="City"></div>
-          <div class="col-md-2"><input type="text" name="province" class="form-control" placeholder="Province"></div>
+          <div class="col-md-2">
+            <select name="province" class="form-select ld-grid-province" id="ld-grid-add-province" data-city-target="ld-grid-add-city">
+              <option value="">Province (optional)</option>
+              @foreach($gridProvinceOptions as $provinceOption)
+                <option value="{{ $provinceOption }}" @selected($addSelectedProvince === $provinceOption)>{{ $provinceOption }}</option>
+              @endforeach
+            </select>
+          </div>
+          <div class="col-md-2">
+            <select name="city" class="form-select ld-grid-city" id="ld-grid-add-city" data-selected="{{ $addSelectedCity }}">
+              <option value="">City (optional)</option>
+              @foreach($addCityOptions as $cityOption)
+                <option value="{{ $cityOption }}" @selected($addSelectedCity === $cityOption)>{{ $cityOption }}</option>
+              @endforeach
+            </select>
+          </div>
           <div class="col-md-1 d-flex align-items-center gap-2">
             <label class="form-check">
               <input type="checkbox" class="form-check-input" name="is_active" value="1" checked>
@@ -250,6 +271,13 @@
           </thead>
           <tbody>
             @foreach($gridCells as $cell)
+              @php
+                $editSelectedProvince = (string) ($cell->province ?? '');
+                $editSelectedCity = (string) ($cell->city ?? '');
+                $editCityOptions = $editSelectedProvince !== ''
+                  ? ($gridCityOptionsByProvince[$editSelectedProvince] ?? [])
+                  : $gridCityOptionsAll;
+              @endphp
               <tr>
                 <td>{{ $cell->name }}</td>
                 <td>{{ $cell->center_lat }}</td>
@@ -268,8 +296,18 @@
                       <input type="number" step="0.0000001" name="center_lat" class="form-control form-control-sm" value="{{ $cell->center_lat }}" required>
                       <input type="number" step="0.0000001" name="center_lng" class="form-control form-control-sm" value="{{ $cell->center_lng }}" required>
                       <input type="number" name="radius_m" class="form-control form-control-sm" value="{{ $cell->radius_m }}" required>
-                      <input type="text" name="city" class="form-control form-control-sm" value="{{ $cell->city }}">
-                      <input type="text" name="province" class="form-control form-control-sm" value="{{ $cell->province }}">
+                      <select name="province" class="form-select form-select-sm ld-grid-province" data-city-target="ld-grid-city-{{ $cell->id }}">
+                        <option value="">Province (optional)</option>
+                        @foreach($gridProvinceOptions as $provinceOption)
+                          <option value="{{ $provinceOption }}" @selected($editSelectedProvince === $provinceOption)>{{ $provinceOption }}</option>
+                        @endforeach
+                      </select>
+                      <select name="city" id="ld-grid-city-{{ $cell->id }}" class="form-select form-select-sm ld-grid-city" data-selected="{{ $editSelectedCity }}">
+                        <option value="">City (optional)</option>
+                        @foreach($editCityOptions as $cityOption)
+                          <option value="{{ $cityOption }}" @selected($editSelectedCity === $cityOption)>{{ $cityOption }}</option>
+                        @endforeach
+                      </select>
                       <input type="text" name="region_code" class="form-control form-control-sm" value="{{ $cell->region_code }}">
                       <label class="form-check mt-1">
                         <input type="checkbox" class="form-check-input" name="is_active" value="1" @checked($cell->is_active)>
@@ -299,3 +337,65 @@
   @endif
 </div>
 @endsection
+
+@push('scripts')
+  <script id="ld-grid-city-map" type="application/json">@json(['__all' => $gridCityOptionsAll] + $gridCityOptionsByProvince)</script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const cityMapNode = document.getElementById('ld-grid-city-map');
+      if (!cityMapNode) {
+        return;
+      }
+
+      let cityMap = {};
+      try {
+        cityMap = JSON.parse(cityMapNode.textContent || '{}');
+      } catch (e) {
+        cityMap = {};
+      }
+
+      function rebuildCityOptions(citySelect, provinceValue, selectedCity) {
+        const source = provinceValue && cityMap[provinceValue]
+          ? cityMap[provinceValue]
+          : (cityMap.__all || []);
+        const allowed = new Set(source);
+        const cityValue = allowed.has(selectedCity) ? selectedCity : '';
+
+        citySelect.innerHTML = '';
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'City (optional)';
+        citySelect.appendChild(defaultOption);
+
+        source.forEach(function (city) {
+          const option = document.createElement('option');
+          option.value = city;
+          option.textContent = city;
+          if (city === cityValue) {
+            option.selected = true;
+          }
+          citySelect.appendChild(option);
+        });
+      }
+
+      document.querySelectorAll('.ld-grid-province').forEach(function (provinceSelect) {
+        const cityTargetId = provinceSelect.dataset.cityTarget;
+        if (!cityTargetId) {
+          return;
+        }
+
+        const citySelect = document.getElementById(cityTargetId);
+        if (!citySelect) {
+          return;
+        }
+
+        rebuildCityOptions(citySelect, provinceSelect.value, citySelect.dataset.selected || '');
+
+        provinceSelect.addEventListener('change', function () {
+          rebuildCityOptions(citySelect, provinceSelect.value, '');
+        });
+      });
+    });
+  </script>
+@endpush

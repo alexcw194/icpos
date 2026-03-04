@@ -45,6 +45,16 @@ class ProspectController extends Controller
         $keywordId = $request->filled('keyword_id') ? (int) $request->input('keyword_id') : null;
         $province = trim((string) $request->input('province', ''));
         $city = trim((string) $request->input('city', ''));
+        [$provinceOptions, $cityOptionsByProvince, $cityOptionsAll] = $this->buildProspectLocationOptions();
+        $selectedProvince = $province;
+        $selectedCity = $city;
+        $cityOptions = $selectedProvince !== ''
+            ? ($cityOptionsByProvince[$selectedProvince] ?? [])
+            : $cityOptionsAll;
+        if ($selectedCity !== '' && !in_array($selectedCity, $cityOptions, true)) {
+            $selectedCity = '';
+            $city = '';
+        }
         $from = trim((string) $request->input('discovered_from', ''));
         $to = trim((string) $request->input('discovered_to', ''));
         $hasPhone = (string) $request->input('has_phone', '');
@@ -97,6 +107,11 @@ class ProspectController extends Controller
             'statuses' => $statuses,
             'statusFilterOptions' => $statusFilterOptions,
             'selectedStatus' => $selectedStatus,
+            'provinceOptions' => $provinceOptions,
+            'cityOptions' => $cityOptions,
+            'selectedProvince' => $selectedProvince,
+            'selectedCity' => $selectedCity,
+            'cityOptionsByProvince' => ['__all' => $cityOptionsAll] + $cityOptionsByProvince,
             'perPage' => $perPage,
             'perPageOptions' => $perPageOptions,
         ]);
@@ -251,5 +266,57 @@ class ProspectController extends Controller
         }
 
         return $existing . PHP_EOL . $line;
+    }
+
+    /**
+     * @return array{0: array<int, string>, 1: array<string, array<int, string>>, 2: array<int, string>}
+     */
+    private function buildProspectLocationOptions(): array
+    {
+        $rows = Prospect::query()
+            ->select(['province', 'city'])
+            ->where(function ($query) {
+                $query->where(function ($nested) {
+                    $nested->whereNotNull('province')->where('province', '!=', '');
+                })->orWhere(function ($nested) {
+                    $nested->whereNotNull('city')->where('city', '!=', '');
+                });
+            })
+            ->get();
+
+        $provinceSet = [];
+        $citySet = [];
+        $cityByProvince = [];
+
+        foreach ($rows as $row) {
+            $province = trim((string) ($row->province ?? ''));
+            $city = trim((string) ($row->city ?? ''));
+
+            if ($province !== '') {
+                $provinceSet[$province] = true;
+            }
+            if ($city !== '') {
+                $citySet[$city] = true;
+            }
+            if ($province !== '' && $city !== '') {
+                $cityByProvince[$province][$city] = true;
+            }
+        }
+
+        $provinceOptions = array_keys($provinceSet);
+        sort($provinceOptions, SORT_NATURAL | SORT_FLAG_CASE);
+
+        $cityOptionsAll = array_keys($citySet);
+        sort($cityOptionsAll, SORT_NATURAL | SORT_FLAG_CASE);
+
+        $normalizedCityByProvince = [];
+        foreach ($cityByProvince as $province => $cities) {
+            $cityList = array_keys($cities);
+            sort($cityList, SORT_NATURAL | SORT_FLAG_CASE);
+            $normalizedCityByProvince[$province] = $cityList;
+        }
+        ksort($normalizedCityByProvince, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return [$provinceOptions, $normalizedCityByProvince, $cityOptionsAll];
     }
 }
