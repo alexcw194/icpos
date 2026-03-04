@@ -65,6 +65,32 @@ class LeadDiscoveryProspectFlowTest extends TestCase
             ->assertStatus(403);
     }
 
+    public function test_prospects_index_excludes_ignored_by_default(): void
+    {
+        $sales = $this->makeUserWithRole('Sales');
+        $active = $this->makeProspect(['name' => 'Prospect Active', 'status' => Prospect::STATUS_NEW]);
+        $ignored = $this->makeProspect(['name' => 'Prospect Ignored', 'status' => Prospect::STATUS_IGNORED]);
+
+        $this->actingAs($sales)
+            ->get(route('lead-discovery.prospects.index'))
+            ->assertOk()
+            ->assertSee($active->name)
+            ->assertDontSee($ignored->name);
+    }
+
+    public function test_prospects_index_can_show_only_ignored_when_status_filter_ignored(): void
+    {
+        $sales = $this->makeUserWithRole('Sales');
+        $active = $this->makeProspect(['name' => 'Prospect Active', 'status' => Prospect::STATUS_NEW]);
+        $ignored = $this->makeProspect(['name' => 'Prospect Ignored', 'status' => Prospect::STATUS_IGNORED]);
+
+        $this->actingAs($sales)
+            ->get(route('lead-discovery.prospects.index', ['status' => Prospect::STATUS_IGNORED]))
+            ->assertOk()
+            ->assertSee($ignored->name)
+            ->assertDontSee($active->name);
+    }
+
     public function test_admin_only_config_route_returns_403_for_sales(): void
     {
         $sales = $this->makeUserWithRole('Sales');

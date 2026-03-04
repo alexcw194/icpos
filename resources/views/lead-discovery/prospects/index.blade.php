@@ -29,9 +29,11 @@
         </div>
         <div class="col-md-2">
           <select name="status" class="form-select">
-            <option value="">All Status</option>
-            @foreach($statuses as $rowStatus)
-              <option value="{{ $rowStatus }}" @selected((string) request('status') === (string) $rowStatus)>{{ ucfirst($rowStatus) }}</option>
+            @foreach($statusFilterOptions as $statusValue => $statusLabel)
+              @php
+                $optionValue = $statusValue === 'all_active' ? '' : $statusValue;
+              @endphp
+              <option value="{{ $optionValue }}" @selected((string) $selectedStatus === (string) $statusValue)>{{ $statusLabel }}</option>
             @endforeach
           </select>
         </div>

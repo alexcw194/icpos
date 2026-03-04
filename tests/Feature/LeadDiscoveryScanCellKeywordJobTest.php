@@ -10,6 +10,7 @@ use App\Models\Prospect;
 use App\Models\Setting;
 use App\Services\LeadDiscovery\PlacesLegacyClient;
 use App\Services\LeadDiscovery\ProspectNormalizer;
+use App\Services\LeadDiscovery\ProspectResultFilter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -96,7 +97,11 @@ class LeadDiscoveryScanCellKeywordJobTest extends TestCase
         ]);
 
         $job = new ScanCellKeywordJob($run->id, $cell->id, $keyword->id);
-        $job->handle(app(PlacesLegacyClient::class), app(ProspectNormalizer::class));
+        $job->handle(
+            app(PlacesLegacyClient::class),
+            app(ProspectNormalizer::class),
+            app(ProspectResultFilter::class)
+        );
 
         $this->assertSame(2, Prospect::count());
         $this->assertDatabaseHas('prospects', [
@@ -122,5 +127,99 @@ class LeadDiscoveryScanCellKeywordJobTest extends TestCase
         $this->assertArrayNotHasKey('location', $query2);
         $this->assertArrayNotHasKey('radius', $query2);
         $this->assertArrayNotHasKey('keyword', $query2);
+    }
+
+    public function test_scan_job_allows_shopping_mall_but_ignores_retail_types_and_keeps_converted_status(): void
+    {
+        Setting::setMany([
+            'lead_discovery.max_pages_per_query' => '1',
+            'lead_discovery.page_token_delay_ms' => '0',
+            'lead_discovery.request_timeout_sec' => '20',
+            'lead_discovery.retry_max' => '0',
+        ]);
+
+        $keyword = LdKeyword::create([
+            'keyword' => 'factory',
+            'category_label' => 'Manufacturing',
+            'is_active' => true,
+            'priority' => 10,
+        ]);
+
+        $cell = LdGridCell::create([
+            'name' => 'Bali-01',
+            'center_lat' => -8.6500,
+            'center_lng' => 115.2167,
+            'radius_m' => 12000,
+            'city' => 'Denpasar',
+            'province' => 'Bali',
+            'is_active' => true,
+        ]);
+
+        $run = LdScanRun::create([
+            'started_at' => now(),
+            'status' => LdScanRun::STATUS_RUNNING,
+            'mode' => LdScanRun::MODE_MANUAL,
+            'totals_json' => [
+                'pairs_dispatched' => 1,
+            ],
+        ]);
+
+        Prospect::create([
+            'place_id' => 'place-converted-retail',
+            'name' => 'Converted Tenant',
+            'primary_type' => 'store',
+            'types_json' => ['store'],
+            'discovered_at' => now()->subDay(),
+            'last_seen_at' => now()->subDay(),
+            'status' => Prospect::STATUS_CONVERTED,
+        ]);
+
+        Http::fake([
+            'maps.googleapis.com/maps/api/place/nearbysearch/json*' => Http::response([
+                'status' => 'OK',
+                'results' => [
+                    [
+                        'place_id' => 'place-mall-1',
+                        'name' => 'Mall Bali Galeria',
+                        'formatted_address' => 'Jl. By Pass Ngurah Rai, Bali',
+                        'types' => ['shopping_mall', 'department_store'],
+                        'geometry' => ['location' => ['lat' => -8.70, 'lng' => 115.18]],
+                    ],
+                    [
+                        'place_id' => 'place-tenant-1',
+                        'name' => 'Sports Station Level 2 Mall Bali',
+                        'formatted_address' => 'Level 2 Mall Bali Galeria',
+                        'types' => ['clothing_store', 'store'],
+                        'geometry' => ['location' => ['lat' => -8.71, 'lng' => 115.19]],
+                    ],
+                    [
+                        'place_id' => 'place-converted-retail',
+                        'name' => 'Converted Tenant Updated',
+                        'formatted_address' => 'Unit 12 Mall XYZ',
+                        'types' => ['store'],
+                        'geometry' => ['location' => ['lat' => -8.72, 'lng' => 115.20]],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $job = new ScanCellKeywordJob($run->id, $cell->id, $keyword->id);
+        $job->handle(
+            app(PlacesLegacyClient::class),
+            app(ProspectNormalizer::class),
+            app(ProspectResultFilter::class)
+        );
+
+        $mall = Prospect::query()->where('place_id', 'place-mall-1')->first();
+        $this->assertNotNull($mall);
+        $this->assertNotSame(Prospect::STATUS_IGNORED, $mall->status);
+
+        $tenant = Prospect::query()->where('place_id', 'place-tenant-1')->first();
+        $this->assertNotNull($tenant);
+        $this->assertSame(Prospect::STATUS_IGNORED, $tenant->status);
+
+        $converted = Prospect::query()->where('place_id', 'place-converted-retail')->first();
+        $this->assertNotNull($converted);
+        $this->assertSame(Prospect::STATUS_CONVERTED, $converted->status);
     }
 }

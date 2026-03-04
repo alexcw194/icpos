@@ -10,6 +10,7 @@ use App\Models\Prospect;
 use App\Models\Setting;
 use App\Services\LeadDiscovery\PlacesLegacyClient;
 use App\Services\LeadDiscovery\ProspectNormalizer;
+use App\Services\LeadDiscovery\ProspectResultFilter;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -33,7 +34,11 @@ class ScanCellKeywordJob implements ShouldQueue
     ) {
     }
 
-    public function handle(PlacesLegacyClient $client, ProspectNormalizer $normalizer): void
+    public function handle(
+        PlacesLegacyClient $client,
+        ProspectNormalizer $normalizer,
+        ProspectResultFilter $resultFilter
+    ): void
     {
         $run = LdScanRun::query()->find($this->scanRunId);
         $cell = LdGridCell::query()->find($this->gridCellId);
@@ -97,7 +102,19 @@ class ScanCellKeywordJob implements ShouldQueue
                     if (!is_array($place) || empty($place['place_id'])) {
                         continue;
                     }
+
+                    $ignoreResult = $resultFilter->shouldIgnore($place);
+                    $ignoreReason = $resultFilter->reason($place);
                     $payload = $normalizer->normalizePlaceToProspectPayload($place, $keyword->id, $cell->id);
+                    $payload['raw_json'] = $this->withFilterMetadata(
+                        $payload['raw_json'] ?? [],
+                        $ignoreResult,
+                        $ignoreReason,
+                        $now
+                    );
+                    if ($ignoreResult) {
+                        $payload['status'] = Prospect::STATUS_IGNORED;
+                    }
                     $prospect = Prospect::query()->firstOrNew([
                         'place_id' => $payload['place_id'],
                     ]);
@@ -127,6 +144,10 @@ class ScanCellKeywordJob implements ShouldQueue
                         'last_seen_at' => $now,
                         'raw_json' => $payload['raw_json'] ?? $prospect->raw_json,
                     ]);
+
+                    if ($ignoreResult && $prospect->status !== Prospect::STATUS_CONVERTED) {
+                        $prospect->status = Prospect::STATUS_IGNORED;
+                    }
 
                     if (!$prospect->keyword_id) {
                         $prospect->keyword_id = $keyword->id;
@@ -217,5 +238,16 @@ class ScanCellKeywordJob implements ShouldQueue
             $run->finished_at = Carbon::now();
             $run->save();
         });
+    }
+
+    private function withFilterMetadata(array $rawJson, bool $ignored, string $reason, Carbon $scannedAt): array
+    {
+        $rawJson['_lead_discovery_filter'] = [
+            'ignored' => $ignored,
+            'reason' => $reason,
+            'scanned_at' => $scannedAt->toIso8601String(),
+        ];
+
+        return $rawJson;
     }
 }

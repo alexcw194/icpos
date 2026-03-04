@@ -29,9 +29,18 @@ class ProspectController extends Controller
             Prospect::STATUS_CONVERTED,
             Prospect::STATUS_IGNORED,
         ];
+        $statusFilterOptions = [
+            'all_active' => 'All Active (exclude ignored)',
+            Prospect::STATUS_NEW => 'New',
+            Prospect::STATUS_ASSIGNED => 'Assigned',
+            Prospect::STATUS_CONVERTED => 'Converted',
+            Prospect::STATUS_IGNORED => 'Ignored',
+            'all' => 'All (include ignored)',
+        ];
 
         $q = trim((string) $request->input('q', ''));
         $status = (string) $request->input('status', '');
+        $selectedStatus = $status === '' ? 'all_active' : $status;
         $ownerId = $request->filled('owner_user_id') ? (int) $request->input('owner_user_id') : null;
         $keywordId = $request->filled('keyword_id') ? (int) $request->input('keyword_id') : null;
         $province = trim((string) $request->input('province', ''));
@@ -52,6 +61,9 @@ class ProspectController extends Controller
                 });
             })
             ->when(in_array($status, $statuses, true), fn ($builder) => $builder->where('status', $status))
+            ->when(!in_array($status, array_merge($statuses, ['all']), true), function ($builder) {
+                $builder->where('status', '!=', Prospect::STATUS_IGNORED);
+            })
             ->when($ownerId, fn ($builder) => $builder->where('owner_user_id', $ownerId))
             ->when($keywordId, fn ($builder) => $builder->where('keyword_id', $keywordId))
             ->when($province !== '', fn ($builder) => $builder->where('province', 'like', "%{$province}%"))
@@ -83,6 +95,8 @@ class ProspectController extends Controller
             'keywords' => $keywords,
             'owners' => $owners,
             'statuses' => $statuses,
+            'statusFilterOptions' => $statusFilterOptions,
+            'selectedStatus' => $selectedStatus,
             'perPage' => $perPage,
             'perPageOptions' => $perPageOptions,
         ]);
