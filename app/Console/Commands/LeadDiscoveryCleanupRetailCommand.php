@@ -42,6 +42,7 @@ class LeadDiscoveryCleanupRetailCommand extends Command
                         'name' => $prospect->name,
                         'formatted_address' => $prospect->formatted_address,
                         'short_address' => $prospect->short_address,
+                        'vicinity' => is_array($prospect->raw_json ?? null) ? ($prospect->raw_json['vicinity'] ?? null) : null,
                         'primary_type' => $prospect->primary_type,
                         'types' => $types,
                     ];

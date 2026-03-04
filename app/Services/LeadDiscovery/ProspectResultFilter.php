@@ -6,9 +6,7 @@ use Illuminate\Support\Str;
 
 class ProspectResultFilter
 {
-    private const ALLOWED_TYPES = [
-        'shopping_mall',
-    ];
+    private const ALLOWED_TYPES = ['shopping_mall'];
 
     private const IGNORED_RETAIL_TYPES = [
         'store',
@@ -23,12 +21,45 @@ class ProspectResultFilter
         'pharmacy',
     ];
 
-    private const TENANT_TOKENS = [
+    private const MALL_CONTEXT_TOKENS = [
+        ' mall ',
+        ' plaza ',
+        ' galeria ',
+        ' galleria ',
+        ' shopping center ',
+        ' shopping centre ',
+        ' trade center ',
+        ' trade centre ',
+        ' square ',
+    ];
+
+    private const TENANT_SIGNAL_TOKENS = [
         ' level ',
         ' lt ',
+        ' lantai ',
         ' unit ',
         ' kiosk ',
-        ' mall ',
+        ' tenant ',
+        ' boutique ',
+        ' store ',
+        ' shop ',
+        ' parking ',
+        ' parkir ',
+        ' restoran ',
+        ' restaurant ',
+        ' resto ',
+        ' cafe ',
+        ' sushi ',
+        ' food court ',
+    ];
+
+    private const IGNORED_MALL_CONTEXT_TYPES = [
+        'parking',
+        'point_of_interest',
+        'restaurant',
+        'cafe',
+        'meal_takeaway',
+        'meal_delivery',
     ];
 
     public function shouldIgnore(array $place): bool
@@ -47,15 +78,7 @@ class ProspectResultFilter
     private function evaluate(array $place): array
     {
         $types = $this->extractTypes($place);
-        if ($this->containsAny($types, self::ALLOWED_TYPES)) {
-            return ['ignore' => false, 'reason' => 'allowed_shopping_mall'];
-        }
-
         $matchedRetailTypes = array_values(array_intersect($types, self::IGNORED_RETAIL_TYPES));
-        if ($matchedRetailTypes === []) {
-            return ['ignore' => false, 'reason' => 'allowed_default'];
-        }
-
         $haystack = ' ' . Str::lower(trim(implode(' ', [
             (string) ($place['name'] ?? ''),
             (string) ($place['formatted_address'] ?? ''),
@@ -63,19 +86,28 @@ class ProspectResultFilter
             (string) ($place['vicinity'] ?? ''),
         ]))) . ' ';
 
-        foreach (self::TENANT_TOKENS as $token) {
-            if (Str::contains($haystack, $token)) {
-                return [
-                    'ignore' => true,
-                    'reason' => 'ignored_retail_tenant:' . implode(',', $matchedRetailTypes),
-                ];
-            }
+        $isMallContext = $this->containsAny($types, self::ALLOWED_TYPES)
+            || $this->containsAnyToken($haystack, self::MALL_CONTEXT_TOKENS);
+        $hasTenantSignal = $this->containsAnyToken($haystack, self::TENANT_SIGNAL_TOKENS);
+
+        if ($isMallContext && $hasTenantSignal) {
+            return ['ignore' => true, 'reason' => 'ignored_mall_tenant_signal'];
         }
 
-        return [
-            'ignore' => true,
-            'reason' => 'ignored_retail_type:' . implode(',', $matchedRetailTypes),
-        ];
+        $matchedMallContextTypes = array_values(array_intersect($types, self::IGNORED_MALL_CONTEXT_TYPES));
+        if ($isMallContext && $matchedMallContextTypes !== []) {
+            return ['ignore' => true, 'reason' => 'ignored_mall_facility_type:' . implode(',', $matchedMallContextTypes)];
+        }
+
+        if ($this->containsAny($types, self::ALLOWED_TYPES)) {
+            return ['ignore' => false, 'reason' => 'allowed_shopping_mall'];
+        }
+
+        if ($matchedRetailTypes !== []) {
+            return ['ignore' => true, 'reason' => 'ignored_retail_type:' . implode(',', $matchedRetailTypes)];
+        }
+
+        return ['ignore' => false, 'reason' => 'allowed_default'];
     }
 
     /**
@@ -121,6 +153,20 @@ class ProspectResultFilter
     {
         foreach ($needles as $needle) {
             if (in_array($needle, $types, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<string> $tokens
+     */
+    private function containsAnyToken(string $haystack, array $tokens): bool
+    {
+        foreach ($tokens as $token) {
+            if (Str::contains($haystack, $token)) {
                 return true;
             }
         }

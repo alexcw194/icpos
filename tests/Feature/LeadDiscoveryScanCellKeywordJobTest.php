@@ -193,6 +193,20 @@ class LeadDiscoveryScanCellKeywordJobTest extends TestCase
                         'geometry' => ['location' => ['lat' => -8.71, 'lng' => 115.19]],
                     ],
                     [
+                        'place_id' => 'place-lancome-1',
+                        'name' => 'LANCOME BOUTIQUE - BEACHWALK MALL BALI',
+                        'formatted_address' => 'Beachwalk Mall Bali',
+                        'types' => ['shopping_mall'],
+                        'geometry' => ['location' => ['lat' => -8.72, 'lng' => 115.16]],
+                    ],
+                    [
+                        'place_id' => 'place-parking-1',
+                        'name' => 'Parkir Level 21 Mall',
+                        'formatted_address' => 'Level 3 Mall Bali',
+                        'types' => ['parking'],
+                        'geometry' => ['location' => ['lat' => -8.73, 'lng' => 115.17]],
+                    ],
+                    [
                         'place_id' => 'place-converted-retail',
                         'name' => 'Converted Tenant Updated',
                         'formatted_address' => 'Unit 12 Mall XYZ',
@@ -218,8 +232,79 @@ class LeadDiscoveryScanCellKeywordJobTest extends TestCase
         $this->assertNotNull($tenant);
         $this->assertSame(Prospect::STATUS_IGNORED, $tenant->status);
 
+        $lancome = Prospect::query()->where('place_id', 'place-lancome-1')->first();
+        $this->assertNotNull($lancome);
+        $this->assertSame(Prospect::STATUS_IGNORED, $lancome->status);
+
+        $parking = Prospect::query()->where('place_id', 'place-parking-1')->first();
+        $this->assertNotNull($parking);
+        $this->assertSame(Prospect::STATUS_IGNORED, $parking->status);
+
         $converted = Prospect::query()->where('place_id', 'place-converted-retail')->first();
         $this->assertNotNull($converted);
         $this->assertSame(Prospect::STATUS_CONVERTED, $converted->status);
+    }
+
+    public function test_scan_job_backfills_city_and_province_from_grid_cell_when_place_has_no_location_text(): void
+    {
+        Setting::setMany([
+            'lead_discovery.max_pages_per_query' => '1',
+            'lead_discovery.page_token_delay_ms' => '0',
+            'lead_discovery.request_timeout_sec' => '20',
+            'lead_discovery.retry_max' => '0',
+        ]);
+
+        $keyword = LdKeyword::create([
+            'keyword' => 'factory',
+            'category_label' => 'Manufacturing',
+            'is_active' => true,
+            'priority' => 10,
+        ]);
+
+        $cell = LdGridCell::create([
+            'name' => 'Surabaya-02',
+            'center_lat' => -7.2574,
+            'center_lng' => 112.7520,
+            'radius_m' => 12000,
+            'city' => 'Surabaya',
+            'province' => 'Jawa Timur',
+            'is_active' => true,
+        ]);
+
+        $run = LdScanRun::create([
+            'started_at' => now(),
+            'status' => LdScanRun::STATUS_RUNNING,
+            'mode' => LdScanRun::MODE_MANUAL,
+            'totals_json' => [
+                'pairs_dispatched' => 1,
+            ],
+        ]);
+
+        Http::fake([
+            'maps.googleapis.com/maps/api/place/nearbysearch/json*' => Http::response([
+                'status' => 'OK',
+                'results' => [
+                    [
+                        'place_id' => 'place-no-address',
+                        'name' => 'Company No Address',
+                        'types' => ['establishment'],
+                        'geometry' => ['location' => ['lat' => -7.25, 'lng' => 112.75]],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $job = new ScanCellKeywordJob($run->id, $cell->id, $keyword->id);
+        $job->handle(
+            app(PlacesLegacyClient::class),
+            app(ProspectNormalizer::class),
+            app(ProspectResultFilter::class)
+        );
+
+        $this->assertDatabaseHas('prospects', [
+            'place_id' => 'place-no-address',
+            'city' => 'Surabaya',
+            'province' => 'Jawa Timur',
+        ]);
     }
 }

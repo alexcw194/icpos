@@ -106,6 +106,12 @@ class ScanCellKeywordJob implements ShouldQueue
                     $ignoreResult = $resultFilter->shouldIgnore($place);
                     $ignoreReason = $resultFilter->reason($place);
                     $payload = $normalizer->normalizePlaceToProspectPayload($place, $keyword->id, $cell->id);
+                    if (empty($payload['city']) && !empty($cell->city)) {
+                        $payload['city'] = (string) $cell->city;
+                    }
+                    if (empty($payload['province']) && !empty($cell->province)) {
+                        $payload['province'] = (string) $cell->province;
+                    }
                     $payload['raw_json'] = $this->withFilterMetadata(
                         $payload['raw_json'] ?? [],
                         $ignoreResult,

@@ -41,6 +41,20 @@ class LeadDiscoveryCleanupRetailCommandTest extends TestCase
             'types_json' => ['shopping_mall'],
             'status' => Prospect::STATUS_NEW,
         ]);
+        $mallTenant = $this->makeProspect([
+            'name' => 'LANCOME BOUTIQUE - BEACHWALK MALL BALI',
+            'formatted_address' => 'Beachwalk Mall Bali',
+            'primary_type' => 'shopping_mall',
+            'types_json' => ['shopping_mall'],
+            'status' => Prospect::STATUS_NEW,
+        ]);
+        $parkingTenant = $this->makeProspect([
+            'name' => 'Parkir Level 21 Mall',
+            'formatted_address' => 'Level 21 Mall',
+            'primary_type' => 'parking',
+            'types_json' => ['parking'],
+            'status' => Prospect::STATUS_NEW,
+        ]);
 
         $convertedRetail = $this->makeProspect([
             'name' => 'Converted Store',
@@ -54,10 +68,14 @@ class LeadDiscoveryCleanupRetailCommandTest extends TestCase
 
         $retail->refresh();
         $mall->refresh();
+        $mallTenant->refresh();
+        $parkingTenant->refresh();
         $convertedRetail->refresh();
 
         $this->assertSame(Prospect::STATUS_IGNORED, $retail->status);
         $this->assertSame(Prospect::STATUS_NEW, $mall->status);
+        $this->assertSame(Prospect::STATUS_IGNORED, $mallTenant->status);
+        $this->assertSame(Prospect::STATUS_IGNORED, $parkingTenant->status);
         $this->assertSame(Prospect::STATUS_CONVERTED, $convertedRetail->status);
     }
 

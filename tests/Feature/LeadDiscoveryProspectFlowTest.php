@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\Jenis;
+use App\Models\LdGridCell;
 use App\Models\Prospect;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -165,6 +166,62 @@ class LeadDiscoveryProspectFlowTest extends TestCase
                     && !in_array('Denpasar', $options, true);
             })
             ->assertViewHas('selectedCity', '');
+    }
+
+    public function test_prospects_filter_uses_grid_cell_fallback_when_prospect_location_is_empty(): void
+    {
+        $sales = $this->makeUserWithRole('Sales');
+        $cell = LdGridCell::query()->create([
+            'name' => 'Bali-Cell',
+            'center_lat' => -8.65,
+            'center_lng' => 115.21,
+            'radius_m' => 12000,
+            'city' => 'Denpasar',
+            'province' => 'Bali',
+            'is_active' => true,
+        ]);
+
+        $prospect = $this->makeProspect([
+            'name' => 'Prospect No Location',
+            'city' => null,
+            'province' => null,
+            'grid_cell_id' => $cell->id,
+        ]);
+
+        $this->actingAs($sales)
+            ->get(route('lead-discovery.prospects.index', [
+                'province' => 'Bali',
+                'city' => 'Denpasar',
+            ]))
+            ->assertOk()
+            ->assertSee($prospect->name);
+    }
+
+    public function test_prospects_location_options_include_grid_cell_values_when_prospect_values_missing(): void
+    {
+        $sales = $this->makeUserWithRole('Sales');
+
+        LdGridCell::query()->create([
+            'name' => 'Cell-Only-Location',
+            'center_lat' => -8.65,
+            'center_lng' => 115.21,
+            'radius_m' => 12000,
+            'city' => 'Badung',
+            'province' => 'Bali',
+            'is_active' => true,
+        ]);
+
+        $this->makeProspect([
+            'name' => 'Prospect No Location',
+            'city' => null,
+            'province' => null,
+        ]);
+
+        $this->actingAs($sales)
+            ->get(route('lead-discovery.prospects.index'))
+            ->assertOk()
+            ->assertViewHas('provinceOptions', fn ($options) => in_array('Bali', $options, true))
+            ->assertViewHas('cityOptions', fn ($options) => in_array('Badung', $options, true));
     }
 
     public function test_convert_requires_category_and_owner(): void

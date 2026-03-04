@@ -130,7 +130,7 @@
                 <div class="text-muted small">{{ $row->place_id }}</div>
               </td>
               <td>{{ $row->primary_type ?: ($row->keyword?->category_label ?: '-') }}</td>
-              <td>{{ $row->city ?: '-' }}</td>
+              <td>{{ $row->city ?: ($row->gridCell?->city ?: '-') }}</td>
               <td>{{ $row->phone ?: '-' }}</td>
               <td>
                 @if($row->website)

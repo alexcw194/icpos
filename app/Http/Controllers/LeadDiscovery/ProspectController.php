@@ -5,6 +5,7 @@ namespace App\Http\Controllers\LeadDiscovery;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Jenis;
+use App\Models\LdGridCell;
 use App\Models\Prospect;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -76,8 +77,30 @@ class ProspectController extends Controller
             })
             ->when($ownerId, fn ($builder) => $builder->where('owner_user_id', $ownerId))
             ->when($keywordId, fn ($builder) => $builder->where('keyword_id', $keywordId))
-            ->when($province !== '', fn ($builder) => $builder->where('province', 'like', "%{$province}%"))
-            ->when($city !== '', fn ($builder) => $builder->where('city', 'like', "%{$city}%"))
+            ->when($province !== '', function ($builder) use ($province) {
+                $builder->where(function ($nested) use ($province) {
+                    $nested->where('province', $province)
+                        ->orWhere(function ($fallback) use ($province) {
+                            $fallback->where(function ($emptyProvince) {
+                                $emptyProvince->whereNull('province')->orWhere('province', '');
+                            })->whereHas('gridCell', function ($gridQuery) use ($province) {
+                                $gridQuery->where('province', $province);
+                            });
+                        });
+                });
+            })
+            ->when($city !== '', function ($builder) use ($city) {
+                $builder->where(function ($nested) use ($city) {
+                    $nested->where('city', $city)
+                        ->orWhere(function ($fallback) use ($city) {
+                            $fallback->where(function ($emptyCity) {
+                                $emptyCity->whereNull('city')->orWhere('city', '');
+                            })->whereHas('gridCell', function ($gridQuery) use ($city) {
+                                $gridQuery->where('city', $city);
+                            });
+                        });
+                });
+            })
             ->when($from !== '', fn ($builder) => $builder->whereDate('discovered_at', '>=', $from))
             ->when($to !== '', fn ($builder) => $builder->whereDate('discovered_at', '<=', $to))
             ->when($hasPhone === '1', fn ($builder) => $builder->whereNotNull('phone')->where('phone', '!=', ''))
@@ -283,12 +306,22 @@ class ProspectController extends Controller
                 });
             })
             ->get();
+        $gridRows = LdGridCell::query()
+            ->select(['province', 'city'])
+            ->where(function ($query) {
+                $query->where(function ($nested) {
+                    $nested->whereNotNull('province')->where('province', '!=', '');
+                })->orWhere(function ($nested) {
+                    $nested->whereNotNull('city')->where('city', '!=', '');
+                });
+            })
+            ->get();
 
         $provinceSet = [];
         $citySet = [];
         $cityByProvince = [];
 
-        foreach ($rows as $row) {
+        foreach ($rows->concat($gridRows) as $row) {
             $province = trim((string) ($row->province ?? ''));
             $city = trim((string) ($row->city ?? ''));
 
