@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\LeadDiscovery;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\LeadDiscovery\AnalyzeProspectJob;
 use App\Models\Customer;
 use App\Models\Jenis;
 use App\Models\LdGridCell;
 use App\Models\Prospect;
+use App\Models\ProspectAnalysis;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -149,6 +151,12 @@ class ProspectController extends Controller
             'gridCell:id,name,city,province,radius_m',
             'owner:id,name',
             'convertedCustomer:id,name',
+            'latestAnalysis.requestedBy:id,name',
+            'analyses' => function ($query) {
+                $query->with('requestedBy:id,name')
+                    ->latest('id')
+                    ->limit(10);
+            },
         ]);
 
         $owners = User::query()->orderBy('name')->get(['id', 'name']);
@@ -158,13 +166,47 @@ class ProspectController extends Controller
             Prospect::STATUS_ASSIGNED,
             Prospect::STATUS_IGNORED,
         ];
+        $hasActiveAnalysis = ProspectAnalysis::query()
+            ->where('prospect_id', $prospect->id)
+            ->whereIn('status', [
+                ProspectAnalysis::STATUS_QUEUED,
+                ProspectAnalysis::STATUS_RUNNING,
+            ])
+            ->exists();
 
         return view('lead-discovery.prospects.show', compact(
             'prospect',
             'owners',
             'jenisList',
-            'statusOptions'
+            'statusOptions',
+            'hasActiveAnalysis'
         ));
+    }
+
+    public function analyze(Request $request, Prospect $prospect): RedirectResponse
+    {
+        $this->authorize('update', $prospect);
+
+        $hasActiveRun = ProspectAnalysis::query()
+            ->where('prospect_id', $prospect->id)
+            ->whereIn('status', [
+                ProspectAnalysis::STATUS_QUEUED,
+                ProspectAnalysis::STATUS_RUNNING,
+            ])
+            ->exists();
+        if ($hasActiveRun) {
+            return back()->with('warning', 'Analyze sedang berjalan untuk prospect ini.');
+        }
+
+        $analysis = ProspectAnalysis::query()->create([
+            'prospect_id' => $prospect->id,
+            'requested_by_user_id' => $request->user()?->id,
+            'status' => ProspectAnalysis::STATUS_QUEUED,
+        ]);
+
+        AnalyzeProspectJob::dispatch($analysis->id);
+
+        return back()->with('success', 'Analyze prospect sudah dijalankan di background.');
     }
 
     public function assign(Request $request, Prospect $prospect): RedirectResponse

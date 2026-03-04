@@ -116,6 +116,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('lead-discovery.prospects.assign');
     Route::post('/lead-discovery/prospects/{prospect}/status', [LeadDiscoveryProspectController::class, 'status'])
         ->name('lead-discovery.prospects.status');
+    Route::post('/lead-discovery/prospects/{prospect}/analyze', [LeadDiscoveryProspectController::class, 'analyze'])
+        ->name('lead-discovery.prospects.analyze');
     Route::post('/lead-discovery/prospects/{prospect}/convert', [LeadDiscoveryProspectController::class, 'convert'])
         ->name('lead-discovery.prospects.convert');
 

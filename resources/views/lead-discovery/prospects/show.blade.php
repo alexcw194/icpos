@@ -84,6 +84,119 @@
 
     <div class="col-lg-4">
       <div class="card mb-3">
+        <div class="card-header"><h3 class="card-title">Analysis</h3></div>
+        <div class="card-body">
+          <form method="post" action="{{ route('lead-discovery.prospects.analyze', $prospect) }}" class="d-grid gap-2 mb-3">
+            @csrf
+            <button class="btn btn-primary" @disabled($hasActiveAnalysis)>
+              {{ $hasActiveAnalysis ? 'Analyze In Progress' : 'Analyze Now' }}
+            </button>
+          </form>
+
+          @php
+            $latest = $prospect->latestAnalysis;
+            $statusBadge = match($latest?->status) {
+              'queued' => 'bg-secondary-lt',
+              'running' => 'bg-yellow-lt',
+              'success' => 'bg-green-lt',
+              'failed' => 'bg-red-lt',
+              default => 'bg-muted-lt',
+            };
+            $checklist = is_array($latest?->checklist_json) ? $latest->checklist_json : [];
+          @endphp
+
+          @if($latest)
+            <div class="mb-2 d-flex justify-content-between align-items-center">
+              <span class="badge {{ $statusBadge }}">{{ ucfirst($latest->status) }}</span>
+              <div class="text-muted small">{{ $latest->finished_at?->format('d M Y H:i') ?: $latest->created_at?->format('d M Y H:i') }}</div>
+            </div>
+            <div class="mb-2"><strong>Score:</strong> {{ $latest->score ?? 0 }}/100</div>
+            <div class="mb-2"><strong>Business Type:</strong> {{ $latest->business_type ?: 'unknown' }}</div>
+            <div class="mb-2"><strong>Address Clarity:</strong> {{ $latest->address_clarity ?: '-' }}</div>
+            <div class="mb-2"><strong>Website:</strong> {{ $latest->website_url ?: '-' }}</div>
+            <div class="mb-2"><strong>Website Status:</strong>
+              @if(!is_null($latest->website_http_status))
+                HTTP {{ $latest->website_http_status }} ({{ $latest->website_reachable ? 'reachable' : 'not reachable' }})
+              @else
+                {{ $latest->website_reachable ? 'reachable' : 'not reachable' }}
+              @endif
+            </div>
+            <div class="mb-2"><strong>Email Found:</strong> {{ count($latest->emails_json ?? []) }}</div>
+            <div class="mb-2"><strong>LinkedIn Company:</strong>
+              @if($latest->linkedin_company_url)
+                <a href="{{ $latest->linkedin_company_url }}" target="_blank" rel="noopener">Open</a>
+              @else
+                -
+              @endif
+            </div>
+            <div class="mb-2"><strong>LinkedIn People:</strong> {{ count($latest->linkedin_people_json ?? []) }}</div>
+            @if(!empty($latest->linkedin_people_json))
+              <div class="small">
+                @foreach(array_slice($latest->linkedin_people_json, 0, 3) as $peopleUrl)
+                  <div><a href="{{ $peopleUrl }}" target="_blank" rel="noopener">{{ $peopleUrl }}</a></div>
+                @endforeach
+              </div>
+            @endif
+            @if($latest->error_message)
+              <div class="alert alert-danger py-2 px-3 mt-2 mb-0 small">{{ $latest->error_message }}</div>
+            @endif
+
+            <div class="mt-3">
+              <div class="fw-semibold mb-1">Checklist</div>
+              <ul class="mb-0 small">
+                <li>Website Present: {{ !empty($checklist['website_present']) ? 'Yes' : 'No' }}</li>
+                <li>Website Reachable: {{ !empty($checklist['website_reachable']) ? 'Yes' : 'No' }}</li>
+                <li>Email Found: {{ !empty($checklist['email_found']) ? 'Yes' : 'No' }}</li>
+                <li>LinkedIn Company: {{ !empty($checklist['linkedin_company_found']) ? 'Yes' : 'No' }}</li>
+                <li>LinkedIn People: {{ !empty($checklist['linkedin_people_found']) ? 'Yes' : 'No' }}</li>
+                <li>Business Identified: {{ !empty($checklist['business_type_identified']) ? 'Yes' : 'No' }}</li>
+                <li>Address Clear: {{ !empty($checklist['address_clear']) ? 'Yes' : 'No' }}</li>
+              </ul>
+            </div>
+          @else
+            <div class="text-muted">Belum ada hasil analyze.</div>
+          @endif
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">
+          <h3 class="card-title">Analysis History</h3>
+          <div class="card-actions">
+            <a href="#analysis-history" data-bs-toggle="collapse" aria-expanded="false">Toggle</a>
+          </div>
+        </div>
+        <div id="analysis-history" class="collapse">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm table-vcenter mb-0">
+                <thead>
+                  <tr>
+                    <th>At</th>
+                    <th>Status</th>
+                    <th>Score</th>
+                    <th>Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @forelse($prospect->analyses as $analysis)
+                    <tr>
+                      <td class="small">{{ $analysis->created_at?->format('d M Y H:i') }}</td>
+                      <td class="small">{{ $analysis->status }}</td>
+                      <td class="small">{{ $analysis->score ?? '-' }}</td>
+                      <td class="small">{{ $analysis->error_message ? \Illuminate\Support\Str::limit($analysis->error_message, 60) : '-' }}</td>
+                    </tr>
+                  @empty
+                    <tr><td colspan="4" class="text-center text-muted small">No analysis history.</td></tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
         <div class="card-header"><h3 class="card-title">Assign Owner</h3></div>
         <div class="card-body">
           <form method="post" action="{{ route('lead-discovery.prospects.assign', $prospect) }}" class="d-grid gap-2">
