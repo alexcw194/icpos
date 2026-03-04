@@ -49,7 +49,12 @@
 
                   <div class="col-md-6">
                     <label class="form-label">Customer Name <span class="text-danger">*</span></label>
-                    <input type="text" name="name" value="{{ old('name', $customer->name) }}" class="form-control" required>
+                    <div class="input-group">
+                      <input type="text" name="name" value="{{ old('name', $customer->name) }}" class="form-control" required>
+                      <button type="button" class="btn btn-outline-primary text-nowrap" id="btnPlaces">
+                        Cari di Google Places
+                      </button>
+                    </div>
 
                     @php
                       $exactCandidates = collect(session('duplicate_exact_candidates', []));
@@ -93,12 +98,6 @@
                         <span class="form-check-label">Saya konfirmasi ini memang perusahaan berbeda, tetap simpan.</span>
                       </label>
                     @endif
-                  </div>
-
-                  <div class="col-md-6 d-flex align-items-end justify-content-end">
-                    <button type="button" class="btn btn-outline-primary" id="btnPlaces">
-                      Cari di Google Places
-                    </button>
                   </div>
 
                   <div class="col-md-6">
@@ -151,6 +150,17 @@
                   <div class="col-md-6">
                     <label class="form-label">Billing Terms (days)</label>
                     <input type="number" name="billing_terms_days" value="{{ old('billing_terms_days', $customer->billing_terms_days) }}" class="form-control" placeholder="mis. 30 (optional)">
+                  </div>
+
+                  <div class="col-md-6 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                      <input type="hidden" name="show_tax_percent_on_invoice" value="0">
+                      <input class="form-check-input" type="checkbox" name="show_tax_percent_on_invoice" id="showTaxPercentOnInvoice" value="1"
+                        @checked(old('show_tax_percent_on_invoice', (int) $customer->show_tax_percent_on_invoice) == 1)>
+                      <label class="form-check-label" for="showTaxPercentOnInvoice">
+                        Tampilkan persen pajak di PDF Invoice
+                      </label>
+                    </div>
                   </div>
 
                   <div class="col-12">
