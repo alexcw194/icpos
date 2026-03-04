@@ -13,6 +13,8 @@ class Customer extends Model
 {
     use HasFactory;
 
+    private const FORCE_UPPERCASE_NAME_WORDS = ['pt', 'cv', 'ud'];
+
     protected $fillable = [
         'name',
         'phone',
@@ -24,6 +26,7 @@ class Customer extends Model
         'country',
         'website',
         'billing_terms_days',
+        'show_tax_percent_on_invoice',
         'notes',
         'jenis_id',              // 🔰 master Jenis (pengganti "industry")
         'created_by',
@@ -51,6 +54,7 @@ class Customer extends Model
 
     protected $casts = [
         'billing_terms_days' => 'integer',
+        'show_tax_percent_on_invoice' => 'boolean',
     ];
 
     /* =========================
@@ -188,11 +192,30 @@ class Customer extends Model
         return $s;
     }
 
+    public static function normalizeCustomerName(string $name): string
+    {
+        $name = preg_replace('/\s+/', ' ', trim($name));
+        if ($name === '') {
+            return '';
+        }
+
+        $normalized = preg_replace_callback('/[A-Za-z]+/', function (array $matches): string {
+            $token = strtolower($matches[0]);
+            if (in_array($token, self::FORCE_UPPERCASE_NAME_WORDS, true)) {
+                return strtoupper($token);
+            }
+
+            return ucfirst($token);
+        }, $name);
+
+        return is_string($normalized) ? $normalized : $name;
+    }
+
     /** Trim nama */
     protected function name(): Attribute
     {
         return Attribute::make(
-            set: fn ($v) => is_string($v) ? trim($v) : $v
+            set: fn ($v) => is_string($v) ? self::normalizeCustomerName($v) : $v
         );
     }
 
