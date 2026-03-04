@@ -79,7 +79,7 @@
       </div>
 
       <div class="offcanvas-body p-0">
-        <ul class="navbar-nav pt-lg-3">
+        <ul class="navbar-nav pt-lg-3" id="sidebar-accordion">
           <li class="nav-item">
             <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
               <span class="nav-link-icon ti ti-home"></span>
@@ -96,7 +96,7 @@
                 <span class="nav-link-title">CRM</span>
                 <span class="nav-group-caret ti ti-chevron-down"></span>
               </a>
-              <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-crm">
+              <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-crm" data-bs-parent="#sidebar-accordion">
                 @if($hasCustomers)
                   <li>
                     <a class="nav-link {{ request()->is('customers*') ? 'active' : '' }}" href="{{ route('customers.index') }}">
@@ -132,7 +132,7 @@
               <span class="nav-link-title">Sales</span>
               <span class="nav-group-caret ti ti-chevron-down"></span>
             </a>
-            <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-sales">
+            <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-sales" data-bs-parent="#sidebar-accordion">
               @if(!$financeOnly && Route::has('quotations.index'))
                 <li><a class="nav-link {{ request()->is('quotations*') ? 'active' : '' }}" href="{{ route('quotations.index') }}">Quotations</a></li>
               @endif
@@ -163,7 +163,7 @@
                 <span class="nav-group-caret ti ti-chevron-down"></span>
               </a>
 
-              <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-projects">
+              <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-projects" data-bs-parent="#sidebar-accordion">
                 <li>
                   <a class="nav-link {{ (request()->is('projects*') && !request()->is('projects/labor*')) ? 'active' : '' }}" href="{{ route('projects.index') }}">
                     Projects List
@@ -234,7 +234,7 @@
                 <span class="nav-link-title">Dokumen</span>
                 <span class="nav-group-caret ti ti-chevron-down"></span>
               </a>
-              <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-documents">
+              <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-documents" data-bs-parent="#sidebar-accordion">
                 @hasanyrole('Sales')
                   <li><a class="nav-link {{ request()->routeIs('documents.my') ? 'active' : '' }}" href="{{ route('documents.my') }}">My Documents</a></li>
                 @endhasanyrole
@@ -256,7 +256,7 @@
                   <span class="nav-link-title">Purchase</span>
                   <span class="nav-group-caret ti ti-chevron-down"></span>
                 </a>
-                <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-purchase">
+                <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-purchase" data-bs-parent="#sidebar-accordion">
                   <li><a class="nav-link {{ request()->routeIs('po.*') ? 'active' : '' }}" href="{{ route('po.index') }}">Purchase Orders</a></li>
                   <li><a class="nav-link {{ request()->routeIs('suppliers.*') ? 'active' : '' }}" href="{{ route('suppliers.index') }}">Suppliers</a></li>
                 </ul>
@@ -278,7 +278,7 @@
               <span class="nav-link-title">Inventory</span>
               <span class="nav-group-caret ti ti-chevron-down"></span>
             </a>
-            <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-inventory">
+            <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-inventory" data-bs-parent="#sidebar-accordion">
               @if(Route::has('inventory.ledger'))
                 <li><a class="nav-link {{ request()->routeIs('inventory.ledger') ? 'active' : '' }}" href="{{ route('inventory.ledger') }}">Stock Ledger</a></li>
               @endif
@@ -311,7 +311,7 @@
               <span class="nav-group-caret ti ti-chevron-down"></span>
             </a>
 
-            <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-manufacture">
+            <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-manufacture" data-bs-parent="#sidebar-accordion">
               @if(Route::has('manufacture-jobs.index'))
                 <li><a class="nav-link {{ request()->is('manufacture-jobs*') ? 'active' : '' }}" href="{{ route('manufacture-jobs.index') }}">Manufacture Jobs</a></li>
               @endif
@@ -333,41 +333,6 @@
       return;
     }
 
-    var storageKey = 'icpos.sidebar.groups.v1';
-    var defaults = {
-      sales: false,
-      crm: true,
-      projects: true,
-      dokumen: true,
-      purchase: true,
-      inventory: true,
-      manufacture: true
-    };
-
-    var storage = window.safeStorage || {
-      getItem: function () { return null; },
-      setItem: function () {}
-    };
-
-    var saved = {};
-    try {
-      var raw = storage.getItem(storageKey);
-      if (raw) {
-        var parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-          saved = parsed;
-        }
-      }
-    } catch (e) {
-      saved = {};
-    }
-
-    var persist = function () {
-      try {
-        storage.setItem(storageKey, JSON.stringify(saved));
-      } catch (e) {}
-    };
-
     var setExpandedClass = function (group, expanded) {
       group.classList.toggle('is-expanded', !!expanded);
       var toggle = group.querySelector('.nav-group-toggle');
@@ -375,6 +340,13 @@
         toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       }
     };
+
+    var activeGroup = groups.find(function (group) {
+      return group.getAttribute('data-group-active') === '1';
+    });
+    var defaultKey = activeGroup
+      ? (activeGroup.getAttribute('data-group-key') || '')
+      : 'sales';
 
     groups.forEach(function (group) {
       var key = group.getAttribute('data-group-key') || '';
@@ -385,24 +357,13 @@
 
       collapseEl.addEventListener('shown.bs.collapse', function () {
         setExpandedClass(group, true);
-        saved[key] = true;
-        persist();
       });
 
       collapseEl.addEventListener('hidden.bs.collapse', function () {
         setExpandedClass(group, false);
-        saved[key] = false;
-        persist();
       });
 
-      var isActive = group.getAttribute('data-group-active') === '1';
-      var open = isActive
-        ? true
-        : (Object.prototype.hasOwnProperty.call(saved, key) ? !!saved[key] : (defaults[key] !== false));
-
-      if (isActive) {
-        saved[key] = true;
-      }
+      var open = key === defaultKey;
 
       if (window.bootstrap && window.bootstrap.Collapse) {
         var instance = window.bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
@@ -419,7 +380,5 @@
 
       setExpandedClass(group, open);
     });
-
-    persist();
   });
 </script>

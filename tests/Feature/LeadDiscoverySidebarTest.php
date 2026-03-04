@@ -24,7 +24,8 @@ class LeadDiscoverySidebarTest extends TestCase
         $response->assertSee('Lead Discovery', false);
         $response->assertSee('data-group-key="sales"', false);
         $response->assertSee('data-group-key="crm"', false);
-        $response->assertSee('sales: false', false);
-        $response->assertSee('crm: true', false);
+        $response->assertSee('id="sidebar-accordion"', false);
+        $response->assertSee("defaultKey = activeGroup", false);
+        $response->assertSee("'sales'", false);
     }
 }
