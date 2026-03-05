@@ -204,9 +204,14 @@ class ProspectController extends Controller
             'status' => ProspectAnalysis::STATUS_QUEUED,
         ]);
 
-        AnalyzeProspectJob::dispatch($analysis->id);
+        AnalyzeProspectJob::dispatchSync($analysis->id);
+        $analysis->refresh();
 
-        return back()->with('success', 'Analyze prospect sudah dijalankan di background.');
+        if ($analysis->status === ProspectAnalysis::STATUS_FAILED) {
+            return back()->with('error', 'Analyze gagal diproses. Silakan cek detail analysis.');
+        }
+
+        return back()->with('success', 'Analyze prospect selesai diproses.');
     }
 
     public function assign(Request $request, Prospect $prospect): RedirectResponse
