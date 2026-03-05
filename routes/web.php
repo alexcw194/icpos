@@ -46,6 +46,7 @@ use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\Admin\ContactTitleController;
 use App\Http\Controllers\Admin\DocumentCounterController;
 use App\Http\Middleware\EnsureAdmin;
+use App\Http\Middleware\EnsureDokumenScope;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\LeadDiscovery\Admin\ConfigController as LeadDiscoveryConfigController;
@@ -68,7 +69,7 @@ require __DIR__.'/auth.php';
 // =======================
 // Authenticated area
 // =======================
-Route::middleware(['auth', 'dokumen.scope'])->group(function () {
+Route::middleware(['auth', EnsureDokumenScope::class])->group(function () {
     // Dashboard & Profile
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/profile',  [ProfileController::class, 'edit'])->name('profile.edit');
