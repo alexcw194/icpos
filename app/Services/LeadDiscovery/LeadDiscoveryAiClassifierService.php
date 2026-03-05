@@ -61,7 +61,6 @@ class LeadDiscoveryAiClassifierService
                 ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => $model,
                     'messages' => $messages,
-                    'temperature' => 0.1,
                     'response_format' => ['type' => 'json_object'],
                 ]);
         } catch (\Throwable $e) {
