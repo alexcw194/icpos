@@ -89,6 +89,7 @@
             <th>Started</th>
             <th>Finished</th>
             <th>Score</th>
+            <th>AI Message</th>
           </tr>
         </thead>
         <tbody>
@@ -120,9 +121,18 @@
               <td>{{ $analysis->started_at?->format('d M Y H:i:s') ?: '-' }}</td>
               <td>{{ $analysis->finished_at?->format('d M Y H:i:s') ?: '-' }}</td>
               <td>{{ is_null($analysis->score) ? '-' : $analysis->score }}</td>
+              <td class="small">
+                @if($analysis->ai_error_message)
+                  <span class="text-danger" title="{{ $analysis->ai_error_message }}">
+                    {{ \Illuminate\Support\Str::limit($analysis->ai_error_message, 100) }}
+                  </span>
+                @else
+                  -
+                @endif
+              </td>
             </tr>
           @empty
-            <tr><td colspan="8" class="text-center text-muted">No analyze queue data.</td></tr>
+            <tr><td colspan="9" class="text-center text-muted">No analyze queue data.</td></tr>
           @endforelse
         </tbody>
       </table>

@@ -69,7 +69,8 @@ class LeadDiscoveryAiClassifierService
         }
 
         if (!$response->ok()) {
-            return $this->failed($model, 'OpenAI HTTP ' . $response->status());
+            $apiMessage = (string) data_get($response->json(), 'error.message', '');
+            return $this->failed($model, $this->buildHttpErrorMessage($response->status(), $apiMessage));
         }
 
         $content = (string) data_get($response->json(), 'choices.0.message.content', '');
@@ -145,6 +146,24 @@ class LeadDiscoveryAiClassifierService
             'ai_payload_json' => null,
             'ai_error_message' => Str::limit($message, 1000, ''),
         ];
+    }
+
+    private function buildHttpErrorMessage(int $status, string $apiMessage = ''): string
+    {
+        $apiMessage = trim($apiMessage);
+
+        $base = match ($status) {
+            401 => 'OpenAI API key tidak valid (401).',
+            403 => 'Akses model OpenAI ditolak (403).',
+            429 => 'Rate limit/quota OpenAI tercapai (429). Coba ulang beberapa saat lagi.',
+            default => "OpenAI HTTP {$status}.",
+        };
+
+        if ($apiMessage === '') {
+            return $base;
+        }
+
+        return $base . ' ' . $apiMessage;
     }
 
     private function sanitizeNullableString(mixed $value): ?string
