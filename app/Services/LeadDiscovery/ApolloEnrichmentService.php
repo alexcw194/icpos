@@ -39,16 +39,22 @@ class ApolloEnrichmentService
 
         $searchResult = [];
         if ($organization === null) {
+            $locationTokens = array_values(array_filter([
+                $prospect->city,
+                $prospect->province,
+                $prospect->country,
+            ], function ($value) {
+                return $value !== null && $value !== '';
+            }));
+
             $searchPayload = array_filter([
                 'q_organization_name' => $prospect->name,
-                'organization_locations' => array_values(array_filter([
-                    $prospect->city,
-                    $prospect->province,
-                    $prospect->country,
-                ])),
+                'organization_locations' => $locationTokens,
                 'page' => 1,
                 'per_page' => 5,
-            ], static fn ($value) => $value !== null && $value !== '' && $value !== []));
+            ], function ($value) {
+                return $value !== null && $value !== '' && $value !== [];
+            });
 
             $searchResult = $this->apolloClient->organizationSearch($searchPayload);
             $organization = $this->pickOrganization($searchResult);
