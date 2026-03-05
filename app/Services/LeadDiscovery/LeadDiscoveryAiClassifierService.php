@@ -36,7 +36,12 @@ class LeadDiscoveryAiClassifierService
         $messages = [
             [
                 'role' => 'system',
-                'content' => 'You classify Indonesian business leads. Return JSON only.',
+                'content' => implode("\n", [
+                    'You classify Indonesian business leads. Return JSON only.',
+                    'Always prefer the most specific sub-industry possible.',
+                    'Never return generic sub-industry like "General manufacturing" when product/material clues exist.',
+                    'If clues include tempered/laminated/safety glass/kaca pengaman, classify as safety glass manufacturing.',
+                ]),
             ],
             [
                 'role' => 'user',
@@ -87,6 +92,12 @@ class LeadDiscoveryAiClassifierService
         $businessOutput = $this->sanitizeNullableString(data_get($decoded, 'business_output'));
         $hotelStar = $this->sanitizeHotelStar(data_get($decoded, 'hotel_star'));
         $confidence = $this->sanitizeConfidence(data_get($decoded, 'confidence'));
+        [$industry, $subIndustry, $businessOutput] = $this->enforceSpecificSubIndustry(
+            $industry,
+            $subIndustry,
+            $businessOutput,
+            $payload
+        );
 
         return [
             'ai_status' => ProspectAnalysis::AI_STATUS_SUCCESS,
@@ -117,6 +128,16 @@ class LeadDiscoveryAiClassifierService
             'address' => $prospect->formatted_address ?: $prospect->short_address,
             'city' => $prospect->city,
             'province' => $prospect->province,
+            'editorial_summary' => $this->sanitizeNullableString(
+                (string) (data_get($prospect->raw_json, 'editorial_summary.overview')
+                    ?: data_get($prospect->raw_json, 'editorial_summary')
+                    ?: '')
+            ),
+            'description' => $this->sanitizeNullableString(
+                (string) (data_get($prospect->raw_json, 'description')
+                    ?: data_get($prospect->raw_json, 'business_status')
+                    ?: '')
+            ),
             'website' => $prospect->website,
             'google_maps_url' => $prospect->google_maps_url,
             'heuristic_business_type' => data_get($analysisResult, 'business_type'),
@@ -209,5 +230,56 @@ class LeadDiscoveryAiClassifierService
         }
 
         return round($confidence, 2);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{0: ?string, 1: ?string, 2: ?string}
+     */
+    private function enforceSpecificSubIndustry(
+        ?string $industry,
+        ?string $subIndustry,
+        ?string $businessOutput,
+        array $payload
+    ): array {
+        $combined = Str::lower(trim(implode(' ', array_filter([
+            (string) ($payload['name'] ?? ''),
+            (string) ($payload['primary_type'] ?? ''),
+            (string) ($payload['keyword'] ?? ''),
+            (string) ($payload['keyword_category'] ?? ''),
+            (string) ($payload['editorial_summary'] ?? ''),
+            (string) ($payload['description'] ?? ''),
+            is_array($payload['heuristic_signals'] ?? null) ? json_encode($payload['heuristic_signals']) : '',
+        ]))));
+
+        $isSafetyGlass = Str::contains($combined, [
+            'tempered glass',
+            'laminated glass',
+            'safety glass',
+            'kaca pengaman',
+            'kaca tempered',
+            'kaca laminasi',
+        ]);
+
+        if (!$isSafetyGlass) {
+            return [$industry, $subIndustry, $businessOutput];
+        }
+
+        $genericSubIndustry = $subIndustry === null || in_array(Str::lower($subIndustry), [
+            'general manufacturing',
+            'manufacturing',
+            'general_manufacturing',
+            'unknown',
+        ], true);
+
+        if ($genericSubIndustry) {
+            $industry = 'Manufacturing';
+            $subIndustry = 'Safety Glass / Tempered Glass';
+            if ($businessOutput === null || trim($businessOutput) === '') {
+                $businessOutput = 'Tempered glass, laminated glass, and safety glass for industrial/building/automotive use.';
+            }
+        }
+
+        return [$industry, $subIndustry, $businessOutput];
     }
 }

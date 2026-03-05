@@ -1,0 +1,55 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Models\Prospect;
+use App\Models\ProspectAnalysis;
+use App\Services\LeadDiscovery\LeadDiscoveryAiClassifierService;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
+
+class LeadDiscoveryAiClassifierServiceTest extends TestCase
+{
+    public function test_it_overrides_generic_manufacturing_with_tempered_glass_sub_industry(): void
+    {
+        Config::set('services.openai.key', 'test-key');
+        Config::set('services.openai.model', 'gpt-5-nano');
+
+        Http::fake([
+            'https://api.openai.com/v1/chat/completions' => Http::response([
+                'choices' => [[
+                    'message' => [
+                        'content' => json_encode([
+                            'industry_label' => 'Manufacturing',
+                            'sub_industry' => 'General manufacturing',
+                            'business_output' => null,
+                            'hotel_star' => null,
+                            'confidence' => 88,
+                            'reasoning' => 'generic',
+                        ]),
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $prospect = new Prospect([
+            'name' => 'PT Mayatama Manunggal Sentosa',
+            'primary_type' => 'point_of_interest',
+            'raw_json' => [
+                'description' => 'Perusahaan bergerak di bidang manufaktur kaca pengaman termasuk tempered glass dan laminated glass.',
+            ],
+        ]);
+
+        $service = new LeadDiscoveryAiClassifierService();
+        $result = $service->classify($prospect, [
+            'business_type' => 'general_manufacturing',
+            'business_signals_json' => ['general_manufacturing' => ['manufacturing']],
+        ]);
+
+        $this->assertSame(ProspectAnalysis::AI_STATUS_SUCCESS, $result['ai_status']);
+        $this->assertSame('Manufacturing', $result['ai_industry_label']);
+        $this->assertSame('Safety Glass / Tempered Glass', $result['ai_sub_industry']);
+        $this->assertStringContainsStringIgnoringCase('tempered glass', (string) $result['ai_business_output']);
+    }
+}
