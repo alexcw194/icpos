@@ -24,6 +24,7 @@ class LeadDiscoveryAiClassifierServiceTest extends TestCase
                             'industry_label' => 'Manufacturing',
                             'sub_industry' => 'General manufacturing',
                             'business_output' => null,
+                            'employee_range' => null,
                             'hotel_star' => null,
                             'confidence' => 88,
                             'reasoning' => 'generic',
@@ -37,7 +38,7 @@ class LeadDiscoveryAiClassifierServiceTest extends TestCase
             'name' => 'PT Mayatama Manunggal Sentosa',
             'primary_type' => 'point_of_interest',
             'raw_json' => [
-                'description' => 'Perusahaan bergerak di bidang manufaktur kaca pengaman termasuk tempered glass dan laminated glass.',
+                'description' => 'Perusahaan bergerak di bidang manufaktur kaca pengaman termasuk tempered glass dan laminated glass. Jumlah karyawan 51 - 200 karyawan.',
             ],
         ]);
 
@@ -50,6 +51,7 @@ class LeadDiscoveryAiClassifierServiceTest extends TestCase
         $this->assertSame(ProspectAnalysis::AI_STATUS_SUCCESS, $result['ai_status']);
         $this->assertSame('Manufacturing', $result['ai_industry_label']);
         $this->assertSame('Safety Glass / Tempered Glass', $result['ai_sub_industry']);
+        $this->assertSame('51-200', $result['ai_employee_range']);
         $this->assertStringContainsStringIgnoringCase('tempered glass', (string) $result['ai_business_output']);
     }
 }

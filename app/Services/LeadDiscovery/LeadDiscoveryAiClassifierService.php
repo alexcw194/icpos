@@ -25,6 +25,7 @@ class LeadDiscoveryAiClassifierService
                 'ai_industry_label' => null,
                 'ai_sub_industry' => null,
                 'ai_business_output' => null,
+                'ai_employee_range' => null,
                 'ai_hotel_star' => null,
                 'ai_confidence' => null,
                 'ai_payload_json' => null,
@@ -50,6 +51,7 @@ class LeadDiscoveryAiClassifierService
                     'industry_label (string|null)',
                     'sub_industry (string|null)',
                     'business_output (string|null)',
+                    'employee_range (string|null, format like "51-200")',
                     'hotel_star (integer 1-5 or null)',
                     'confidence (number 0-100)',
                     'reasoning (short string)',
@@ -90,6 +92,7 @@ class LeadDiscoveryAiClassifierService
         $industry = $this->sanitizeNullableString(data_get($decoded, 'industry_label'));
         $subIndustry = $this->sanitizeNullableString(data_get($decoded, 'sub_industry'));
         $businessOutput = $this->sanitizeNullableString(data_get($decoded, 'business_output'));
+        $employeeRange = $this->sanitizeEmployeeRange(data_get($decoded, 'employee_range'));
         $hotelStar = $this->sanitizeHotelStar(data_get($decoded, 'hotel_star'));
         $confidence = $this->sanitizeConfidence(data_get($decoded, 'confidence'));
         [$industry, $subIndustry, $businessOutput] = $this->enforceSpecificSubIndustry(
@@ -98,6 +101,9 @@ class LeadDiscoveryAiClassifierService
             $businessOutput,
             $payload
         );
+        if ($employeeRange === null) {
+            $employeeRange = $this->inferEmployeeRangeFromPayload($payload);
+        }
 
         return [
             'ai_status' => ProspectAnalysis::AI_STATUS_SUCCESS,
@@ -106,6 +112,7 @@ class LeadDiscoveryAiClassifierService
             'ai_industry_label' => $industry,
             'ai_sub_industry' => $subIndustry,
             'ai_business_output' => $businessOutput,
+            'ai_employee_range' => $employeeRange,
             'ai_hotel_star' => $hotelStar,
             'ai_confidence' => $confidence,
             'ai_payload_json' => $decoded,
@@ -128,16 +135,13 @@ class LeadDiscoveryAiClassifierService
             'address' => $prospect->formatted_address ?: $prospect->short_address,
             'city' => $prospect->city,
             'province' => $prospect->province,
-            'editorial_summary' => $this->sanitizeNullableString(
-                (string) (data_get($prospect->raw_json, 'editorial_summary.overview')
-                    ?: data_get($prospect->raw_json, 'editorial_summary')
-                    ?: '')
-            ),
+            'editorial_summary' => $this->sanitizeNullableString((string) data_get($prospect->raw_json, 'editorial_summary.overview')),
             'description' => $this->sanitizeNullableString(
                 (string) (data_get($prospect->raw_json, 'description')
                     ?: data_get($prospect->raw_json, 'business_status')
                     ?: '')
             ),
+            'raw_text_excerpt' => $this->flattenRawJsonToText($prospect->raw_json),
             'website' => $prospect->website,
             'google_maps_url' => $prospect->google_maps_url,
             'heuristic_business_type' => data_get($analysisResult, 'business_type'),
@@ -161,6 +165,7 @@ class LeadDiscoveryAiClassifierService
             'ai_industry_label' => null,
             'ai_sub_industry' => null,
             'ai_business_output' => null,
+            'ai_employee_range' => null,
             'ai_hotel_star' => null,
             'ai_confidence' => null,
             'ai_payload_json' => null,
@@ -232,6 +237,32 @@ class LeadDiscoveryAiClassifierService
         return round($confidence, 2);
     }
 
+    private function sanitizeEmployeeRange(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return null;
+        }
+
+        $text = trim((string) $value);
+        if ($text === '') {
+            return null;
+        }
+
+        if (preg_match('/(\d{1,4})\s*[-–]\s*(\d{1,4})/u', $text, $matches)) {
+            $from = (int) $matches[1];
+            $to = (int) $matches[2];
+            if ($from > 0 && $to >= $from) {
+                return "{$from}-{$to}";
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @param array<string, mixed> $payload
      * @return array{0: ?string, 1: ?string, 2: ?string}
@@ -249,6 +280,7 @@ class LeadDiscoveryAiClassifierService
             (string) ($payload['keyword_category'] ?? ''),
             (string) ($payload['editorial_summary'] ?? ''),
             (string) ($payload['description'] ?? ''),
+            (string) ($payload['raw_text_excerpt'] ?? ''),
             is_array($payload['heuristic_signals'] ?? null) ? json_encode($payload['heuristic_signals']) : '',
         ]))));
 
@@ -260,8 +292,10 @@ class LeadDiscoveryAiClassifierService
             'kaca tempered',
             'kaca laminasi',
         ]);
+        $isGlassManufacturing = Str::contains($combined, ['glass', 'kaca']) &&
+            Str::contains($combined, ['manufactur', 'pabrik', 'industri', 'factory']);
 
-        if (!$isSafetyGlass) {
+        if (!$isSafetyGlass && !$isGlassManufacturing) {
             return [$industry, $subIndustry, $businessOutput];
         }
 
@@ -274,12 +308,72 @@ class LeadDiscoveryAiClassifierService
 
         if ($genericSubIndustry) {
             $industry = 'Manufacturing';
-            $subIndustry = 'Safety Glass / Tempered Glass';
-            if ($businessOutput === null || trim($businessOutput) === '') {
-                $businessOutput = 'Tempered glass, laminated glass, and safety glass for industrial/building/automotive use.';
+            if ($isSafetyGlass) {
+                $subIndustry = 'Safety Glass / Tempered Glass';
+                if ($businessOutput === null || trim($businessOutput) === '') {
+                    $businessOutput = 'Tempered glass, laminated glass, and safety glass for industrial/building/automotive use.';
+                }
+            } else {
+                $subIndustry = 'Glass Manufacturing';
+                if ($businessOutput === null || trim($businessOutput) === '') {
+                    $businessOutput = 'Glass-based products for industrial/commercial/building applications.';
+                }
             }
         }
 
         return [$industry, $subIndustry, $businessOutput];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function inferEmployeeRangeFromPayload(array $payload): ?string
+    {
+        $combined = implode(' ', array_filter([
+            (string) ($payload['editorial_summary'] ?? ''),
+            (string) ($payload['description'] ?? ''),
+            (string) ($payload['raw_text_excerpt'] ?? ''),
+        ]));
+
+        if (preg_match('/(\d{1,4})\s*[-–]\s*(\d{1,4})\s*(karyawan|pegawai|employees)?/iu', $combined, $matches)) {
+            $from = (int) $matches[1];
+            $to = (int) $matches[2];
+            if ($from > 0 && $to >= $from) {
+                return "{$from}-{$to}";
+            }
+        }
+
+        return null;
+    }
+
+    private function flattenRawJsonToText(mixed $raw, int $limit = 6000): ?string
+    {
+        if (!is_array($raw)) {
+            return null;
+        }
+
+        $chunks = [];
+        $walker = function (mixed $value) use (&$walker, &$chunks): void {
+            if (is_array($value)) {
+                foreach ($value as $nested) {
+                    $walker($nested);
+                }
+                return;
+            }
+
+            if (is_string($value)) {
+                $trimmed = trim($value);
+                if ($trimmed !== '') {
+                    $chunks[] = $trimmed;
+                }
+            }
+        };
+
+        $walker($raw);
+        if (empty($chunks)) {
+            return null;
+        }
+
+        return Str::limit(implode(' | ', $chunks), $limit, '');
     }
 }

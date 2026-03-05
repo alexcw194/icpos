@@ -30,6 +30,7 @@ class ProspectAnalysis extends Model
         'ai_industry_label',
         'ai_sub_industry',
         'ai_business_output',
+        'ai_employee_range',
         'ai_hotel_star',
         'ai_confidence',
         'ai_payload_json',

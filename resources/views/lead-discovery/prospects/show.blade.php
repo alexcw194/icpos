@@ -117,6 +117,7 @@
             <div class="mb-2"><strong>AI Source:</strong> {{ $latest->ai_provider ?: '-' }}{{ $latest->ai_model ? (' / ' . $latest->ai_model) : '' }}</div>
             <div class="mb-2"><strong>AI Industry:</strong> {{ $latest->ai_industry_label ?: '-' }}</div>
             <div class="mb-2"><strong>AI Sub Industry:</strong> {{ $latest->ai_sub_industry ?: '-' }}</div>
+            <div class="mb-2"><strong>AI Employee Range:</strong> {{ $latest->ai_employee_range ? ($latest->ai_employee_range . ' karyawan') : '-' }}</div>
             <div class="mb-2"><strong>AI Hotel Star:</strong> {{ $latest->ai_hotel_star ? ($latest->ai_hotel_star . ' star') : '-' }}</div>
             <div class="mb-2"><strong>AI Business Output:</strong> {{ $latest->ai_business_output ?: '-' }}</div>
             <div class="mb-2"><strong>AI Confidence:</strong> {{ is_null($latest->ai_confidence) ? '-' : (number_format((float) $latest->ai_confidence, 2) . '%') }}</div>
