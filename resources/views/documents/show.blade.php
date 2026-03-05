@@ -73,7 +73,7 @@
         @endif
       @endcan
 
-      @hasanyrole('Admin|SuperAdmin')
+      @hasanyrole('Admin|SuperAdmin|Super Admin|Dokumen')
         @if($document->status === \App\Models\Document::STATUS_SUBMITTED)
           @can('approve', $document)
             <form method="post" action="{{ route('documents.approve', $document) }}">

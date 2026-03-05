@@ -18,13 +18,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // Alias middleware aplikasi
         $middleware->alias([
             'isAdmin' => \App\Http\Middleware\EnsureAdmin::class,
-            'isSuperAdmin'  => \App\Http\Middleware\EnsureSuperAdmin::class, // ⬅️ baru
+            'isSuperAdmin' => \App\Http\Middleware\EnsureSuperAdmin::class,
+            'dokumen.scope' => \App\Http\Middleware\EnsureDokumenScope::class,
         ]);
 
-        // ⬇️ Wajib: alias Spatie Permission
+        // Wajib: alias Spatie Permission
         $middleware->alias([
-            'role'               => \Spatie\Permission\Middlewares\RoleMiddleware::class,
-            'permission'         => \Spatie\Permission\Middlewares\PermissionMiddleware::class,
+            'role' => \Spatie\Permission\Middlewares\RoleMiddleware::class,
+            'permission' => \Spatie\Permission\Middlewares\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middlewares\RoleOrPermissionMiddleware::class,
         ]);
     })

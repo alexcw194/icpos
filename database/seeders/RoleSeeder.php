@@ -18,6 +18,7 @@ class RoleSeeder extends Seeder
             ['name' => 'Sales',        'guard_name' => $guard, 'created_at' => $now, 'updated_at' => $now],
             ['name' => 'Warehouse',    'guard_name' => $guard, 'created_at' => $now, 'updated_at' => $now],
             ['name' => 'Finance',      'guard_name' => $guard, 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'Dokumen',      'guard_name' => $guard, 'created_at' => $now, 'updated_at' => $now],
         ];
 
         // Spatie unique: (name, guard_name)

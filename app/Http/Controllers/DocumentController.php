@@ -52,7 +52,7 @@ class DocumentController extends Controller
             'documents' => $documents,
             'pageTitle' => 'All Documents',
             'showOwner' => true,
-            'showCreate' => auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin']),
+            'showCreate' => auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin', 'Super Admin', 'Dokumen']),
             'mode' => 'all',
         ]);
     }
@@ -60,7 +60,7 @@ class DocumentController extends Controller
     public function pending()
     {
         $user = auth()->user();
-        abort_unless($user && $user->hasAnyRole(['Admin', 'SuperAdmin']), 403);
+        abort_unless($user && $user->hasAnyRole(['Admin', 'SuperAdmin', 'Super Admin', 'Dokumen']), 403);
 
         $documents = Document::query()
             ->where('status', Document::STATUS_SUBMITTED)
@@ -412,7 +412,7 @@ class DocumentController extends Controller
         $document->delete();
 
         $user = auth()->user();
-        $route = $user && $user->hasAnyRole(['Admin', 'SuperAdmin'])
+        $route = $user && $user->hasAnyRole(['Admin', 'SuperAdmin', 'Super Admin', 'Dokumen'])
             ? 'documents.index'
             : 'documents.my';
 
@@ -899,7 +899,7 @@ class DocumentController extends Controller
     private function ownerOptions()
     {
         $user = auth()->user();
-        if (!$user || !$user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+        if (!$user || !$user->hasAnyRole(['Admin', 'SuperAdmin', 'Super Admin', 'Dokumen'])) {
             return collect();
         }
 
@@ -910,7 +910,7 @@ class DocumentController extends Controller
 
     private function resolveOwnerId($user, array $data, ?Document $document = null): int
     {
-        if ($user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+        if ($user->hasAnyRole(['Admin', 'SuperAdmin', 'Super Admin', 'Dokumen'])) {
             if (!empty($data['created_by_user_id'])) {
                 return (int) $data['created_by_user_id'];
             }

@@ -138,7 +138,7 @@ class Customer extends Model
         $u = $user ?: auth()->user();
         if (!$u) return $q->whereRaw('1=0');
 
-        if ($u->hasAnyRole(['Admin', 'SuperAdmin', 'Finance'])) {
+        if ($u->hasAnyRole(['Admin', 'SuperAdmin', 'Super Admin', 'Finance', 'Dokumen'])) {
             return $q;
         }
 

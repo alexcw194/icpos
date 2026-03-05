@@ -102,7 +102,7 @@ class Document extends Model
             return $query->whereRaw('1=0');
         }
 
-        if ($user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+        if ($user->hasAnyRole(['Admin', 'SuperAdmin', 'Super Admin', 'Dokumen'])) {
             return $query;
         }
 

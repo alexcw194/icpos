@@ -9,7 +9,12 @@ class CustomerPolicy
 {
     private function isPrivileged(User $user): bool
     {
-        return $user->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']);
+        return $user->hasAnyRole(['Admin', 'SuperAdmin', 'Super Admin', 'Finance']);
+    }
+
+    private function isReadPrivileged(User $user): bool
+    {
+        return $this->isPrivileged($user) || $user->hasRole('Dokumen');
     }
 
     private function isOwner(User $user, Customer $customer): bool
@@ -30,7 +35,7 @@ class CustomerPolicy
 
     public function view(User $user, Customer $customer): bool
     {
-        return $this->isPrivileged($user) || $this->isOwner($user, $customer);
+        return $this->isReadPrivileged($user) || $this->isOwner($user, $customer);
     }
 
     public function create(User $user): bool

@@ -14,7 +14,7 @@
       <div class="text-muted">Draft bisa diedit hingga dikirim untuk approval.</div>
     </div>
     <div class="col-auto ms-auto d-print-none">
-      @hasanyrole('Admin|SuperAdmin')
+      @hasanyrole('Admin|SuperAdmin|Super Admin|Dokumen')
         <a href="{{ route('documents.index') }}" class="btn btn-outline-secondary">Back</a>
       @else
         <a href="{{ route('documents.my') }}" class="btn btn-outline-secondary">Back</a>
@@ -74,7 +74,7 @@
         </select>
       </div>
 
-      @hasanyrole('Admin|SuperAdmin')
+      @hasanyrole('Admin|SuperAdmin|Super Admin|Dokumen')
         @php
           $ownerSelected = old('created_by_user_id', $document->created_by_user_id ?? auth()->id());
         @endphp

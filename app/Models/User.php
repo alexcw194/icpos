@@ -105,6 +105,25 @@ class User extends Authenticatable
         return !$this->hasAnyRole(['Sales', 'Admin', 'SuperAdmin']);
     }
 
+    public function isDokumenOnly(): bool
+    {
+        if (!$this->hasRole('Dokumen')) {
+            return false;
+        }
+
+        return !$this->hasAnyRole([
+            'Admin',
+            'SuperAdmin',
+            'Super Admin',
+            'Sales',
+            'Finance',
+            'PM',
+            'Logistic',
+            'Warehouse',
+            'SalesManager',
+        ]);
+    }
+
     /**
      * (Legacy) Jika masih memakai role tunggal.
      * Sudah tidak diperlukan bila pakai Spatie HasRoles sepenuhnya.

@@ -7,14 +7,19 @@ use App\Models\User;
 
 class DocumentPolicy
 {
+    private function isDocumentAdmin(User $user): bool
+    {
+        return $user->hasAnyRole(['Admin', 'SuperAdmin', 'Super Admin', 'Dokumen']);
+    }
+
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['Admin', 'SuperAdmin']);
+        return $this->isDocumentAdmin($user);
     }
 
     public function view(User $user, Document $document): bool
     {
-        if ($user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+        if ($this->isDocumentAdmin($user)) {
             return true;
         }
 
@@ -23,12 +28,12 @@ class DocumentPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['Sales', 'Admin', 'SuperAdmin']);
+        return $user->hasAnyRole(['Sales', 'Admin', 'SuperAdmin', 'Super Admin', 'Dokumen']);
     }
 
     public function update(User $user, Document $document): bool
     {
-        if ($user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+        if ($this->isDocumentAdmin($user)) {
             return true;
         }
 
@@ -42,7 +47,7 @@ class DocumentPolicy
 
     public function approve(User $user, Document $document): bool
     {
-        if (!$user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+        if (!$this->isDocumentAdmin($user)) {
             return false;
         }
 
@@ -52,13 +57,13 @@ class DocumentPolicy
 
     public function reject(User $user, Document $document): bool
     {
-        return $user->hasAnyRole(['Admin', 'SuperAdmin'])
+        return $this->isDocumentAdmin($user)
             && $document->status === Document::STATUS_SUBMITTED;
     }
 
     public function delete(User $user, Document $document): bool
     {
-        if ($user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+        if ($this->isDocumentAdmin($user)) {
             return true;
         }
 

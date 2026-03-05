@@ -43,6 +43,10 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('password.change');
         }
 
+        if (method_exists($request->user(), 'isDokumenOnly') && $request->user()->isDokumenOnly()) {
+            return redirect()->intended(route('documents.index', absolute: false));
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
