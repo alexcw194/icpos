@@ -94,6 +94,11 @@ class ApolloClient
         $url = $baseUrl . $path;
 
         try {
+            $query = $payload;
+            if (!array_key_exists('api_key', $query)) {
+                $query['api_key'] = $apiKey;
+            }
+
             $response = Http::timeout(20)
                 ->retry(1, 500)
                 ->acceptJson()
@@ -101,7 +106,7 @@ class ApolloClient
                 ->withHeaders([
                     'X-Api-Key' => $apiKey,
                 ])
-                ->get($url, $payload);
+                ->get($url, $query);
         } catch (\Throwable $e) {
             throw new \RuntimeException('Apollo request gagal: ' . $e->getMessage(), 0, $e);
         }
@@ -128,6 +133,10 @@ class ApolloClient
 
         $baseUrl = rtrim((string) config('services.apollo.base_url', 'https://api.apollo.io'), '/');
         $url = $baseUrl . $path;
+        $body = $payload;
+        if (!array_key_exists('api_key', $body)) {
+            $body['api_key'] = $apiKey;
+        }
 
         try {
             $response = Http::timeout(20)
@@ -137,7 +146,7 @@ class ApolloClient
                 ->withHeaders([
                     'X-Api-Key' => $apiKey,
                 ])
-                ->post($url, $payload);
+                ->post($url, $body);
         } catch (\Throwable $e) {
             throw new \RuntimeException('Apollo request gagal: ' . $e->getMessage(), 0, $e);
         }
