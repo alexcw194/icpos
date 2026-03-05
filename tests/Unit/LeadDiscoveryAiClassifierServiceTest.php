@@ -54,4 +54,47 @@ class LeadDiscoveryAiClassifierServiceTest extends TestCase
         $this->assertSame('51-200', $result['ai_employee_range']);
         $this->assertStringContainsStringIgnoringCase('tempered glass', (string) $result['ai_business_output']);
     }
+
+    public function test_it_overrides_generic_manufacturing_with_plastic_sub_industry(): void
+    {
+        Config::set('services.openai.key', 'test-key');
+        Config::set('services.openai.model', 'gpt-5-nano');
+
+        Http::fake([
+            'https://api.openai.com/v1/chat/completions' => Http::response([
+                'choices' => [[
+                    'message' => [
+                        'content' => json_encode([
+                            'industry_label' => 'Manufacturing',
+                            'sub_industry' => 'General manufacturing',
+                            'business_output' => null,
+                            'employee_range' => null,
+                            'hotel_star' => null,
+                            'confidence' => 77,
+                            'reasoning' => 'generic',
+                        ]),
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $prospect = new Prospect([
+            'name' => 'PT Maju Plastik Nusantara',
+            'primary_type' => 'point_of_interest',
+            'raw_json' => [
+                'description' => 'Perusahaan manufaktur plastik dengan proses injection molding untuk komponen industri.',
+            ],
+        ]);
+
+        $service = new LeadDiscoveryAiClassifierService();
+        $result = $service->classify($prospect, [
+            'business_type' => 'general_manufacturing',
+            'business_signals_json' => ['general_manufacturing' => ['manufacturing']],
+        ]);
+
+        $this->assertSame(ProspectAnalysis::AI_STATUS_SUCCESS, $result['ai_status']);
+        $this->assertSame('Manufacturing', $result['ai_industry_label']);
+        $this->assertSame('Plastic Manufacturing', $result['ai_sub_industry']);
+        $this->assertStringContainsStringIgnoringCase('plastic', (string) $result['ai_business_output']);
+    }
 }

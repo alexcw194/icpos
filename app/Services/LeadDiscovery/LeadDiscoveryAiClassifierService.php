@@ -41,7 +41,7 @@ class LeadDiscoveryAiClassifierService
                     'You classify Indonesian business leads. Return JSON only.',
                     'Always prefer the most specific sub-industry possible.',
                     'Never return generic sub-industry like "General manufacturing" when product/material clues exist.',
-                    'If clues include tempered/laminated/safety glass/kaca pengaman, classify as safety glass manufacturing.',
+                    'If clues indicate a specific sector (glass/plastic/textile/chemical/metal/food/etc), output that specific sub-industry.',
                 ]),
             ],
             [
@@ -284,7 +284,57 @@ class LeadDiscoveryAiClassifierService
             is_array($payload['heuristic_signals'] ?? null) ? json_encode($payload['heuristic_signals']) : '',
         ]))));
 
-        $isSafetyGlass = Str::contains($combined, [
+        $detected = $this->detectSpecificSubIndustry($combined);
+        if ($detected === null) {
+            return [$industry, $subIndustry, $businessOutput];
+        }
+
+        if ($this->isGenericSubIndustry($subIndustry)) {
+            $industry = $detected['industry'];
+            $subIndustry = $detected['sub_industry'];
+            if ($businessOutput === null || trim($businessOutput) === '') {
+                $businessOutput = $detected['business_output'];
+            }
+        }
+
+        return [$industry, $subIndustry, $businessOutput];
+    }
+
+    private function isGenericSubIndustry(?string $subIndustry): bool
+    {
+        if ($subIndustry === null) {
+            return true;
+        }
+
+        return in_array(Str::lower(trim($subIndustry)), [
+            '',
+            'general manufacturing',
+            'manufacturing',
+            'general_manufacturing',
+            'unknown',
+            'other',
+            'others',
+        ], true);
+    }
+
+    /**
+     * @return array{industry: string, sub_industry: string, business_output: string}|null
+     */
+    private function detectSpecificSubIndustry(string $combined): ?array
+    {
+        $hasManufacturingSignal = Str::contains($combined, [
+            'manufactur',
+            'manufaktur',
+            'pabrik',
+            'factory',
+            'plant',
+            'industri',
+            'producer',
+            'produsen',
+        ]);
+
+        $hasGlassSignal = Str::contains($combined, ['glass', 'kaca']);
+        $hasSafetyGlassSignal = Str::contains($combined, [
             'tempered glass',
             'laminated glass',
             'safety glass',
@@ -292,36 +342,90 @@ class LeadDiscoveryAiClassifierService
             'kaca tempered',
             'kaca laminasi',
         ]);
-        $isGlassManufacturing = Str::contains($combined, ['glass', 'kaca']) &&
-            Str::contains($combined, ['manufactur', 'pabrik', 'industri', 'factory']);
-
-        if (!$isSafetyGlass && !$isGlassManufacturing) {
-            return [$industry, $subIndustry, $businessOutput];
+        if ($hasSafetyGlassSignal) {
+            return [
+                'industry' => 'Manufacturing',
+                'sub_industry' => 'Safety Glass / Tempered Glass',
+                'business_output' => 'Tempered glass, laminated glass, and safety glass for industrial/building/automotive use.',
+            ];
+        }
+        if ($hasGlassSignal && $hasManufacturingSignal) {
+            return [
+                'industry' => 'Manufacturing',
+                'sub_industry' => 'Glass Manufacturing',
+                'business_output' => 'Glass-based products for industrial/commercial/building applications.',
+            ];
         }
 
-        $genericSubIndustry = $subIndustry === null || in_array(Str::lower($subIndustry), [
-            'general manufacturing',
-            'manufacturing',
-            'general_manufacturing',
-            'unknown',
-        ], true);
+        $rules = [
+            [
+                'tokens' => ['pabrik plastik', 'industri plastik', 'plastic manufacturing', 'plastic factory', 'injection molding', 'blow molding', 'polymer', 'plastik'],
+                'requires_manufacturing' => true,
+                'industry' => 'Manufacturing',
+                'sub_industry' => 'Plastic Manufacturing',
+                'business_output' => 'Plastic products/components such as packaging, molded parts, or polymer-based materials.',
+            ],
+            [
+                'tokens' => ['textile', 'tekstil', 'garment', 'garmen', 'apparel', 'kain', 'fabric'],
+                'requires_manufacturing' => true,
+                'industry' => 'Manufacturing',
+                'sub_industry' => 'Textile & Garment Manufacturing',
+                'business_output' => 'Textile fabrics, garments, or apparel products.',
+            ],
+            [
+                'tokens' => ['chemical', 'kimia', 'petrochemical', 'resin', 'adhesive', 'coating'],
+                'requires_manufacturing' => true,
+                'industry' => 'Manufacturing',
+                'sub_industry' => 'Chemical Manufacturing',
+                'business_output' => 'Chemical-based materials such as resin, adhesives, or industrial compounds.',
+            ],
+            [
+                'tokens' => ['metal fabrication', 'steel fabrication', 'machining', 'welding', 'foundry', 'metal works'],
+                'requires_manufacturing' => true,
+                'industry' => 'Manufacturing',
+                'sub_industry' => 'Metal Fabrication & Engineering',
+                'business_output' => 'Metal fabricated parts, engineered components, or machined products.',
+            ],
+            [
+                'tokens' => ['food processing', 'makanan', 'beverage', 'minuman', 'bakery', 'dairy', 'snack factory'],
+                'requires_manufacturing' => true,
+                'industry' => 'Manufacturing',
+                'sub_industry' => 'Food & Beverage Processing',
+                'business_output' => 'Processed food or beverage products for consumer/industrial distribution.',
+            ],
+            [
+                'tokens' => ['paper packaging', 'corrugated', 'carton box', 'pabrik karton', 'packaging'],
+                'requires_manufacturing' => true,
+                'industry' => 'Manufacturing',
+                'sub_industry' => 'Paper & Packaging Manufacturing',
+                'business_output' => 'Paper-based packaging products such as corrugated boxes/cartons.',
+            ],
+            [
+                'tokens' => ['furniture', 'woodworking', 'mebel', 'furnitur', 'plywood'],
+                'requires_manufacturing' => true,
+                'industry' => 'Manufacturing',
+                'sub_industry' => 'Furniture & Wood Products',
+                'business_output' => 'Furniture and wood-based products for residential/commercial use.',
+            ],
+        ];
 
-        if ($genericSubIndustry) {
-            $industry = 'Manufacturing';
-            if ($isSafetyGlass) {
-                $subIndustry = 'Safety Glass / Tempered Glass';
-                if ($businessOutput === null || trim($businessOutput) === '') {
-                    $businessOutput = 'Tempered glass, laminated glass, and safety glass for industrial/building/automotive use.';
-                }
-            } else {
-                $subIndustry = 'Glass Manufacturing';
-                if ($businessOutput === null || trim($businessOutput) === '') {
-                    $businessOutput = 'Glass-based products for industrial/commercial/building applications.';
-                }
+        foreach ($rules as $rule) {
+            $matched = Str::contains($combined, $rule['tokens']);
+            if (!$matched) {
+                continue;
             }
+            if (($rule['requires_manufacturing'] ?? false) && !$hasManufacturingSignal) {
+                continue;
+            }
+
+            return [
+                'industry' => (string) $rule['industry'],
+                'sub_industry' => (string) $rule['sub_industry'],
+                'business_output' => (string) $rule['business_output'],
+            ];
         }
 
-        return [$industry, $subIndustry, $businessOutput];
+        return null;
     }
 
     /**
