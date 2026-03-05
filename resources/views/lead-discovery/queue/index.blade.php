@@ -48,28 +48,28 @@
 
   <div class="card mb-3">
     <div class="card-body">
-      <form method="get" class="row g-2 align-items-end">
-        <div class="col-sm-4 col-md-3">
+      <div class="row g-2 align-items-end">
+        <form method="get" class="col-12 col-xl d-flex flex-wrap gap-2 align-items-end">
+          <div style="min-width: 220px;">
           <label class="form-label">Scope</label>
           <select class="form-select" name="scope">
             <option value="processing" @selected($scope === 'processing')>Processing</option>
             <option value="completed" @selected($scope === 'completed')>Completed</option>
             <option value="all" @selected($scope === 'all')>All</option>
           </select>
-        </div>
-        <div class="col-auto">
-          <button class="btn btn-primary" type="submit">Filter</button>
-        </div>
-        <div class="col-auto">
-          <a href="{{ route('lead-discovery.queue.index', ['scope' => $scope]) }}" class="btn btn-outline-secondary">Refresh</a>
-        </div>
-        <div class="col-auto ms-auto">
-          <form method="post" action="{{ route('lead-discovery.queue.cleanup-stuck') }}" onsubmit="return confirm('Cleanup queue analyze yang nyangkut?');">
-            @csrf
-            <button type="submit" class="btn btn-outline-danger">Cleanup Stuck Analyze</button>
-          </form>
-        </div>
-      </form>
+          </div>
+          <div>
+            <button class="btn btn-primary" type="submit">Filter</button>
+          </div>
+          <div>
+            <a href="{{ route('lead-discovery.queue.index', ['scope' => $scope]) }}" class="btn btn-outline-secondary">Refresh</a>
+          </div>
+        </form>
+        <form method="post" class="col-auto ms-xl-auto" action="{{ route('lead-discovery.queue.cleanup-stuck') }}" onsubmit="return confirm('Cleanup queue analyze yang nyangkut?');">
+          @csrf
+          <button type="submit" class="btn btn-outline-danger">Cleanup Stuck Analyze</button>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -84,6 +84,7 @@
             <th>ID</th>
             <th>Prospect</th>
             <th>Status</th>
+            <th>AI Status</th>
             <th>Requested By</th>
             <th>Started</th>
             <th>Finished</th>
@@ -114,13 +115,14 @@
                 @endif
               </td>
               <td><span class="badge {{ $badgeClass }}">{{ ucfirst($analysis->status) }}</span></td>
+              <td>{{ $analysis->ai_status ?: '-' }}</td>
               <td>{{ $analysis->requestedBy?->name ?: '-' }}</td>
               <td>{{ $analysis->started_at?->format('d M Y H:i:s') ?: '-' }}</td>
               <td>{{ $analysis->finished_at?->format('d M Y H:i:s') ?: '-' }}</td>
               <td>{{ is_null($analysis->score) ? '-' : $analysis->score }}</td>
             </tr>
           @empty
-            <tr><td colspan="7" class="text-center text-muted">No analyze queue data.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted">No analyze queue data.</td></tr>
           @endforelse
         </tbody>
       </table>

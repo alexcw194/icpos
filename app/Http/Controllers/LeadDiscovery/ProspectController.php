@@ -9,6 +9,7 @@ use App\Models\Jenis;
 use App\Models\LdGridCell;
 use App\Models\Prospect;
 use App\Models\ProspectAnalysis;
+use App\Models\ProspectAssignmentLog;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,6 +30,7 @@ class ProspectController extends Controller
         $statuses = [
             Prospect::STATUS_NEW,
             Prospect::STATUS_ASSIGNED,
+            Prospect::STATUS_REJECTED,
             Prospect::STATUS_CONVERTED,
             Prospect::STATUS_IGNORED,
         ];
@@ -36,6 +38,7 @@ class ProspectController extends Controller
             'all_active' => 'All Active (exclude ignored)',
             Prospect::STATUS_NEW => 'New',
             Prospect::STATUS_ASSIGNED => 'Assigned',
+            Prospect::STATUS_REJECTED => 'Rejected',
             Prospect::STATUS_CONVERTED => 'Converted',
             Prospect::STATUS_IGNORED => 'Ignored',
             'all' => 'All (include ignored)',
@@ -165,6 +168,7 @@ class ProspectController extends Controller
         $statusOptions = [
             Prospect::STATUS_NEW,
             Prospect::STATUS_ASSIGNED,
+            Prospect::STATUS_REJECTED,
             Prospect::STATUS_IGNORED,
         ];
         $hasActiveAnalysis = ProspectAnalysis::query()
@@ -206,14 +210,9 @@ class ProspectController extends Controller
             'status' => ProspectAnalysis::STATUS_QUEUED,
         ]);
 
-        AnalyzeProspectJob::dispatchSync($analysis->id);
-        $analysis->refresh();
+        AnalyzeProspectJob::dispatch($analysis->id);
 
-        if ($analysis->status === ProspectAnalysis::STATUS_FAILED) {
-            return back()->with('error', 'Analyze gagal diproses. Silakan cek detail analysis.');
-        }
-
-        return back()->with('success', 'Analyze prospect selesai diproses.');
+        return back()->with('success', 'Analyze prospect masuk antrian dan sedang diproses.');
     }
 
     public function assign(Request $request, Prospect $prospect): RedirectResponse
@@ -224,14 +223,45 @@ class ProspectController extends Controller
             'owner_user_id' => ['nullable', 'exists:users,id'],
         ]);
 
-        $prospect->owner_user_id = $data['owner_user_id'] ?? null;
-        if ($prospect->owner_user_id && $prospect->status === Prospect::STATUS_NEW) {
+        if (!empty($data['owner_user_id'])) {
+            $owner = User::query()->findOrFail((int) $data['owner_user_id']);
+            if (!$owner->hasRole('Sales')) {
+                return back()->withErrors(['owner_user_id' => 'Owner harus user dengan role Sales.']);
+            }
+        }
+
+        $actorId = (int) $request->user()->id;
+        $oldOwnerId = $prospect->owner_user_id ? (int) $prospect->owner_user_id : null;
+        $newOwnerId = isset($data['owner_user_id']) && $data['owner_user_id'] !== null
+            ? (int) $data['owner_user_id']
+            : null;
+
+        $prospect->owner_user_id = $newOwnerId;
+        if ($prospect->owner_user_id && in_array($prospect->status, [Prospect::STATUS_NEW, Prospect::STATUS_REJECTED], true)) {
             $prospect->status = Prospect::STATUS_ASSIGNED;
         }
         if (!$prospect->owner_user_id && $prospect->status === Prospect::STATUS_ASSIGNED) {
             $prospect->status = Prospect::STATUS_NEW;
         }
+        if ($prospect->owner_user_id) {
+            $prospect->assigned_at = Carbon::now();
+            $prospect->assigned_by_user_id = $actorId;
+            $prospect->rejected_at = null;
+            $prospect->rejected_by_user_id = null;
+            $prospect->reject_reason = null;
+        }
         $prospect->save();
+
+        if ($newOwnerId !== null) {
+            $this->logAssignmentAction(
+                prospectId: (int) $prospect->id,
+                action: $oldOwnerId ? ProspectAssignmentLog::ACTION_REASSIGNED : ProspectAssignmentLog::ACTION_ASSIGNED,
+                fromUserId: $oldOwnerId,
+                toUserId: $newOwnerId,
+                actedByUserId: $actorId,
+                note: null
+            );
+        }
 
         return back()->with('success', 'Owner prospect berhasil diperbarui.');
     }
@@ -243,6 +273,7 @@ class ProspectController extends Controller
         $allowed = [
             Prospect::STATUS_NEW,
             Prospect::STATUS_ASSIGNED,
+            Prospect::STATUS_REJECTED,
             Prospect::STATUS_IGNORED,
         ];
 
@@ -324,6 +355,14 @@ class ProspectController extends Controller
         $prospect->owner_user_id = (int) $data['sales_user_id'];
         $prospect->converted_customer_id = (int) $customer->id;
         $prospect->save();
+        $this->logAssignmentAction(
+            prospectId: (int) $prospect->id,
+            action: ProspectAssignmentLog::ACTION_CONVERTED,
+            fromUserId: null,
+            toUserId: (int) $data['sales_user_id'],
+            actedByUserId: (int) $request->user()->id,
+            note: 'Converted from Lead Discovery.'
+        );
 
         return redirect()
             ->route('lead-discovery.prospects.show', $prospect)
@@ -338,6 +377,24 @@ class ProspectController extends Controller
         }
 
         return $existing . PHP_EOL . $line;
+    }
+
+    private function logAssignmentAction(
+        int $prospectId,
+        string $action,
+        ?int $fromUserId,
+        ?int $toUserId,
+        ?int $actedByUserId,
+        ?string $note
+    ): void {
+        ProspectAssignmentLog::query()->create([
+            'prospect_id' => $prospectId,
+            'action' => $action,
+            'from_user_id' => $fromUserId,
+            'to_user_id' => $toUserId,
+            'acted_by_user_id' => $actedByUserId,
+            'note' => $note,
+        ]);
     }
 
     private function closeStaleAnalysesForProspect(int $prospectId): int

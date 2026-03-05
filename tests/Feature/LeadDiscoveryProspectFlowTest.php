@@ -47,13 +47,21 @@ class LeadDiscoveryProspectFlowTest extends TestCase
         ], $override));
     }
 
-    public function test_sales_admin_superadmin_finance_can_access_prospects_index(): void
+    public function test_only_admin_and_superadmin_can_access_prospects_index(): void
     {
-        foreach (['Sales', 'Admin', 'SuperAdmin', 'Finance'] as $roleName) {
+        foreach (['Admin', 'SuperAdmin'] as $roleName) {
             $user = $this->makeUserWithRole($roleName);
             $this->actingAs($user)
                 ->get(route('lead-discovery.prospects.index'))
                 ->assertOk();
+            auth()->logout();
+        }
+
+        foreach (['Sales', 'Finance'] as $roleName) {
+            $user = $this->makeUserWithRole($roleName);
+            $this->actingAs($user)
+                ->get(route('lead-discovery.prospects.index'))
+                ->assertStatus(403);
             auth()->logout();
         }
     }
@@ -68,11 +76,11 @@ class LeadDiscoveryProspectFlowTest extends TestCase
 
     public function test_prospects_index_excludes_ignored_by_default(): void
     {
-        $sales = $this->makeUserWithRole('Sales');
+        $admin = $this->makeUserWithRole('Admin');
         $active = $this->makeProspect(['name' => 'Prospect Active', 'status' => Prospect::STATUS_NEW]);
         $ignored = $this->makeProspect(['name' => 'Prospect Ignored', 'status' => Prospect::STATUS_IGNORED]);
 
-        $this->actingAs($sales)
+        $this->actingAs($admin)
             ->get(route('lead-discovery.prospects.index'))
             ->assertOk()
             ->assertSee($active->name)
@@ -81,11 +89,11 @@ class LeadDiscoveryProspectFlowTest extends TestCase
 
     public function test_prospects_index_can_show_only_ignored_when_status_filter_ignored(): void
     {
-        $sales = $this->makeUserWithRole('Sales');
+        $admin = $this->makeUserWithRole('Admin');
         $active = $this->makeProspect(['name' => 'Prospect Active', 'status' => Prospect::STATUS_NEW]);
         $ignored = $this->makeProspect(['name' => 'Prospect Ignored', 'status' => Prospect::STATUS_IGNORED]);
 
-        $this->actingAs($sales)
+        $this->actingAs($admin)
             ->get(route('lead-discovery.prospects.index', ['status' => Prospect::STATUS_IGNORED]))
             ->assertOk()
             ->assertSee($ignored->name)
@@ -103,7 +111,7 @@ class LeadDiscoveryProspectFlowTest extends TestCase
 
     public function test_prospects_index_provides_distinct_province_and_city_options(): void
     {
-        $sales = $this->makeUserWithRole('Sales');
+        $admin = $this->makeUserWithRole('Admin');
 
         $this->makeProspect([
             'name' => 'Prospect A',
@@ -121,7 +129,7 @@ class LeadDiscoveryProspectFlowTest extends TestCase
             'city' => null,
         ]);
 
-        $this->actingAs($sales)
+        $this->actingAs($admin)
             ->get(route('lead-discovery.prospects.index'))
             ->assertOk()
             ->assertViewHas('provinceOptions', function ($options) {
@@ -136,7 +144,7 @@ class LeadDiscoveryProspectFlowTest extends TestCase
 
     public function test_prospects_city_options_follow_selected_province(): void
     {
-        $sales = $this->makeUserWithRole('Sales');
+        $admin = $this->makeUserWithRole('Admin');
 
         $this->makeProspect([
             'name' => 'Prospect Jatim 1',
@@ -154,7 +162,7 @@ class LeadDiscoveryProspectFlowTest extends TestCase
             'city' => 'Denpasar',
         ]);
 
-        $this->actingAs($sales)
+        $this->actingAs($admin)
             ->get(route('lead-discovery.prospects.index', [
                 'province' => 'Jawa Timur',
                 'city' => 'Denpasar',
@@ -170,7 +178,7 @@ class LeadDiscoveryProspectFlowTest extends TestCase
 
     public function test_prospects_filter_uses_grid_cell_fallback_when_prospect_location_is_empty(): void
     {
-        $sales = $this->makeUserWithRole('Sales');
+        $admin = $this->makeUserWithRole('Admin');
         $cell = LdGridCell::query()->create([
             'name' => 'Bali-Cell',
             'center_lat' => -8.65,
@@ -188,7 +196,7 @@ class LeadDiscoveryProspectFlowTest extends TestCase
             'grid_cell_id' => $cell->id,
         ]);
 
-        $this->actingAs($sales)
+        $this->actingAs($admin)
             ->get(route('lead-discovery.prospects.index', [
                 'province' => 'Bali',
                 'city' => 'Denpasar',
@@ -199,7 +207,7 @@ class LeadDiscoveryProspectFlowTest extends TestCase
 
     public function test_prospects_location_options_include_grid_cell_values_when_prospect_values_missing(): void
     {
-        $sales = $this->makeUserWithRole('Sales');
+        $admin = $this->makeUserWithRole('Admin');
 
         LdGridCell::query()->create([
             'name' => 'Cell-Only-Location',
@@ -217,7 +225,7 @@ class LeadDiscoveryProspectFlowTest extends TestCase
             'province' => null,
         ]);
 
-        $this->actingAs($sales)
+        $this->actingAs($admin)
             ->get(route('lead-discovery.prospects.index'))
             ->assertOk()
             ->assertViewHas('provinceOptions', fn ($options) => in_array('Bali', $options, true))

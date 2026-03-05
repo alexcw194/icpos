@@ -3,6 +3,7 @@
 namespace App\Jobs\LeadDiscovery;
 
 use App\Models\ProspectAnalysis;
+use App\Services\LeadDiscovery\LeadDiscoveryAiClassifierService;
 use App\Services\LeadDiscovery\ProspectAnalyzerService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -22,10 +23,13 @@ class AnalyzeProspectJob implements ShouldQueue
     {
     }
 
-    public function handle(ProspectAnalyzerService $analyzer): void
+    public function handle(
+        ProspectAnalyzerService $analyzer,
+        LeadDiscoveryAiClassifierService $aiClassifier
+    ): void
     {
         $analysis = ProspectAnalysis::query()
-            ->with('prospect.keyword:id,keyword')
+            ->with('prospect.keyword:id,keyword,category_label')
             ->find($this->analysisId);
         if (!$analysis) {
             return;
@@ -42,7 +46,8 @@ class AnalyzeProspectJob implements ShouldQueue
 
         try {
             $result = $analyzer->analyze($analysis->prospect);
-            $analysis->fill($result);
+            $aiResult = $aiClassifier->classify($analysis->prospect, $result);
+            $analysis->fill(array_merge($result, $aiResult));
             $analysis->status = ProspectAnalysis::STATUS_SUCCESS;
             $analysis->finished_at = Carbon::now();
             $analysis->save();

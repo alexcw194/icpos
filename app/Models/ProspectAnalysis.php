@@ -12,6 +12,10 @@ class ProspectAnalysis extends Model
     public const STATUS_SUCCESS = 'success';
     public const STATUS_FAILED = 'failed';
 
+    public const AI_STATUS_NOT_RUN = 'not_run';
+    public const AI_STATUS_SUCCESS = 'success';
+    public const AI_STATUS_FAILED = 'failed';
+
     public const ADDRESS_CLEAR = 'clear';
     public const ADDRESS_PARTIAL = 'partial';
     public const ADDRESS_MISSING = 'missing';
@@ -20,6 +24,16 @@ class ProspectAnalysis extends Model
         'prospect_id',
         'requested_by_user_id',
         'status',
+        'ai_status',
+        'ai_provider',
+        'ai_model',
+        'ai_industry_label',
+        'ai_sub_industry',
+        'ai_business_output',
+        'ai_hotel_star',
+        'ai_confidence',
+        'ai_payload_json',
+        'ai_error_message',
         'website_url',
         'website_http_status',
         'website_reachable',
@@ -42,6 +56,9 @@ class ProspectAnalysis extends Model
     protected $casts = [
         'website_reachable' => 'boolean',
         'pages_crawled' => 'integer',
+        'ai_hotel_star' => 'integer',
+        'ai_confidence' => 'decimal:2',
+        'ai_payload_json' => 'array',
         'crawled_urls_json' => 'array',
         'emails_json' => 'array',
         'phones_json' => 'array',

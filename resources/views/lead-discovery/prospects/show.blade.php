@@ -13,6 +13,7 @@
         @php
           $badge = match($prospect->status) {
             'assigned' => 'bg-azure',
+            'rejected' => 'bg-red-lt',
             'converted' => 'bg-green',
             'ignored' => 'bg-secondary',
             default => 'bg-blue-lt',
@@ -112,6 +113,13 @@
             </div>
             <div class="mb-2"><strong>Score:</strong> {{ $latest->score ?? 0 }}/100</div>
             <div class="mb-2"><strong>Business Type:</strong> {{ $latest->business_type ?: 'unknown' }}</div>
+            <div class="mb-2"><strong>AI Status:</strong> {{ $latest->ai_status ?: 'not_run' }}</div>
+            <div class="mb-2"><strong>AI Source:</strong> {{ $latest->ai_provider ?: '-' }}{{ $latest->ai_model ? (' / ' . $latest->ai_model) : '' }}</div>
+            <div class="mb-2"><strong>AI Industry:</strong> {{ $latest->ai_industry_label ?: '-' }}</div>
+            <div class="mb-2"><strong>AI Sub Industry:</strong> {{ $latest->ai_sub_industry ?: '-' }}</div>
+            <div class="mb-2"><strong>AI Hotel Star:</strong> {{ $latest->ai_hotel_star ? ($latest->ai_hotel_star . ' star') : '-' }}</div>
+            <div class="mb-2"><strong>AI Business Output:</strong> {{ $latest->ai_business_output ?: '-' }}</div>
+            <div class="mb-2"><strong>AI Confidence:</strong> {{ is_null($latest->ai_confidence) ? '-' : (number_format((float) $latest->ai_confidence, 2) . '%') }}</div>
             <div class="mb-2"><strong>Address Clarity:</strong> {{ $latest->address_clarity ?: '-' }}</div>
             <div class="mb-2"><strong>Website:</strong> {{ $latest->website_url ?: '-' }}</div>
             <div class="mb-2"><strong>Website Status:</strong>
@@ -139,6 +147,9 @@
             @endif
             @if($latest->error_message)
               <div class="alert alert-danger py-2 px-3 mt-2 mb-0 small">{{ $latest->error_message }}</div>
+            @endif
+            @if($latest->ai_error_message)
+              <div class="alert alert-warning py-2 px-3 mt-2 mb-0 small">{{ $latest->ai_error_message }}</div>
             @endif
 
             <div class="mt-3">
@@ -197,7 +208,7 @@
       </div>
 
       <div class="card mb-3">
-        <div class="card-header"><h3 class="card-title">Assign Owner</h3></div>
+        <div class="card-header"><h3 class="card-title">Send to New Leads</h3></div>
         <div class="card-body">
           <form method="post" action="{{ route('lead-discovery.prospects.assign', $prospect) }}" class="d-grid gap-2">
             @csrf
@@ -207,7 +218,7 @@
                 <option value="{{ $owner->id }}" @selected((int) $prospect->owner_user_id === (int) $owner->id)>{{ $owner->name }}</option>
               @endforeach
             </select>
-            <button class="btn btn-outline-primary">Save Owner</button>
+            <button class="btn btn-outline-primary">Send to New Leads</button>
           </form>
         </div>
       </div>

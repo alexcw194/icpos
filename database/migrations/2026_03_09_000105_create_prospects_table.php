@@ -28,7 +28,7 @@ return new class extends Migration {
             $table->foreignId('grid_cell_id')->nullable()->constrained('ld_grid_cells')->nullOnDelete();
             $table->timestamp('discovered_at');
             $table->timestamp('last_seen_at')->nullable();
-            $table->enum('status', ['new', 'assigned', 'converted', 'ignored'])->default('new');
+            $table->enum('status', ['new', 'assigned', 'rejected', 'converted', 'ignored'])->default('new');
             $table->foreignId('owner_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('converted_customer_id')->nullable()->constrained('customers')->nullOnDelete();
             $table->json('raw_json')->nullable();
@@ -45,4 +45,3 @@ return new class extends Migration {
         Schema::dropIfExists('prospects');
     }
 };
-

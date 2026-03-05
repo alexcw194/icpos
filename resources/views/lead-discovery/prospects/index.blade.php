@@ -117,6 +117,7 @@
             @php
               $badge = match($row->status) {
                 'assigned' => 'bg-azure',
+                'rejected' => 'bg-red-lt',
                 'converted' => 'bg-green',
                 'ignored' => 'bg-secondary',
                 default => 'bg-blue-lt',
@@ -152,7 +153,7 @@
                         <option value="{{ $owner->id }}" @selected((int) $row->owner_user_id === (int) $owner->id)>{{ $owner->name }}</option>
                       @endforeach
                     </select>
-                    <button class="btn btn-sm btn-outline-primary">Assign</button>
+                    <button class="btn btn-sm btn-outline-primary">Send to New Leads</button>
                   </form>
                   <div class="d-flex gap-1">
                     <form method="post" action="{{ route('lead-discovery.prospects.status', $row) }}" class="d-flex gap-1 flex-grow-1">
@@ -160,6 +161,7 @@
                       <select name="status" class="form-select form-select-sm">
                         <option value="new" @selected($row->status === 'new')>New</option>
                         <option value="assigned" @selected($row->status === 'assigned')>Assigned</option>
+                        <option value="rejected" @selected($row->status === 'rejected')>Rejected</option>
                         <option value="ignored" @selected($row->status === 'ignored')>Ignored</option>
                       </select>
                       <button class="btn btn-sm btn-outline-secondary">Set</button>

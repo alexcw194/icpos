@@ -41,4 +41,9 @@ return [
         'lang'   => env('GOOGLE_PLACES_LANG', 'id'),
     ],
 
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+    ],
+
 ];

@@ -23,9 +23,9 @@ class LeadDiscoveryQueuePageTest extends TestCase
         return $user;
     }
 
-    public function test_authorized_user_can_view_lead_queue_page(): void
+    public function test_admin_can_view_lead_queue_page(): void
     {
-        $sales = $this->makeUserWithRole('Sales');
+        $admin = $this->makeUserWithRole('Admin');
         $prospect = Prospect::query()->create([
             'place_id' => 'queue-place-001',
             'name' => 'Queue Prospect',
@@ -35,7 +35,7 @@ class LeadDiscoveryQueuePageTest extends TestCase
 
         ProspectAnalysis::query()->create([
             'prospect_id' => $prospect->id,
-            'requested_by_user_id' => $sales->id,
+            'requested_by_user_id' => $admin->id,
             'status' => ProspectAnalysis::STATUS_RUNNING,
             'started_at' => now(),
         ]);
@@ -44,10 +44,10 @@ class LeadDiscoveryQueuePageTest extends TestCase
             'started_at' => now(),
             'status' => LdScanRun::STATUS_RUNNING,
             'mode' => LdScanRun::MODE_MANUAL,
-            'created_by_user_id' => $sales->id,
+            'created_by_user_id' => $admin->id,
         ]);
 
-        $this->actingAs($sales)
+        $this->actingAs($admin)
             ->get(route('lead-discovery.queue.index'))
             ->assertOk()
             ->assertSeeText('Lead Queue')
@@ -56,16 +56,16 @@ class LeadDiscoveryQueuePageTest extends TestCase
 
     public function test_user_without_allowed_role_gets_403(): void
     {
-        $user = User::factory()->create();
+        $sales = $this->makeUserWithRole('Sales');
 
-        $this->actingAs($user)
+        $this->actingAs($sales)
             ->get(route('lead-discovery.queue.index'))
             ->assertStatus(403);
     }
 
     public function test_cleanup_stuck_marks_old_queued_analysis_as_failed(): void
     {
-        $sales = $this->makeUserWithRole('Sales');
+        $admin = $this->makeUserWithRole('Admin');
         $prospect = Prospect::query()->create([
             'place_id' => 'queue-place-002',
             'name' => 'Queue Stuck Prospect',
@@ -75,13 +75,13 @@ class LeadDiscoveryQueuePageTest extends TestCase
 
         $analysis = ProspectAnalysis::query()->create([
             'prospect_id' => $prospect->id,
-            'requested_by_user_id' => $sales->id,
+            'requested_by_user_id' => $admin->id,
             'status' => ProspectAnalysis::STATUS_QUEUED,
             'created_at' => now()->subMinutes(30),
             'updated_at' => now()->subMinutes(30),
         ]);
 
-        $this->actingAs($sales)
+        $this->actingAs($admin)
             ->post(route('lead-discovery.queue.cleanup-stuck'))
             ->assertRedirect();
 

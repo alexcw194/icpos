@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Prospect;
 use App\Models\ProspectAnalysis;
 use App\Models\User;
+use App\Jobs\LeadDiscovery\AnalyzeProspectJob;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -36,29 +38,31 @@ class LeadDiscoveryProspectAnalyzeTest extends TestCase
         ], $override));
     }
 
-    public function test_authorized_user_can_trigger_analyze_and_process_immediately(): void
+    public function test_admin_can_trigger_analyze_and_job_is_queued(): void
     {
-        $sales = $this->makeUserWithRole('Sales');
+        Bus::fake();
+        $admin = $this->makeUserWithRole('Admin');
         $prospect = $this->makeProspect();
 
-        $this->actingAs($sales)
+        $this->actingAs($admin)
             ->from(route('lead-discovery.prospects.show', $prospect))
             ->post(route('lead-discovery.prospects.analyze', $prospect))
             ->assertRedirect(route('lead-discovery.prospects.show', $prospect));
 
         $this->assertDatabaseHas('prospect_analyses', [
             'prospect_id' => $prospect->id,
-            'status' => ProspectAnalysis::STATUS_SUCCESS,
-            'requested_by_user_id' => $sales->id,
+            'status' => ProspectAnalysis::STATUS_QUEUED,
+            'requested_by_user_id' => $admin->id,
         ]);
+        Bus::assertDispatched(AnalyzeProspectJob::class);
     }
 
     public function test_user_without_role_gets_403_on_analyze_trigger(): void
     {
-        $user = User::factory()->create();
+        $sales = $this->makeUserWithRole('Sales');
         $prospect = $this->makeProspect();
 
-        $this->actingAs($user)
+        $this->actingAs($sales)
             ->post(route('lead-discovery.prospects.analyze', $prospect))
             ->assertStatus(403);
     }

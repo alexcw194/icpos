@@ -4,9 +4,12 @@
   $hasCustomers = Route::has('customers.index');
   $hasLeadDiscovery = Route::has('lead-discovery.prospects.index');
   $hasLeadQueue = Route::has('lead-discovery.queue.index');
+  $hasNewLeads = Route::has('crm.new-leads.index');
   $hasItems = Route::has('items.index');
   $hasProjects = Route::has('projects.index');
   $financeOnly = auth()->user()?->isFinanceOnly() ?? false;
+  $isAdminLike = auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin', 'Super Admin']) ?? false;
+  $isSalesLike = auth()->user()?->hasRole('Sales') ?? false;
 
   $appName = config('app.name','ICPOS');
   $logoUrl = null;
@@ -19,7 +22,7 @@
       }
   } catch (\Throwable $e) {}
 
-  $isCrmActive = request()->is('customers*') || request()->is('lead-discovery*');
+  $isCrmActive = request()->is('customers*') || request()->is('lead-discovery*') || request()->is('crm/new-leads*');
   $isSalesActive = ((!$financeOnly && request()->is('quotations*')) || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') || request()->routeIs('reports.income.*'));
   $isProjectsActive = request()->is('projects*') || request()->is('project-items*') || request()->is('project-stocks*') || request()->is('project-deliveries*') || request()->is('project-invoices*');
   $isDocumentsActive = request()->is('documents*');
@@ -88,7 +91,7 @@
             </a>
           </li>
 
-          @if($hasCustomers || $hasLeadDiscovery || $hasLeadQueue)
+          @if($hasCustomers || $hasLeadDiscovery || $hasLeadQueue || $hasNewLeads)
             <li class="nav-item nav-group js-sidebar-group" data-group-key="crm" data-group-active="{{ $isCrmActive ? '1' : '0' }}">
               <a class="nav-link nav-group-toggle {{ $isCrmActive ? 'active' : '' }}"
                  data-bs-toggle="collapse" href="#sidebar-group-crm" role="button"
@@ -105,17 +108,24 @@
                     </a>
                   </li>
                 @endif
-                @if($hasLeadDiscovery)
+                @if($hasLeadDiscovery && $isAdminLike)
                   <li>
                     <a class="nav-link {{ request()->routeIs('lead-discovery.prospects.*') ? 'active' : '' }}" href="{{ route('lead-discovery.prospects.index') }}">
                       Lead Discovery
                     </a>
                   </li>
                 @endif
-                @if($hasLeadQueue)
+                @if($hasLeadQueue && $isAdminLike)
                   <li>
-                    <a class="nav-link {{ request()->routeIs('lead-discovery.queue.index') ? 'active' : '' }}" href="{{ route('lead-discovery.queue.index') }}">
+                    <a class="nav-link {{ request()->routeIs('lead-discovery.queue.*') ? 'active' : '' }}" href="{{ route('lead-discovery.queue.index') }}">
                       Lead Queue
+                    </a>
+                  </li>
+                @endif
+                @if($hasNewLeads && ($isAdminLike || $isSalesLike))
+                  <li>
+                    <a class="nav-link {{ request()->routeIs('crm.new-leads.*') ? 'active' : '' }}" href="{{ route('crm.new-leads.index') }}">
+                      New Leads
                     </a>
                   </li>
                 @endif

@@ -54,6 +54,7 @@ use App\Http\Controllers\LeadDiscovery\Admin\KeywordController as LeadDiscoveryK
 use App\Http\Controllers\LeadDiscovery\Admin\ScanController as LeadDiscoveryScanController;
 use App\Http\Controllers\LeadDiscovery\ProspectController as LeadDiscoveryProspectController;
 use App\Http\Controllers\LeadDiscovery\QueueController as LeadDiscoveryQueueController;
+use App\Http\Controllers\CRM\NewLeadController;
 use Illuminate\Support\Facades\Auth;
 
 // Root -> arahkan ke dashboard/login
@@ -108,23 +109,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/labor-rates', [LaborRateController::class, 'show'])->name('labor-rates.show');
     Route::post('/api/labor-rates', [LaborRateController::class, 'update'])->name('labor-rates.update');
 
-    // Lead Discovery (CRM)
-    Route::get('/lead-discovery/prospects', [LeadDiscoveryProspectController::class, 'index'])
-        ->name('lead-discovery.prospects.index');
-    Route::get('/lead-discovery/queue', [LeadDiscoveryQueueController::class, 'index'])
-        ->name('lead-discovery.queue.index');
-    Route::post('/lead-discovery/queue/cleanup-stuck', [LeadDiscoveryQueueController::class, 'cleanupStuck'])
-        ->name('lead-discovery.queue.cleanup-stuck');
-    Route::get('/lead-discovery/prospects/{prospect}', [LeadDiscoveryProspectController::class, 'show'])
-        ->name('lead-discovery.prospects.show');
-    Route::post('/lead-discovery/prospects/{prospect}/assign', [LeadDiscoveryProspectController::class, 'assign'])
-        ->name('lead-discovery.prospects.assign');
-    Route::post('/lead-discovery/prospects/{prospect}/status', [LeadDiscoveryProspectController::class, 'status'])
-        ->name('lead-discovery.prospects.status');
-    Route::post('/lead-discovery/prospects/{prospect}/analyze', [LeadDiscoveryProspectController::class, 'analyze'])
-        ->name('lead-discovery.prospects.analyze');
-    Route::post('/lead-discovery/prospects/{prospect}/convert', [LeadDiscoveryProspectController::class, 'convert'])
-        ->name('lead-discovery.prospects.convert');
+    // CRM - New Leads (Sales + Admin)
+    Route::get('/crm/new-leads', [NewLeadController::class, 'index'])
+        ->name('crm.new-leads.index');
+    Route::get('/crm/new-leads/{prospect}', [NewLeadController::class, 'show'])
+        ->name('crm.new-leads.show');
+    Route::post('/crm/new-leads/{prospect}/reject', [NewLeadController::class, 'reject'])
+        ->name('crm.new-leads.reject');
+    Route::post('/crm/new-leads/{prospect}/reassign', [NewLeadController::class, 'reassign'])
+        ->name('crm.new-leads.reassign');
+    Route::post('/crm/new-leads/{prospect}/add-customer', [NewLeadController::class, 'addAsCustomer'])
+        ->name('crm.new-leads.add-customer');
 
     // =======================
 // Items (READ-ONLY untuk semua user login)
@@ -462,6 +457,24 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
         ->parameters(['term-of-payments' => 'termOfPayment'])
         ->except(['show']);
     Route::resource('suppliers', SupplierController::class)->except(['show']);
+
+    // Lead Discovery + Queue (Admin quality gate)
+    Route::get('/lead-discovery/prospects', [LeadDiscoveryProspectController::class, 'index'])
+        ->name('lead-discovery.prospects.index');
+    Route::get('/lead-discovery/prospects/{prospect}', [LeadDiscoveryProspectController::class, 'show'])
+        ->name('lead-discovery.prospects.show');
+    Route::post('/lead-discovery/prospects/{prospect}/assign', [LeadDiscoveryProspectController::class, 'assign'])
+        ->name('lead-discovery.prospects.assign');
+    Route::post('/lead-discovery/prospects/{prospect}/status', [LeadDiscoveryProspectController::class, 'status'])
+        ->name('lead-discovery.prospects.status');
+    Route::post('/lead-discovery/prospects/{prospect}/analyze', [LeadDiscoveryProspectController::class, 'analyze'])
+        ->name('lead-discovery.prospects.analyze');
+    Route::post('/lead-discovery/prospects/{prospect}/convert', [LeadDiscoveryProspectController::class, 'convert'])
+        ->name('lead-discovery.prospects.convert');
+    Route::get('/lead-discovery/queue', [LeadDiscoveryQueueController::class, 'index'])
+        ->name('lead-discovery.queue.index');
+    Route::post('/lead-discovery/queue/cleanup-stuck', [LeadDiscoveryQueueController::class, 'cleanupStuck'])
+        ->name('lead-discovery.queue.cleanup-stuck');
 
     // Lead Discovery (Admin)
     Route::get('/admin/lead-discovery/config', [LeadDiscoveryConfigController::class, 'index'])
