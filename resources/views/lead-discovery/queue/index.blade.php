@@ -50,16 +50,13 @@
     <div class="card-body">
       <div class="row g-2 align-items-end">
         <form method="get" class="col-12 col-xl d-flex flex-wrap gap-2 align-items-end">
-          <div style="min-width: 220px;">
-          <label class="form-label">Scope</label>
-          <select class="form-select" name="scope">
-            <option value="processing" @selected($scope === 'processing')>Processing</option>
-            <option value="completed" @selected($scope === 'completed')>Completed</option>
-            <option value="all" @selected($scope === 'all')>All</option>
-          </select>
-          </div>
           <div>
-            <button class="btn btn-primary" type="submit">Filter</button>
+            <label class="form-label d-block">Scope</label>
+            <div class="btn-group" role="group" aria-label="Scope">
+              <button type="submit" name="scope" value="all" class="btn {{ $scope === 'all' ? 'btn-primary' : 'btn-outline-primary' }}">All</button>
+              <button type="submit" name="scope" value="processing" class="btn {{ $scope === 'processing' ? 'btn-primary' : 'btn-outline-primary' }}">Processing</button>
+              <button type="submit" name="scope" value="completed" class="btn {{ $scope === 'completed' ? 'btn-primary' : 'btn-outline-primary' }}">Completed</button>
+            </div>
           </div>
           <div>
             <a href="{{ route('lead-discovery.queue.index', ['scope' => $scope]) }}" class="btn btn-outline-secondary">Refresh</a>
