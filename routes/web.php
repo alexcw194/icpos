@@ -469,6 +469,10 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
         ->name('lead-discovery.prospects.status');
     Route::post('/lead-discovery/prospects/{prospect}/analyze', [LeadDiscoveryProspectController::class, 'analyze'])
         ->name('lead-discovery.prospects.analyze');
+    Route::post('/lead-discovery/prospects/{prospect}/enrich-apollo', [LeadDiscoveryProspectController::class, 'enrichApollo'])
+        ->name('lead-discovery.prospects.enrich-apollo');
+    Route::post('/lead-discovery/prospects/{prospect}/website', [LeadDiscoveryProspectController::class, 'updateWebsite'])
+        ->name('lead-discovery.prospects.website.update');
     Route::post('/lead-discovery/prospects/{prospect}/convert', [LeadDiscoveryProspectController::class, 'convert'])
         ->name('lead-discovery.prospects.convert');
     Route::get('/lead-discovery/queue', [LeadDiscoveryQueueController::class, 'index'])

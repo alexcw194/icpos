@@ -42,12 +42,23 @@
         <div class="card-header"><h3 class="card-title">Contact</h3></div>
         <div class="card-body">
           <div><strong>Phone:</strong> {{ $prospect->phone ?: '-' }}</div>
-          <div><strong>Website:</strong>
-            @if($prospect->website)
-              <a href="{{ $prospect->website }}" target="_blank" rel="noopener">{{ $prospect->website }}</a>
-            @else
-              -
-            @endif
+          <div class="mt-2">
+            <label class="form-label mb-1"><strong>Website</strong></label>
+            <form method="post" action="{{ route('lead-discovery.prospects.website.update', $prospect) }}" class="d-flex gap-2">
+              @csrf
+              <input type="text" name="website" class="form-control @error('website') is-invalid @enderror" value="{{ old('website', $prospect->website) }}" placeholder="https://example.com">
+              <button type="submit" class="btn btn-outline-primary text-nowrap">Save Website</button>
+            </form>
+            @error('website')
+              <div class="invalid-feedback d-block">{{ $message }}</div>
+            @enderror
+            <div class="small text-muted mt-1">
+              @if($prospect->website)
+                Link: <a href="{{ $prospect->website }}" target="_blank" rel="noopener">{{ $prospect->website }}</a>
+              @else
+                Belum ada website.
+              @endif
+            </div>
           </div>
           <div><strong>City/Province:</strong> {{ $prospect->city ?: '-' }} / {{ $prospect->province ?: '-' }}</div>
         </div>
@@ -172,6 +183,75 @@
       </div>
 
       <div class="card mb-3">
+        <div class="card-header"><h3 class="card-title">Apollo Enrichment</h3></div>
+        <div class="card-body">
+          <form method="post" action="{{ route('lead-discovery.prospects.enrich-apollo', $prospect) }}" class="d-grid gap-2 mb-3">
+            @csrf
+            <button class="btn btn-outline-primary" @disabled($hasActiveApollo)>
+              {{ $hasActiveApollo ? 'Enrichment In Progress' : 'Enrich Apollo' }}
+            </button>
+          </form>
+
+          @php
+            $latestApollo = $prospect->latestApolloEnrichment;
+            $apolloStatusBadge = match($latestApollo?->status) {
+              'queued' => 'bg-secondary-lt',
+              'running' => 'bg-yellow-lt',
+              'success' => 'bg-green-lt',
+              'failed' => 'bg-red-lt',
+              default => 'bg-muted-lt',
+            };
+          @endphp
+
+          @if($latestApollo)
+            <div class="mb-2 d-flex justify-content-between align-items-center">
+              <span class="badge {{ $apolloStatusBadge }}">{{ ucfirst($latestApollo->status) }}</span>
+              <div class="text-muted small">{{ $latestApollo->finished_at?->format('d M Y H:i') ?: $latestApollo->created_at?->format('d M Y H:i') }}</div>
+            </div>
+            <div class="mb-2"><strong>Matched By:</strong> {{ $latestApollo->matched_by ?: '-' }}</div>
+            <div class="mb-2"><strong>Organization:</strong> {{ $latestApollo->apollo_org_name ?: '-' }}</div>
+            <div class="mb-2"><strong>Domain:</strong> {{ $latestApollo->apollo_domain ?: '-' }}</div>
+            <div class="mb-2"><strong>Website:</strong> {{ $latestApollo->apollo_website_url ?: '-' }}</div>
+            <div class="mb-2"><strong>LinkedIn:</strong>
+              @if($latestApollo->apollo_linkedin_url)
+                <a href="{{ $latestApollo->apollo_linkedin_url }}" target="_blank" rel="noopener">Open</a>
+              @else
+                -
+              @endif
+            </div>
+            <div class="mb-2"><strong>Industry:</strong> {{ $latestApollo->apollo_industry ?: '-' }}</div>
+            <div class="mb-2"><strong>Sub Industry:</strong> {{ $latestApollo->apollo_sub_industry ?: '-' }}</div>
+            <div class="mb-2"><strong>Business Output:</strong> {{ $latestApollo->apollo_business_output ?: '-' }}</div>
+            <div class="mb-2"><strong>Employee Range:</strong> {{ $latestApollo->apollo_employee_range ? ($latestApollo->apollo_employee_range . ' karyawan') : '-' }}</div>
+            <div class="mb-2"><strong>Location:</strong> {{ $latestApollo->apollo_city ?: '-' }} / {{ $latestApollo->apollo_state ?: '-' }} / {{ $latestApollo->apollo_country ?: '-' }}</div>
+
+            <div class="mt-2">
+              <div class="fw-semibold mb-1">Top People</div>
+              @if(!empty($latestApollo->apollo_people_json))
+                <ul class="small mb-0">
+                  @foreach($latestApollo->apollo_people_json as $person)
+                    <li>
+                      {{ $person['name'] ?? '-' }}
+                      @if(!empty($person['title'])) - {{ $person['title'] }} @endif
+                      @if(!empty($person['linkedin_url'])) (<a href="{{ $person['linkedin_url'] }}" target="_blank" rel="noopener">LinkedIn</a>) @endif
+                    </li>
+                  @endforeach
+                </ul>
+              @else
+                <div class="text-muted small">Tidak ada data people.</div>
+              @endif
+            </div>
+
+            @if($latestApollo->error_message)
+              <div class="alert alert-danger py-2 px-3 mt-2 mb-0 small">{{ $latestApollo->error_message }}</div>
+            @endif
+          @else
+            <div class="text-muted">Belum ada hasil Apollo enrichment.</div>
+          @endif
+        </div>
+      </div>
+
+      <div class="card mb-3">
         <div class="card-header">
           <h3 class="card-title">Analysis History</h3>
           <div class="card-actions">
@@ -200,6 +280,45 @@
                     </tr>
                   @empty
                     <tr><td colspan="4" class="text-center text-muted small">No analysis history.</td></tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">
+          <h3 class="card-title">Apollo Enrichment History</h3>
+          <div class="card-actions">
+            <a href="#apollo-history" data-bs-toggle="collapse" aria-expanded="false">Toggle</a>
+          </div>
+        </div>
+        <div id="apollo-history" class="collapse">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm table-vcenter mb-0">
+                <thead>
+                  <tr>
+                    <th>At</th>
+                    <th>Status</th>
+                    <th>Match</th>
+                    <th>Org</th>
+                    <th>Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @forelse($prospect->apolloEnrichments as $apollo)
+                    <tr>
+                      <td class="small">{{ $apollo->created_at?->format('d M Y H:i') }}</td>
+                      <td class="small">{{ $apollo->status }}</td>
+                      <td class="small">{{ $apollo->matched_by ?: '-' }}</td>
+                      <td class="small">{{ \Illuminate\Support\Str::limit($apollo->apollo_org_name ?: '-', 40) }}</td>
+                      <td class="small">{{ $apollo->error_message ? \Illuminate\Support\Str::limit($apollo->error_message, 60) : '-' }}</td>
+                    </tr>
+                  @empty
+                    <tr><td colspan="5" class="text-center text-muted small">No enrichment history.</td></tr>
                   @endforelse
                 </tbody>
               </table>

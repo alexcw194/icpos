@@ -99,6 +99,16 @@ class Prospect extends Model
         return $this->hasOne(ProspectAnalysis::class, 'prospect_id')->latestOfMany();
     }
 
+    public function apolloEnrichments(): HasMany
+    {
+        return $this->hasMany(ProspectApolloEnrichment::class, 'prospect_id');
+    }
+
+    public function latestApolloEnrichment(): HasOne
+    {
+        return $this->hasOne(ProspectApolloEnrichment::class, 'prospect_id')->latestOfMany();
+    }
+
     public function assignmentLogs(): HasMany
     {
         return $this->hasMany(ProspectAssignmentLog::class, 'prospect_id');

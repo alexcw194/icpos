@@ -46,4 +46,13 @@ return [
         'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
     ],
 
+    'apollo' => [
+        'key' => env('APOLLO_API_KEY'),
+        'base_url' => env('APOLLO_BASE_URL', 'https://api.apollo.io'),
+    ],
+
+    'lead_discovery' => [
+        'analysis_mode' => env('LEAD_DISCOVERY_ANALYSIS_MODE', 'heuristic_only'),
+    ],
+
 ];

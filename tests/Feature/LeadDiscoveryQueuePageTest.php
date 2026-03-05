@@ -51,6 +51,7 @@ class LeadDiscoveryQueuePageTest extends TestCase
             ->get(route('lead-discovery.queue.index'))
             ->assertOk()
             ->assertSeeText('Lead Queue')
+            ->assertSeeText('Apollo Enrichment Queue')
             ->assertSeeText('Queue Prospect');
     }
 

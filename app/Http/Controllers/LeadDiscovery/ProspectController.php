@@ -4,16 +4,19 @@ namespace App\Http\Controllers\LeadDiscovery;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\LeadDiscovery\AnalyzeProspectJob;
+use App\Jobs\LeadDiscovery\EnrichProspectApolloJob;
 use App\Models\Customer;
 use App\Models\Jenis;
 use App\Models\LdGridCell;
 use App\Models\Prospect;
 use App\Models\ProspectAnalysis;
+use App\Models\ProspectApolloEnrichment;
 use App\Models\ProspectAssignmentLog;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 class ProspectController extends Controller
 {
@@ -156,7 +159,13 @@ class ProspectController extends Controller
             'owner:id,name',
             'convertedCustomer:id,name',
             'latestAnalysis.requestedBy:id,name',
+            'latestApolloEnrichment.requestedBy:id,name',
             'analyses' => function ($query) {
+                $query->with('requestedBy:id,name')
+                    ->latest('id')
+                    ->limit(10);
+            },
+            'apolloEnrichments' => function ($query) {
                 $query->with('requestedBy:id,name')
                     ->latest('id')
                     ->limit(10);
@@ -178,13 +187,21 @@ class ProspectController extends Controller
                 ProspectAnalysis::STATUS_RUNNING,
             ])
             ->exists();
+        $hasActiveApollo = ProspectApolloEnrichment::query()
+            ->where('prospect_id', $prospect->id)
+            ->whereIn('status', [
+                ProspectApolloEnrichment::STATUS_QUEUED,
+                ProspectApolloEnrichment::STATUS_RUNNING,
+            ])
+            ->exists();
 
         return view('lead-discovery.prospects.show', compact(
             'prospect',
             'owners',
             'jenisList',
             'statusOptions',
-            'hasActiveAnalysis'
+            'hasActiveAnalysis',
+            'hasActiveApollo'
         ));
     }
 
@@ -213,6 +230,56 @@ class ProspectController extends Controller
         AnalyzeProspectJob::dispatch($analysis->id);
 
         return back()->with('success', 'Analyze prospect masuk antrian dan sedang diproses.');
+    }
+
+    public function enrichApollo(Request $request, Prospect $prospect): RedirectResponse
+    {
+        $this->authorize('update', $prospect);
+
+        $hasActiveRun = ProspectApolloEnrichment::query()
+            ->where('prospect_id', $prospect->id)
+            ->whereIn('status', [
+                ProspectApolloEnrichment::STATUS_QUEUED,
+                ProspectApolloEnrichment::STATUS_RUNNING,
+            ])
+            ->exists();
+        if ($hasActiveRun) {
+            return back()->with('warning', 'Enrich Apollo sedang berjalan untuk prospect ini.');
+        }
+
+        $enrichment = ProspectApolloEnrichment::query()->create([
+            'prospect_id' => $prospect->id,
+            'requested_by_user_id' => $request->user()?->id,
+            'status' => ProspectApolloEnrichment::STATUS_QUEUED,
+        ]);
+
+        EnrichProspectApolloJob::dispatch($enrichment->id);
+
+        return back()->with('success', 'Apollo enrichment masuk antrian dan sedang diproses.');
+    }
+
+    public function updateWebsite(Request $request, Prospect $prospect): RedirectResponse
+    {
+        $this->authorize('update', $prospect);
+
+        $data = $request->validate([
+            'website' => ['nullable', 'string', 'max:190'],
+        ]);
+
+        $normalized = $this->normalizeWebsiteInput((string) ($data['website'] ?? ''));
+        if ($normalized === false) {
+            return back()->withErrors([
+                'website' => 'Format website tidak valid.',
+            ])->withInput();
+        }
+
+        $newValue = $normalized !== '' ? $normalized : null;
+        if ((string) ($prospect->website ?? '') !== (string) ($newValue ?? '')) {
+            $prospect->website = $newValue;
+            $prospect->save();
+        }
+
+        return back()->with('success', 'Website lead berhasil diperbarui.');
     }
 
     public function assign(Request $request, Prospect $prospect): RedirectResponse
@@ -367,6 +434,44 @@ class ProspectController extends Controller
         return redirect()
             ->route('lead-discovery.prospects.show', $prospect)
             ->with('success', 'Prospect berhasil dikonversi menjadi customer.');
+    }
+
+    private function normalizeWebsiteInput(string $website): string|false
+    {
+        $website = trim($website);
+        if ($website === '') {
+            return '';
+        }
+        if (!Str::startsWith(Str::lower($website), ['http://', 'https://'])) {
+            $website = 'https://' . ltrim($website, '/');
+        }
+
+        $parts = parse_url($website);
+        if (!is_array($parts)) {
+            return false;
+        }
+
+        $scheme = Str::lower((string) ($parts['scheme'] ?? ''));
+        $host = Str::lower(trim((string) ($parts['host'] ?? '')));
+        if (!in_array($scheme, ['http', 'https'], true) || $host === '') {
+            return false;
+        }
+
+        $path = (string) ($parts['path'] ?? '/');
+        if ($path === '') {
+            $path = '/';
+        }
+
+        $normalized = $scheme . '://' . $host;
+        if (isset($parts['port'])) {
+            $normalized .= ':' . (int) $parts['port'];
+        }
+        $normalized .= $path;
+        if (!empty($parts['query'])) {
+            $normalized .= '?' . $parts['query'];
+        }
+
+        return rtrim($normalized, '/');
     }
 
     private function appendNote(string $existing, string $line): string

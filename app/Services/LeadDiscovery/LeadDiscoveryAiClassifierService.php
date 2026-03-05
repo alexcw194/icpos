@@ -15,22 +15,19 @@ class LeadDiscoveryAiClassifierService
      */
     public function classify(Prospect $prospect, array $analysisResult): array
     {
+        $mode = Str::lower(trim((string) config('services.lead_discovery.analysis_mode', 'heuristic_only')));
+        if ($mode === '' || $mode === 'heuristic_only') {
+            return $this->heuristicOnlyResult($prospect, $analysisResult);
+        }
+
+        if ($mode !== 'openai') {
+            return $this->heuristicOnlyResult($prospect, $analysisResult);
+        }
+
         $apiKey = trim((string) config('services.openai.key', ''));
         $model = trim((string) config('services.openai.model', 'gpt-4o-mini'));
         if ($apiKey === '') {
-            return [
-                'ai_status' => ProspectAnalysis::AI_STATUS_NOT_RUN,
-                'ai_provider' => null,
-                'ai_model' => null,
-                'ai_industry_label' => null,
-                'ai_sub_industry' => null,
-                'ai_business_output' => null,
-                'ai_employee_range' => null,
-                'ai_hotel_star' => null,
-                'ai_confidence' => null,
-                'ai_payload_json' => null,
-                'ai_error_message' => null,
-            ];
+            return $this->heuristicOnlyResult($prospect, $analysisResult, 'openai key kosong, fallback ke heuristic');
         }
 
         $payload = $this->buildPayload($prospect, $analysisResult);
@@ -154,6 +151,46 @@ class LeadDiscoveryAiClassifierService
     }
 
     /**
+     * @param array<string, mixed> $analysisResult
+     * @return array<string, mixed>
+     */
+    private function heuristicOnlyResult(Prospect $prospect, array $analysisResult, ?string $note = null): array
+    {
+        $payload = $this->buildPayload($prospect, $analysisResult);
+        $baseIndustry = $this->mapBusinessTypeToIndustry(
+            (string) ($analysisResult['business_type'] ?? 'unknown')
+        );
+
+        [$industry, $subIndustry, $businessOutput] = $this->enforceSpecificSubIndustry(
+            $baseIndustry,
+            null,
+            null,
+            $payload
+        );
+
+        $employeeRange = $this->inferEmployeeRangeFromPayload($payload);
+        $confidence = $subIndustry !== null ? 72.0 : 60.0;
+
+        return [
+            'ai_status' => ProspectAnalysis::AI_STATUS_SUCCESS,
+            'ai_provider' => 'heuristic',
+            'ai_model' => 'local-rules',
+            'ai_industry_label' => $industry,
+            'ai_sub_industry' => $subIndustry,
+            'ai_business_output' => $businessOutput,
+            'ai_employee_range' => $employeeRange,
+            'ai_hotel_star' => null,
+            'ai_confidence' => $confidence,
+            'ai_payload_json' => [
+                'mode' => 'heuristic_only',
+                'source_business_type' => (string) ($analysisResult['business_type'] ?? 'unknown'),
+                'note' => $note,
+            ],
+            'ai_error_message' => null,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function failed(string $model, string $message): array
@@ -252,7 +289,7 @@ class LeadDiscoveryAiClassifierService
             return null;
         }
 
-        if (preg_match('/(\d{1,4})\s*[-–]\s*(\d{1,4})/u', $text, $matches)) {
+        if (preg_match('/(\d{1,4})\s*[-\x{2013}]\s*(\d{1,4})/u', $text, $matches)) {
             $from = (int) $matches[1];
             $to = (int) $matches[2];
             if ($from > 0 && $to >= $from) {
@@ -439,7 +476,7 @@ class LeadDiscoveryAiClassifierService
             (string) ($payload['raw_text_excerpt'] ?? ''),
         ]));
 
-        if (preg_match('/(\d{1,4})\s*[-–]\s*(\d{1,4})\s*(karyawan|pegawai|employees)?/iu', $combined, $matches)) {
+        if (preg_match('/(\d{1,4})\s*[-\x{2013}]\s*(\d{1,4})\s*(karyawan|pegawai|employees)?/iu', $combined, $matches)) {
             $from = (int) $matches[1];
             $to = (int) $matches[2];
             if ($from > 0 && $to >= $from) {
@@ -479,5 +516,21 @@ class LeadDiscoveryAiClassifierService
         }
 
         return Str::limit(implode(' | ', $chunks), $limit, '');
+    }
+
+    private function mapBusinessTypeToIndustry(string $businessType): ?string
+    {
+        return match (trim($businessType)) {
+            'food_processing',
+            'textile_garment',
+            'chemical',
+            'metal_engineering',
+            'general_manufacturing' => 'Manufacturing',
+            'warehouse_logistics' => 'Logistics',
+            'healthcare' => 'Healthcare',
+            'hospitality' => 'Hospitality',
+            'retail_commercial' => 'Retail',
+            default => null,
+        };
     }
 }

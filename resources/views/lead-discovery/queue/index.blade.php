@@ -12,7 +12,7 @@
   </div>
 
   <div class="row g-3 mb-3">
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-sm-6 col-lg-2">
       <div class="card">
         <div class="card-body py-3">
           <div class="text-muted small">Analyze Processing</div>
@@ -20,7 +20,7 @@
         </div>
       </div>
     </div>
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-sm-6 col-lg-2">
       <div class="card">
         <div class="card-body py-3">
           <div class="text-muted small">Analyze Completed</div>
@@ -28,7 +28,23 @@
         </div>
       </div>
     </div>
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-sm-6 col-lg-2">
+      <div class="card">
+        <div class="card-body py-3">
+          <div class="text-muted small">Apollo Processing</div>
+          <div class="h2 mb-0">{{ number_format($summary['apollo_processing']) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-2">
+      <div class="card">
+        <div class="card-body py-3">
+          <div class="text-muted small">Apollo Completed</div>
+          <div class="h2 mb-0">{{ number_format($summary['apollo_completed']) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-2">
       <div class="card">
         <div class="card-body py-3">
           <div class="text-muted small">Scan Processing</div>
@@ -36,7 +52,7 @@
         </div>
       </div>
     </div>
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-sm-6 col-lg-2">
       <div class="card">
         <div class="card-body py-3">
           <div class="text-muted small">Scan Completed</div>
@@ -136,6 +152,73 @@
     </div>
     @if($analyses->hasPages())
       <div class="card-footer">{{ $analyses->links() }}</div>
+    @endif
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">
+      <h3 class="card-title">Apollo Enrichment Queue</h3>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Prospect</th>
+            <th>Status</th>
+            <th>Requested By</th>
+            <th>Started</th>
+            <th>Finished</th>
+            <th>Match By</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse($apolloEnrichments as $run)
+            @php
+              $badgeClass = match($run->status) {
+                'queued' => 'bg-secondary-lt',
+                'running' => 'bg-yellow-lt',
+                'success' => 'bg-green-lt',
+                'failed' => 'bg-red-lt',
+                default => 'bg-muted-lt',
+              };
+            @endphp
+            <tr>
+              <td>#{{ $run->id }}</td>
+              <td>
+                @if($run->prospect)
+                  <a class="text-decoration-none fw-semibold" href="{{ route('lead-discovery.prospects.show', $run->prospect) }}">
+                    {{ $run->prospect->name }}
+                  </a>
+                  <div class="text-muted small">{{ $run->prospect->place_id }}</div>
+                @else
+                  <span class="text-muted">-</span>
+                @endif
+              </td>
+              <td><span class="badge {{ $badgeClass }}">{{ ucfirst($run->status) }}</span></td>
+              <td>{{ $run->requestedBy?->name ?: '-' }}</td>
+              <td>{{ $run->started_at?->format('d M Y H:i:s') ?: '-' }}</td>
+              <td>{{ $run->finished_at?->format('d M Y H:i:s') ?: '-' }}</td>
+              <td>{{ $run->matched_by ?: '-' }}</td>
+              <td class="small">
+                @if($run->error_message)
+                  <span class="text-danger" title="{{ $run->error_message }}">
+                    {{ \Illuminate\Support\Str::limit($run->error_message, 100) }}
+                  </span>
+                @else
+                  -
+                @endif
+              </td>
+            </tr>
+          @empty
+            <tr><td colspan="8" class="text-center text-muted">No apollo enrichment queue data.</td></tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
+    @if($apolloEnrichments->hasPages())
+      <div class="card-footer">{{ $apolloEnrichments->links() }}</div>
     @endif
   </div>
 

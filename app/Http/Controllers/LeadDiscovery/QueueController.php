@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\LdScanRun;
 use App\Models\Prospect;
 use App\Models\ProspectAnalysis;
+use App\Models\ProspectApolloEnrichment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -40,6 +41,24 @@ class QueueController extends Controller
             ->simplePaginate(15, ['*'], 'analyses_page')
             ->withQueryString();
 
+        $apolloEnrichments = ProspectApolloEnrichment::query()
+            ->with(['prospect:id,name,place_id', 'requestedBy:id,name'])
+            ->when($scope === 'processing', function ($query) {
+                $query->whereIn('status', [
+                    ProspectApolloEnrichment::STATUS_QUEUED,
+                    ProspectApolloEnrichment::STATUS_RUNNING,
+                ]);
+            })
+            ->when($scope === 'completed', function ($query) {
+                $query->whereIn('status', [
+                    ProspectApolloEnrichment::STATUS_SUCCESS,
+                    ProspectApolloEnrichment::STATUS_FAILED,
+                ]);
+            })
+            ->latest('id')
+            ->simplePaginate(15, ['*'], 'apollo_page')
+            ->withQueryString();
+
         $scanRuns = LdScanRun::query()
             ->with('creator:id,name')
             ->when($scope === 'processing', fn ($query) => $query->where('status', LdScanRun::STATUS_RUNNING))
@@ -60,6 +79,12 @@ class QueueController extends Controller
             'analysis_completed' => ProspectAnalysis::query()
                 ->whereIn('status', [ProspectAnalysis::STATUS_SUCCESS, ProspectAnalysis::STATUS_FAILED])
                 ->count(),
+            'apollo_processing' => ProspectApolloEnrichment::query()
+                ->whereIn('status', [ProspectApolloEnrichment::STATUS_QUEUED, ProspectApolloEnrichment::STATUS_RUNNING])
+                ->count(),
+            'apollo_completed' => ProspectApolloEnrichment::query()
+                ->whereIn('status', [ProspectApolloEnrichment::STATUS_SUCCESS, ProspectApolloEnrichment::STATUS_FAILED])
+                ->count(),
             'scan_processing' => LdScanRun::query()
                 ->where('status', LdScanRun::STATUS_RUNNING)
                 ->count(),
@@ -71,6 +96,7 @@ class QueueController extends Controller
         return view('lead-discovery.queue.index', compact(
             'scope',
             'analyses',
+            'apolloEnrichments',
             'scanRuns',
             'summary'
         ));
