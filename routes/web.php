@@ -113,6 +113,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('lead-discovery.prospects.index');
     Route::get('/lead-discovery/queue', [LeadDiscoveryQueueController::class, 'index'])
         ->name('lead-discovery.queue.index');
+    Route::post('/lead-discovery/queue/cleanup-stuck', [LeadDiscoveryQueueController::class, 'cleanupStuck'])
+        ->name('lead-discovery.queue.cleanup-stuck');
     Route::get('/lead-discovery/prospects/{prospect}', [LeadDiscoveryProspectController::class, 'show'])
         ->name('lead-discovery.prospects.show');
     Route::post('/lead-discovery/prospects/{prospect}/assign', [LeadDiscoveryProspectController::class, 'assign'])

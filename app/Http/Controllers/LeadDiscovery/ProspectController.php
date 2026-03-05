@@ -145,6 +145,7 @@ class ProspectController extends Controller
     public function show(Prospect $prospect)
     {
         $this->authorize('view', $prospect);
+        $this->closeStaleAnalysesForProspect($prospect->id);
 
         $prospect->load([
             'keyword:id,keyword,category_label',
@@ -186,6 +187,7 @@ class ProspectController extends Controller
     public function analyze(Request $request, Prospect $prospect): RedirectResponse
     {
         $this->authorize('update', $prospect);
+        $this->closeStaleAnalysesForProspect($prospect->id);
 
         $hasActiveRun = ProspectAnalysis::query()
             ->where('prospect_id', $prospect->id)
@@ -336,6 +338,41 @@ class ProspectController extends Controller
         }
 
         return $existing . PHP_EOL . $line;
+    }
+
+    private function closeStaleAnalysesForProspect(int $prospectId): int
+    {
+        $now = Carbon::now();
+        $queuedCutoff = $now->copy()->subMinutes(5);
+        $runningCutoff = $now->copy()->subMinutes(20);
+
+        return ProspectAnalysis::query()
+            ->where('prospect_id', $prospectId)
+            ->whereIn('status', [
+                ProspectAnalysis::STATUS_QUEUED,
+                ProspectAnalysis::STATUS_RUNNING,
+            ])
+            ->where(function ($query) use ($queuedCutoff, $runningCutoff) {
+                $query->where(function ($queued) use ($queuedCutoff) {
+                    $queued->where('status', ProspectAnalysis::STATUS_QUEUED)
+                        ->where('created_at', '<=', $queuedCutoff);
+                })->orWhere(function ($running) use ($runningCutoff) {
+                    $running->where('status', ProspectAnalysis::STATUS_RUNNING)
+                        ->where(function ($runningAge) use ($runningCutoff) {
+                            $runningAge->where('started_at', '<=', $runningCutoff)
+                                ->orWhere(function ($fallback) use ($runningCutoff) {
+                                    $fallback->whereNull('started_at')
+                                        ->where('created_at', '<=', $runningCutoff);
+                                });
+                        });
+                });
+            })
+            ->update([
+                'status' => ProspectAnalysis::STATUS_FAILED,
+                'finished_at' => $now,
+                'error_message' => 'Auto-closed stale analysis entry.',
+                'updated_at' => $now,
+            ]);
     }
 
     /**

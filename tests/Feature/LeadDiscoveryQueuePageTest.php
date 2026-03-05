@@ -62,5 +62,31 @@ class LeadDiscoveryQueuePageTest extends TestCase
             ->get(route('lead-discovery.queue.index'))
             ->assertStatus(403);
     }
-}
 
+    public function test_cleanup_stuck_marks_old_queued_analysis_as_failed(): void
+    {
+        $sales = $this->makeUserWithRole('Sales');
+        $prospect = Prospect::query()->create([
+            'place_id' => 'queue-place-002',
+            'name' => 'Queue Stuck Prospect',
+            'discovered_at' => now(),
+            'status' => Prospect::STATUS_NEW,
+        ]);
+
+        $analysis = ProspectAnalysis::query()->create([
+            'prospect_id' => $prospect->id,
+            'requested_by_user_id' => $sales->id,
+            'status' => ProspectAnalysis::STATUS_QUEUED,
+            'created_at' => now()->subMinutes(30),
+            'updated_at' => now()->subMinutes(30),
+        ]);
+
+        $this->actingAs($sales)
+            ->post(route('lead-discovery.queue.cleanup-stuck'))
+            ->assertRedirect();
+
+        $analysis->refresh();
+        $this->assertSame(ProspectAnalysis::STATUS_FAILED, $analysis->status);
+        $this->assertNotNull($analysis->finished_at);
+    }
+}

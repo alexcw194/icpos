@@ -18,7 +18,7 @@ class ProspectAnalyzerService
      */
     public function analyze(Prospect $prospect): array
     {
-        $prospect->loadMissing('keyword:id,keyword');
+        $prospect->loadMissing('keyword:id,keyword,category_label');
 
         $websiteUrl = $this->normalizeWebsiteUrl((string) ($prospect->website ?? ''));
         $websitePresent = $websiteUrl !== null;
@@ -442,23 +442,30 @@ class ProspectAnalyzerService
      */
     private function classifyBusinessType(Prospect $prospect, string $crawlText): array
     {
+        $typesText = '';
+        if (is_array($prospect->types_json ?? null)) {
+            $typesText = implode(' ', array_map('strval', $prospect->types_json));
+        }
+
         $haystack = Str::lower(trim(implode(' ', [
             (string) $prospect->name,
             (string) $prospect->primary_type,
             (string) ($prospect->keyword?->keyword ?? ''),
+            (string) ($prospect->keyword?->category_label ?? ''),
+            $typesText,
             mb_substr($crawlText, 0, self::MAX_TEXT_LEN),
         ])));
 
         $map = [
-            'food_processing' => ['food', 'beverage', 'bakery', 'dairy', 'makanan', 'minuman', 'flour', 'tepung', 'sugar', 'gula'],
-            'textile_garment' => ['textile', 'garment', 'apparel', 'fabric', 'tekstil', 'kain'],
+            'food_processing' => ['food', 'beverage', 'bakery', 'dairy', 'makanan', 'minuman', 'flour', 'tepung', 'sugar', 'gula', 'snack', 'roastery'],
+            'textile_garment' => ['textile', 'garment', 'garmen', 'konveksi', 'apparel', 'fabric', 'tekstil', 'kain', 'fashion', 'sewing'],
             'chemical' => ['chemical', 'kimia', 'fertilizer', 'pupuk', 'petrochemical'],
             'metal_engineering' => ['metal', 'steel', 'welding', 'machining', 'engineer', 'fabrication'],
-            'warehouse_logistics' => ['warehouse', 'logistics', 'gudang', 'distribution', 'fulfillment'],
+            'warehouse_logistics' => ['warehouse', 'logistics', 'gudang', 'distribution', 'fulfillment', '3pl'],
             'healthcare' => ['hospital', 'clinic', 'medical', 'health', 'klinik', 'rumah sakit'],
             'hospitality' => ['hotel', 'resort', 'villa', 'hospitality'],
             'retail_commercial' => ['retail', 'store', 'shop', 'mall', 'boutique', 'supermarket'],
-            'general_manufacturing' => ['factory', 'manufacturing', 'industry', 'industri', 'pabrik', 'plant'],
+            'general_manufacturing' => ['factory', 'manufacturing', 'manufacture', 'manufacturer', 'industry', 'industri', 'pabrik', 'plant'],
         ];
 
         $scores = [];

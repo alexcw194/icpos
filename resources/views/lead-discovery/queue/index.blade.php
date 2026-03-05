@@ -63,6 +63,12 @@
         <div class="col-auto">
           <a href="{{ route('lead-discovery.queue.index', ['scope' => $scope]) }}" class="btn btn-outline-secondary">Refresh</a>
         </div>
+        <div class="col-auto ms-auto">
+          <form method="post" action="{{ route('lead-discovery.queue.cleanup-stuck') }}" onsubmit="return confirm('Cleanup queue analyze yang nyangkut?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-danger">Cleanup Stuck Analyze</button>
+          </form>
+        </div>
       </form>
     </div>
   </div>
