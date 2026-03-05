@@ -65,6 +65,52 @@
       </div>
 
       <div class="card mb-3">
+        <div class="card-header"><h3 class="card-title">Manual Lead Profile</h3></div>
+        <div class="card-body">
+          <form method="post" action="{{ route('lead-discovery.prospects.manual-profile.update', $prospect) }}" class="row g-2">
+            @csrf
+            <div class="col-md-6">
+              <label class="form-label">Sub Industry (Manual)</label>
+              <input type="text" name="manual_sub_industry" class="form-control @error('manual_sub_industry') is-invalid @enderror"
+                     value="{{ old('manual_sub_industry', $prospect->manual_sub_industry) }}"
+                     placeholder="Contoh: Tempered Glass">
+              @error('manual_sub_industry')
+                <div class="invalid-feedback">{{ $message }}</div>
+              @enderror
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Employee Range (Manual)</label>
+              <input type="text" name="manual_employee_range" class="form-control @error('manual_employee_range') is-invalid @enderror"
+                     value="{{ old('manual_employee_range', $prospect->manual_employee_range) }}"
+                     placeholder="Contoh: 51-200">
+              @error('manual_employee_range')
+                <div class="invalid-feedback">{{ $message }}</div>
+              @enderror
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">LinkedIn URL (Manual)</label>
+              <input type="text" name="manual_linkedin_url" class="form-control @error('manual_linkedin_url') is-invalid @enderror"
+                     value="{{ old('manual_linkedin_url', $prospect->manual_linkedin_url) }}"
+                     placeholder="https://www.linkedin.com/company/...">
+              @error('manual_linkedin_url')
+                <div class="invalid-feedback">{{ $message }}</div>
+              @enderror
+            </div>
+            <div class="col-12 d-flex justify-content-between align-items-center">
+              <div class="small text-muted">
+                @if($prospect->manual_linkedin_url)
+                  Link: <a href="{{ $prospect->manual_linkedin_url }}" target="_blank" rel="noopener">{{ $prospect->manual_linkedin_url }}</a>
+                @else
+                  Isi manual jika data dari Apollo/Analyze belum lengkap.
+                @endif
+              </div>
+              <button type="submit" class="btn btn-outline-primary">Save Manual Profile</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card mb-3">
         <div class="card-header"><h3 class="card-title">Discovery Context</h3></div>
         <div class="card-body">
           <div><strong>Keyword:</strong> {{ $prospect->keyword?->keyword ?: '-' }}</div>
@@ -213,16 +259,24 @@
             <div class="mb-2"><strong>Domain:</strong> {{ $latestApollo->apollo_domain ?: '-' }}</div>
             <div class="mb-2"><strong>Website:</strong> {{ $latestApollo->apollo_website_url ?: '-' }}</div>
             <div class="mb-2"><strong>LinkedIn:</strong>
-              @if($latestApollo->apollo_linkedin_url)
-                <a href="{{ $latestApollo->apollo_linkedin_url }}" target="_blank" rel="noopener">Open</a>
+              @php
+                $effectiveLinkedin = $prospect->manual_linkedin_url ?: $latestApollo->apollo_linkedin_url;
+                $effectiveSubIndustry = $prospect->manual_sub_industry ?: $latestApollo->apollo_sub_industry;
+                $effectiveEmployeeRange = $prospect->manual_employee_range ?: $latestApollo->apollo_employee_range;
+              @endphp
+              @if($effectiveLinkedin)
+                <a href="{{ $effectiveLinkedin }}" target="_blank" rel="noopener">Open</a>
+                @if($prospect->manual_linkedin_url)
+                  <span class="text-muted small">(manual)</span>
+                @endif
               @else
                 -
               @endif
             </div>
             <div class="mb-2"><strong>Industry:</strong> {{ $latestApollo->apollo_industry ?: '-' }}</div>
-            <div class="mb-2"><strong>Sub Industry:</strong> {{ $latestApollo->apollo_sub_industry ?: '-' }}</div>
+            <div class="mb-2"><strong>Sub Industry:</strong> {{ $effectiveSubIndustry ?: '-' }}</div>
             <div class="mb-2"><strong>Business Output:</strong> {{ $latestApollo->apollo_business_output ?: '-' }}</div>
-            <div class="mb-2"><strong>Employee Range:</strong> {{ $latestApollo->apollo_employee_range ? ($latestApollo->apollo_employee_range . ' karyawan') : '-' }}</div>
+            <div class="mb-2"><strong>Employee Range:</strong> {{ $effectiveEmployeeRange ? ($effectiveEmployeeRange . ' karyawan') : '-' }}</div>
             <div class="mb-2"><strong>Location:</strong> {{ $latestApollo->apollo_city ?: '-' }} / {{ $latestApollo->apollo_state ?: '-' }} / {{ $latestApollo->apollo_country ?: '-' }}</div>
 
             <div class="mt-2">

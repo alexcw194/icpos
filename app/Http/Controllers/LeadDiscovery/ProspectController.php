@@ -236,6 +236,10 @@ class ProspectController extends Controller
     {
         $this->authorize('update', $prospect);
 
+        if (blank($prospect->website)) {
+            return back()->with('warning', 'Website masih kosong. Isi website lead dulu untuk menjalankan Apollo Enrichment.');
+        }
+
         $hasActiveRun = ProspectApolloEnrichment::query()
             ->where('prospect_id', $prospect->id)
             ->whereIn('status', [
@@ -280,6 +284,31 @@ class ProspectController extends Controller
         }
 
         return back()->with('success', 'Website lead berhasil diperbarui.');
+    }
+
+    public function updateManualProfile(Request $request, Prospect $prospect): RedirectResponse
+    {
+        $this->authorize('update', $prospect);
+
+        $data = $request->validate([
+            'manual_sub_industry' => ['nullable', 'string', 'max:120'],
+            'manual_employee_range' => ['nullable', 'string', 'max:40'],
+            'manual_linkedin_url' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $linkedin = $this->normalizeLinkedinInput((string) ($data['manual_linkedin_url'] ?? ''));
+        if ($linkedin === false) {
+            return back()->withErrors([
+                'manual_linkedin_url' => 'Format LinkedIn tidak valid.',
+            ])->withInput();
+        }
+
+        $prospect->manual_sub_industry = $this->normalizeTextInput((string) ($data['manual_sub_industry'] ?? ''));
+        $prospect->manual_employee_range = $this->normalizeTextInput((string) ($data['manual_employee_range'] ?? ''));
+        $prospect->manual_linkedin_url = $linkedin !== '' ? $linkedin : null;
+        $prospect->save();
+
+        return back()->with('success', 'Profil manual lead berhasil diperbarui.');
     }
 
     public function assign(Request $request, Prospect $prospect): RedirectResponse
@@ -472,6 +501,54 @@ class ProspectController extends Controller
         }
 
         return rtrim($normalized, '/');
+    }
+
+    private function normalizeLinkedinInput(string $url): string|false
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+
+        if (!Str::startsWith(Str::lower($url), ['http://', 'https://'])) {
+            $url = 'https://' . ltrim($url, '/');
+        }
+
+        $parts = parse_url($url);
+        if (!is_array($parts)) {
+            return false;
+        }
+
+        $scheme = Str::lower((string) ($parts['scheme'] ?? ''));
+        $host = Str::lower(trim((string) ($parts['host'] ?? '')));
+        if (!in_array($scheme, ['http', 'https'], true) || $host === '') {
+            return false;
+        }
+        if (!Str::contains($host, 'linkedin.com')) {
+            return false;
+        }
+
+        $path = (string) ($parts['path'] ?? '/');
+        if ($path === '') {
+            $path = '/';
+        }
+
+        $normalized = $scheme . '://' . $host;
+        if (isset($parts['port'])) {
+            $normalized .= ':' . (int) $parts['port'];
+        }
+        $normalized .= $path;
+        if (!empty($parts['query'])) {
+            $normalized .= '?' . $parts['query'];
+        }
+
+        return rtrim($normalized, '/');
+    }
+
+    private function normalizeTextInput(string $value): ?string
+    {
+        $value = trim($value);
+        return $value === '' ? null : $value;
     }
 
     private function appendNote(string $existing, string $line): string

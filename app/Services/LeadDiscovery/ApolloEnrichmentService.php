@@ -23,11 +23,11 @@ class ApolloEnrichmentService
         $matchedBy = ProspectApolloEnrichment::MATCHED_BY_NONE;
 
         $organization = null;
-        $enrichPayload = [
-            'domain' => $seedDomain,
-        ];
-
+        $enrichPayload = [];
         if ($seedDomain !== null) {
+            $enrichPayload = [
+                'domain' => $seedDomain,
+            ];
             $enrichResult = $this->apolloClient->organizationEnrich($enrichPayload);
             $organization = $this->pickOrganization($enrichResult);
             if ($organization !== null) {
@@ -35,32 +35,6 @@ class ApolloEnrichmentService
             }
         } else {
             $enrichResult = [];
-        }
-
-        $searchResult = [];
-        if ($organization === null) {
-            $locationTokens = array_values(array_filter([
-                $prospect->city,
-                $prospect->province,
-                $prospect->country,
-            ], function ($value) {
-                return $value !== null && $value !== '';
-            }));
-
-            $searchPayload = array_filter([
-                'q_organization_name' => $prospect->name,
-                'organization_locations' => $locationTokens,
-                'page' => 1,
-                'per_page' => 5,
-            ], function ($value) {
-                return $value !== null && $value !== '' && $value !== [];
-            });
-
-            $searchResult = $this->apolloClient->organizationSearch($searchPayload);
-            $organization = $this->pickOrganization($searchResult);
-            if ($organization !== null) {
-                $matchedBy = ProspectApolloEnrichment::MATCHED_BY_NAME_LOCATION;
-            }
         }
 
         $orgId = (string) ($organization['id'] ?? $organization['organization_id'] ?? '');
@@ -96,7 +70,6 @@ class ApolloEnrichmentService
             'apollo_people_json' => $people,
             'apollo_payload_json' => [
                 'organization_enrich' => $enrichResult,
-                'organization_search' => $searchResult,
                 'top_people' => $peopleResult,
             ],
         ];

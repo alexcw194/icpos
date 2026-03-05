@@ -38,6 +38,15 @@
               -
             @endif
           </div>
+          <div><strong>Sub Industry:</strong> {{ $prospect->manual_sub_industry ?: '-' }}</div>
+          <div><strong>Employee Range:</strong> {{ $prospect->manual_employee_range ?: '-' }}</div>
+          <div><strong>LinkedIn:</strong>
+            @if($prospect->manual_linkedin_url)
+              <a href="{{ $prospect->manual_linkedin_url }}" target="_blank" rel="noopener">{{ $prospect->manual_linkedin_url }}</a>
+            @else
+              -
+            @endif
+          </div>
           <div><strong>Assigned To:</strong> {{ $prospect->owner?->name ?: '-' }}</div>
           <div><strong>Assigned At:</strong> {{ $prospect->assigned_at?->format('d M Y H:i:s') ?: '-' }}</div>
           <div><strong>Assigned By:</strong> {{ $prospect->assignedBy?->name ?: '-' }}</div>

@@ -473,6 +473,8 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
         ->name('lead-discovery.prospects.enrich-apollo');
     Route::post('/lead-discovery/prospects/{prospect}/website', [LeadDiscoveryProspectController::class, 'updateWebsite'])
         ->name('lead-discovery.prospects.website.update');
+    Route::post('/lead-discovery/prospects/{prospect}/manual-profile', [LeadDiscoveryProspectController::class, 'updateManualProfile'])
+        ->name('lead-discovery.prospects.manual-profile.update');
     Route::post('/lead-discovery/prospects/{prospect}/convert', [LeadDiscoveryProspectController::class, 'convert'])
         ->name('lead-discovery.prospects.convert');
     Route::get('/lead-discovery/queue', [LeadDiscoveryQueueController::class, 'index'])
