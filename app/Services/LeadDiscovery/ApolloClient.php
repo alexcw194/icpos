@@ -102,7 +102,6 @@ class ApolloClient
             $response = Http::timeout(20)
                 ->retry(1, 500)
                 ->acceptJson()
-                ->withToken($apiKey)
                 ->withHeaders([
                     'X-Api-Key' => $apiKey,
                 ])
@@ -142,7 +141,6 @@ class ApolloClient
             $response = Http::timeout(20)
                 ->retry(1, 500)
                 ->acceptJson()
-                ->withToken($apiKey)
                 ->withHeaders([
                     'X-Api-Key' => $apiKey,
                 ])
