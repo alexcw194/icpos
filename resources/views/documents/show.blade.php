@@ -3,6 +3,7 @@
 
 @push('styles')
 <style>
+  .document-body { font-size: {{ (int) ($documentFontSizePx ?? 12) }}px; }
   .document-body img { max-width: 100%; height: auto; }
   .document-body table { width: 100%; border-collapse: collapse; }
   .document-body td,

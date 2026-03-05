@@ -32,6 +32,7 @@ class SettingController extends Controller
             'documents_letterhead' => ['nullable','image','mimes:png','max:4096'],
             'documents_stamp' => ['nullable','image','mimes:png','max:2048'],
             'documents_director_signature' => ['nullable','image','mimes:png','max:2048'],
+            'documents_default_font_size_px' => ['nullable', 'integer', 'min:8', 'max:72'],
 
             // ===== Global SMTP =====
             'mail_host'        => ['nullable','string','max:150'],
@@ -94,6 +95,7 @@ class SettingController extends Controller
             'documents.letterhead_path' => $letterheadPath,
             'documents.stamp_path' => $stampPath,
             'documents.director_signature_path' => $directorSignaturePath,
+            'documents.default_font_size_px' => (string) ($validated['documents_default_font_size_px'] ?? 12),
 
             // Mail (global)
             'mail.host'           => $validated['mail_host'] ?? '',

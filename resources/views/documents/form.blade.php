@@ -292,6 +292,20 @@
       </div>
 
       <div class="mt-3" id="doc-body-section">
+        <div class="row g-3 mb-2">
+          <div class="col-md-4">
+            <label class="form-label">Default Font Size (px)</label>
+            <input type="number"
+                   min="8"
+                   max="72"
+                   id="default_font_size_px"
+                   name="default_font_size_px"
+                   class="form-control"
+                   value="{{ old('default_font_size_px', $document->default_font_size_px ?? $defaultFontSizePx ?? 12) }}">
+            <div class="form-hint">Ukuran dasar untuk seluruh body dokumen. Format per-seleksi tetap bisa override.</div>
+            @error('default_font_size_px')<div class="text-danger small">{{ $message }}</div>@enderror
+          </div>
+        </div>
         <div class="mb-3">
           <label class="form-label">Body Content</label>
           <textarea id="doc-editor" name="body" class="form-control" rows="18">{{ old('body', $document->body_html ?? $document->body ?? '') }}</textarea>
@@ -319,10 +333,22 @@
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('docForm');
+    const defaultFontSizeInput = document.getElementById('default_font_size_px');
     const draftToken = document.getElementById('draft_token')?.value || '';
     const documentId = @json($document->id ?? null);
     const uploadUrl = @json(route('documents.images.upload'));
     const csrfToken = @json(csrf_token());
+    const fallbackFontSizePx = @json((int) ($defaultFontSizePx ?? 12));
+
+    const resolveFontSizePx = () => {
+      const raw = Number(defaultFontSizeInput?.value);
+      if (Number.isFinite(raw) && raw >= 8 && raw <= 72) {
+        return raw;
+      }
+      return fallbackFontSizePx;
+    };
+
+    const baseContentStyle = () => `body{font-size:${resolveFontSizePx()}px;} img{max-width:100%;height:auto;} table{width:100%;border-collapse:collapse;} table td,table th{border:1px solid #d1d5db;padding:4px 6px;}`;
 
     const buildUploadUrl = () => {
       const params = new URLSearchParams();
@@ -350,7 +376,10 @@
       images_upload_credentials: true,
       images_reuse_filename: true,
       image_caption: false,
-      content_style: 'img{max-width:100%;height:auto;} table{width:100%;border-collapse:collapse;} table td,table th{border:1px solid #d1d5db;padding:4px 6px;}',
+      content_style: baseContentStyle(),
+      init_instance_callback: () => {
+        applyEditorBaseFontSize();
+      },
       setup: (editor) => {
         editor.on('Paste', (e) => {
           const data = e.clipboardData?.getData('text/html') || '';
@@ -361,6 +390,15 @@
         });
       },
     });
+
+    function applyEditorBaseFontSize() {
+      const editor = tinymce.get('doc-editor');
+      if (!editor || !editor.getBody()) return;
+      editor.getBody().style.fontSize = `${resolveFontSizePx()}px`;
+    }
+
+    defaultFontSizeInput?.addEventListener('input', applyEditorBaseFontSize);
+    defaultFontSizeInput?.addEventListener('change', applyEditorBaseFontSize);
 
     form?.addEventListener('submit', () => {
       tinymce.triggerSave();

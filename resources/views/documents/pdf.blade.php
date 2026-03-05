@@ -110,6 +110,7 @@
     }
     .body {
       margin-bottom: 20px;
+      font-size: {{ (int) ($bodyFontSizePx ?? 12) }}px;
     }
     .body > :first-child {
       margin-top: 0;

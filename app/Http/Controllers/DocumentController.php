@@ -6,6 +6,7 @@ use App\Models\Contact;
 use App\Models\Customer;
 use App\Models\Document;
 use App\Models\DocumentTemplate;
+use App\Models\Setting;
 use App\Models\Signature;
 use App\Models\User;
 use App\Services\DocumentNumberService;
@@ -87,6 +88,7 @@ class DocumentController extends Controller
             'status' => Document::STATUS_DRAFT,
             'document_date' => now()->toDateString(),
         ]);
+        $document->default_font_size_px = $this->resolveDocumentFontSizePx($document);
 
         $draftToken = session('doc_draft_token');
         if (!$draftToken) {
@@ -120,6 +122,7 @@ class DocumentController extends Controller
             'templates' => $templates,
             'templatePayload' => [],
             'mode' => 'create',
+            'defaultFontSizePx' => $this->resolveDocumentFontSizePx($document),
         ]);
     }
 
@@ -160,6 +163,7 @@ class DocumentController extends Controller
             'title' => $titleUpper ?? $data['title'],
             'document_date' => $data['document_date'],
             'body_html' => $templateId ? '' : '',
+            'default_font_size_px' => $this->normalizeFontSizePx($data['default_font_size_px'] ?? null),
             'document_template_id' => $templateId,
             'payload_json' => $payload,
             'customer_id' => $customer->id,
@@ -194,7 +198,10 @@ class DocumentController extends Controller
 
         $document->load(['customer', 'contact', 'creator', 'adminApprover', 'approver', 'salesSigner']);
 
-        return view('documents.show', compact('document'));
+        return view('documents.show', [
+            'document' => $document,
+            'documentFontSizePx' => $this->resolveDocumentFontSizePx($document),
+        ]);
     }
 
     public function edit(Document $document)
@@ -231,6 +238,7 @@ class DocumentController extends Controller
             'templates' => $templates,
             'templatePayload' => $templatePayload,
             'mode' => 'edit',
+            'defaultFontSizePx' => $this->resolveDocumentFontSizePx($document),
         ]);
     }
 
@@ -272,6 +280,7 @@ class DocumentController extends Controller
             'title' => $titleUpper ?? $data['title'],
             'document_date' => $data['document_date'],
             'body_html' => $templateId ? '' : $this->sanitizeHtml($this->resolveBodyHtml($data), $document->id),
+            'default_font_size_px' => $this->normalizeFontSizePx($data['default_font_size_px'] ?? null),
             'document_template_id' => $templateId,
             'payload_json' => $payload,
             'customer_id' => $customer->id,
@@ -462,6 +471,7 @@ class DocumentController extends Controller
             'document_date' => ['required', 'date'],
             'body' => [$template ? 'nullable' : 'required', 'string'],
             'body_html' => ['nullable', 'string'],
+            'default_font_size_px' => ['nullable', 'integer', 'min:8', 'max:72'],
             'created_by_user_id' => ['nullable', 'exists:users,id', function ($attribute, $value, $fail) use ($request) {
                 if ($request->user()->hasRole('Sales') && $value && (int) $value !== (int) $request->user()->id) {
                     $fail('Owner dokumen harus sesuai dengan user Sales.');
@@ -752,6 +762,41 @@ class DocumentController extends Controller
         return Str::upper($trimmed);
     }
 
+    private function appDefaultDocumentFontSizePx(): int
+    {
+        $raw = Setting::get('documents.default_font_size_px', '12');
+        $fontSize = (int) $raw;
+        if ($fontSize < 8 || $fontSize > 72) {
+            return 12;
+        }
+
+        return $fontSize;
+    }
+
+    private function normalizeFontSizePx($value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $fontSize = (int) $value;
+        if ($fontSize < 8 || $fontSize > 72) {
+            return null;
+        }
+
+        return $fontSize;
+    }
+
+    private function resolveDocumentFontSizePx(Document $document): int
+    {
+        $stored = $this->normalizeFontSizePx($document->default_font_size_px);
+        if ($stored !== null) {
+            return $stored;
+        }
+
+        return $this->appDefaultDocumentFontSizePx();
+    }
+
     private function renderPdf(Document $document, string $disposition)
     {
         $document->load(['customer', 'contact', 'creator', 'adminApprover', 'approver', 'salesSigner', 'template']);
@@ -763,6 +808,7 @@ class DocumentController extends Controller
 
         $html = view($view, [
             'document' => $document,
+            'bodyFontSizePx' => $this->resolveDocumentFontSizePx($document),
             'letterheadPath' => $this->letterheadPath(),
             'stampPath' => $this->stampPath(),
             'directorSignaturePath' => $this->directorSignaturePath(),

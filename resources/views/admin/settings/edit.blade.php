@@ -11,6 +11,7 @@
   $stampUrl  = $stampPath ? asset('storage/'.$stampPath) : null;
   $directorSignaturePath = $s['documents.director_signature_path'] ?? null;
   $directorSignatureUrl  = $directorSignaturePath ? asset('storage/'.$directorSignaturePath) : null;
+  $documentsDefaultFontSizePx = (int) ($s['documents.default_font_size_px'] ?? 12);
 
   $encSaved = $s['mail.encryption'] ?? '';
   $encView  = $encSaved === '' ? 'null' : $encSaved;
@@ -103,6 +104,18 @@
               <span class="text-muted small">Signature saat ini</span>
             </div>
           @endif
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Document Default Font Size (px)</label>
+          <input type="number"
+                 min="8"
+                 max="72"
+                 name="documents_default_font_size_px"
+                 class="form-control"
+                 value="{{ old('documents_default_font_size_px', $documentsDefaultFontSizePx) }}">
+          @error('documents_default_font_size_px')<div class="text-danger small">{{ $message }}</div>@enderror
+          <div class="form-hint">Rentang 8-72 px.</div>
         </div>
 
         <div class="col-12">
