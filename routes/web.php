@@ -53,6 +53,7 @@ use App\Http\Controllers\LeadDiscovery\Admin\GridCellController as LeadDiscovery
 use App\Http\Controllers\LeadDiscovery\Admin\KeywordController as LeadDiscoveryKeywordController;
 use App\Http\Controllers\LeadDiscovery\Admin\ScanController as LeadDiscoveryScanController;
 use App\Http\Controllers\LeadDiscovery\ProspectController as LeadDiscoveryProspectController;
+use App\Http\Controllers\LeadDiscovery\QueueController as LeadDiscoveryQueueController;
 use Illuminate\Support\Facades\Auth;
 
 // Root -> arahkan ke dashboard/login
@@ -110,6 +111,8 @@ Route::middleware(['auth'])->group(function () {
     // Lead Discovery (CRM)
     Route::get('/lead-discovery/prospects', [LeadDiscoveryProspectController::class, 'index'])
         ->name('lead-discovery.prospects.index');
+    Route::get('/lead-discovery/queue', [LeadDiscoveryQueueController::class, 'index'])
+        ->name('lead-discovery.queue.index');
     Route::get('/lead-discovery/prospects/{prospect}', [LeadDiscoveryProspectController::class, 'show'])
         ->name('lead-discovery.prospects.show');
     Route::post('/lead-discovery/prospects/{prospect}/assign', [LeadDiscoveryProspectController::class, 'assign'])

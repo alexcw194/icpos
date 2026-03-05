@@ -3,6 +3,7 @@
 
   $hasCustomers = Route::has('customers.index');
   $hasLeadDiscovery = Route::has('lead-discovery.prospects.index');
+  $hasLeadQueue = Route::has('lead-discovery.queue.index');
   $hasItems = Route::has('items.index');
   $hasProjects = Route::has('projects.index');
   $financeOnly = auth()->user()?->isFinanceOnly() ?? false;
@@ -87,7 +88,7 @@
             </a>
           </li>
 
-          @if($hasCustomers || $hasLeadDiscovery)
+          @if($hasCustomers || $hasLeadDiscovery || $hasLeadQueue)
             <li class="nav-item nav-group js-sidebar-group" data-group-key="crm" data-group-active="{{ $isCrmActive ? '1' : '0' }}">
               <a class="nav-link nav-group-toggle {{ $isCrmActive ? 'active' : '' }}"
                  data-bs-toggle="collapse" href="#sidebar-group-crm" role="button"
@@ -106,8 +107,15 @@
                 @endif
                 @if($hasLeadDiscovery)
                   <li>
-                    <a class="nav-link {{ request()->is('lead-discovery*') ? 'active' : '' }}" href="{{ route('lead-discovery.prospects.index') }}">
+                    <a class="nav-link {{ request()->routeIs('lead-discovery.prospects.*') ? 'active' : '' }}" href="{{ route('lead-discovery.prospects.index') }}">
                       Lead Discovery
+                    </a>
+                  </li>
+                @endif
+                @if($hasLeadQueue)
+                  <li>
+                    <a class="nav-link {{ request()->routeIs('lead-discovery.queue.index') ? 'active' : '' }}" href="{{ route('lead-discovery.queue.index') }}">
+                      Lead Queue
                     </a>
                   </li>
                 @endif
