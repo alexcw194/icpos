@@ -35,6 +35,8 @@
   $recipientContactName = trim((string) data_get($document->contact_snapshot, 'name', ''));
   $recipientContactPosition = trim((string) data_get($document->contact_snapshot, 'position', ''));
   $hasRecipientContact = $recipientContactName !== '';
+  $hasSignatureVisual = (bool) $document->approved_at;
+  $signatureSpaceHeightPx = $hasSignatureVisual ? 92 : 30;
 @endphp
 <!doctype html>
 <html lang="en">
@@ -109,7 +111,7 @@
       font-size: 12.5px;
     }
     .body {
-      margin-bottom: 20px;
+      margin-bottom: 12px;
       font-size: {{ (int) ($bodyFontSizePx ?? 12) }}px;
     }
     .body > :first-child {
@@ -161,14 +163,14 @@
       justify-content: space-between;
       align-items: flex-end;
       gap: 16px;
-      margin-top: 6px;
+      margin-top: 2px;
       page-break-inside: avoid;
     }
     .signature-block {
       width: 65%;
     }
     .signature-space {
-      height: 110px;
+      height: {{ $signatureSpaceHeightPx }}px;
       position: relative;
     }
     .signature-space img {
