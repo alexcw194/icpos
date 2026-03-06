@@ -120,6 +120,24 @@
     .body > :last-child {
       margin-bottom: 0;
     }
+    .body p {
+      margin-top: 0 !important;
+      margin-bottom: 8px !important;
+    }
+    .body ul,
+    .body ol {
+      margin-top: 0 !important;
+      margin-bottom: 10px !important;
+      padding-left: 20px;
+    }
+    .body li {
+      margin-top: 0 !important;
+      margin-bottom: 4px !important;
+    }
+    .body div {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
     .body p:empty {
       display: none;
     }
