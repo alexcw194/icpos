@@ -124,6 +124,20 @@
       margin-top: 0 !important;
       margin-bottom: 8px !important;
     }
+    .body div,
+    .body p,
+    .body figure,
+    .body table,
+    .body thead,
+    .body tbody,
+    .body tr,
+    .body td,
+    .body th {
+      height: auto !important;
+      min-height: 0 !important;
+      page-break-before: auto !important;
+      page-break-after: auto !important;
+    }
     .body ul,
     .body ol {
       margin-top: 0 !important;
