@@ -5,7 +5,13 @@
 <style>
   .document-body { font-size: {{ (int) ($documentFontSizePx ?? 12) }}px; }
   .document-body img { max-width: 100%; height: auto; }
-  .document-body table { width: 100%; border-collapse: collapse; }
+  .document-body table {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    max-width: 100% !important;
+    border-collapse: collapse;
+  }
   .document-body td,
   .document-body th { border: 1px solid #d1d5db; padding: 4px 6px; }
   .document-body figure { margin: 0 0 12px; }

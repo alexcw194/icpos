@@ -124,7 +124,10 @@
       page-break-inside: avoid;
     }
     .body table {
-      width: 100%;
+      width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      max-width: 100% !important;
       border-collapse: collapse;
       margin: 0 0 12px;
       page-break-inside: avoid;

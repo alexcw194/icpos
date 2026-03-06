@@ -348,7 +348,7 @@
       return fallbackFontSizePx;
     };
 
-    const baseContentStyle = () => `body{font-size:${resolveFontSizePx()}px;} img{max-width:100%;height:auto;} table{width:100%;border-collapse:collapse;} table td,table th{border:1px solid #d1d5db;padding:4px 6px;}`;
+    const baseContentStyle = () => `body{font-size:${resolveFontSizePx()}px;} img{max-width:100%;height:auto;} table{width:100% !important;border-collapse:collapse;max-width:100% !important;} table td,table th{border:1px solid #d1d5db;padding:4px 6px;}`;
 
     const buildUploadUrl = () => {
       const params = new URLSearchParams();
