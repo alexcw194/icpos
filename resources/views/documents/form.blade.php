@@ -302,7 +302,7 @@
                    name="default_font_size_px"
                    class="form-control"
                    value="{{ old('default_font_size_px', $document->default_font_size_px ?? $defaultFontSizePx ?? 12) }}">
-            <div class="form-hint">Ukuran dasar untuk seluruh body dokumen. Format per-seleksi tetap bisa override.</div>
+            <div class="form-hint">Saat diubah, ukuran ini diterapkan ke seluruh isi body. Setelah itu Anda tetap bisa override sebagian teks.</div>
             @error('default_font_size_px')<div class="text-danger small">{{ $message }}</div>@enderror
           </div>
         </div>
@@ -397,8 +397,27 @@
       editor.getBody().style.fontSize = `${resolveFontSizePx()}px`;
     }
 
+    function applyDefaultFontSizeToAllContent() {
+      const editor = tinymce.get('doc-editor');
+      if (!editor || !editor.getBody()) return;
+
+      const fontSizePx = resolveFontSizePx();
+      editor.undoManager.transact(() => {
+        const nodesWithFontSize = editor.getBody().querySelectorAll('[style*="font-size"]');
+        nodesWithFontSize.forEach((node) => {
+          node.style.removeProperty('font-size');
+          const styleAttr = node.getAttribute('style');
+          if (!styleAttr || styleAttr.trim() === '') {
+            node.removeAttribute('style');
+          }
+        });
+
+        editor.getBody().style.fontSize = `${fontSizePx}px`;
+      });
+    }
+
     defaultFontSizeInput?.addEventListener('input', applyEditorBaseFontSize);
-    defaultFontSizeInput?.addEventListener('change', applyEditorBaseFontSize);
+    defaultFontSizeInput?.addEventListener('change', applyDefaultFontSizeToAllContent);
 
     form?.addEventListener('submit', () => {
       tinymce.triggerSave();
