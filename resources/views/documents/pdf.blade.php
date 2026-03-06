@@ -135,12 +135,19 @@
       max-width: 100% !important;
       border-collapse: collapse;
       margin: 0 0 12px;
+      page-break-inside: auto;
+    }
+    .body thead { display: table-header-group; }
+    .body tfoot { display: table-row-group; }
+    .body tr {
       page-break-inside: avoid;
+      page-break-after: auto;
     }
     .body td,
     .body th {
       border: 1px solid #d1d5db;
       padding: 4px 6px;
+      vertical-align: top;
     }
     .body figure {
       margin: 0 0 12px;
