@@ -140,7 +140,7 @@
           <div class="row g-2 align-items-center stage-row">
             {{-- Row 1: Nama Item --}}
             <div class="col-12 stage-r1">
-              <input id="stage_name" type="text" class="form-control fw-semibold" placeholder="Ketik nama/SKU lalu pilih…">
+              <input id="stage_name" type="text" class="form-control fw-semibold" placeholder="Ketik nama item lalu pilih…">
               <input id="stage_item_id" type="hidden">
               <input id="stage_item_variant_id" type="hidden">
             </div>
@@ -861,20 +861,18 @@
       render:{
         option(d,esc){
           const name = esc(d.name || '');
-          const sku = d.sku ? `<div class="small text-muted">${esc(d.sku)}</div>` : '';
           const priceVal = Number(d.price ?? 0);
           const stockVal = Number(d.stock ?? 0);
           const priceText = `Rp ${priceFmt.format(Number.isFinite(priceVal) ? priceVal : 0)}`;
           const stockText = stockFmt.format(Number.isFinite(stockVal) ? stockVal : 0);
 
-          return `<div class="d-flex justify-content-between align-items-start gap-2">
-            <div class="min-w-0">
-              <div class="text-truncate">${name}</div>
-              ${sku}
+          return `<div class="d-flex align-items-center w-100 gap-2">
+            <div class="text-truncate flex-grow-1">${name}</div>
+            <div class="text-end text-nowrap" style="min-width: 180px;">
+              <span class="fw-semibold">${esc(priceText)}</span>
             </div>
-            <div class="text-end small text-nowrap">
-              <div>Harga: <span class="fw-semibold">${esc(priceText)}</span></div>
-              <div>Stok: <span class="fw-semibold">${esc(stockText)}</span></div>
+            <div class="text-end text-nowrap" style="min-width: 110px;">
+              <span class="fw-semibold">${esc(stockText)}</span>
             </div>
           </div>`;
         }
