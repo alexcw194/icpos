@@ -28,6 +28,9 @@ class DeliveryController extends Controller
     public function index(Request $request)
     {
         $this->authorizePermission('deliveries.view');
+        $status = $request->has('status')
+            ? $request->string('status')->toString()
+            : Delivery::STATUS_POSTED;
 
         $query = Delivery::query()
             ->with(['customer:id,name', 'warehouse:id,name', 'company:id,name,alias'])
@@ -40,7 +43,7 @@ class DeliveryController extends Controller
         if ($warehouseId = $request->integer('warehouse_id')) {
             $query->where('warehouse_id', $warehouseId);
         }
-        if ($status = $request->string('status')->toString()) {
+        if ($status !== '') {
             $query->status($status);
         }
         if ($number = trim((string) $request->input('number'))) {
@@ -66,13 +69,18 @@ class DeliveryController extends Controller
             Delivery::STATUS_CANCELLED,
         ];
 
+        $filters = $request->only([
+            'customer_id', 'warehouse_id', 'status', 'number', 'reference', 'date_from', 'date_to',
+        ]);
+        if (!$request->has('status')) {
+            $filters['status'] = Delivery::STATUS_POSTED;
+        }
+
         return view('deliveries.index', compact(
             'deliveries', 'customers', 'warehouses', 'statuses'
         ))
         ->with([
-            'filters' => $request->only([
-                'customer_id', 'warehouse_id', 'status', 'number', 'reference', 'date_from', 'date_to',
-            ]),
+            'filters' => $filters,
         ]);
     }
 
