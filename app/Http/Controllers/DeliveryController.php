@@ -28,9 +28,15 @@ class DeliveryController extends Controller
     public function index(Request $request)
     {
         $this->authorizePermission('deliveries.view');
-        $status = $request->has('status')
-            ? $request->string('status')->toString()
-            : Delivery::STATUS_POSTED;
+        $status = strtolower(trim((string) $request->input('status', Delivery::STATUS_POSTED)));
+        $allowedStatuses = [
+            Delivery::STATUS_DRAFT,
+            Delivery::STATUS_POSTED,
+            Delivery::STATUS_CANCELLED,
+        ];
+        if ($status !== '' && !in_array($status, $allowedStatuses, true)) {
+            $status = '';
+        }
 
         $query = Delivery::query()
             ->with(['customer:id,name', 'warehouse:id,name', 'company:id,name,alias'])
@@ -52,10 +58,10 @@ class DeliveryController extends Controller
         if ($reference = trim((string) $request->input('reference'))) {
             $query->where('reference', 'like', "%{$reference}%");
         }
-        if ($from = $request->date('date_from')) {
+        if ($from = $this->parseDateFilter($request->input('date_from'))) {
             $query->whereDate('date', '>=', $from);
         }
-        if ($to = $request->date('date_to')) {
+        if ($to = $this->parseDateFilter($request->input('date_to'))) {
             $query->whereDate('date', '<=', $to);
         }
 
@@ -72,9 +78,7 @@ class DeliveryController extends Controller
         $filters = $request->only([
             'customer_id', 'warehouse_id', 'status', 'number', 'reference', 'date_from', 'date_to',
         ]);
-        if (!$request->has('status')) {
-            $filters['status'] = Delivery::STATUS_POSTED;
-        }
+        $filters['status'] = $status;
 
         return view('deliveries.index', compact(
             'deliveries', 'customers', 'warehouses', 'statuses'
@@ -82,6 +86,20 @@ class DeliveryController extends Controller
         ->with([
             'filters' => $filters,
         ]);
+    }
+
+    private function parseDateFilter($value): ?string
+    {
+        $raw = trim((string) ($value ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($raw)->toDateString();
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     public function create(Request $request)
