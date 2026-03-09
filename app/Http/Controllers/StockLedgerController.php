@@ -6,15 +6,11 @@ use Illuminate\Http\Request;
 use App\Models\StockLedger;
 use App\Models\Warehouse;
 use App\Models\Item;
-use Illuminate\Support\Facades\Schema;
 
 class StockLedgerController extends Controller
 {
     public function index(Request $request)
     {
-        $companyId = (int) ($request->input('company_id') ?: (auth()->user()?->company_id ?? 0));
-        $hasLedgerCompanyScope = $companyId > 0 && Schema::hasColumn('stock_ledgers', 'company_id');
-
         $query = StockLedger::with([
             'warehouse',
             'item' => fn ($q) => $q->withCount('variants'),
@@ -22,10 +18,6 @@ class StockLedgerController extends Controller
             'createdBy',
         ])
             ->orderByDesc('created_at');
-
-        if ($hasLedgerCompanyScope) {
-            $query->where('company_id', $companyId);
-        }
 
         if ($request->filled('warehouse_id')) {
             $query->where('warehouse_id', $request->warehouse_id);
@@ -45,17 +37,9 @@ class StockLedgerController extends Controller
 
         $ledgers = $query->paginate(50);
         $warehouses = Warehouse::query()
-            ->when(
-                $hasLedgerCompanyScope && Schema::hasColumn('warehouses', 'company_id'),
-                fn ($q) => $q->where('company_id', $companyId)
-            )
             ->orderBy('name')
             ->get();
         $items = Item::query()
-            ->when(
-                $companyId > 0 && Schema::hasColumn('items', 'company_id'),
-                fn ($q) => $q->where('company_id', $companyId)
-            )
             ->orderBy('name')
             ->limit(200)
             ->get();

@@ -7,15 +7,11 @@ use App\Models\StockSummary;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class StockSummaryController extends Controller
 {
     public function index(Request $request)
     {
-        $companyId = (int) ($request->input('company_id') ?: (auth()->user()?->company_id ?? 0));
-        $hasCompanyScope = $companyId > 0 && Schema::hasColumn('stock_summaries', 'company_id');
-
         $query = StockSummary::query()
             ->from('stock_summaries as ss')
             ->leftJoin('warehouses as w', 'w.id', '=', 'ss.warehouse_id')
@@ -49,20 +45,12 @@ class StockSummaryController extends Controller
             ->orderBy('ss.item_id')
             ->orderBy('ss.variant_id');
 
-        if ($hasCompanyScope) {
-            $query->where('ss.company_id', $companyId);
-        }
-
         if ($request->filled('warehouse_id')) {
             $query->where('ss.warehouse_id', $request->warehouse_id);
         }
 
         $summaries = $query->paginate(50);
         $warehouses = Warehouse::query()
-            ->when(
-                $hasCompanyScope && Schema::hasColumn('warehouses', 'company_id'),
-                fn ($q) => $q->where('company_id', $companyId)
-            )
             ->orderBy('name')
             ->get();
         $variantIds = $summaries->getCollection()
