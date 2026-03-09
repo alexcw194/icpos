@@ -529,6 +529,28 @@ class ItemController extends Controller
                 'variant_type','name_template','last_cost','last_cost_at','default_cost'
             ]);
 
+        $itemIds = $items->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $stockRows = collect();
+        if (!empty($itemIds)) {
+            $stockRows = DB::table('stock_summaries')
+                ->select('item_id', 'variant_id', DB::raw('SUM(qty_balance) as qty_balance'))
+                ->whereIn('item_id', $itemIds)
+                ->groupBy('item_id', 'variant_id')
+                ->get();
+        }
+
+        $itemBaseStock = [];
+        $variantStock = [];
+        foreach ($stockRows as $row) {
+            $itemId = (int) ($row->item_id ?? 0);
+            $qty = (float) ($row->qty_balance ?? 0);
+            if ($row->variant_id === null) {
+                $itemBaseStock[$itemId] = $qty;
+                continue;
+            }
+            $variantStock[(int) $row->variant_id] = $qty;
+        }
+
         $fmt = fn($n) => number_format((float)$n, 2, ',', '.');
 
         $out = [];
@@ -561,6 +583,7 @@ class ItemController extends Controller
                     ? \Illuminate\Support\Carbon::parse($it->last_cost_at)->format('d/m/Y')
                     : null;
                 $labelPrice = $usePurchasePrice ? ($purchasePrice ?? 0) : $price;
+                $stock = (float) ($itemBaseStock[(int) $it->id] ?? 0);
 
                 $out[] = [
                     'uid'        => 'item-'.$it->id,
@@ -574,6 +597,8 @@ class ItemController extends Controller
                     'purchase_price' => $purchasePrice,
                     'purchase_price_source' => $purchaseSource,
                     'purchase_price_date' => $purchaseDate,
+                    'stock'      => $stock,
+                    'stock_label'=> number_format($stock, 2, ',', '.'),
                     'unit_code'  => $unitCode,
                     'description'=> (string) $it->description,
                     'attributes' => null,
@@ -617,6 +642,7 @@ class ItemController extends Controller
                     }
                 }
                 $labelPrice = $usePurchasePrice ? ($purchasePrice ?? 0) : $price;
+                $stock = (float) ($variantStock[(int) $v->id] ?? 0);
 
                 $out[] = [
                     'uid'        => 'variant-'.$v->id,
@@ -630,6 +656,8 @@ class ItemController extends Controller
                     'purchase_price' => $purchasePrice,
                     'purchase_price_source' => $purchaseSource,
                     'purchase_price_date' => $purchaseDate,
+                    'stock'      => $stock,
+                    'stock_label'=> number_format($stock, 2, ',', '.'),
                     'unit_code'  => $unitCode,
                     'description'=> (string) $it->description,
                     'attributes' => $attrs,

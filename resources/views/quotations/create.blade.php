@@ -776,6 +776,8 @@
   (function initItemTS(){
     const ITEM_SEARCH_URL = {!! json_encode(route('items.search', [], false), JSON_UNESCAPED_SLASHES) !!};
     if (!stageName || !window.TomSelect) return;
+    const priceFmt = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const stockFmt = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     const ts = new TomSelect(stageName, {
       valueField:'uid', labelField:'name', searchField:['name','sku'],
@@ -805,7 +807,27 @@
             cb([]);
           });
       },
-      render:{ option(d,esc){ return `<div>${esc(d.name||'')}</div>`; } },
+      render:{
+        option(d,esc){
+          const name = esc(d.name || '');
+          const sku = d.sku ? `<div class="small text-muted">${esc(d.sku)}</div>` : '';
+          const priceVal = Number(d.price ?? 0);
+          const stockVal = Number(d.stock ?? 0);
+          const priceText = `Rp ${priceFmt.format(Number.isFinite(priceVal) ? priceVal : 0)}`;
+          const stockText = stockFmt.format(Number.isFinite(stockVal) ? stockVal : 0);
+
+          return `<div class="d-flex justify-content-between align-items-start gap-2">
+            <div class="min-w-0">
+              <div class="text-truncate">${name}</div>
+              ${sku}
+            </div>
+            <div class="text-end small text-nowrap">
+              <div>Harga: <span class="fw-semibold">${esc(priceText)}</span></div>
+              <div>Stok: <span class="fw-semibold">${esc(stockText)}</span></div>
+            </div>
+          </div>`;
+        }
+      },
       onChange(val){
         const o = this.options[val];
         if (!o) return;
