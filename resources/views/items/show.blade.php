@@ -155,7 +155,7 @@
         <div class="col-6 col-md-4">
           <div class="metric-box">
             <div class="metric-k">Stok</div>
-            <div class="metric-v">{{ $item->stock }}</div>
+            <div class="metric-v">{{ number_format((float) ($stockTotal ?? 0), 2, ',', '.') }}</div>
           </div>
         </div>
 
@@ -311,18 +311,10 @@
   $__warehouses = \App\Models\Warehouse::orderBy('name')->get(['id','name']);
   $__warehouse  = $__warehouses->first();
   $__variantId  = $currentVariant->id ?? null;
-
-  $__onhand = 0.0;
-  if ($__company && $__warehouse) {
-    $__onhand = \App\Models\ItemStock::query()
-      ->where('company_id', $__company->id)
-      ->where('warehouse_id', $__warehouse->id)
-      ->where('item_id', $item->id)
-      ->when($__variantId,
-        fn($q) => $q->where('item_variant_id', $__variantId),
-        fn($q) => $q->whereNull('item_variant_id'))
-      ->value('qty_on_hand') ?? 0;
-  }
+  $__stockByWarehouse = collect($stockByWarehouse ?? [])->mapWithKeys(
+    fn ($qty, $warehouseId) => [(int) $warehouseId => (float) $qty]
+  );
+  $__onhand = $__warehouse ? (float) ($__stockByWarehouse[(int) $__warehouse->id] ?? 0) : 0.0;
 @endphp
 
 <div class="modal fade" id="modalAdjust" tabindex="-1" aria-hidden="true">
@@ -393,11 +385,21 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-  let awal    = parseFloat((document.getElementById('stockAwal').value || '0').replace(/,/g,'')) || 0;
+  const warehouseBalances = @json($stockByWarehouse ?? []);
+  const stockAwalEl = document.getElementById('stockAwal');
+  let awal    = parseFloat((stockAwalEl.value || '0').replace(/,/g,'')) || 0;
   const tipeEl= document.getElementById('adjType');
   const qtyEl = document.getElementById('adjQty');
   const akhir = document.getElementById('stockAkhir');
   const whEl  = document.getElementById('warehouseId');
+
+  function resolveOpeningStock() {
+    if (!whEl) return 0;
+    const key = String(whEl.value || '');
+    const raw = Object.prototype.hasOwnProperty.call(warehouseBalances, key) ? warehouseBalances[key] : 0;
+    const parsed = parseFloat(raw);
+    return isFinite(parsed) ? parsed : 0;
+  }
 
   function recalc(){
     const t = tipeEl.value;
@@ -406,8 +408,16 @@ document.addEventListener('DOMContentLoaded', function(){
     akhir.value = (isFinite(val) ? val : 0).toFixed(2);
   }
 
+  function syncOpeningStock() {
+    awal = resolveOpeningStock();
+    stockAwalEl.value = awal.toFixed(2);
+    recalc();
+  }
+
   tipeEl.addEventListener('change', recalc);
   qtyEl.addEventListener('input', recalc);
+  whEl && whEl.addEventListener('change', syncOpeningStock);
+  syncOpeningStock();
 });
 </script>
 @endif

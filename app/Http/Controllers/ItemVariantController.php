@@ -7,6 +7,7 @@ use App\Models\ItemVariant;
 use App\Models\Size;
 use App\Models\Color;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Schema;
 
@@ -15,6 +16,22 @@ class ItemVariantController extends Controller
     public function index(Item $item)
     {
         $item->load(['variants' => fn($q) => $q->with('item')]);
+
+        $variantIds = $item->variants->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $variantStocks = collect();
+        if (!empty($variantIds)) {
+            $variantStocks = DB::table('stock_summaries as ss')
+                ->selectRaw('ss.variant_id, SUM(ss.qty_balance) as qty_balance')
+                ->whereIn('ss.variant_id', $variantIds)
+                ->groupBy('ss.variant_id')
+                ->pluck('qty_balance', 'variant_id');
+        }
+
+        $item->setRelation('variants', $item->variants->map(function ($variant) use ($variantStocks) {
+            $variant->computed_stock = (float) ($variantStocks[$variant->id] ?? 0);
+            return $variant;
+        }));
+
         return view('items.variants.index', compact('item'));
     }
 

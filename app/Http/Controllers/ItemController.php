@@ -310,8 +310,32 @@ class ItemController extends Controller
     public function show(Item $item)
     {
         $this->abortIfWrongListType(request(), $item);
-        $item->load(['unit','brand','size','color','parent']);
-        return view('items.show', compact('item'));
+        $item->load(['unit','brand','size','color','parent','variants:id,item_id,is_active']);
+
+        $activeVariantIds = $item->variants
+            ->filter(fn ($variant) => $variant->is_active === null || (bool) $variant->is_active)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        $summaryScope = DB::table('stock_summaries as ss')
+            ->where('ss.item_id', (int) $item->id);
+
+        if ($activeVariantIds->isNotEmpty()) {
+            $summaryScope->whereIn('ss.variant_id', $activeVariantIds->all());
+        } else {
+            $summaryScope->whereNull('ss.variant_id');
+        }
+
+        $stockTotal = (float) (clone $summaryScope)->sum('ss.qty_balance');
+        $stockByWarehouse = (clone $summaryScope)
+            ->select('ss.warehouse_id', DB::raw('SUM(ss.qty_balance) as qty_balance'))
+            ->groupBy('ss.warehouse_id')
+            ->pluck('qty_balance', 'warehouse_id')
+            ->map(fn ($qty) => (float) $qty)
+            ->all();
+
+        return view('items.show', compact('item', 'stockTotal', 'stockByWarehouse'));
     }
 
     public function edit(Request $request, Item $item)

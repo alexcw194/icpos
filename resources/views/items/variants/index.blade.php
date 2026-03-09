@@ -30,7 +30,7 @@
               <td>{{ $v->sku ?? '-' }}</td>
               <td>{{ $v->label }}</td>
               <td>Rp {{ $v->priceId }}</td>
-              <td>{{ $v->stock }}</td>
+              <td>{{ number_format((float) ($v->computed_stock ?? 0), 2, ',', '.') }}</td>
               <td>
                 @if($v->is_active)
                   <span class="badge bg-success">Yes</span>
