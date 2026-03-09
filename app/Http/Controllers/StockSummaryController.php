@@ -18,7 +18,6 @@ class StockSummaryController extends Controller
             ->leftJoin('items as i', 'i.id', '=', 'ss.item_id')
             ->leftJoin('item_variants as v', 'v.id', '=', 'ss.variant_id')
             ->select([
-                'ss.company_id',
                 'ss.warehouse_id',
                 'ss.item_id',
                 'ss.variant_id',
@@ -32,7 +31,6 @@ class StockSummaryController extends Controller
                 DB::raw('MAX(ss.updated_at) as updated_at'),
             ])
             ->groupBy(
-                'ss.company_id',
                 'ss.warehouse_id',
                 'ss.item_id',
                 'ss.variant_id',
