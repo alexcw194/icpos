@@ -399,6 +399,7 @@
                       <tr>
                         <th>#</th>
                         <th>Item</th>
+                        <th>PO Item Name</th>
                         <th>Desc</th>
                         <th class="text-end">Qty</th>
                         <th>Unit</th>
@@ -412,6 +413,7 @@
                         <tr>
                           <td>{{ $i+1 }}</td>
                           <td>{{ $ln->name }}</td>
+                          <td>{{ $ln->po_item_name ?: '-' }}</td>
                           <td>{{ $ln->description }}</td>
                           <td class="text-end">{{ number_format($ln->qty_ordered,0) }}</td>
                           <td>{{ $ln->unit }}</td>
