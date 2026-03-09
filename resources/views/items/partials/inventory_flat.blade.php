@@ -70,7 +70,11 @@
           <td class="col-name">
             <div class="d-flex align-items-center gap-2">
               <div class="fw-semibold inventory-name">
-                {{ $row['display_name'] ?? '-' }}
+                @if($isVariant && $variantView)
+                  <a href="{{ $variantView }}">{{ $row['display_name'] ?? '-' }}</a>
+                @else
+                  <a href="{{ $itemView }}">{{ $row['display_name'] ?? '-' }}</a>
+                @endif
                 @if($isVariant)
                   <span class="badge bg-primary-subtle text-primary ms-1">V</span>
                 @endif
@@ -103,7 +107,7 @@
             <div class="inv-actions">
               @if($isVariant)
                 @include('layouts.partials.crud_actions', [
-                  'view'   => $variantView,
+                  'view'   => null,
                   'edit'   => $canManageItems ? $variantEdit : null,
                   'delete' => null, // enterprise safety: no delete in list
                   'size'   => 'sm',
@@ -115,7 +119,7 @@
                 </a>
               @else
                 @include('layouts.partials.crud_actions', [
-                  'view'   => $itemView,
+                  'view'   => null,
                   'edit'   => $canManageItems ? $itemEdit : null,
                   'delete' => null, // enterprise safety: no delete in list
                   'size'   => 'sm',
@@ -192,7 +196,11 @@
 
             {{-- Row 2: Name (primary) --}}
             <div class="fw-semibold mt-1">
-              {{ $row['display_name'] ?? '-' }}
+              @if($isVariant && $variantView)
+                <a href="{{ $variantView }}">{{ $row['display_name'] ?? '-' }}</a>
+              @else
+                <a href="{{ $itemView }}">{{ $row['display_name'] ?? '-' }}</a>
+              @endif
             </div>
 
             {{-- Row 3: Decision info --}}
@@ -233,7 +241,7 @@
             <div class="btn-list flex-column">
               @if($isVariant)
                 @include('layouts.partials.crud_actions', [
-                  'view'   => $variantView,
+                  'view'   => null,
                   'edit'   => $canManageItems ? $variantEdit : null,
                   'delete' => null, // enterprise safety: no delete in list
                   'size'   => 'sm',
@@ -245,7 +253,7 @@
                 </a>
               @else
                 @include('layouts.partials.crud_actions', [
-                  'view'   => $itemView,
+                  'view'   => null,
                   'edit'   => $canManageItems ? $itemEdit : null,
                   'delete' => null, // enterprise safety: no delete in list
                   'size'   => 'sm',

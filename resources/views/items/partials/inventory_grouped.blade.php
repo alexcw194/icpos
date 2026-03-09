@@ -45,7 +45,9 @@
             <div class="d-flex align-items-center gap-2">
               <span class="badge {{ $badgeClass }} align-self-start">{{ $badgeText }}</span>
               <div>
-                <div class="fw-semibold">{{ $item->name }}</div>
+                <div class="fw-semibold">
+                  <a href="{{ route($itemShowRoute, $item) }}">{{ $item->name }}</a>
+                </div>
                 <div class="text-muted small mt-1">SKU: {{ $item->sku ?: '-' }} • {{ optional($item->brand)->name ?: '-' }} • {{ optional($item->unit)->code ?: optional($item->unit)->name ?: '-' }}</div>
                 <div class="text-muted small d-flex flex-wrap gap-2 mt-1">
                   @if($sizeSummary)
@@ -66,7 +68,7 @@
             <div class="row-actions d-inline-flex align-items-center gap-2">
               {{-- Enterprise safety: NO delete in list --}}
               @include('layouts.partials.crud_actions', [
-                'view' => route($itemShowRoute, $item),
+                'view' => null,
                 'edit' => $canManageItems ? route($itemEditRoute, $item) : null,
                 'delete' => null,
                 'size' => 'sm',
@@ -151,7 +153,9 @@
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start">
           <div>
-            <div class="fw-semibold">{{ $item->name }}</div>
+            <div class="fw-semibold">
+              <a href="{{ route($itemShowRoute, $item) }}">{{ $item->name }}</a>
+            </div>
             <div class="text-muted small mt-1">SKU: {{ $item->sku ?: '-' }} • {{ optional($item->brand)->name ?: '-' }} • {{ optional($item->unit)->code ?: optional($item->unit)->name ?: '-' }}</div>
             <div class="text-muted small mt-1">{{ $row['price_label'] }} • Stok {{ $row['stock_label'] }}</div>
           </div>
@@ -181,7 +185,7 @@
         <div class="row-actions mt-3 d-flex align-items-center gap-2">
           {{-- Enterprise safety: NO delete in list --}}
           @include('layouts.partials.crud_actions', [
-            'view' => route($itemShowRoute, $item),
+            'view' => null,
             'edit' => $canManageItems ? route($itemEditRoute, $item) : null,
             'delete' => null,
             'size' => 'sm',
