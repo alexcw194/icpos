@@ -24,6 +24,8 @@
         $selectedWarehouseId = old('warehouse_id', $selectedWarehouseId ?? request('warehouse_id'));
         $selectedDate = old('adjustment_date', now()->toDateString());
         $selectedCompanyId = old('company_id', $companyId ?? auth()->user()->company_id);
+        $singleWarehouse = ($warehouses ?? collect())->count() === 1;
+        $defaultWarehouse = $singleWarehouse ? $warehouses->first() : null;
       @endphp
 
       <div class="mb-3">
@@ -37,14 +39,19 @@
 
       <div class="mb-3">
         <label class="form-label">Warehouse</label>
-        <select name="warehouse_id" class="form-select" id="adjustWarehouseSelect" required>
-          <option value="">Pilih warehouse</option>
-          @foreach($warehouses as $w)
-            <option value="{{ $w->id }}" @selected((string)$selectedWarehouseId === (string)$w->id)>
-              {{ $w->name }}
-            </option>
-          @endforeach
-        </select>
+        @if($singleWarehouse && $defaultWarehouse)
+          <input type="hidden" name="warehouse_id" id="adjustWarehouseSelect" value="{{ $defaultWarehouse->id }}">
+          <input type="text" class="form-control" value="{{ $defaultWarehouse->name }}" readonly>
+        @else
+          <select name="warehouse_id" class="form-select" id="adjustWarehouseSelect" required>
+            <option value="">Pilih warehouse</option>
+            @foreach($warehouses as $w)
+              <option value="{{ $w->id }}" @selected((string)$selectedWarehouseId === (string)$w->id)>
+                {{ $w->name }}
+              </option>
+            @endforeach
+          </select>
+        @endif
       </div>
 
       <div class="mb-3">
