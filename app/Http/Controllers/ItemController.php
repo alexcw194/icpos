@@ -50,18 +50,6 @@ class ItemController extends Controller
             });
         }
 
-        if ($filters['stock'] === 'gt0') {
-            $itemsQuery->where(function ($query) {
-                $query->where('stock', '>', 0)
-                      ->orWhereHas('variants', fn($v) => $v->where('stock', '>', 0));
-            });
-        } elseif ($filters['stock'] === 'eq0') {
-            $itemsQuery->where(function ($query) {
-                $query->where('stock', '=', 0)
-                      ->whereDoesntHave('variants', fn($v) => $v->where('stock', '>', 0));
-            });
-        }
-
         $items = $itemsQuery
             ->ordered()
             ->paginate(20)
@@ -72,9 +60,33 @@ class ItemController extends Controller
         $sizesList  = Size::active()->ordered()->pluck('name')->filter()->values();
         $colorsList = Color::active()->ordered()->pluck('name')->filter()->values();
 
-        $items->getCollection()->transform(function ($item) {
-            $item->setRelation('variants', $item->variants->map(function ($variant) {
+        $itemIds = $items->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->values();
+        $stockRows = collect();
+        if ($itemIds->isNotEmpty()) {
+            $stockRows = DB::table('stock_summaries')
+                ->select('item_id', 'variant_id', DB::raw('SUM(qty_balance) as qty_balance'))
+                ->whereIn('item_id', $itemIds->all())
+                ->groupBy('item_id', 'variant_id')
+                ->get();
+        }
+
+        $itemBaseStock = [];
+        $variantStock = [];
+        foreach ($stockRows as $row) {
+            $itemId = (int) $row->item_id;
+            $qty = (float) ($row->qty_balance ?? 0);
+            if ($row->variant_id === null) {
+                $itemBaseStock[$itemId] = $qty;
+                continue;
+            }
+            $variantStock[(int) $row->variant_id] = $qty;
+        }
+
+        $items->getCollection()->transform(function ($item) use ($itemBaseStock, $variantStock) {
+            $item->computed_stock_base = (float) ($itemBaseStock[(int) $item->id] ?? 0);
+            $item->setRelation('variants', $item->variants->map(function ($variant) use ($variantStock) {
                 $variant->computed_attributes = $variant->attributes ?? [];
+                $variant->computed_stock = (float) ($variantStock[(int) $variant->id] ?? 0);
                 return $variant;
             }));
             return $item;

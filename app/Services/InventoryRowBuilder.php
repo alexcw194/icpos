@@ -28,21 +28,22 @@ class InventoryRowBuilder
             $activeVariants = $displayVariants
                 ? $variants->filter(fn ($variant) => $this->isVariantActive($variant))
                 : collect();
-            $totalVariantStock = (int) $activeVariants->sum('stock');
+            $totalVariantStock = (float) $activeVariants->sum(fn ($variant) => $this->resolveVariantStock($variant));
             $minVariantPrice   = $displayVariants ? $activeVariants->min('price') : null;
             $maxVariantPrice   = $displayVariants ? $activeVariants->max('price') : null;
 
             $itemPriceValue = $minVariantPrice ?? $item->price;
-            $itemStockValue = $displayVariants ? $totalVariantStock : (int) $item->stock;
+            $itemStockValue = $displayVariants ? $totalVariantStock : $this->resolveItemBaseStock($item);
 
             $itemRelevanceScore = $this->computeInventoryRelevance($item, null, $term);
             $itemRelevance[$item->id] = $itemRelevanceScore;
 
             $itemMatchesAttributes = $this->itemMatchesAttributeFilters($item, $filters, $activeVariants);
+            $passesStockFilter = $this->passesStockFilter($itemStockValue, $filters['stock'] ?? 'all');
 
             $shouldHideParent = !$showVariantParent && $displayVariants && $filters['type'] !== 'item';
 
-            if ($filters['type'] !== 'variant' && $itemMatchesAttributes && !$shouldHideParent) {
+            if ($filters['type'] !== 'variant' && $itemMatchesAttributes && $passesStockFilter && !$shouldHideParent) {
                 $rows->push([
                     'entity'        => 'item',
                     'item_id'       => $item->id,
@@ -54,7 +55,7 @@ class InventoryRowBuilder
                     'price'         => (float) ($itemPriceValue ?? 0),
                     'price_label'   => $this->formatPriceRange($minVariantPrice, $maxVariantPrice, $item->price),
                     'stock'         => $itemStockValue,
-                    'stock_label'   => number_format($itemStockValue, 0, ',', '.'),
+                    'stock_label'   => number_format($itemStockValue, 2, ',', '.'),
                     'low_stock'     => ($item->min_stock ?? 0) > 0 && $itemStockValue < $item->min_stock,
                     'inactive'      => false,
                     'attributes'    => [
@@ -80,10 +81,8 @@ class InventoryRowBuilder
                 if (!$this->variantMatchesFilters($variant, $item, $filters, $sizeFilters, $colorFilters, $lengthMin, $lengthMax)) {
                     continue;
                 }
-                if ($filters['stock'] === 'gt0' && (int) $variant->stock <= 0) {
-                    continue;
-                }
-                if ($filters['stock'] === 'eq0' && (int) $variant->stock > 0) {
+                $variantStock = $this->resolveVariantStock($variant);
+                if (!$this->passesStockFilter($variantStock, $filters['stock'] ?? 'all')) {
                     continue;
                 }
 
@@ -102,9 +101,9 @@ class InventoryRowBuilder
                     'sku'           => $variant->sku ?: $item->sku,
                     'price'         => (float) ($variant->price ?? $item->price ?? 0),
                     'price_label'   => 'Rp ' . number_format((float) ($variant->price ?? 0), 2, ',', '.'),
-                    'stock'         => (int) $variant->stock,
-                    'stock_label'   => number_format((int) $variant->stock, 0, ',', '.'),
-                    'low_stock'     => ($variant->min_stock ?? 0) > 0 && $variant->stock < $variant->min_stock,
+                    'stock'         => $variantStock,
+                    'stock_label'   => number_format($variantStock, 2, ',', '.'),
+                    'low_stock'     => ($variant->min_stock ?? 0) > 0 && $variantStock < $variant->min_stock,
                     'inactive'      => !$this->isVariantActive($variant),
                     'attributes'    => [
                         'size'  => $attrs['size'] ?? null,
@@ -160,29 +159,40 @@ class InventoryRowBuilder
 
             if ($filters['type'] === 'variant') {
                 if (!$displayVariants) continue;
-                $matchingVariants = $variants->filter(fn($variant) => $this->variantMatchesFilters($variant, $item, $filters, $sizeFilters, $colorFilters, $lengthMin, $lengthMax));
+                $matchingVariants = $variants->filter(function ($variant) use ($item, $filters, $sizeFilters, $colorFilters, $lengthMin, $lengthMax) {
+                    if (!$this->variantMatchesFilters($variant, $item, $filters, $sizeFilters, $colorFilters, $lengthMin, $lengthMax)) {
+                        return false;
+                    }
+                    return $this->passesStockFilter($this->resolveVariantStock($variant), $filters['stock'] ?? 'all');
+                });
                 if ($matchingVariants->isEmpty()) continue;
             } elseif (!$this->itemMatchesAttributeFilters($item, $filters, $activeVariants)) {
                 continue;
             }
 
-            $totalVariantStock = (int) $activeVariants->sum('stock');
+            $totalVariantStock = (float) $activeVariants->sum(fn ($variant) => $this->resolveVariantStock($variant));
             $minVariantPrice = $displayVariants ? $activeVariants->min('price') : null;
             $maxVariantPrice = $displayVariants ? $activeVariants->max('price') : null;
             $priceLabel = $this->formatPriceRange($minVariantPrice, $maxVariantPrice, $item->price);
+            $itemBaseStock = $this->resolveItemBaseStock($item);
+            $resolvedGroupStock = $activeVariants->isNotEmpty() ? $totalVariantStock : $itemBaseStock;
+            if (!$this->passesStockFilter($resolvedGroupStock, $filters['stock'] ?? 'all')) {
+                continue;
+            }
             $stockLabel = $activeVariants->isNotEmpty()
-                ? number_format($totalVariantStock, 0, ',', '.')
-                : number_format((int) $item->stock, 0, ',', '.');
+                ? number_format($totalVariantStock, 2, ',', '.')
+                : number_format($itemBaseStock, 2, ',', '.');
 
             $chipData = $this->buildAttributeChipData($activeVariants);
 
             $preview = $activeVariants->sortBy('id')->take(5)->map(function ($variant) use ($item) {
                 $attrs = $variant->attributes ?? [];
+                $variantStock = $this->resolveVariantStock($variant);
                 return [
                     'label'  => $item->renderVariantDisplayName(is_array($attrs) ? $attrs : [], $variant->sku),
                     'sku'    => $variant->sku ?: $item->sku,
                     'price'  => number_format((float) ($variant->price ?? 0), 2, ',', '.'),
-                    'stock'  => (int) $variant->stock,
+                    'stock'  => number_format($variantStock, 2, ',', '.'),
                     'active' => (bool) $variant->is_active,
                 ];
             });
@@ -332,6 +342,36 @@ class InventoryRowBuilder
 
         $flag = $variant->is_active ?? null;
         return $flag === null || (bool) $flag;
+    }
+
+    private function resolveItemBaseStock(Item $item): float
+    {
+        if (isset($item->computed_stock_base) && is_numeric($item->computed_stock_base)) {
+            return (float) $item->computed_stock_base;
+        }
+
+        return (float) ($item->stock ?? 0);
+    }
+
+    private function resolveVariantStock($variant): float
+    {
+        if ($variant !== null && isset($variant->computed_stock) && is_numeric($variant->computed_stock)) {
+            return (float) $variant->computed_stock;
+        }
+
+        return (float) ($variant->stock ?? 0);
+    }
+
+    private function passesStockFilter(float $stock, string $stockFilter): bool
+    {
+        if ($stockFilter === 'gt0') {
+            return $stock > 0;
+        }
+        if ($stockFilter === 'eq0') {
+            return $stock <= 0;
+        }
+
+        return true;
     }
 
     private function normalizeLengthValue($value): ?float
