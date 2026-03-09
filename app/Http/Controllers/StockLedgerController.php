@@ -3,15 +3,21 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Company;
 use App\Models\StockLedger;
 use App\Models\Warehouse;
 use App\Models\Item;
-use App\Models\ItemVariant;
 
 class StockLedgerController extends Controller
 {
     public function index(Request $request)
     {
+        $companyId = (int) (
+            $request->input('company_id')
+            ?: auth()->user()?->company_id
+            ?: Company::where('is_default', true)->value('id')
+        );
+
         $query = StockLedger::with([
             'warehouse',
             'item' => fn ($q) => $q->withCount('variants'),
@@ -19,6 +25,10 @@ class StockLedgerController extends Controller
             'createdBy',
         ])
             ->orderByDesc('created_at');
+
+        if ($companyId > 0) {
+            $query->where('company_id', $companyId);
+        }
 
         if ($request->filled('warehouse_id')) {
             $query->where('warehouse_id', $request->warehouse_id);
@@ -37,8 +47,15 @@ class StockLedgerController extends Controller
         }
 
         $ledgers = $query->paginate(50);
-        $warehouses = Warehouse::orderBy('name')->get();
-        $items = Item::orderBy('name')->limit(200)->get();
+        $warehouses = Warehouse::query()
+            ->when($companyId > 0, fn ($q) => $q->where('company_id', $companyId))
+            ->orderBy('name')
+            ->get();
+        $items = Item::query()
+            ->when($companyId > 0, fn ($q) => $q->where('company_id', $companyId))
+            ->orderBy('name')
+            ->limit(200)
+            ->get();
 
         return view('inventory.ledger', compact('ledgers', 'warehouses', 'items'));
     }
