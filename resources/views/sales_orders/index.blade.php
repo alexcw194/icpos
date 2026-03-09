@@ -118,13 +118,13 @@
               <td class="align-middle"><span class="badge {{ $stClass }}">{{ $stLabel }}</span></td>
               <td class="align-middle">{!! $npwpBadge !!}</td>
               <td class="align-middle text-nowrap">
-                <a href="{{ route('sales-orders.show',$o) }}" class="link-primary">View</a>
                 @can('update', $o)
-                  <span class="text-muted">|</span>
                   <a href="{{ route('sales-orders.edit',$o) }}" class="link-warning">Edit</a>
                 @endcan
                 @can('delete', $o)
-                  <span class="text-muted">|</span>
+                  @can('update', $o)
+                    <span class="text-muted">|</span>
+                  @endcan
                   <form action="{{ route('sales-orders.destroy',$o) }}" method="POST" class="d-inline"
                         onsubmit="return confirm('Delete this Sales Order?')">
                     @csrf @method('DELETE')
