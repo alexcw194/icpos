@@ -23,14 +23,17 @@
         <tbody>
           @forelse($pos as $po)
           <tr>
-            <td>{{ $po->status === 'draft' ? ('DRAFT-'.$po->id) : $po->number }}</td>
+            <td>
+              <a href="{{ route('po.show', $po) }}">
+                {{ $po->status === 'draft' ? ('DRAFT-'.$po->id) : $po->number }}
+              </a>
+            </td>
             <td>{{ $po->supplier->name ?? '-' }}</td>
             <td>{{ $po->company->alias ?? $po->company->name ?? '-' }}</td>
             <td>{{ $po->warehouse->name ?? '-' }}</td>
             <td><span class="badge bg-{{ $po->status === 'approved' ? 'blue' : ($po->status === 'closed' ? 'green' : 'yellow') }}">
               {{ ucfirst($po->status) }}</span></td>
             <td class="text-end">
-              <a href="{{ route('po.show', $po) }}" class="btn btn-sm btn-primary">View</a>
               @if(in_array($po->status, ['draft','approved'], true) && (float)($po->qty_received_sum ?? 0) <= 0 && !($po->has_goods_receipts ?? false))
               <a href="{{ route('po.edit', $po) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
               @endif
