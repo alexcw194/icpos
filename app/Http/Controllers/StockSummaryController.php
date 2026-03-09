@@ -2,22 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Company;
 use App\Models\ItemVariant;
 use App\Models\StockSummary;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class StockSummaryController extends Controller
 {
     public function index(Request $request)
     {
-        $companyId = (int) (
-            $request->input('company_id')
-            ?: auth()->user()?->company_id
-            ?: Company::where('is_default', true)->value('id')
-        );
+        $companyId = (int) ($request->input('company_id') ?: (auth()->user()?->company_id ?? 0));
+        $hasCompanyScope = $companyId > 0 && Schema::hasColumn('stock_summaries', 'company_id');
 
         $query = StockSummary::query()
             ->from('stock_summaries as ss')
@@ -52,7 +49,7 @@ class StockSummaryController extends Controller
             ->orderBy('ss.item_id')
             ->orderBy('ss.variant_id');
 
-        if ($companyId > 0) {
+        if ($hasCompanyScope) {
             $query->where('ss.company_id', $companyId);
         }
 
@@ -62,7 +59,10 @@ class StockSummaryController extends Controller
 
         $summaries = $query->paginate(50);
         $warehouses = Warehouse::query()
-            ->when($companyId > 0, fn ($q) => $q->where('company_id', $companyId))
+            ->when(
+                $hasCompanyScope && Schema::hasColumn('warehouses', 'company_id'),
+                fn ($q) => $q->where('company_id', $companyId)
+            )
             ->orderBy('name')
             ->get();
         $variantIds = $summaries->getCollection()
