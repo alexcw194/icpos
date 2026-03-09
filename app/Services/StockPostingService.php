@@ -19,23 +19,46 @@ class StockPostingService
     ): void {
         DB::transaction(function () use ($companyId, $warehouseId, $itemId, $itemVariantId, $qty, $refType, $refId, $note, $unitCost) {
 
-            // Lock stock row dulu untuk dapat qty_on_hand BEFORE dan aman dari race
-            $stockRow = DB::table('item_stocks')
+            // Lock stock row by exact dimension (company + warehouse + item + variant/null-variant).
+            $stockRowsQuery = DB::table('item_stocks')
                 ->where('company_id', $companyId)
-                ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId))
-                ->where('item_id', $itemId)
-                ->when($itemVariantId, fn($q) => $q->where('item_variant_id', $itemVariantId))
-                ->lockForUpdate();
+                ->where('item_id', $itemId);
+            static::applyNullableScope($stockRowsQuery, 'warehouse_id', $warehouseId);
+            static::applyNullableScope($stockRowsQuery, 'item_variant_id', $itemVariantId);
 
-            $stockExisting = $stockRow->first();
+            $stockRows = $stockRowsQuery
+                ->lockForUpdate()
+                ->orderBy('id')
+                ->get();
+
+            $stockExisting = $stockRows->first();
+            if ($stockRows->count() > 1 && $stockExisting) {
+                $mergedQty = (float) $stockRows->sum(fn ($row) => (float) ($row->qty_on_hand ?? 0));
+                DB::table('item_stocks')
+                    ->where('id', $stockExisting->id)
+                    ->update([
+                        'qty_on_hand' => $mergedQty,
+                        'updated_at'  => now(),
+                    ]);
+
+                $duplicateIds = $stockRows->skip(1)->pluck('id')->all();
+                if (!empty($duplicateIds)) {
+                    DB::table('item_stocks')->whereIn('id', $duplicateIds)->delete();
+                }
+
+                $stockExisting->qty_on_hand = $mergedQty;
+            }
+
             $onHandBefore  = (float)($stockExisting->qty_on_hand ?? 0);
 
             // 1) Hitung balance terakhir (per dimensi yang sama)
-            $last = DB::table('stock_movements')
-                ->where('company_id', $companyId) // FIX bug dari compact('companyId')
-                ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId))
-                ->where('item_id', $itemId)
-                ->when($itemVariantId, fn($q) => $q->where('item_variant_id', $itemVariantId))
+            $movementQuery = DB::table('stock_movements')
+                ->where('company_id', $companyId)
+                ->where('item_id', $itemId);
+            static::applyNullableScope($movementQuery, 'warehouse_id', $warehouseId);
+            static::applyNullableScope($movementQuery, 'item_variant_id', $itemVariantId);
+
+            $last = $movementQuery
                 ->orderByDesc('id')
                 ->first();
 
@@ -77,7 +100,12 @@ class StockPostingService
                     'updated_at'      => now(),
                 ]);
             } else {
-                $stockRow->increment('qty_on_hand', $qty);
+                DB::table('item_stocks')
+                    ->where('id', $stockExisting->id)
+                    ->update([
+                        'qty_on_hand' => $onHandBefore + $qty,
+                        'updated_at'  => now(),
+                    ]);
             }
 
             // 4) Rolling cost update (ItemVariant)
@@ -106,5 +134,15 @@ class StockPostingService
                 ]);
             }
         });
+    }
+
+    private static function applyNullableScope($query, string $column, $value): void
+    {
+        if ($value === null) {
+            $query->whereNull($column);
+            return;
+        }
+
+        $query->where($column, $value);
     }
 }

@@ -25,7 +25,9 @@ class InventoryRowBuilder
         foreach ($items as $item) {
             $variants = $item->variants ?? collect();
             $displayVariants = $this->shouldDisplayVariants($item, $variants);
-            $activeVariants = $displayVariants ? $variants->where('is_active', true) : collect();
+            $activeVariants = $displayVariants
+                ? $variants->filter(fn ($variant) => $this->isVariantActive($variant))
+                : collect();
             $totalVariantStock = (int) $activeVariants->sum('stock');
             $minVariantPrice   = $displayVariants ? $activeVariants->min('price') : null;
             $maxVariantPrice   = $displayVariants ? $activeVariants->max('price') : null;
@@ -86,7 +88,7 @@ class InventoryRowBuilder
                 }
 
                 $attrs = $variant->computed_attributes ?? ($variant->attributes ?? []);
-                $label = $item->renderVariantLabel(is_array($attrs) ? $attrs : []);
+                $label = $item->renderVariantDisplayName(is_array($attrs) ? $attrs : [], $variant->sku);
                 $relevance = $this->computeInventoryRelevance($item, $variant, $term);
                 $variantMaxRelevance[$item->id] = max($variantMaxRelevance[$item->id] ?? 0, $relevance);
 
@@ -103,7 +105,7 @@ class InventoryRowBuilder
                     'stock'         => (int) $variant->stock,
                     'stock_label'   => number_format((int) $variant->stock, 0, ',', '.'),
                     'low_stock'     => ($variant->min_stock ?? 0) > 0 && $variant->stock < $variant->min_stock,
-                    'inactive'      => !$variant->is_active,
+                    'inactive'      => !$this->isVariantActive($variant),
                     'attributes'    => [
                         'size'  => $attrs['size'] ?? null,
                         'color' => $attrs['color'] ?? null,
@@ -152,7 +154,9 @@ class InventoryRowBuilder
         foreach ($items as $item) {
             $variants = $item->variants ?? collect();
             $displayVariants = $this->shouldDisplayVariants($item, $variants);
-            $activeVariants  = $displayVariants ? $variants->where('is_active', true) : collect();
+            $activeVariants  = $displayVariants
+                ? $variants->filter(fn ($variant) => $this->isVariantActive($variant))
+                : collect();
 
             if ($filters['type'] === 'variant') {
                 if (!$displayVariants) continue;
@@ -175,7 +179,7 @@ class InventoryRowBuilder
             $preview = $activeVariants->sortBy('id')->take(5)->map(function ($variant) use ($item) {
                 $attrs = $variant->attributes ?? [];
                 return [
-                    'label'  => $item->renderVariantLabel(is_array($attrs) ? $attrs : []),
+                    'label'  => $item->renderVariantDisplayName(is_array($attrs) ? $attrs : [], $variant->sku),
                     'sku'    => $variant->sku ?: $item->sku,
                     'price'  => number_format((float) ($variant->price ?? 0), 2, ',', '.'),
                     'stock'  => (int) $variant->stock,
@@ -296,10 +300,15 @@ class InventoryRowBuilder
     {
         if ($variants->isEmpty()) return false;
 
-        if (($item->variant_type ?? 'none') !== 'none') return true;
-        if ($variants->count() > 1) return true;
+        $activeVariants = $variants->filter(fn ($variant) => $this->isVariantActive($variant));
+        if ($activeVariants->isEmpty()) {
+            return false;
+        }
 
-        $variant = $variants->first();
+        if (($item->variant_type ?? 'none') !== 'none') return true;
+        if ($activeVariants->count() > 1) return true;
+
+        $variant = $activeVariants->first();
         if (!$variant) return false;
 
         $attrs = $variant->attributes ?? [];
@@ -313,6 +322,16 @@ class InventoryRowBuilder
         $hasDifferentPrice = $variant->price !== null && (float) $variant->price !== (float) $item->price;
 
         return $hasDifferentSku || $hasDifferentPrice;
+    }
+
+    private function isVariantActive($variant): bool
+    {
+        if ($variant === null) {
+            return false;
+        }
+
+        $flag = $variant->is_active ?? null;
+        return $flag === null || (bool) $flag;
     }
 
     private function normalizeLengthValue($value): ?float

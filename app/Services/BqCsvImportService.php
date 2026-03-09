@@ -824,7 +824,7 @@ class BqCsvImportService
 
         if ($variant) {
             $attrs = is_array($variant->attributes) ? $variant->attributes : [];
-            $displayLabel = trim((string) $item->renderVariantLabel($attrs));
+            $displayLabel = trim((string) $item->renderVariantDisplayName($attrs, $variant->sku));
             if ($displayLabel === '') {
                 $displayLabel = $itemName;
             }

@@ -120,7 +120,7 @@ class PurchaseOrderController extends Controller
                 $itemName = $line->item_name_snapshot ?: ($line->item->name ?? '');
                 if ($line->item_variant_id && $line->variant && $line->item) {
                     $variantAttrs = is_array($line->variant->attributes) ? $line->variant->attributes : [];
-                    $variantLabel = trim((string) $line->item->renderVariantLabel($variantAttrs));
+                    $variantLabel = trim((string) $line->item->renderVariantDisplayName($variantAttrs, $line->variant->sku));
                     $parentName = trim((string) ($line->item->name ?? ''));
                     if ($variantLabel !== '' && ($itemName === '' || strcasecmp(trim((string) $itemName), $parentName) === 0)) {
                         $itemName = $variantLabel;
@@ -152,7 +152,7 @@ class PurchaseOrderController extends Controller
 
                         if ($variant && (int) $variant->item_id === (int) $item->id) {
                             $variantAttrs = is_array($variant->attributes) ? $variant->attributes : [];
-                            $variantLabel = trim((string) $item->renderVariantLabel($variantAttrs));
+                            $variantLabel = trim((string) $item->renderVariantDisplayName($variantAttrs, $variant->sku));
                             if ($variantLabel !== '') {
                                 $itemName = $variantLabel;
                             }
@@ -515,6 +515,10 @@ class PurchaseOrderController extends Controller
                 }
 
                 $line = $po->lines()->findOrFail((int) $poLineId);
+                $item = Item::query()->find((int) $line->item_id);
+                if ($item) {
+                    $this->assertValidVariantSelection($item, $line->item_variant_id, $poLineId);
+                }
                 $remaining = max(0.0, (float) $line->qty_ordered - (float) ($line->qty_received ?? 0));
                 if ($qtyReceived > $remaining + 0.000001) {
                     throw ValidationException::withMessages([
@@ -566,17 +570,42 @@ class PurchaseOrderController extends Controller
         $skuSnapshot = (string) ($item->sku ?? '');
         $itemNameSnapshot = (string) ($item->name ?? '');
 
-        if (!$variantId) {
+        $variant = $this->assertValidVariantSelection($item, $variantId, $lineIndex);
+        if (!$variant) {
             return [
                 'sku_snapshot' => $skuSnapshot,
                 'item_name_snapshot' => $itemNameSnapshot,
             ];
         }
 
+        $variantAttrs = is_array($variant->attributes) ? $variant->attributes : [];
+        $variantLabel = trim((string) $item->renderVariantDisplayName($variantAttrs, $variant->sku));
+
+        return [
+            'sku_snapshot' => (string) ($variant->sku ?: $skuSnapshot),
+            'item_name_snapshot' => $variantLabel !== '' ? $variantLabel : $itemNameSnapshot,
+        ];
+    }
+
+    private function assertValidVariantSelection(Item $item, $variantId, $lineIndex): ?ItemVariant
+    {
+        $variantId = (int) ($variantId ?? 0);
+        $hasActiveVariants = $item->activeVariants()->exists();
+
+        if ($hasActiveVariants && $variantId <= 0) {
+            throw ValidationException::withMessages([
+                "lines.$lineIndex.item_variant_id" => 'Item ini memiliki varian aktif. Pilih varian yang sesuai.',
+            ]);
+        }
+
+        if ($variantId <= 0) {
+            return null;
+        }
+
         $variant = ItemVariant::query()
-            ->where('id', (int) $variantId)
+            ->where('id', $variantId)
             ->where('item_id', (int) $item->id)
-            ->first(['id', 'item_id', 'sku', 'attributes']);
+            ->first(['id', 'item_id', 'sku', 'attributes', 'is_active']);
 
         if (!$variant) {
             throw ValidationException::withMessages([
@@ -584,13 +613,18 @@ class PurchaseOrderController extends Controller
             ]);
         }
 
-        $variantAttrs = is_array($variant->attributes) ? $variant->attributes : [];
-        $variantLabel = trim((string) $item->renderVariantLabel($variantAttrs));
+        if ($hasActiveVariants && !$this->isVariantActiveValue($variant->is_active)) {
+            throw ValidationException::withMessages([
+                "lines.$lineIndex.item_variant_id" => 'Varian tidak aktif untuk transaksi baru.',
+            ]);
+        }
 
-        return [
-            'sku_snapshot' => (string) ($variant->sku ?: $skuSnapshot),
-            'item_name_snapshot' => $variantLabel !== '' ? $variantLabel : $itemNameSnapshot,
-        ];
+        return $variant;
+    }
+
+    private function isVariantActiveValue($isActive): bool
+    {
+        return $isActive === null || (bool) $isActive;
     }
 
     private function normalizeBillingTerms(array $terms): array

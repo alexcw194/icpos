@@ -475,7 +475,7 @@ class DeliveryController extends Controller
         $items = Item::with('unit:id,code')->orderBy('name')->get(['id', 'name', 'unit_id']);
         $variants = ItemVariant::with('item:id,name,variant_type,name_template')
             ->orderBy('sku')
-            ->get(['id', 'item_id', 'sku', 'attributes']);
+            ->get(['id', 'item_id', 'sku', 'attributes', 'is_active']);
         $stocks = ItemStock::select('warehouse_id', 'item_id', 'item_variant_id', 'qty_on_hand')
             ->get()
             ->mapWithKeys(fn ($row) => [
@@ -537,39 +537,50 @@ class DeliveryController extends Controller
         }
 
         $variantIds = $lines->pluck('item_variant_id')->filter()->unique();
+        $variants = collect();
         if ($variantIds->isNotEmpty()) {
             $variants = ItemVariant::whereIn('id', $variantIds)
-                ->get(['id', 'item_id'])
+                ->get(['id', 'item_id', 'is_active'])
                 ->keyBy('id');
-            $lines->each(function (array $line, int $index) use ($variants) {
-                if (!$line['item_variant_id']) {
-                    return;
-                }
-                $variant = $variants->get($line['item_variant_id']);
-                if (!$variant || (int) $variant->item_id !== (int) $line['item_id']) {
-                    throw ValidationException::withMessages([
-                        "lines.$index.item_variant_id" => 'Varian tidak sesuai dengan item.',
-                    ]);
-                }
-            });
         }
 
         $itemIds = $lines->pluck('item_id')->filter()->unique();
         if ($itemIds->isNotEmpty()) {
-            $itemIdsWithVariants = Item::query()
+            $itemIdsWithActiveVariants = Item::query()
                 ->whereIn('id', $itemIds)
-                ->whereHas('variants')
+                ->whereHas('variants', function ($q) {
+                    $q->where('is_active', true)->orWhereNull('is_active');
+                })
                 ->pluck('id')
                 ->map(fn ($id) => (int) $id)
                 ->all();
-            $itemIdsWithVariants = array_flip($itemIdsWithVariants);
+            $itemIdsWithActiveVariants = array_flip($itemIdsWithActiveVariants);
 
-            $lines->each(function (array $line, int $index) use ($itemIdsWithVariants) {
+            $lines->each(function (array $line, int $index) use ($itemIdsWithActiveVariants, $variants) {
                 $itemId = (int) ($line['item_id'] ?? 0);
-                $variantId = $line['item_variant_id'] ?? null;
-                if ($itemId > 0 && isset($itemIdsWithVariants[$itemId]) && !$variantId) {
+                $variantId = (int) ($line['item_variant_id'] ?? 0);
+                if ($itemId <= 0) {
+                    return;
+                }
+
+                if ($variantId > 0) {
+                    $variant = $variants->get($variantId);
+                    if (!$variant || (int) $variant->item_id !== $itemId) {
+                        throw ValidationException::withMessages([
+                            "lines.$index.item_variant_id" => 'Varian tidak sesuai dengan item.',
+                        ]);
+                    }
+                    if (isset($itemIdsWithActiveVariants[$itemId]) && !$this->isVariantActiveValue($variant->is_active)) {
+                        throw ValidationException::withMessages([
+                            "lines.$index.item_variant_id" => 'Varian tidak aktif untuk transaksi baru.',
+                        ]);
+                    }
+                    return;
+                }
+
+                if (isset($itemIdsWithActiveVariants[$itemId])) {
                     throw ValidationException::withMessages([
-                        "lines.$index.item_variant_id" => 'Item ini memiliki varian. Pilih varian yang sesuai.',
+                        "lines.$index.item_variant_id" => 'Item ini memiliki varian aktif. Pilih varian yang sesuai.',
                     ]);
                 }
             });
@@ -639,6 +650,11 @@ class DeliveryController extends Controller
 
         return $validated;
 
+    }
+
+    private function isVariantActiveValue($isActive): bool
+    {
+        return $isActive === null || (bool) $isActive;
     }
 
     private function syncLines(Delivery $delivery, Collection $rawLines): void

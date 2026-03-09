@@ -19,10 +19,14 @@
   $lineNotes        = $row['line_notes']        ?? null;
   $quotationLineId  = $row['quotation_line_id'] ?? null;
   $soLineId         = $row['sales_order_line_id'] ?? null;
+  $activeVariants = collect($variants ?? [])->filter(function ($variant) {
+    $flag = $variant->is_active ?? null;
+    return $flag === null || (bool) $flag;
+  })->values();
 
   // Resolve the variant name for display
   $variantName = '';
-  foreach ($variants as $v) {
+  foreach (($variants ?? []) as $v) {
     if ($v->id == $variantId) {
       $variantName = $v->name;
       break;
@@ -38,8 +42,8 @@
     }
   }
 
-  // Combine item and variant names for a unified label
-  $combinedName = trim($itemName . ($variantName ? ' - ' . $variantName : ''));
+  // Use variant label directly (already includes parent) to avoid duplicate parent name.
+  $combinedName = $variantName ? trim((string) $variantName) : trim((string) $itemName);
 
   // Fallback: jika combinedName kosong tetapi deskripsi ada (nama barang lama), gunakan deskripsi sebagai label item
   if (empty($combinedName) && !empty($description)) {
@@ -70,7 +74,7 @@
           @php
             // Check if this item has any variants attached
             $hasVar = false;
-            foreach ($variants as $vv) {
+            foreach ($activeVariants as $vv) {
               if ($vv->item_id == $itm->id) { $hasVar = true; break; }
             }
           @endphp
@@ -81,9 +85,9 @@
           @endif
         @endforeach
         {{-- Options for each variant, label is "Item - Variant" --}}
-        @foreach($variants as $vv)
+        @foreach($activeVariants as $vv)
           @php
-            $lbl = $vv->item->name . ($vv->name ? ' - ' . $vv->name : '');
+            $lbl = $vv->name ?: ($vv->item->name ?? ('Variant #' . $vv->id));
           @endphp
           <option value="{{ $vv->id }}" data-item="{{ $vv->item_id }}" @if($variantId == $vv->id) selected @endif>
             {{ $lbl }}

@@ -37,6 +37,8 @@
               <td>
                 @if($row->variant_id)
                   {{ $row->variant_sku ?: ('#'.$row->variant_id.' (deleted)') }}
+                @elseif((int)($row->item_variants_count ?? 0) > 0)
+                  Unassigned
                 @else
                   -
                 @endif

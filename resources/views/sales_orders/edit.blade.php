@@ -451,8 +451,7 @@
 @php
   $ITEM_OPTIONS = collect();
   $itemsNoVariant = ($items ?? collect())->filter(function ($it) {
-    $variantType = $it->variant_type ?? 'none';
-    return (int) ($it->variants_count ?? 0) === 0 && $variantType === 'none';
+    return (int) ($it->active_variants_count ?? 0) === 0;
   });
 
   foreach ($itemsNoVariant as $it) {

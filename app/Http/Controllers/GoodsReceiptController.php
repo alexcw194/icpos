@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Item;
+use App\Models\ItemVariant;
 use App\Models\{GoodsReceipt, PurchaseOrder};
 use App\Services\StockPostingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class GoodsReceiptController extends Controller
 {
@@ -19,6 +22,52 @@ class GoodsReceiptController extends Controller
         abort_if($gr->status !== 'draft', 400, 'Already posted');
 
         DB::transaction(function () use ($gr) {
+            $gr->loadMissing('lines');
+            $itemIdsWithActiveVariants = Item::query()
+                ->whereIn('id', $gr->lines->pluck('item_id')->filter()->unique()->values()->all())
+                ->whereHas('variants', function ($q) {
+                    $q->where('is_active', true)->orWhereNull('is_active');
+                })
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+            $itemIdsWithActiveVariants = array_flip($itemIdsWithActiveVariants);
+
+            $variantIds = $gr->lines->pluck('item_variant_id')->filter()->unique()->values()->all();
+            $variants = ItemVariant::query()
+                ->whereIn('id', $variantIds)
+                ->get(['id', 'item_id', 'is_active'])
+                ->keyBy('id');
+
+            foreach ($gr->lines as $idx => $ln) {
+                $itemId = (int) $ln->item_id;
+                $variantId = (int) ($ln->item_variant_id ?? 0);
+                $requiresVariant = isset($itemIdsWithActiveVariants[$itemId]);
+
+                if ($requiresVariant && $variantId <= 0) {
+                    throw ValidationException::withMessages([
+                        'lines' => "Line #".($idx + 1).": item memiliki varian aktif, pilih varian.",
+                    ]);
+                }
+
+                if ($variantId <= 0) {
+                    continue;
+                }
+
+                $variant = $variants->get($variantId);
+                if (!$variant || (int) $variant->item_id !== $itemId) {
+                    throw ValidationException::withMessages([
+                        'lines' => "Line #".($idx + 1).": varian tidak sesuai dengan item.",
+                    ]);
+                }
+
+                if ($requiresVariant && !($variant->is_active === null || (bool) $variant->is_active)) {
+                    throw ValidationException::withMessages([
+                        'lines' => "Line #".($idx + 1).": varian tidak aktif untuk transaksi baru.",
+                    ]);
+                }
+            }
+
             foreach ($gr->lines as $ln) {
                 StockPostingService::postInbound(
                     companyId:      $gr->company_id,

@@ -37,7 +37,7 @@ class StockAdjustmentController extends Controller
             ->with(['item:id,name,unit_id,variant_type,name_template', 'item.unit:id,code'])
             ->orderBy('item_id')
             ->orderBy('id')
-            ->get(['id', 'item_id', 'sku', 'attributes']);
+            ->get(['id', 'item_id', 'sku', 'attributes', 'is_active']);
 
         $warehouses = Warehouse::query()
             ->forCompany($companyId)
@@ -64,10 +64,12 @@ class StockAdjustmentController extends Controller
             ];
         }
 
-        $itemsWithoutVariants = $items->filter(function ($it) {
-            $variantType = $it->variant_type ?? 'none';
-            return (int) $it->variants_count === 0 && $variantType === 'none';
-        })->values();
+        $activeVariants = $variants->filter(fn ($variant) => $this->isVariantActiveValue($variant->is_active ?? null));
+        $itemsWithActiveVariants = $activeVariants->pluck('item_id')->map(fn ($id) => (int) $id)->unique()->all();
+        $itemsWithActiveVariants = array_flip($itemsWithActiveVariants);
+        $itemsWithoutVariants = $items
+            ->filter(fn ($it) => !isset($itemsWithActiveVariants[(int) $it->id]))
+            ->values();
         $itemOptions = [];
 
         foreach ($itemsWithoutVariants as $it) {
@@ -81,32 +83,25 @@ class StockAdjustmentController extends Controller
             ];
         }
 
-        foreach ($variants as $v) {
+        foreach ($activeVariants as $v) {
             $item = $v->item;
             if (!$item) {
                 continue;
             }
-            $variantLabel = trim((string) ($v->label ?? ''));
-            if ($variantLabel === '') {
-                $variantLabel = trim((string) ($v->sku ?? ''));
-            }
-            if ($variantLabel === '') {
-                $variantLabel = 'Variant #' . $v->id;
-            }
-            if ($item->name && str_contains($variantLabel, $item->name)) {
-                $variantLabel = trim(str_replace($item->name, '', $variantLabel));
-                $variantLabel = ltrim($variantLabel, "-/— \t");
-                if ($variantLabel === '') {
-                    $variantLabel = $item->sku ?? 'Variant #' . $v->id;
-                }
+            $variantLabel = trim((string) ($v->label ?? ""));
+            if ($variantLabel === "") {
+                $variantLabel = $item->renderVariantDisplayName(
+                    is_array($v->attributes) ? $v->attributes : [],
+                    $v->sku
+                );
             }
             $itemOptions[] = [
-                'value' => 'variant:' . $v->id,
-                'label' => $item->name . ' - ' . $variantLabel,
-                'item_id' => $item->id,
-                'variant_id' => $v->id,
-                'unit' => optional($item->unit)->code ?? 'pcs',
-                'sku' => $v->sku ?? $item->sku ?? '',
+                "value" => "variant:" . $v->id,
+                "label" => $variantLabel,
+                "item_id" => $item->id,
+                "variant_id" => $v->id,
+                "unit" => optional($item->unit)->code ?? "pcs",
+                "sku" => $v->sku ?? $item->sku ?? "",
             ];
         }
 
@@ -141,22 +136,31 @@ class StockAdjustmentController extends Controller
             'adjustment_date' => 'required|date',
         ]);
 
+        $hasActiveVariants = ItemVariant::query()
+            ->where('item_id', $data['item_id'])
+            ->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
+            ->exists();
+
         if (!empty($data['variant_id'])) {
-            $variantMatches = ItemVariant::where('id', $data['variant_id'])
+            $variant = ItemVariant::where('id', $data['variant_id'])
                 ->where('item_id', $data['item_id'])
-                ->exists();
-            if (!$variantMatches) {
+                ->first(['id', 'item_id', 'is_active']);
+            if (!$variant) {
                 return back()
                     ->withErrors(['variant_id' => 'Variant tidak sesuai dengan item yang dipilih.'])
                     ->withInput();
             }
-        } else {
-            $hasVariants = ItemVariant::where('item_id', $data['item_id'])->exists();
-            if ($hasVariants) {
+            if ($hasActiveVariants && !$this->isVariantActiveValue($variant->is_active)) {
                 return back()
-                    ->withErrors(['item_id' => 'Item ini memiliki varian. Pilih varian yang sesuai.'])
+                    ->withErrors(['variant_id' => 'Varian tidak aktif untuk transaksi baru.'])
                     ->withInput();
             }
+        } elseif ($hasActiveVariants) {
+            return back()
+                ->withErrors(['variant_id' => 'Item ini memiliki varian aktif. Pilih varian yang sesuai.'])
+                ->withInput();
         }
 
         if (!empty($data['warehouse_id'])) {
@@ -205,13 +209,25 @@ class StockAdjustmentController extends Controller
             'warehouse_id' => 'nullable|exists:warehouses,id',
         ]);
 
+        $hasActiveVariants = ItemVariant::query()
+            ->where('item_id', $data['item_id'])
+            ->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
+            ->exists();
+
         if (!empty($data['variant_id'])) {
-            $variantMatches = ItemVariant::where('id', $data['variant_id'])
+            $variant = ItemVariant::where('id', $data['variant_id'])
                 ->where('item_id', $data['item_id'])
-                ->exists();
-            if (!$variantMatches) {
+                ->first(['id', 'item_id', 'is_active']);
+            if (!$variant) {
                 return response()->json(['message' => 'Variant tidak sesuai dengan item yang dipilih.'], 422);
             }
+            if ($hasActiveVariants && !$this->isVariantActiveValue($variant->is_active)) {
+                return response()->json(['message' => 'Varian tidak aktif untuk transaksi baru.'], 422);
+            }
+        } elseif ($hasActiveVariants) {
+            return response()->json(['message' => 'Item ini memiliki varian aktif. Pilih varian yang sesuai.'], 422);
         }
 
         $summaryQuery = StockSummary::where('item_id', $data['item_id'])
@@ -225,6 +241,11 @@ class StockAdjustmentController extends Controller
             'qty_balance' => $qtyBalance,
             'uom' => $summary->uom ?? null,
         ]);
+    }
+
+    private function isVariantActiveValue($isActive): bool
+    {
+        return $isActive === null || (bool) $isActive;
     }
 }
 

@@ -24,6 +24,7 @@ class StockSummaryController extends Controller
                 'w.name as warehouse_name',
                 'i.name as item_name',
                 'v.sku as variant_sku',
+                DB::raw('(select count(*) from item_variants iv where iv.item_id = ss.item_id) as item_variants_count'),
                 DB::raw('SUM(ss.qty_balance) as qty_balance'),
                 DB::raw('MAX(ss.uom) as uom'),
                 DB::raw('MAX(ss.updated_at) as updated_at'),

@@ -8,6 +8,7 @@ use App\Models\Size;
 use App\Models\Color;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Schema;
 
 class ItemVariantController extends Controller
 {
@@ -52,6 +53,8 @@ class ItemVariantController extends Controller
             'size'   => $data['attr_size']   ?? null,
             'length' => $data['attr_length'] ?? null,
         ], fn ($v) => trim((string) $v) !== '');
+
+        $this->assertUniqueVariantCombination($item, $attrs);
 
         $variant = $item->variants()->create([
             'sku'        => $data['sku'] ?? null,        // mutator handle uppercase/null
@@ -137,6 +140,8 @@ class ItemVariantController extends Controller
             'size'   => $data['attr_size']   ?? null,
             'length' => $data['attr_length'] ?? null,
         ], fn ($v) => trim((string) $v) !== '');
+
+        $this->assertUniqueVariantCombination($variant->item, $attrs, $variant->id);
 
         $variant->update([
             'sku'        => $data['sku'] ?? null,        // mutator: uppercase/null
@@ -294,5 +299,32 @@ class ItemVariantController extends Controller
         }
 
         return 'none';
+    }
+
+    private function assertUniqueVariantCombination(Item $item, array $attributes, ?int $ignoreVariantId = null): void
+    {
+        $variantKey = ItemVariant::buildVariantKey($attributes);
+        if (Schema::hasColumn('item_variants', 'variant_key')) {
+            $exists = ItemVariant::query()
+                ->where('item_id', $item->id)
+                ->where('variant_key', $variantKey)
+                ->when($ignoreVariantId, fn ($q) => $q->where('id', '!=', $ignoreVariantId))
+                ->exists();
+        } else {
+            $exists = ItemVariant::query()
+                ->where('item_id', $item->id)
+                ->when($ignoreVariantId, fn ($q) => $q->where('id', '!=', $ignoreVariantId))
+                ->get(['id', 'attributes'])
+                ->contains(function ($row) use ($variantKey) {
+                    $attrs = is_array($row->attributes) ? $row->attributes : [];
+                    return ItemVariant::buildVariantKey($attrs) === $variantKey;
+                });
+        }
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'attr_color' => 'Kombinasi variant untuk item ini sudah ada.',
+            ]);
+        }
     }
 }

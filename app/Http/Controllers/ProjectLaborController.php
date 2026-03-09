@@ -69,7 +69,7 @@ class ProjectLaborController extends Controller
                         || $variant->is_active === true;
                 });
             }
-            $displayVariants = $activeVariants->isNotEmpty() ? $activeVariants : $variants;
+            $displayVariants = $activeVariants;
 
             if ($displayVariants->isNotEmpty()) {
                 foreach ($displayVariants as $variant) {
@@ -77,7 +77,7 @@ class ProjectLaborController extends Controller
                         'item_id' => $item->id,
                         'id' => $item->id,
                         'variant_id' => $variant->id,
-                        'name' => $variant->label ?? $item->renderVariantLabel($variant->attributes ?? []),
+                        'name' => $variant->label ?? $item->renderVariantDisplayName($variant->attributes ?? [], $variant->sku),
                         'sku' => $variant->sku ?: $item->sku,
                     ]);
                 }

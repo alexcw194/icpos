@@ -12,7 +12,12 @@ class StockLedgerController extends Controller
 {
     public function index(Request $request)
     {
-        $query = StockLedger::with(['warehouse', 'item', 'variant', 'createdBy'])
+        $query = StockLedger::with([
+            'warehouse',
+            'item' => fn ($q) => $q->withCount('variants'),
+            'variant',
+            'createdBy',
+        ])
             ->orderByDesc('created_at');
 
         if ($request->filled('warehouse_id')) {

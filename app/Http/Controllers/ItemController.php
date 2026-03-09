@@ -503,10 +503,6 @@ class ItemController extends Controller
                 return ($v->is_active === null) || ((int) $v->is_active === 1) || ($v->is_active === true);
             });
 
-            if ($variants->isNotEmpty() && $activeVariants->isEmpty()) {
-                $activeVariants = $variants;
-            }
-
             // strict variant-first: if any active variants exist, treat as variants
             $displayVariants = $activeVariants->isNotEmpty();
 
@@ -552,28 +548,7 @@ class ItemController extends Controller
             // Pakai varian → petakan varian aktif
             foreach ($activeVariants as $v) {
                 $attrs = is_array($v->attributes) ? $v->attributes : [];
-                $label = $it->renderVariantLabel($attrs);
-                $attrsText = collect($attrs)->map(fn($val, $key) => ucfirst($key).': '.$val)->implode(' · ');
-
-                $displayLabel = trim((string) $label);
-                $itemName = trim((string) $it->name);
-                if ($displayLabel === '') {
-                    $displayLabel = $itemName;
-                }
-                if ($itemName !== '' && strcasecmp($displayLabel, $itemName) === 0) {
-                    $attrsText = collect($attrs)
-                        ->filter(fn ($val) => $val !== null && $val !== '')
-                        ->map(fn ($val, $key) => ucfirst((string) $key).': '.(string) $val)
-                        ->implode(', ');
-
-                    if ($attrsText !== '') {
-                        $displayLabel = $itemName.' - '.$attrsText;
-                    } elseif (!empty($v->sku) && strcasecmp((string) $v->sku, (string) $it->sku) !== 0) {
-                        $displayLabel = $itemName.' - '.trim((string) $v->sku);
-                    }
-                } elseif ($itemName !== '' && stripos($displayLabel, $itemName) !== 0) {
-                    $displayLabel = $itemName.' - '.$displayLabel;
-                }
+                $displayLabel = $it->renderVariantDisplayName($attrs, $v->sku);
                 $price = (float) (($v->price ?? null) !== null ? $v->price : $it->price);
                 $sku   = $v->sku ?: $it->sku;
                 $variantLastCost = $v->last_cost !== null ? (float) $v->last_cost : null;
@@ -849,7 +824,9 @@ class ItemController extends Controller
         foreach ($items as $item) {
             $variants = $item->variants ?? collect();
             $displayVariants = $this->shouldDisplayVariants($item, $variants);
-            $activeVariants = $displayVariants ? $variants->where('is_active', true) : collect();
+            $activeVariants = $displayVariants
+                ? $variants->filter(fn ($variant) => $this->isVariantActive($variant))
+                : collect();
             $totalVariantStock = (int) $activeVariants->sum('stock');
             $minVariantPrice   = $displayVariants ? $activeVariants->min('price') : null;
             $maxVariantPrice   = $displayVariants ? $activeVariants->max('price') : null;
@@ -910,7 +887,7 @@ class ItemController extends Controller
                 }
 
                 $attrs = $variant->computed_attributes ?? ($variant->attributes ?? []);
-                $label = $item->renderVariantLabel(is_array($attrs) ? $attrs : []);
+                $label = $item->renderVariantDisplayName(is_array($attrs) ? $attrs : [], $variant->sku);
                 $relevance = $this->computeInventoryRelevance($item, $variant, $term);
                 $variantMaxRelevance[$item->id] = max($variantMaxRelevance[$item->id] ?? 0, $relevance);
 
@@ -927,7 +904,7 @@ class ItemController extends Controller
                     'stock'         => (int) $variant->stock,
                     'stock_label'   => number_format((int) $variant->stock, 0, ',', '.'),
                     'low_stock'     => ($variant->min_stock ?? 0) > 0 && $variant->stock < $variant->min_stock,
-                    'inactive'      => !$variant->is_active,
+                    'inactive'      => !$this->isVariantActive($variant),
                     'attributes'    => [
                         'size'  => $attrs['size'] ?? null,
                         'color' => $attrs['color'] ?? null,
@@ -976,7 +953,9 @@ class ItemController extends Controller
         foreach ($items as $item) {
             $variants = $item->variants ?? collect();
             $displayVariants = $this->shouldDisplayVariants($item, $variants);
-            $activeVariants  = $displayVariants ? $variants->where('is_active', true) : collect();
+            $activeVariants  = $displayVariants
+                ? $variants->filter(fn ($variant) => $this->isVariantActive($variant))
+                : collect();
 
             if ($filters['type'] === 'variant') {
                 if (!$displayVariants) continue;
@@ -999,7 +978,7 @@ class ItemController extends Controller
             $preview = $activeVariants->sortBy('id')->take(5)->map(function ($variant) use ($item) {
                 $attrs = $variant->attributes ?? [];
                 return [
-                    'label'  => $item->renderVariantLabel(is_array($attrs) ? $attrs : []),
+                    'label'  => $item->renderVariantDisplayName(is_array($attrs) ? $attrs : [], $variant->sku),
                     'sku'    => $variant->sku ?: $item->sku,
                     'price'  => number_format((float) ($variant->price ?? 0), 2, ',', '.'),
                     'stock'  => (int) $variant->stock,
@@ -1120,10 +1099,15 @@ class ItemController extends Controller
     {
         if ($variants->isEmpty()) return false;
 
-        if (($item->variant_type ?? 'none') !== 'none') return true;
-        if ($variants->count() > 1) return true;
+        $activeVariants = $variants->filter(fn ($variant) => $this->isVariantActive($variant));
+        if ($activeVariants->isEmpty()) {
+            return false;
+        }
 
-        $variant = $variants->first();
+        if (($item->variant_type ?? 'none') !== 'none') return true;
+        if ($activeVariants->count() > 1) return true;
+
+        $variant = $activeVariants->first();
         if (!$variant) return false;
 
         $attrs = $variant->attributes ?? [];
@@ -1137,6 +1121,16 @@ class ItemController extends Controller
         $hasDifferentPrice = $variant->price !== null && (float) $variant->price !== (float) $item->price;
 
         return $hasDifferentSku || $hasDifferentPrice;
+    }
+
+    private function isVariantActive($variant): bool
+    {
+        if ($variant === null) {
+            return false;
+        }
+
+        $flag = $variant->is_active ?? null;
+        return $flag === null || (bool) $flag;
     }
 
     private function normalizeLengthValue($value): ?float

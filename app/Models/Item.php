@@ -80,6 +80,16 @@ class Item extends Model
         return $this->hasMany(ItemVariant::class)->orderBy('id');
     }
 
+    /** Varian yang aktif (null dianggap aktif untuk legacy data). */
+    public function activeVariants(): HasMany
+    {
+        return $this->hasMany(ItemVariant::class)
+            ->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
+            ->orderBy('id');
+    }
+
     // ========== ACCESSORS & MUTATORS ==========
     protected function name(): Attribute
     {
@@ -135,15 +145,14 @@ class Item extends Model
     }
 
     // ========== HELPERS: TEMPLATE & LABEL ==========
-
     /** Template default berdasar variant_type */
     public function defaultNameTemplate(): string
     {
         return match ($this->variant_type) {
-            'color'      => '{name} — {color}',
-            'size'       => '{name} — {size}',
+            'color'      => '{name} - {color}',
+            'size'       => '{name} - {size}',
             'length'     => '{name} {length}m',
-            'color_size' => '{name} — {color} / {size}',
+            'color_size' => '{name} - {color} / {size}',
             default      => '{name}',
         };
     }
@@ -157,7 +166,6 @@ class Item extends Model
     {
         $template = $overrideTemplate ?: ($this->name_template ?: $this->defaultNameTemplate());
 
-        // siapkan map token
         $tokens = [
             '{name}'   => (string) $this->name,
             '{color}'  => (string) ($attributes['color']  ?? ''),
@@ -166,13 +174,76 @@ class Item extends Model
         ];
 
         $label = strtr($template, $tokens);
+        $label = preg_replace('/\s+-\s+$/u', '', $label);
+        $label = preg_replace('/\s+\/\s+$/u', '', $label);
+        $label = preg_replace('/\s{2,}/u', ' ', $label);
+        $label = trim($label, " \t\n\r\0\x0B-/");
 
-        // rapikan spasi/strip berlebih jika atribut kosong
-        $label = preg_replace('/\s+—\s+$/u', '', $label);           // buang " — " di ujung
-        $label = preg_replace('/\s+\/\s+$/u', '', $label);           // buang " / " di ujung
-        $label = preg_replace('/\s{2,}/u', ' ', $label);             // multiple spaces
-        $label = trim($label, " \t\n\r\0\x0B-—/");                   // trim karakter pemisah di ujung
         return $label !== '' ? $label : (string) $this->name;
+    }
+
+    /**
+     * Kontrak display variant: "Parent Name - Variant Name".
+     */
+    public function renderVariantDisplayName(array $attributes = [], ?string $variantSku = null, ?string $overrideTemplate = null): string
+    {
+        $parentName = trim((string) $this->name);
+        $rawLabel = trim($this->renderVariantLabel($attributes, $overrideTemplate));
+
+        $variantPart = $rawLabel;
+        if ($parentName !== '' && strcasecmp($rawLabel, $parentName) === 0) {
+            $variantPart = '';
+        } elseif ($parentName !== '' && stripos($rawLabel, $parentName) === 0) {
+            $variantPart = trim(substr($rawLabel, strlen($parentName)));
+            $variantPart = ltrim($variantPart, " -/\t");
+        }
+
+        if ($variantPart === '') {
+            $variantPart = $this->buildVariantPartFromAttributes($attributes);
+        }
+
+        if ($variantPart === '') {
+            $variantSku = trim((string) ($variantSku ?? ''));
+            $itemSku = trim((string) ($this->sku ?? ''));
+            if ($variantSku !== '' && strcasecmp($variantSku, $itemSku) !== 0) {
+                $variantPart = $variantSku;
+            }
+        }
+
+        if ($variantPart === '') {
+            $variantPart = 'Default';
+        }
+
+        return trim($parentName !== '' ? ($parentName.' - '.$variantPart) : $variantPart);
+    }
+
+    private function buildVariantPartFromAttributes(array $attributes): string
+    {
+        $ordered = [];
+
+        foreach (['color', 'size', 'length'] as $key) {
+            if (!array_key_exists($key, $attributes)) {
+                continue;
+            }
+            $value = trim((string) $attributes[$key]);
+            if ($value === '') {
+                continue;
+            }
+            $ordered[] = $value;
+        }
+
+        foreach ($attributes as $key => $value) {
+            if (in_array($key, ['color', 'size', 'length'], true)) {
+                continue;
+            }
+            $value = trim((string) $value);
+            if ($value === '') {
+                continue;
+            }
+            $ordered[] = $value;
+        }
+
+        return implode(' / ', $ordered);
     }
 
     // ========== SCOPES ==========

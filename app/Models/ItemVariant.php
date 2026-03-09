@@ -21,6 +21,7 @@ class ItemVariant extends Model
         'last_cost_at',
         'avg_cost',
         'default_cost',
+        'variant_key',
     ];
 
     protected $casts = [
@@ -34,6 +35,14 @@ class ItemVariant extends Model
         'default_cost' => 'decimal:2',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (ItemVariant $variant) {
+            $attributes = $variant->getAttribute('attributes');
+            $variant->variant_key = static::buildVariantKey(is_array($attributes) ? $attributes : []);
+        });
+    }
+
     // ========== RELATIONS ==========
     public function item(): BelongsTo
     {
@@ -45,13 +54,7 @@ class ItemVariant extends Model
     protected function label(): Attribute
     {
         return Attribute::get(function () {
-            $attr = is_array($this->attributes['attributes'] ?? null)
-                ? $this->attributes['attributes'] : [];
-            if ($this->relationLoaded('item') || $this->item) {
-                return $this->item->renderVariantLabel($attr);
-            }
-            // fallback minimal
-            return trim(($this->attributes['sku'] ?? '') ?: '');
+            return $this->resolveDisplayLabel();
         });
     }
 
@@ -86,22 +89,7 @@ class ItemVariant extends Model
 
    public function getLabelAttribute(): string
     {
-        // ambil versi CASTED (array) dari kolom `attributes`
-        $attr = $this->getAttribute('attributes');
-        $attr = is_array($attr) ? $attr : [];
-
-        // kalau item relation sudah di-load (disarankan), ini zero extra query
-        if ($this->relationLoaded('item') && $this->item) {
-            return $this->item->renderVariantLabel($attr);
-        }
-
-        // fallback: boleh lazy-load kalau aktif di projectmu
-        if ($this->item) {
-            return $this->item->renderVariantLabel($attr);
-        }
-
-        // fallback minimal
-        return trim((string) ($this->sku ?? ''));
+        return $this->resolveDisplayLabel();
     }
 
     public function setPriceAttribute($value): void
@@ -145,5 +133,63 @@ class ItemVariant extends Model
 
         if ($sell === null || $cost === null) return null;
         return number_format(((float)$sell - (float)$cost), 2, '.', '');
+    }
+
+    private function resolveDisplayLabel(): string
+    {
+        $attr = $this->getAttribute('attributes');
+        $attr = is_array($attr) ? $attr : [];
+
+        if ($this->relationLoaded('item') && $this->item) {
+            return $this->item->renderVariantDisplayName($attr, $this->sku);
+        }
+
+        if ($this->item) {
+            return $this->item->renderVariantDisplayName($attr, $this->sku);
+        }
+
+        $sku = trim((string) ($this->sku ?? ''));
+        if ($sku !== '') {
+            return $sku;
+        }
+
+        return 'Variant #' . $this->id;
+    }
+
+    public static function buildVariantKey(array $attributes): string
+    {
+        $normalized = static::normalizeVariantAttributes($attributes);
+        if (empty($normalized)) {
+            return '__BASE__';
+        }
+
+        $json = json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return 'V1:' . sha1((string) $json);
+    }
+
+    public static function normalizeVariantAttributes(array $attributes): array
+    {
+        $normalized = [];
+
+        foreach ($attributes as $key => $value) {
+            $key = strtolower(trim((string) $key));
+            if ($key === '') {
+                continue;
+            }
+
+            if (is_array($value) || is_object($value)) {
+                continue;
+            }
+
+            $value = trim((string) $value);
+            if ($value === '') {
+                continue;
+            }
+
+            $normalized[$key] = mb_strtolower($value, 'UTF-8');
+        }
+
+        ksort($normalized);
+        return $normalized;
     }
 }

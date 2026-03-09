@@ -53,11 +53,18 @@ class SalesOrderController extends Controller
 
         // data lain yang sudah kamu pakai di blade
         $items = Item::with('unit:id,code')
-            ->withCount('variants')
+            ->withCount([
+                'variants as active_variants_count' => function ($q) {
+                    $q->where('is_active', true)->orWhereNull('is_active');
+                },
+            ])
             ->orderBy('name')
             ->get(['id','name','price','unit_id','sku','variant_type']);
         $variants = ItemVariant::query()
             ->with(['item:id,name,unit_id,variant_type,name_template', 'item.unit:id,code'])
+            ->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
             ->orderBy('item_id')
             ->orderBy('id')
             ->get(['id','item_id','sku','attributes','price']);
@@ -93,11 +100,18 @@ class SalesOrderController extends Controller
     {
         $customers = Customer::orderBy('name')->get(['id','name']);
         $items     = Item::with('unit:id,code')
-            ->withCount('variants')
+            ->withCount([
+                'variants as active_variants_count' => function ($q) {
+                    $q->where('is_active', true)->orWhereNull('is_active');
+                },
+            ])
             ->orderBy('name')
             ->get(['id','name','price','unit_id','sku','variant_type']);
         $variants = ItemVariant::query()
             ->with(['item:id,name,unit_id,variant_type,name_template', 'item.unit:id,code'])
+            ->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
             ->orderBy('item_id')
             ->orderBy('id')
             ->get(['id','item_id','sku','attributes','price']);
@@ -238,6 +252,7 @@ class SalesOrderController extends Controller
         $afterPerItem  = 0.0;
 
         $linesInput = collect($data['lines'] ?? [])->values();
+        $this->enforceVariantSelectionForLines($linesInput->all(), $isScope);
         foreach ($linesInput as $idx => $ln) {
             $qty   = max($toNum($ln['qty'] ?? 0), 0);
             $price = max($toNum($ln['unit_price'] ?? 0), 0);
@@ -495,11 +510,18 @@ class SalesOrderController extends Controller
         // Data item untuk TomSelect di staging row
         $items = Item::query()
             ->with('unit:id,code')
-            ->withCount('variants')
+            ->withCount([
+                'variants as active_variants_count' => function ($q) {
+                    $q->where('is_active', true)->orWhereNull('is_active');
+                },
+            ])
             ->orderBy('name')
             ->get(['id','name','unit_id','price','sku','variant_type']);
         $variants = ItemVariant::query()
             ->with(['item:id,name,unit_id,variant_type,name_template', 'item.unit:id,code'])
+            ->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
             ->orderBy('item_id')
             ->orderBy('id')
             ->get(['id','item_id','sku','attributes','price']);
@@ -688,6 +710,7 @@ class SalesOrderController extends Controller
                 'item_variant_id' => $isScope ? null : ($ln['item_variant_id'] ?? null),
             ];
         }
+        $this->enforceVariantSelectionForLines($cleanLines, $isScope);
 
         $tdType  = $data['total_discount_type'] ?? 'amount';
         $tdValRaw= $parse($data['total_discount_value'] ?? 0);
@@ -1041,6 +1064,16 @@ class SalesOrderController extends Controller
             $discountMode = 'total';
         }
 
+        $quotation->loadMissing('lines');
+        $quotationLinesForValidation = $quotation->lines
+            ->map(fn ($ql) => [
+                'item_id' => $ql->item_id ?? null,
+                'item_variant_id' => $ql->item_variant_id ?? $ql->variant_id ?? null,
+            ])
+            ->values()
+            ->all();
+        $this->enforceVariantSelectionForLines($quotationLinesForValidation, $isScope);
+
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
 
         // Sales agent: pilih urutan prioritas
@@ -1231,6 +1264,84 @@ class SalesOrderController extends Controller
             $s = str_replace(',', '.', $s);
         }
         return (float) $s;
+    }
+
+    private function enforceVariantSelectionForLines(array $lines, bool $isScope): void
+    {
+        if ($isScope || empty($lines)) {
+            return;
+        }
+
+        $itemIds = collect($lines)
+            ->pluck('item_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($itemIds->isEmpty()) {
+            return;
+        }
+
+        $itemIdsWithActiveVariants = Item::query()
+            ->whereIn('id', $itemIds->all())
+            ->whereHas('variants', function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $itemIdsWithActiveVariants = array_flip($itemIdsWithActiveVariants);
+
+        $variantIds = collect($lines)
+            ->pluck('item_variant_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $variants = ItemVariant::query()
+            ->whereIn('id', $variantIds->all())
+            ->get(['id', 'item_id', 'is_active'])
+            ->keyBy('id');
+
+        foreach (array_values($lines) as $index => $line) {
+            $itemId = (int) ($line['item_id'] ?? 0);
+            if ($itemId <= 0) {
+                continue;
+            }
+
+            $variantId = (int) ($line['item_variant_id'] ?? 0);
+            $requiresVariant = isset($itemIdsWithActiveVariants[$itemId]);
+
+            if ($requiresVariant && $variantId <= 0) {
+                throw ValidationException::withMessages([
+                    "lines.$index.item_variant_id" => 'Item ini memiliki varian aktif. Pilih varian yang sesuai.',
+                ]);
+            }
+
+            if ($variantId <= 0) {
+                continue;
+            }
+
+            $variant = $variants->get($variantId);
+            if (!$variant || (int) $variant->item_id !== $itemId) {
+                throw ValidationException::withMessages([
+                    "lines.$index.item_variant_id" => 'Varian tidak sesuai dengan item.',
+                ]);
+            }
+
+            if ($requiresVariant && !$this->isVariantActiveValue($variant->is_active)) {
+                throw ValidationException::withMessages([
+                    "lines.$index.item_variant_id" => 'Varian tidak aktif untuk transaksi baru.',
+                ]);
+            }
+        }
+    }
+
+    private function isVariantActiveValue($isActive): bool
+    {
+        return $isActive === null || (bool) $isActive;
     }
 
     private function normalizeBillingTerms(array $terms, ?string $poType = null): array
