@@ -6,7 +6,7 @@
     <div class="table-responsive">
       <table class="table table-sm">
         <thead><tr>
-          <th>No.</th><th>Date</th><th>Customer</th><th class="text-end">Total</th><th>Status</th><th></th>
+          <th>No.</th><th>Date</th><th>Customer</th><th class="text-end">Total</th><th>Status</th>
         </tr></thead>
         <tbody>
         @forelse($invoices as $inv)
@@ -24,17 +24,14 @@
             }
           @endphp
           <tr>
-            <td>{{ $inv->number }}</td>
+            <td><a href="{{ route('invoices.show',$inv) }}">{{ $inv->number }}</a></td>
             <td>{{ $inv->date?->format('Y-m-d') }}</td>
             <td>{{ $inv->customer->name ?? '-' }}</td>
             <td class="text-end">{{ number_format($inv->total,2) }}</td>
             <td><span class="badge {{ $statusClass }}">{{ $statusLabel }}</span></td>
-            <td class="text-end">
-              <a href="{{ route('invoices.show',$inv) }}" class="btn btn-sm btn-outline-primary">Open</a>
-            </td>
           </tr>
         @empty
-          <tr><td colspan="6" class="text-center text-muted">No invoices yet.</td></tr>
+          <tr><td colspan="5" class="text-center text-muted">No invoices yet.</td></tr>
         @endforelse
         </tbody>
       </table>

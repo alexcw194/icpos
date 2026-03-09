@@ -17,25 +17,21 @@
             <th>Due Date</th>
             <th>Total</th>
             <th>Posted At</th>
-            <th class="text-end">Actions</th>
           </tr>
         </thead>
         <tbody>
           @forelse($invoices as $inv)
             <tr>
-              <td>{{ $inv->number ?? 'DRAFT-'.$inv->id }}</td>
+              <td><a href="{{ route('invoices.show', $inv) }}">{{ $inv->number ?? 'DRAFT-'.$inv->id }}</a></td>
               <td>{{ optional($inv->date)->format('Y-m-d') }}</td>
               <td>{{ $inv->customer->name ?? '-' }}</td>
               <td>{{ optional($inv->due_date)->format('Y-m-d') ?: '-' }}</td>
               <td>{{ number_format((float)$inv->total, 2, ',', '.') }}</td>
               <td>{{ optional($inv->posted_at)->format('Y-m-d H:i') }}</td>
-              <td class="text-end">
-                <a href="{{ route('invoices.show', $inv) }}" class="btn btn-outline-primary btn-sm">Open</a>
-              </td>
             </tr>
           @empty
             <tr>
-              <td colspan="7" class="text-center text-muted py-4">Semua posted invoice sudah memiliki TT.</td>
+              <td colspan="6" class="text-center text-muted py-4">Semua posted invoice sudah memiliki TT.</td>
             </tr>
           @endforelse
         </tbody>
