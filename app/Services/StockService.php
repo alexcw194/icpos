@@ -171,6 +171,68 @@ class StockService
         $delivery->refresh();
     }
 
+    public function manualAdjust(
+        int $companyId,
+        int $warehouseId,
+        int $itemId,
+        ?int $variantId,
+        float $qtyAdjustment,
+        ?string $reason = null,
+        ?int $referenceId = null,
+        ?Carbon $ledgerDate = null,
+        ?int $actingUserId = null
+    ): void {
+        DB::transaction(function () use (
+            $companyId,
+            $warehouseId,
+            $itemId,
+            $variantId,
+            $qtyAdjustment,
+            $referenceId,
+            $ledgerDate,
+            $actingUserId
+        ) {
+            $stock = static::getStockForUpdate($companyId, $warehouseId, $itemId, $variantId);
+
+            $balance = (float) $stock->qty_on_hand + (float) $qtyAdjustment;
+            if ($balance < -1e-9) {
+                throw new RuntimeException('Stok tidak boleh minus.');
+            }
+
+            $stock->qty_on_hand = $balance;
+            $stock->save();
+
+            $userId = static::resolveUserId($actingUserId);
+            $movementDate = $ledgerDate ? $ledgerDate->copy() : Carbon::now();
+
+            StockLedger::create([
+                'company_id'      => $companyId,
+                'warehouse_id'    => $warehouseId,
+                'item_id'         => $itemId,
+                'item_variant_id' => $variantId,
+                'ledger_date'     => $movementDate,
+                'qty_change'      => (float) $qtyAdjustment,
+                'balance_after'   => $balance,
+                'reference_type'  => 'manual_adjustment',
+                'reference_id'    => $referenceId,
+                'created_by'      => $userId,
+            ]);
+
+            \App\Models\StockSummary::updateOrCreate(
+                [
+                    'company_id'   => $companyId,
+                    'warehouse_id' => $warehouseId,
+                    'item_id'      => $itemId,
+                    'variant_id'   => $variantId,
+                ],
+                [
+                    'qty_balance'  => $balance,
+                    'uom'          => $stock->item->unit->code ?? null,
+                ]
+            );
+        });
+    }
+
     public static function ensureSufficientStock(Warehouse $warehouse, EloquentCollection $lines): void
     {
         $lines->each(function (DeliveryLine $line) use ($warehouse) {

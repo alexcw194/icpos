@@ -8,8 +8,10 @@ use App\Models\Item;
 use App\Models\ItemVariant;
 use App\Models\Warehouse;
 use App\Models\Company;
+use App\Services\StockService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StockAdjustmentController extends Controller
 {
@@ -46,6 +48,9 @@ class StockAdjustmentController extends Controller
         $selectedItemId = $r->input('item_id');
         $selectedVariantId = $r->input('variant_id');
         $selectedWarehouseId = $r->input('warehouse_id');
+        if (!$selectedWarehouseId && $warehouses->isNotEmpty()) {
+            $selectedWarehouseId = (string) $warehouses->first()->id;
+        }
 
         $summary = null;
         if ($selectedItemId) {
@@ -124,7 +129,7 @@ class StockAdjustmentController extends Controller
 
         $data = $r->validate([
             'company_id' => 'required|exists:companies,id',
-            'warehouse_id' => 'nullable|exists:warehouses,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
             'item_id' => 'required|exists:items,id',
             'variant_id' => 'nullable|exists:item_variants,id',
             'qty_adjustment' => 'required|numeric',
@@ -164,22 +169,26 @@ class StockAdjustmentController extends Controller
 
         $adjustmentDate = Carbon::parse($data['adjustment_date']);
         unset($data['adjustment_date']);
+        DB::transaction(function () use ($data, $adjustmentDate) {
+            $data['created_by'] = auth()->id();
 
-        $data['created_by'] = auth()->id();
-        $adjustment = StockAdjustment::create($data);
-        $adjustment->created_at = $adjustmentDate->setTimeFrom(now());
-        $adjustment->updated_at = $adjustment->created_at;
-        $adjustment->save();
+            $adjustment = StockAdjustment::create($data);
+            $adjustment->created_at = $adjustmentDate->setTimeFrom(now());
+            $adjustment->updated_at = $adjustment->created_at;
+            $adjustment->save();
 
-        // Update ledger & summary
-        app('App\\Services\\StockService')->manualAdjust(
-            $data['company_id'],
-            $data['warehouse_id'],
-            $data['item_id'],
-            $data['variant_id'],
-            $data['qty_adjustment'],
-            $data['reason'] ?? 'Manual adjustment'
-        );
+            app(StockService::class)->manualAdjust(
+                companyId: (int) $data['company_id'],
+                warehouseId: (int) $data['warehouse_id'],
+                itemId: (int) $data['item_id'],
+                variantId: $data['variant_id'] ? (int) $data['variant_id'] : null,
+                qtyAdjustment: (float) $data['qty_adjustment'],
+                reason: $data['reason'] ?? 'Manual adjustment',
+                referenceId: (int) $adjustment->id,
+                ledgerDate: $adjustment->created_at,
+                actingUserId: $data['created_by'] ? (int) $data['created_by'] : null
+            );
+        });
 
         return redirect()->route('inventory.adjustments.index')->with('success', 'Adjustment recorded.');
     }

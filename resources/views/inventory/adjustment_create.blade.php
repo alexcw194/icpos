@@ -21,7 +21,7 @@
       @php
         $selectedItemId = old('item_id', $selectedItemId ?? null);
         $selectedVariantId = old('variant_id', $selectedVariantId ?? null);
-        $selectedWarehouseId = old('warehouse_id', request('warehouse_id'));
+        $selectedWarehouseId = old('warehouse_id', $selectedWarehouseId ?? request('warehouse_id'));
         $selectedDate = old('adjustment_date', now()->toDateString());
         $selectedCompanyId = old('company_id', $companyId ?? auth()->user()->company_id);
       @endphp
@@ -37,8 +37,8 @@
 
       <div class="mb-3">
         <label class="form-label">Warehouse</label>
-        <select name="warehouse_id" class="form-select" id="adjustWarehouseSelect">
-          <option value="">Semua Warehouse</option>
+        <select name="warehouse_id" class="form-select" id="adjustWarehouseSelect" required>
+          <option value="">Pilih warehouse</option>
           @foreach($warehouses as $w)
             <option value="{{ $w->id }}" @selected((string)$selectedWarehouseId === (string)$w->id)>
               {{ $w->name }}
