@@ -79,6 +79,9 @@
     }
 
     $docNo = $delivery->number ?? ('DRAFT-'.$delivery->id);
+    $salesOrder = $delivery->salesOrder;
+    $poCustomer = $salesOrder->customer_po_number ?? null;
+    $poDate = $salesOrder->customer_po_date ?? null;
     $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
   @endphp
 
@@ -107,8 +110,11 @@
         <div class="doc-title">DELIVERY ORDER</div>
         <div class="doc-number"># {{ $docNo }}</div>
         <div class="doc-row"><span class="small">Date:</span> {{ $fmtDate($delivery->date ?? $delivery->created_at) }}</div>
-        @if($delivery->reference)
-          <div class="doc-row"><span class="small">Reference:</span> {{ $delivery->reference }}</div>
+        @if($poCustomer)
+          <div class="doc-row"><span class="small">PO Customer:</span> {{ $poCustomer }}</div>
+        @endif
+        @if($poDate)
+          <div class="doc-row"><span class="small">PO date:</span> {{ $fmtDate($poDate) }}</div>
         @endif
       </td>
     </tr>
@@ -118,14 +124,14 @@
     <tr>
       <th width="20%">Customer</th>
       <td width="30%">{{ $delivery->customer->name ?? '-' }}</td>
-      <th width="20%">Warehouse</th>
-      <td width="30%">{{ $delivery->warehouse->name ?? '-' }}</td>
+      <th width="20%">PO Customer</th>
+      <td width="30%">{{ $poCustomer ?: '-' }}</td>
     </tr>
     <tr>
       <th>Recipient</th>
       <td>{{ $delivery->recipient ?? '-' }}</td>
-      <th>Reference</th>
-      <td>{{ $delivery->reference ?? '-' }}</td>
+      <th>PO date</th>
+      <td>{{ $poDate ? $fmtDate($poDate) : '-' }}</td>
     </tr>
     <tr>
       <th>Address</th>

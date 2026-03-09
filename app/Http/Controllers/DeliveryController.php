@@ -407,7 +407,7 @@ class DeliveryController extends Controller
 
     private function renderPdfResponse(Delivery $delivery, bool $download)
     {
-        $delivery->load(['company', 'customer', 'warehouse', 'lines.item', 'lines.variant']);
+        $delivery->load(['company', 'customer', 'warehouse', 'salesOrder', 'lines.item', 'lines.variant']);
 
         $options = new Options();
         $options->set('isRemoteEnabled', true);
