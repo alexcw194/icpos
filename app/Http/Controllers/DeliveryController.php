@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class DeliveryController extends Controller
@@ -28,18 +29,19 @@ class DeliveryController extends Controller
     public function index(Request $request)
     {
         $this->authorizePermission('deliveries.view');
+        $hasStatusColumn = Schema::hasColumn('deliveries', 'status');
         $status = strtolower(trim((string) $request->input('status', Delivery::STATUS_POSTED)));
         $allowedStatuses = [
             Delivery::STATUS_DRAFT,
             Delivery::STATUS_POSTED,
             Delivery::STATUS_CANCELLED,
         ];
-        if ($status !== '' && !in_array($status, $allowedStatuses, true)) {
+        if (!$hasStatusColumn || ($status !== '' && !in_array($status, $allowedStatuses, true))) {
             $status = '';
         }
 
         $query = Delivery::query()
-            ->with(['customer:id,name', 'warehouse:id,name', 'company:id,name,alias'])
+            ->with(['customer:id,name', 'warehouse:id,name'])
             ->latest('date')
             ->latest('id');
 
@@ -49,7 +51,7 @@ class DeliveryController extends Controller
         if ($warehouseId = $request->integer('warehouse_id')) {
             $query->where('warehouse_id', $warehouseId);
         }
-        if ($status !== '') {
+        if ($hasStatusColumn && $status !== '') {
             $query->status($status);
         }
         if ($number = trim((string) $request->input('number'))) {
