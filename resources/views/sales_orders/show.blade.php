@@ -400,7 +400,6 @@
                         <th>#</th>
                         <th>Item</th>
                         <th>PO Item Name</th>
-                        <th>Desc</th>
                         <th class="text-end">Qty</th>
                         <th>Unit</th>
                         <th class="text-end">Price</th>
@@ -412,9 +411,13 @@
                       @foreach($o->lines as $i => $ln)
                         <tr>
                           <td>{{ $i+1 }}</td>
-                          <td>{{ $ln->name }}</td>
+                          <td>
+                            <div>{{ $ln->name }}</div>
+                            @if(filled($ln->description))
+                              <div class="text-muted small mt-1">{{ $ln->description }}</div>
+                            @endif
+                          </td>
                           <td>{{ $ln->po_item_name ?: '-' }}</td>
-                          <td>{{ $ln->description }}</td>
                           <td class="text-end">{{ number_format($ln->qty_ordered,0) }}</td>
                           <td>{{ $ln->unit }}</td>
                           <td class="text-end">{{ number_format($ln->unit_price,2) }}</td>
