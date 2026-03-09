@@ -23,7 +23,7 @@
           @forelse($adjustments as $adj)
             @php
               $itemLabel = $adj->item->name ?? '-';
-              $variantLabel = $adj->variant?->label ?? $adj->variant?->sku ?? null;
+              $variantLabel = $adj->variant?->label ?? $adj->variant?->sku ?? ($adj->variant_id ? ('#'.$adj->variant_id.' (deleted)') : null);
               if ($variantLabel) {
                 $itemLabel .= ' - ' . $variantLabel;
               }

@@ -554,6 +554,27 @@ class DeliveryController extends Controller
             });
         }
 
+        $itemIds = $lines->pluck('item_id')->filter()->unique();
+        if ($itemIds->isNotEmpty()) {
+            $itemIdsWithVariants = Item::query()
+                ->whereIn('id', $itemIds)
+                ->whereHas('variants')
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+            $itemIdsWithVariants = array_flip($itemIdsWithVariants);
+
+            $lines->each(function (array $line, int $index) use ($itemIdsWithVariants) {
+                $itemId = (int) ($line['item_id'] ?? 0);
+                $variantId = $line['item_variant_id'] ?? null;
+                if ($itemId > 0 && isset($itemIdsWithVariants[$itemId]) && !$variantId) {
+                    throw ValidationException::withMessages([
+                        "lines.$index.item_variant_id" => 'Item ini memiliki varian. Pilih varian yang sesuai.',
+                    ]);
+                }
+            });
+        }
+
         $salesOrderId = $validated['sales_order_id'] ?? null;
         $salesOrderLineIds = $lines->pluck('sales_order_line_id')->filter()->unique();
         if ($salesOrderLineIds->isNotEmpty()) {

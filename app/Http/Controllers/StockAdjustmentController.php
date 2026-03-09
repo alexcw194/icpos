@@ -54,10 +54,14 @@ class StockAdjustmentController extends Controller
 
         $summary = null;
         if ($selectedItemId) {
-            $summary = StockSummary::where('item_id', $selectedItemId)
+            $summaryQuery = StockSummary::where('item_id', $selectedItemId)
                 ->when($selectedWarehouseId, fn($q)=>$q->where('warehouse_id', $selectedWarehouseId))
-                ->when($selectedVariantId, fn($q)=>$q->where('variant_id', $selectedVariantId))
-                ->first();
+                ->when($selectedVariantId, fn($q)=>$q->where('variant_id', $selectedVariantId));
+
+            $summary = (object) [
+                'qty_balance' => (float) (clone $summaryQuery)->sum('qty_balance'),
+                'uom' => (clone $summaryQuery)->latest('id')->value('uom'),
+            ];
         }
 
         $itemsWithoutVariants = $items->filter(function ($it) {
@@ -210,13 +214,15 @@ class StockAdjustmentController extends Controller
             }
         }
 
-        $summary = StockSummary::where('item_id', $data['item_id'])
+        $summaryQuery = StockSummary::where('item_id', $data['item_id'])
             ->when($data['warehouse_id'] ?? null, fn($q)=>$q->where('warehouse_id', $data['warehouse_id']))
-            ->when($data['variant_id'] ?? null, fn($q)=>$q->where('variant_id', $data['variant_id']))
-            ->first();
+            ->when($data['variant_id'] ?? null, fn($q)=>$q->where('variant_id', $data['variant_id']));
+
+        $summary = (clone $summaryQuery)->latest('id')->first();
+        $qtyBalance = (float) (clone $summaryQuery)->sum('qty_balance');
 
         return response()->json([
-            'qty_balance' => (float) ($summary->qty_balance ?? 0),
+            'qty_balance' => $qtyBalance,
             'uom' => $summary->uom ?? null,
         ]);
     }

@@ -32,12 +32,18 @@
         <tbody>
           @forelse($summaries as $row)
             <tr>
-              <td>{{ $row->warehouse->name ?? '—' }}</td>
-              <td>{{ $row->item->name ?? '—' }}</td>
-              <td>{{ $row->variant->sku ?? '—' }}</td>
-              <td class="text-end">{{ number_format($row->qty_balance, 2, ',', '.') }}</td>
-              <td>{{ $row->uom ?? '—' }}</td>
-              <td>{{ $row->updated_at?->format('d M Y H:i') ?? '—' }}</td>
+              <td>{{ $row->warehouse_name ?? '-' }}</td>
+              <td>{{ $row->item_name ?? '-' }}</td>
+              <td>
+                @if($row->variant_id)
+                  {{ $row->variant_sku ?: ('#'.$row->variant_id.' (deleted)') }}
+                @else
+                  -
+                @endif
+              </td>
+              <td class="text-end">{{ number_format((float) $row->qty_balance, 2, ',', '.') }}</td>
+              <td>{{ $row->uom ?? '-' }}</td>
+              <td>{{ $row->updated_at ? \Illuminate\Support\Carbon::parse($row->updated_at)->format('d M Y H:i') : '-' }}</td>
             </tr>
           @empty
             <tr><td colspan="6" class="text-center text-muted">No stock summary available.</td></tr>

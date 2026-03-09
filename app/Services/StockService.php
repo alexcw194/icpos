@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Models\Delivery;
 use App\Models\DeliveryLine;
 use App\Models\ItemStock;
+use App\Models\StockSummary;
 use App\Models\StockLedger;
 use App\Models\Warehouse;
 use App\Models\SalesOrder;
 use App\Services\DocNumberService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -218,17 +220,13 @@ class StockService
                 'created_by'      => $userId,
             ]);
 
-            \App\Models\StockSummary::updateOrCreate(
-                [
-                    'company_id'   => $companyId,
-                    'warehouse_id' => $warehouseId,
-                    'item_id'      => $itemId,
-                    'variant_id'   => $variantId,
-                ],
-                [
-                    'qty_balance'  => $balance,
-                    'uom'          => $stock->item->unit->code ?? null,
-                ]
+            static::syncSummary(
+                companyId: $companyId,
+                warehouseId: $warehouseId,
+                itemId: $itemId,
+                variantId: $variantId,
+                balance: $balance,
+                uom: $stock->item->unit->code ?? null
             );
         });
     }
@@ -240,14 +238,13 @@ class StockService
                 return;
             }
 
-            $stock = ItemStock::query()->firstOrNew([
-                'company_id'      => $warehouse->company_id,
-                'warehouse_id'    => $warehouse->id,
-                'item_id'         => $line->item_id,
-                'item_variant_id' => $line->item_variant_id,
-            ]);
+            $stockQuery = ItemStock::query()
+                ->where('company_id', $warehouse->company_id)
+                ->where('warehouse_id', $warehouse->id)
+                ->where('item_id', $line->item_id);
+            static::applyVariantScope($stockQuery, $line->item_variant_id, 'item_variant_id');
 
-            $available = (float) $stock->qty_on_hand;
+            $available = (float) $stockQuery->sum('qty_on_hand');
             if (!$warehouse->allow_negative_stock && $available < (float) $line->qty) {
                 throw new RuntimeException(
                     sprintf(
@@ -300,17 +297,13 @@ class StockService
             'created_by'      => $userId,
         ]);
 
-        \App\Models\StockSummary::updateOrCreate(
-            [
-                'company_id'   => $companyId,
-                'warehouse_id' => $warehouseId,
-                'item_id'      => $itemId,
-                'variant_id'   => $variantId,
-            ],
-            [
-                'qty_balance'  => $balance,
-                'uom'          => $stock->item->unit->code ?? null,
-            ]
+        static::syncSummary(
+            companyId: $companyId,
+            warehouseId: $warehouseId,
+            itemId: $itemId,
+            variantId: $variantId,
+            balance: $balance,
+            uom: $stock->item->unit->code ?? null
         );
     }
 
@@ -348,29 +341,30 @@ class StockService
             'created_by'      => $userId,
         ]);
 
-        \App\Models\StockSummary::updateOrCreate(
-            [
-                'company_id'   => $companyId,
-                'warehouse_id' => $warehouseId,
-                'item_id'      => $itemId,
-                'variant_id'   => $variantId,
-            ],
-            [
-                'qty_balance'  => $balance,
-                'uom'          => $stock->item->unit->code ?? null,
-            ]
+        static::syncSummary(
+            companyId: $companyId,
+            warehouseId: $warehouseId,
+            itemId: $itemId,
+            variantId: $variantId,
+            balance: $balance,
+            uom: $stock->item->unit->code ?? null
         );
     }
 
     private static function getStockForUpdate(int $companyId, int $warehouseId, int $itemId, ?int $variantId): ItemStock
     {
-        $stock = ItemStock::query()
+        $query = ItemStock::query()
             ->where('company_id', $companyId)
             ->where('warehouse_id', $warehouseId)
-            ->where('item_id', $itemId)
-            ->where('item_variant_id', $variantId)
+            ->where('item_id', $itemId);
+        static::applyVariantScope($query, $variantId, 'item_variant_id');
+
+        $rows = $query
             ->lockForUpdate()
-            ->first();
+            ->orderBy('id')
+            ->get();
+
+        $stock = $rows->first();
 
         if (!$stock) {
             $stock = new ItemStock([
@@ -380,9 +374,73 @@ class StockService
                 'item_variant_id' => $variantId,
             ]);
             $stock->qty_on_hand = 0;
+            return $stock;
+        }
+
+        if ($rows->count() > 1) {
+            $mergedQty = (float) $rows->sum(fn (ItemStock $row) => (float) $row->qty_on_hand);
+
+            $stock->qty_on_hand = $mergedQty;
+            $stock->save();
+
+            $duplicateIds = $rows->skip(1)->pluck('id')->all();
+            if (!empty($duplicateIds)) {
+                ItemStock::query()->whereIn('id', $duplicateIds)->delete();
+            }
         }
 
         return $stock;
+    }
+
+    private static function syncSummary(
+        int $companyId,
+        int $warehouseId,
+        int $itemId,
+        ?int $variantId,
+        float $balance,
+        ?string $uom
+    ): void {
+        $query = StockSummary::query()
+            ->where('company_id', $companyId)
+            ->where('warehouse_id', $warehouseId)
+            ->where('item_id', $itemId);
+        static::applyVariantScope($query, $variantId, 'variant_id');
+
+        $rows = $query
+            ->lockForUpdate()
+            ->orderBy('id')
+            ->get();
+
+        $summary = $rows->first();
+        if (!$summary) {
+            StockSummary::create([
+                'company_id'   => $companyId,
+                'warehouse_id' => $warehouseId,
+                'item_id'      => $itemId,
+                'variant_id'   => $variantId,
+                'qty_balance'  => $balance,
+                'uom'          => $uom,
+            ]);
+            return;
+        }
+
+        $summary->qty_balance = $balance;
+        $summary->uom = $uom;
+        $summary->save();
+
+        $duplicateIds = $rows->skip(1)->pluck('id')->all();
+        if (!empty($duplicateIds)) {
+            StockSummary::query()->whereIn('id', $duplicateIds)->delete();
+        }
+    }
+
+    private static function applyVariantScope(Builder $query, ?int $variantId, string $column): Builder
+    {
+        if ($variantId !== null) {
+            return $query->where($column, $variantId);
+        }
+
+        return $query->whereNull($column);
     }
 
     private static function adjustDeliveredQuantity(DeliveryLine $line, float $delta): void

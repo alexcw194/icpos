@@ -67,7 +67,7 @@
               <td>{{ optional($lg->ledger_date ?? $lg->created_at)->format('Y-m-d H:i') }}</td>
               <td>{{ $lg->warehouse->name ?? '-' }}</td>
               <td>{{ $lg->item->name ?? '-' }}</td>
-              <td>{{ $lg->variant->sku ?? '-' }}</td>
+              <td>{{ $lg->variant->sku ?? ($lg->item_variant_id ? ('#'.$lg->item_variant_id.' (deleted)') : '-') }}</td>
               <td>{{ strtoupper((string) $lg->trx_type) }}</td>
               <td class="text-end text-success">{{ number_format((float) $lg->qty_in, 2, ',', '.') }}</td>
               <td class="text-end text-danger">{{ number_format((float) $lg->qty_out, 2, ',', '.') }}</td>
