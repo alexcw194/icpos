@@ -36,9 +36,9 @@
               <td>{{ $row->item_name ?? '-' }}</td>
               <td>
                 @if($row->variant_id)
-                  {{ $row->variant_sku ?: ('#'.$row->variant_id.' (deleted)') }}
-                @elseif((int)($row->item_variants_count ?? 0) > 0)
-                  Unassigned
+                  {{ ($variantLabels[(int) $row->variant_id] ?? null) ?: ($row->variant_sku ?: ('#'.$row->variant_id.' (deleted)')) }}
+                @elseif((int)($row->item_variants_count ?? 0) > 0 || (($row->item_variant_type ?? 'none') !== 'none'))
+                  Unassigned (Legacy)
                 @else
                   -
                 @endif

@@ -69,9 +69,9 @@
               <td>{{ $lg->item->name ?? '-' }}</td>
               <td>
                 @if($lg->item_variant_id)
-                  {{ $lg->variant->sku ?? ('#'.$lg->item_variant_id.' (deleted)') }}
-                @elseif((int)($lg->item?->variants_count ?? 0) > 0)
-                  Unassigned
+                  {{ ($lg->variant?->label ?: $lg->variant?->sku) ?? ('#'.$lg->item_variant_id.' (deleted)') }}
+                @elseif((int)($lg->item?->variants_count ?? 0) > 0 || (($lg->item?->variant_type ?? 'none') !== 'none'))
+                  Unassigned (Legacy)
                 @else
                   -
                 @endif

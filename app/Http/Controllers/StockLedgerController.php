@@ -15,7 +15,7 @@ class StockLedgerController extends Controller
         $query = StockLedger::with([
             'warehouse',
             'item' => fn ($q) => $q->withCount('variants'),
-            'variant',
+            'variant' => fn ($q) => $q->with('item:id,name,variant_type,name_template,sku'),
             'createdBy',
         ])
             ->orderByDesc('created_at');

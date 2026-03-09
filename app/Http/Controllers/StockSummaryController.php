@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ItemVariant;
 use App\Models\StockSummary;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class StockSummaryController extends Controller
                 'ss.variant_id',
                 'w.name as warehouse_name',
                 'i.name as item_name',
+                'i.variant_type as item_variant_type',
                 'v.sku as variant_sku',
                 DB::raw('(select count(*) from item_variants iv where iv.item_id = ss.item_id) as item_variants_count'),
                 DB::raw('SUM(ss.qty_balance) as qty_balance'),
@@ -36,6 +38,7 @@ class StockSummaryController extends Controller
                 'ss.variant_id',
                 'w.name',
                 'i.name',
+                'i.variant_type',
                 'v.sku'
             )
             ->orderBy('ss.warehouse_id')
@@ -48,7 +51,29 @@ class StockSummaryController extends Controller
 
         $summaries = $query->paginate(50);
         $warehouses = Warehouse::orderBy('name')->get();
+        $variantIds = $summaries->getCollection()
+            ->pluck('variant_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+        $variantLabels = [];
 
-        return view('inventory.summary', compact('summaries', 'warehouses'));
+        if ($variantIds->isNotEmpty()) {
+            $variantLabels = ItemVariant::query()
+                ->with('item:id,name,variant_type,name_template,sku')
+                ->whereIn('id', $variantIds->all())
+                ->get()
+                ->mapWithKeys(function (ItemVariant $variant) {
+                    $label = trim((string) ($variant->label ?? ''));
+                    if ($label === '') {
+                        $label = trim((string) ($variant->sku ?? ''));
+                    }
+                    return [(int) $variant->id => $label];
+                })
+                ->all();
+        }
+
+        return view('inventory.summary', compact('summaries', 'warehouses', 'variantLabels'));
     }
 }
