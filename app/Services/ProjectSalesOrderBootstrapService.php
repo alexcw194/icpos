@@ -276,24 +276,24 @@ class ProjectSalesOrderBootstrapService
         $materialTotal = round(max((float) ($line->material_total ?? 0), 0), 2);
         $laborTotal = round(max((float) ($line->labor_total ?? 0), 0), 2);
 
-        $lineTotal = (float) ($line->line_total ?? 0);
-        if ($lineTotal <= 0) {
-            $lineTotal = $materialTotal + $laborTotal;
+        $sourceLineTotal = (float) ($line->line_total ?? 0);
+        if ($sourceLineTotal <= 0) {
+            $sourceLineTotal = $materialTotal + $laborTotal;
         }
-        if ($lineTotal <= 0) {
-            $lineTotal = round($qty * (float) ($line->unit_price ?? 0), 2);
+        if ($sourceLineTotal <= 0) {
+            $sourceLineTotal = round($qty * (float) ($line->unit_price ?? 0), 2);
         }
-        $lineTotal = round(max($lineTotal, 0), 2);
+        $sourceLineTotal = round(max($sourceLineTotal, 0), 2);
 
         $componentTotal = round($materialTotal + $laborTotal, 2);
-        if ($componentTotal <= 0 && $lineTotal > 0) {
-            $materialTotal = $lineTotal;
+        if ($componentTotal <= 0 && $sourceLineTotal > 0) {
+            $materialTotal = $sourceLineTotal;
             $laborTotal = 0.0;
-        } elseif (abs($componentTotal - $lineTotal) > 0.01) {
-            $materialTotal = round(max($lineTotal - $laborTotal, 0), 2);
+        } elseif (abs($componentTotal - $sourceLineTotal) > 0.01) {
+            $materialTotal = round(max($sourceLineTotal - $laborTotal, 0), 2);
             $componentTotal = round($materialTotal + $laborTotal, 2);
-            if (abs($componentTotal - $lineTotal) > 0.01) {
-                $lineTotal = $componentTotal;
+            if (abs($componentTotal - $sourceLineTotal) > 0.01) {
+                $sourceLineTotal = $componentTotal;
             }
         }
 
@@ -313,6 +313,9 @@ class ProjectSalesOrderBootstrapService
                 $laborUnit = round($laborTotal / $qty, 2);
             }
             $laborTotal = round($qty * $laborUnit, 2);
+            if ($laborTotal > 0 && ($materialTotal + $laborTotal) > ($sourceLineTotal + 0.01)) {
+                $materialTotal = round(max($sourceLineTotal - $laborTotal, 0), 2);
+            }
         } else {
             $laborTotal = 0.0;
         }

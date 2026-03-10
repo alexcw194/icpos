@@ -1314,8 +1314,15 @@ class SalesOrderController extends Controller
                 $laborTotal = max((float) ($ql->labor_total ?? 0), 0);
                 $unitPrice = (float)($ql->unit_price ?? 0);
                 $laborUnit = 0.0;
+                $sourceLineSub = max((float) ($ql->line_total ?? 0), 0);
 
                 if ($isProjectPo) {
+                    if ($sourceLineSub <= 0) {
+                        $sourceLineSub = round($materialTotal + $laborTotal, 2);
+                    }
+                    if ($sourceLineSub <= 0) {
+                        $sourceLineSub = round($qty * max($unitPrice, 0), 2);
+                    }
                     if ($qty > 0) {
                         if ($materialTotal <= 0 && $unitPrice > 0) {
                             $materialTotal = round($qty * $unitPrice, 2);
@@ -1330,6 +1337,9 @@ class SalesOrderController extends Controller
                             ? max((float) $ql->labor_unit_cost_snapshot, 0)
                             : ($laborTotal > 0 ? round($laborTotal / $qty, 2) : 0.0);
                         $laborTotal = round($qty * $laborUnit, 2);
+                        if ($laborTotal > 0 && ($materialTotal + $laborTotal) > ($sourceLineSub + 0.01)) {
+                            $materialTotal = round(max($sourceLineSub - $laborTotal, 0), 2);
+                        }
                     } else {
                         $unitPrice = max($unitPrice, 0);
                         $laborUnit = 0.0;
