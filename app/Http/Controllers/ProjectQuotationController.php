@@ -703,7 +703,8 @@ class ProjectQuotationController extends Controller
                 'won_at' => now(),
             ]);
 
-            if ($project->status === 'draft') {
+            $projectStatus = strtolower((string) ($project->status ?? ''));
+            if (!in_array($projectStatus, ['active', 'closed', 'cancelled'], true)) {
                 $project->update([
                     'status' => 'active',
                 ]);

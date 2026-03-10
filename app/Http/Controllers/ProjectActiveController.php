@@ -21,7 +21,6 @@ class ProjectActiveController extends Controller
 
         $projects = Project::query()
             ->visibleTo($user)
-            ->where('status', 'active')
             ->whereHas('wonQuotations')
             ->with([
                 'customer:id,name',
@@ -46,10 +45,6 @@ class ProjectActiveController extends Controller
     {
         $this->authorizeProjectActiveAccess();
         $this->authorize('view', $project);
-
-        if ($project->status !== 'active') {
-            abort(404);
-        }
 
         $project->load([
             'customer:id,name',
@@ -128,10 +123,6 @@ class ProjectActiveController extends Controller
         $this->authorizeProjectActiveAccess();
         $this->authorize('view', $project);
         $this->authorize('create', Invoice::class);
-
-        if ($project->status !== 'active') {
-            return back()->with('error', 'Project harus berstatus active.');
-        }
 
         $project->load([
             'company:id,alias,name',
