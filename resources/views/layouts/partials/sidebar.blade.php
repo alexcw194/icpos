@@ -59,6 +59,24 @@
   .nav-group.is-expanded .nav-group-caret {
     transform: rotate(180deg);
   }
+
+  /* Smooth collapse: jaga submenu tetap vertikal selama animasi */
+  aside.navbar-vertical .sub-nav.collapse.show,
+  aside.navbar-vertical .sub-nav.collapsing {
+    display: block;
+  }
+
+  aside.navbar-vertical .sub-nav.collapse.show > li,
+  aside.navbar-vertical .sub-nav.collapsing > li {
+    display: block;
+    width: 100%;
+  }
+
+  aside.navbar-vertical .sub-nav.collapse.show > li > .nav-link,
+  aside.navbar-vertical .sub-nav.collapsing > li > .nav-link {
+    display: flex;
+    width: 100%;
+  }
 </style>
 
 <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="light">
