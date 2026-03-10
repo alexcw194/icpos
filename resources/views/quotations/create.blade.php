@@ -430,6 +430,19 @@
     box-shadow:0 10px 24px rgba(0,0,0,.12) !important;
   }
 
+  @media (max-width: 767.98px){
+    .ts-dropdown .option .item-option-mobile-name{
+      white-space: normal;
+      word-break: break-word;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      line-height: 1.25;
+      max-height: calc(1.25em * 3);
+    }
+  }
+
   /* ===============================
      STAGING (yang atas) - MOBILE OPT
      =============================== */
@@ -812,7 +825,7 @@
         option(d,esc){
           const name = esc(d.name || '');
           if (isMobileLayout()) {
-            return `<div class="text-truncate">${name}</div>`;
+            return `<div class="item-option-mobile-name">${name}</div>`;
           }
           const priceVal = Number(d.price ?? 0);
           const stockVal = Number(d.stock ?? 0);
