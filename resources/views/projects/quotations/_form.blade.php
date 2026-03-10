@@ -263,6 +263,18 @@
           </tr>
         @endforeach
       </tbody>
+      <tfoot>
+        <tr>
+          <td></td>
+          <td class="text-end fw-semibold">Total Percent</td>
+          <td class="text-end">
+            <span class="fw-bold" id="payment-terms-total-percent">0.00%</span>
+          </td>
+          <td colspan="5">
+            <small id="payment-terms-total-note" class="text-muted"></small>
+          </td>
+        </tr>
+      </tfoot>
     </table>
   </div>
 </div>
@@ -547,6 +559,8 @@
   const btnAddSection = document.getElementById('btn-add-section');
   const btnUpdateItemPrices = document.getElementById('btn-bq-update-item-prices');
   const btnUpdateCosts = document.getElementById('btn-bq-update-costs');
+  const paymentTermsTotalPercentEl = document.getElementById('payment-terms-total-percent');
+  const paymentTermsTotalNoteEl = document.getElementById('payment-terms-total-note');
 
   const parseNumber = (val) => {
     if (val === null || val === undefined) return 0;
@@ -1465,6 +1479,7 @@
       const idx = body.querySelectorAll('.term-row').length;
       body.insertAdjacentHTML('beforeend', makeTerm(idx));
       applyTermScheduleVisibility();
+      updatePaymentTermsPercentSummary();
     });
   }
 
@@ -1535,6 +1550,38 @@
         if (dayTd) dayTd.style.display = 'none';
       });
     }
+  };
+
+  const getPaymentTermsPercentTotal = () => {
+    if (!termTable) return 0;
+    let sum = 0;
+    termTable.querySelectorAll('input[name^="payment_terms["][name$="[percent]"]').forEach((input) => {
+      if (input.disabled) return;
+      sum += parseNumber(input.value);
+    });
+    return sum;
+  };
+
+  const updatePaymentTermsPercentSummary = () => {
+    const sum = getPaymentTermsPercentTotal();
+    const valid = Math.abs(sum - 100) <= 0.01;
+
+    if (paymentTermsTotalPercentEl) {
+      paymentTermsTotalPercentEl.textContent = `${formatNumber(sum)}%`;
+      paymentTermsTotalPercentEl.classList.toggle('text-success', valid);
+      paymentTermsTotalPercentEl.classList.toggle('text-danger', !valid);
+    }
+
+    if (paymentTermsTotalNoteEl) {
+      paymentTermsTotalNoteEl.textContent = valid
+        ? 'Total percent sudah 100%.'
+        : `Total percent harus 100% (saat ini ${formatNumber(sum)}%).`;
+      paymentTermsTotalNoteEl.classList.toggle('text-muted', false);
+      paymentTermsTotalNoteEl.classList.toggle('text-success', valid);
+      paymentTermsTotalNoteEl.classList.toggle('text-danger', !valid);
+    }
+
+    return { sum, valid };
   };
 
   sectionsEl.addEventListener('click', (e) => {
@@ -1617,6 +1664,7 @@
     termTable.addEventListener('click', (e) => {
       if (e.target.classList.contains('btn-remove-term')) {
         e.target.closest('.term-row')?.remove();
+        updatePaymentTermsPercentSummary();
       }
     });
 
@@ -1667,6 +1715,11 @@
         }
       }
       recalcTotals();
+      return;
+    }
+
+    if (target.matches('input[name^="payment_terms["][name$="[percent]"]')) {
+      updatePaymentTermsPercentSummary();
     }
   });
 
@@ -1686,6 +1739,13 @@
   document.addEventListener('focusout', (e) => {
     const target = e.target;
     if (!(target instanceof HTMLInputElement)) return;
+    if (target.matches('input[name^="payment_terms["][name$="[percent]"]')) {
+      const val = parseNumber(target.value);
+      target.value = String(val);
+      updatePaymentTermsPercentSummary();
+      return;
+    }
+
     if (
       !target.classList.contains('js-line-unit-price') &&
       !target.classList.contains('js-line-labor-unit') &&
@@ -1830,6 +1890,7 @@
   };
 
   applyTermScheduleVisibility();
+  updatePaymentTermsPercentSummary();
 
   const syncSourceRow = (row) => {
     const sourceSel = row.querySelector('.bq-line-source');
@@ -2085,6 +2146,7 @@
   formatLineNumbers(sectionsEl);
   sectionsEl.querySelectorAll('.bq-line').forEach((row) => syncLaborCostUnit(row));
   recalcTotals();
+  updatePaymentTermsPercentSummary();
   updateSectionSortOrder();
 
   const signerSelect = document.getElementById('bq-signatory-choice');
@@ -2127,9 +2189,15 @@
   const formEl = sectionsEl.closest('form');
   const sectionsPayloadInput = document.getElementById('bq-sections-payload');
   if (formEl) {
-    formEl.addEventListener('submit', () => {
+    formEl.addEventListener('submit', (e) => {
       updateSectionSortOrder();
       recalcTotals();
+      const paymentTermsCheck = updatePaymentTermsPercentSummary();
+      if (!paymentTermsCheck.valid) {
+        e.preventDefault();
+        alert(`Total percent Payment Terms harus 100%. Saat ini ${formatNumber(paymentTermsCheck.sum)}%.`);
+        return;
+      }
 
       const toNumericString = (val) => {
         const n = parseNumber(val);
