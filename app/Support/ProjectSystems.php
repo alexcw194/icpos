@@ -12,6 +12,7 @@ class ProjectSystems
             'fire_hydrant' => 'Fire Hydrant',
             'fire_sprinkler' => 'Fire Sprinkler',
             'kitchen_suppression' => 'Kitchen Suppression',
+            'maintenance' => 'Maintenance',
         ];
     }
 
