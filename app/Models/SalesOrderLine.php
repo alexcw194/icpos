@@ -10,7 +10,7 @@ class SalesOrderLine extends Model
     protected $fillable = [
         'sales_order_id','position',
         'name','po_item_name','description','unit',
-        'qty_ordered','unit_price',
+        'qty_ordered','unit_price','labor_unit',
         'material_total','labor_total',
         'discount_type','discount_value','discount_amount',
         'line_subtotal','line_total',
@@ -32,6 +32,7 @@ class SalesOrderLine extends Model
     protected $casts = [
         'qty_ordered'     => 'decimal:2',
         'unit_price'      => 'decimal:2',
+        'labor_unit'      => 'decimal:2',
         'material_total'  => 'decimal:2',
         'labor_total'     => 'decimal:2',
         'discount_value'  => 'decimal:2',

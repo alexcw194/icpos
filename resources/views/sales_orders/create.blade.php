@@ -261,13 +261,14 @@
               <thead class="table-light">
                 <tr>
                   <th class="col-item">Item</th>
-                  <th class="col-desc">Deskripsi</th>
+                  <th class="col-desc desc-col">Deskripsi</th>
                   <th class="col-po">PO Item Name</th>
                   <th class="col-qty text-end">Qty</th>
                   <th class="col-unit">Unit</th>
-                  <th class="col-price text-end">Unit Price</th>
-                  <th class="col-material text-end">Material</th>
-                  <th class="col-labor text-end">Labor</th>
+                  <th class="col-price text-end"><span id="priceHeaderLabel">Unit Price</span></th>
+                  <th class="col-material text-end project-only-col">Material Total</th>
+                  <th class="col-labor-unit text-end project-only-col">Labor Unit</th>
+                  <th class="col-labor text-end project-only-col">Labor Total</th>
                   <th class="col-disc" data-col="disc-input">Diskon (tipe + nilai)</th>
                   <th class="col-subtotal text-end">Subtotal</th>
                   <th class="col-disc-amount text-end">Disc Rp</th>
@@ -356,7 +357,7 @@
       <input type="hidden" name="lines[__IDX__][item_id]" class="q-item-id">
       <input type="hidden" name="lines[__IDX__][item_variant_id]" class="q-item-variant-id">
     </td>
-    <td class="col-desc">
+    <td class="col-desc desc-col">
       <textarea name="lines[__IDX__][description]" class="form-control form-control-sm line_desc q-item-desc" rows="1"></textarea>
     </td>
     <td class="col-po">
@@ -371,11 +372,14 @@
     <td class="col-price text-end">
       <input type="text" name="lines[__IDX__][unit_price]" class="form-control form-control-sm text-end price q-item-rate" inputmode="decimal" placeholder="0">
     </td>
-    <td class="col-material text-end">
-      <input type="text" name="lines[__IDX__][material_total]" class="form-control form-control-sm text-end material q-item-material" inputmode="decimal" value="0">
+    <td class="col-material text-end project-only-col">
+      <input type="text" name="lines[__IDX__][material_total]" class="form-control form-control-sm text-end material q-item-material" inputmode="decimal" value="0" readonly tabindex="-1">
     </td>
-    <td class="col-labor text-end">
-      <input type="text" name="lines[__IDX__][labor_total]" class="form-control form-control-sm text-end labor q-item-labor" inputmode="decimal" value="0">
+    <td class="col-labor-unit text-end project-only-col">
+      <input type="text" name="lines[__IDX__][labor_unit]" class="form-control form-control-sm text-end labor-unit q-item-labor-unit" inputmode="decimal" value="0">
+    </td>
+    <td class="col-labor text-end project-only-col">
+      <input type="text" name="lines[__IDX__][labor_total]" class="form-control form-control-sm text-end labor q-item-labor" inputmode="decimal" value="0" readonly tabindex="-1">
     </td>
     <td class="col-disc disc-cell">
       <div class="row g-2 align-items-center">
@@ -413,6 +417,7 @@
   #linesTable .col-unit       { width: 7ch; }
   #linesTable .col-price      { width: 10%; }
   #linesTable .col-material   { width: 10%; }
+  #linesTable .col-labor-unit { width: 10%; }
   #linesTable .col-labor      { width: 10%; }
   #linesTable .col-disc       { width: 14%; }
   #linesTable .col-subtotal   { width: 9%; }
@@ -426,6 +431,8 @@
   #linesTable .disc-cell .input-group-text.disc-unit{ min-width:46px; justify-content:center; }
   #linesTable .line_total_view{ font-weight:700; font-size:1.06rem; }
   #linesTable .line_subtotal_view{ font-size:.92rem; }
+  #soForm.project-mode .desc-col { display: none; }
+  #soForm:not(.project-mode) .project-only-col { display: none; }
   #soForm.scope-mode .col-disc,
   #soForm.scope-mode .col-disc-amount,
   #soForm.scope-mode th[data-col="disc-input"] { display:none; }
@@ -518,6 +525,7 @@
   const customerRefNumberLabel = document.getElementById('customer_ref_number_label');
   const customerRefDateLabel = document.getElementById('customer_ref_date_label');
   const poTypeSelect = document.querySelector('select[name="po_type"]');
+  const priceHeaderLabel = document.getElementById('priceHeaderLabel');
   const projectBillingModeWrap = document.getElementById('projectBillingModeWrap');
   const projectBillingModeSelect = document.getElementById('project_billing_mode');
   const projectSection = document.querySelector('[data-project-section]');
@@ -541,26 +549,40 @@
 
   function setRowScopeState(row, isScope, isProject) {
     const nameInput = row.querySelector('.q-item-name');
+    const descInput = row.querySelector('.q-item-desc');
     const unitInput = row.querySelector('.q-item-unit');
     const priceInput = row.querySelector('.q-item-rate');
     const materialInput = row.querySelector('.q-item-material');
+    const laborUnitInput = row.querySelector('.q-item-labor-unit');
     const laborInput = row.querySelector('.q-item-labor');
     if (nameInput) {
       nameInput.readOnly = !isScope;
       nameInput.placeholder = isScope ? 'Nama pekerjaan' : 'pilih dari kotak atas';
+    }
+    if (descInput) {
+      descInput.readOnly = isProject;
+      if (isProject) {
+        descInput.value = '';
+      }
     }
     if (unitInput) {
       unitInput.readOnly = !isScope;
       if (isScope && !unitInput.value) unitInput.value = 'lot';
     }
     if (priceInput) {
-      priceInput.readOnly = isProject;
+      priceInput.readOnly = false;
     }
     if (materialInput) {
-      materialInput.readOnly = !isProject;
+      materialInput.readOnly = true;
+    }
+    if (laborUnitInput) {
+      laborUnitInput.readOnly = !isProject;
+      if (!isProject) {
+        laborUnitInput.value = formatMoneyValue(0);
+      }
     }
     if (laborInput) {
-      laborInput.readOnly = !isProject;
+      laborInput.readOnly = true;
     }
   }
 
@@ -569,8 +591,12 @@
     const isProject = (poTypeSelect?.value || '') === 'project';
     const form = document.getElementById('soForm');
     form?.classList.toggle('scope-mode', isScope);
+    form?.classList.toggle('project-mode', isProject);
     if (stageWrap) stageWrap.style.display = isScope ? 'none' : '';
     if (scopeActions) scopeActions.classList.toggle('d-none', !isScope);
+    if (priceHeaderLabel) {
+      priceHeaderLabel.textContent = isProject ? 'Material Unit' : 'Unit Price';
+    }
     if (projectBillingModeWrap) {
       projectBillingModeWrap.style.display = isProject ? '' : 'none';
     }
@@ -598,8 +624,10 @@
       if (!isProject) {
         const qty = toNum(row.querySelector('.q-item-qty')?.value || '0');
         const price = toNum(row.querySelector('.q-item-rate')?.value || '0');
+        const laborUnitInput = row.querySelector('.q-item-labor-unit');
         const materialInput = row.querySelector('.q-item-material');
         const laborInput = row.querySelector('.q-item-labor');
+        if (laborUnitInput) laborUnitInput.value = formatMoneyValue(0);
         if (materialInput) materialInput.value = formatMoneyValue(qty * price);
         if (laborInput) laborInput.value = formatMoneyValue(0);
       }
@@ -896,6 +924,7 @@
     body.querySelectorAll('tr[data-line-row]').forEach(tr=>{
       const qty   = toNum(tr.querySelector('.qty')?.value || '0');
       let price = toNum(tr.querySelector('.price')?.value || '0');
+      let laborUnit = toNum(tr.querySelector('.labor-unit')?.value || '0');
       let material = toNum(tr.querySelector('.material')?.value || '0');
       let labor = toNum(tr.querySelector('.labor')?.value || '0');
       const dtSel = tr.querySelector('.disc-type');
@@ -905,25 +934,22 @@
 
       let lineSubtotal = qty * price;
       if (isProject) {
+        laborUnit = Math.max(laborUnit, 0);
+        material = qty * price;
+        labor = qty * laborUnit;
         lineSubtotal = material + labor;
-        if (lineSubtotal <= 0) {
-          lineSubtotal = qty * price;
-          material = lineSubtotal;
-          labor = 0;
-        }
-        if (qty > 0) {
-          price = lineSubtotal / qty;
-        } else {
-          price = lineSubtotal;
-        }
-        const priceInput = tr.querySelector('.price');
-        if (priceInput) priceInput.value = formatMoneyValue(price);
       } else {
-        const materialInput = tr.querySelector('.material');
-        const laborInput = tr.querySelector('.labor');
-        if (materialInput) materialInput.value = formatMoneyValue(lineSubtotal);
-        if (laborInput) laborInput.value = formatMoneyValue(0);
+        laborUnit = 0;
+        material = lineSubtotal;
+        labor = 0;
       }
+      const laborUnitInput = tr.querySelector('.labor-unit');
+      const materialInput = tr.querySelector('.material');
+      const laborInput = tr.querySelector('.labor');
+      if (laborUnitInput && !isProject) laborUnitInput.value = formatMoneyValue(0);
+      if (materialInput) materialInput.value = formatMoneyValue(material);
+      if (laborInput) laborInput.value = formatMoneyValue(labor);
+
       let discAmount = 0;
       if (dt === 'percent') discAmount = Math.min(Math.max(dvRaw,0),100) / 100 * lineSubtotal;
       else                  discAmount = Math.min(Math.max(dvRaw, 0), lineSubtotal);
@@ -997,6 +1023,10 @@
     if (materialInput) {
       materialInput.value = formatMoneyValue(qty * price);
     }
+    const laborUnitInput = tr.querySelector('.q-item-labor-unit');
+    if (laborUnitInput) {
+      laborUnitInput.value = formatMoneyValue(0);
+    }
     const laborInput = tr.querySelector('.q-item-labor');
     if (laborInput) {
       laborInput.value = formatMoneyValue(0);
@@ -1005,7 +1035,9 @@
     tr.querySelector('.removeRowBtn').addEventListener('click', ()=>{ tr.remove(); recalc(); });
 
     body.appendChild(tr);
-    setRowScopeState(tr, false, false);
+    const isScope = ['project', 'maintenance'].includes(poTypeSelect?.value || '');
+    const isProject = (poTypeSelect?.value || '') === 'project';
+    setRowScopeState(tr, isScope, isProject);
     lineIdx++;
 
     // reset stage
@@ -1046,6 +1078,7 @@
     tr.querySelector('.q-item-unit').value = 'lot';
     tr.querySelector('.q-item-rate').value = '';
     tr.querySelector('.q-item-material').value = '';
+    tr.querySelector('.q-item-labor-unit').value = '0';
     tr.querySelector('.q-item-labor').value = '';
     tr.querySelector('.disc-type').value = 'amount';
     tr.querySelector('.disc-value').value = '0';
@@ -1064,6 +1097,7 @@
     if (
       e.target.classList.contains('qty')
       || e.target.classList.contains('price')
+      || e.target.classList.contains('labor-unit')
       || e.target.classList.contains('material')
       || e.target.classList.contains('labor')
       || e.target.classList.contains('disc-value')
@@ -1080,6 +1114,7 @@
   document.addEventListener('blur', (e) => {
     if (
       e.target?.classList?.contains('price')
+      || e.target?.classList?.contains('labor-unit')
       || e.target?.classList?.contains('material')
       || e.target?.classList?.contains('labor')
       || e.target?.id === 'stage_price'

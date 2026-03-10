@@ -449,7 +449,7 @@
                           <td>{{ $i+1 }}</td>
                           <td>
                             <div>{{ $ln->name }}</div>
-                            @if(filled($ln->description))
+                            @if(($o->po_type ?? 'goods') !== 'project' && filled($ln->description))
                               <div class="text-muted small mt-1">{{ $ln->description }}</div>
                             @endif
                           </td>

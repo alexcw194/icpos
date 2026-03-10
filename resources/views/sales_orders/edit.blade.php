@@ -297,13 +297,14 @@
               <thead class="table-light">
                 <tr>
                   <th class="col-item">Item</th>
-                  <th class="col-desc">Deskripsi</th>
+                  <th class="col-desc desc-col">Deskripsi</th>
                   <th class="col-po">PO Item Name</th>
                   <th class="col-qty text-end">Qty</th>
                   <th class="col-unit">Unit</th>
-                  <th class="col-price text-end">Unit Price</th>
-                  <th class="col-material text-end">Material</th>
-                  <th class="col-labor text-end">Labor</th>
+                  <th class="col-price text-end"><span id="priceHeaderLabel">Unit Price</span></th>
+                  <th class="col-material text-end project-only-col">Material Total</th>
+                  <th class="col-labor-unit text-end project-only-col">Labor Unit</th>
+                  <th class="col-labor text-end project-only-col">Labor Total</th>
                   <th class="col-disc" data-col="disc-input">Diskon (tipe + nilai)</th>
                   <th class="col-subtotal text-end">Subtotal</th>
                   <th class="col-disc-amount text-end">Disc Rp</th>
@@ -395,7 +396,7 @@
       <input type="hidden" name="lines[__IDX__][item_id]" class="q-item-id">
       <input type="hidden" name="lines[__IDX__][item_variant_id]" class="q-item-variant-id">
     </td>
-    <td class="col-desc">
+    <td class="col-desc desc-col">
       <textarea name="lines[__IDX__][description]" class="form-control form-control-sm line_desc q-item-desc" rows="1"></textarea>
     </td>
     <td class="col-po">
@@ -410,11 +411,14 @@
     <td class="col-price text-end">
       <input type="text" name="lines[__IDX__][unit_price]" class="form-control form-control-sm text-end price q-item-rate" inputmode="decimal" placeholder="0">
     </td>
-    <td class="col-material text-end">
-      <input type="text" name="lines[__IDX__][material_total]" class="form-control form-control-sm text-end material q-item-material" inputmode="decimal" value="0">
+    <td class="col-material text-end project-only-col">
+      <input type="text" name="lines[__IDX__][material_total]" class="form-control form-control-sm text-end material q-item-material" inputmode="decimal" value="0" readonly tabindex="-1">
     </td>
-    <td class="col-labor text-end">
-      <input type="text" name="lines[__IDX__][labor_total]" class="form-control form-control-sm text-end labor q-item-labor" inputmode="decimal" value="0">
+    <td class="col-labor-unit text-end project-only-col">
+      <input type="text" name="lines[__IDX__][labor_unit]" class="form-control form-control-sm text-end labor-unit q-item-labor-unit" inputmode="decimal" value="0">
+    </td>
+    <td class="col-labor text-end project-only-col">
+      <input type="text" name="lines[__IDX__][labor_total]" class="form-control form-control-sm text-end labor q-item-labor" inputmode="decimal" value="0" readonly tabindex="-1">
     </td>
     <td class="col-disc disc-cell">
       <div class="row g-2 align-items-center">
@@ -462,7 +466,7 @@
   #linesTable .col-po         { width:16%; }
   #linesTable .col-qty        { width:8ch;}   #linesTable .col-unit{ width:7ch; }
   #linesTable .col-price      { width:10%; }  #linesTable .col-material{ width:10%; }
-  #linesTable .col-labor      { width:10%; }  #linesTable .col-disc{ width:14%; }
+  #linesTable .col-labor-unit { width:10%; }  #linesTable .col-labor{ width:10%; }  #linesTable .col-disc{ width:14%; }
   #linesTable .col-subtotal   { width:9%; }   #linesTable .col-disc-amount{ width:9%; }
   #linesTable .col-total      { width:14%; }  #linesTable .col-actions{ width:4%; }
   #linesTable input.qty { max-width:8ch; }    #linesTable input.unit{ max-width:7ch; }
@@ -471,6 +475,8 @@
   #linesTable .disc-cell .input-group-text.disc-unit{ min-width:46px; justify-content:center; }
   #linesTable .line_total_view{ font-weight:700; font-size:1.06rem; }
   #linesTable .line_subtotal_view{ font-size:.92rem; }
+  #soForm.project-mode .desc-col { display:none; }
+  #soForm:not(.project-mode) .project-only-col { display:none; }
   #soForm.scope-mode .col-disc,
   #soForm.scope-mode .col-disc-amount,
   #soForm.scope-mode th[data-col="disc-input"] { display:none; }
@@ -534,6 +540,7 @@
   $PRELOAD = ($lines ?? collect())->map(function($ln) use ($isProjectPo){
     $qty   = $ln->qty_ordered ?? $ln->qty ?? $ln->quantity ?? 0;
     $price = $ln->unit_price ?? $ln->price ?? 0;
+    $laborUnit = $ln->labor_unit ?? 0;
     $discT = $ln->discount_type ?? $ln->disc_type ?? 'amount';
     $discV = $ln->discount_value ?? $ln->disc_value ?? 0;
     $materialTotal = (float) ($ln->material_total ?? 0);
@@ -549,6 +556,9 @@
     }
 
     if ((float)$qty <= 0) { $qty = 1; }
+    if ($isProjectPo && (float) $laborUnit <= 0 && (float) $qty > 0 && $laborTotal > 0) {
+      $laborUnit = $laborTotal / (float) $qty;
+    }
 
     return [
       'item_id'         => $ln->item_id,
@@ -559,6 +569,7 @@
       'qty'             => (float) $qty,
       'unit'            => $ln->unit ?? 'pcs',
       'unit_price'      => (float) $price,
+      'labor_unit'      => (float) $laborUnit,
       'material_total'  => $materialTotal,
       'labor_total'     => $laborTotal,
       'discount_type'   => $discT,
@@ -586,6 +597,7 @@
   const customerRefNumberLabel = document.getElementById('customer_ref_number_label');
   const customerRefDateLabel = document.getElementById('customer_ref_date_label');
   const poTypeSelect = document.querySelector('select[name="po_type"]');
+  const priceHeaderLabel = document.getElementById('priceHeaderLabel');
   const projectBillingModeWrap = document.getElementById('projectBillingModeWrap');
   const projectBillingModeSelect = document.getElementById('project_billing_mode');
   const projectSection = document.querySelector('[data-project-section]');
@@ -610,26 +622,40 @@
 
   function setRowScopeState(row, isScope, isProject) {
     const nameInput = row.querySelector('.q-item-name');
+    const descInput = row.querySelector('.q-item-desc');
     const unitInput = row.querySelector('.q-item-unit');
     const priceInput = row.querySelector('.q-item-rate');
     const materialInput = row.querySelector('.q-item-material');
+    const laborUnitInput = row.querySelector('.q-item-labor-unit');
     const laborInput = row.querySelector('.q-item-labor');
     if (nameInput) {
       nameInput.readOnly = !isScope;
       nameInput.placeholder = isScope ? 'Nama pekerjaan' : 'pilih dari kotak atas';
+    }
+    if (descInput) {
+      descInput.readOnly = isProject;
+      if (isProject) {
+        descInput.value = '';
+      }
     }
     if (unitInput) {
       unitInput.readOnly = !isScope;
       if (isScope && !unitInput.value) unitInput.value = 'lot';
     }
     if (priceInput) {
-      priceInput.readOnly = isProject;
+      priceInput.readOnly = false;
     }
     if (materialInput) {
-      materialInput.readOnly = !isProject;
+      materialInput.readOnly = true;
+    }
+    if (laborUnitInput) {
+      laborUnitInput.readOnly = !isProject;
+      if (!isProject) {
+        laborUnitInput.value = formatMoneyValue(0);
+      }
     }
     if (laborInput) {
-      laborInput.readOnly = !isProject;
+      laborInput.readOnly = true;
     }
   }
 
@@ -638,8 +664,12 @@
     const isProject = (poTypeSelect?.value || '') === 'project';
     const form = document.getElementById('soForm');
     form?.classList.toggle('scope-mode', isScope);
+    form?.classList.toggle('project-mode', isProject);
     if (stageWrap) stageWrap.style.display = isScope ? 'none' : '';
     if (scopeActions) scopeActions.classList.toggle('d-none', !isScope);
+    if (priceHeaderLabel) {
+      priceHeaderLabel.textContent = isProject ? 'Material Unit' : 'Unit Price';
+    }
     if (projectBillingModeWrap) {
       projectBillingModeWrap.style.display = isProject ? '' : 'none';
     }
@@ -672,8 +702,10 @@
       if (!isProject) {
         const qty = toNum(row.querySelector('.q-item-qty')?.value || '0');
         const price = toNum(row.querySelector('.q-item-rate')?.value || '0');
+        const laborUnitInput = row.querySelector('.q-item-labor-unit');
         const materialInput = row.querySelector('.q-item-material');
         const laborInput = row.querySelector('.q-item-labor');
+        if (laborUnitInput) laborUnitInput.value = formatMoneyValue(0);
         if (materialInput) materialInput.value = formatMoneyValue(qty * price);
         if (laborInput) laborInput.value = formatMoneyValue(0);
       }
@@ -791,6 +823,11 @@
     if (rateInput) {
       rateInput.value = formatMoneyValue(d.unit_price ?? 0);
     }
+    const laborUnitInput = tr.querySelector('.q-item-labor-unit');
+    if (laborUnitInput) {
+      const laborUnitVal = d.labor_unit ?? (((toNum(d.qty ?? 0) || 0) > 0) ? ((toNum(d.labor_total ?? 0) || 0) / (toNum(d.qty ?? 0) || 1)) : 0);
+      laborUnitInput.value = formatMoneyValue(laborUnitVal);
+    }
     const materialInput = tr.querySelector('.q-item-material');
     if (materialInput) {
       const materialVal = d.material_total ?? ((toNum(d.qty ?? 0) || 0) * (toNum(d.unit_price ?? 0) || 0));
@@ -829,6 +866,7 @@
       qty: toNum((document.getElementById('stage_qty')||{}).value || '1'),
       unit:(document.getElementById('stage_unit')||{}).value || 'pcs',
       unit_price: toNum((document.getElementById('stage_price')||{}).value || '0'),
+      labor_unit: 0,
       material_total: toNum((document.getElementById('stage_qty')||{}).value || '1') * toNum((document.getElementById('stage_price')||{}).value || '0'),
       labor_total: 0,
       discount_type:'amount',
@@ -864,6 +902,7 @@
     tr.querySelector('.q-item-unit').value = 'lot';
     tr.querySelector('.q-item-rate').value = '';
     tr.querySelector('.q-item-material').value = '';
+    tr.querySelector('.q-item-labor-unit').value = '0';
     tr.querySelector('.q-item-labor').value = '';
     tr.querySelector('.disc-type').value = 'amount';
     tr.querySelector('.disc-value').value = '0';
@@ -894,6 +933,7 @@
     body.querySelectorAll('tr[data-line-row]').forEach(tr=>{
       const qty=toNum(tr.querySelector('.qty')?.value || '0');
       let price=toNum(tr.querySelector('.price')?.value || '0');
+      let laborUnit = toNum(tr.querySelector('.labor-unit')?.value || '0');
       let material = toNum(tr.querySelector('.material')?.value || '0');
       let labor = toNum(tr.querySelector('.labor')?.value || '0');
       const dt=tr.querySelector('.disc-type')?.value || 'amount';
@@ -901,25 +941,22 @@
 
       let lineSub = qty * price;
       if (isProject) {
+        laborUnit = Math.max(laborUnit, 0);
+        material = qty * price;
+        labor = qty * laborUnit;
         lineSub = material + labor;
-        if (lineSub <= 0) {
-          lineSub = qty * price;
-          material = lineSub;
-          labor = 0;
-        }
-        if (qty > 0) {
-          price = lineSub / qty;
-        } else {
-          price = lineSub;
-        }
-        const priceInput = tr.querySelector('.price');
-        if (priceInput) priceInput.value = formatMoneyValue(price);
       } else {
-        const materialInput = tr.querySelector('.material');
-        const laborInput = tr.querySelector('.labor');
-        if (materialInput) materialInput.value = formatMoneyValue(lineSub);
-        if (laborInput) laborInput.value = formatMoneyValue(0);
+        laborUnit = 0;
+        material = lineSub;
+        labor = 0;
       }
+      const laborUnitInput = tr.querySelector('.labor-unit');
+      const materialInput = tr.querySelector('.material');
+      const laborInput = tr.querySelector('.labor');
+      if (laborUnitInput && !isProject) laborUnitInput.value = formatMoneyValue(0);
+      if (materialInput) materialInput.value = formatMoneyValue(material);
+      if (laborInput) laborInput.value = formatMoneyValue(labor);
+
       const discAmt = dt==='percent' ? Math.min(Math.max(dvRaw,0),100)/100*lineSub
                                      : Math.min(Math.max(dvRaw,0), lineSub);
       const lineTot = Math.max(lineSub - discAmt, 0);
@@ -984,6 +1021,7 @@
     if (
       e.target.classList.contains('qty')
       || e.target.classList.contains('price')
+      || e.target.classList.contains('labor-unit')
       || e.target.classList.contains('material')
       || e.target.classList.contains('labor')
       || e.target.classList.contains('disc-value')
@@ -1000,6 +1038,7 @@
   document.addEventListener('blur', (e) => {
     if (
       e.target?.classList?.contains('price')
+      || e.target?.classList?.contains('labor-unit')
       || e.target?.classList?.contains('material')
       || e.target?.classList?.contains('labor')
       || e.target?.id === 'stage_price'

@@ -172,10 +172,11 @@ class ProjectSalesOrderBootstrapService
                     'position' => $position++,
                     'name' => $snapshot['name'],
                     'po_item_name' => null,
-                    'description' => $snapshot['description'],
+                    'description' => null,
                     'unit' => $snapshot['unit'],
                     'qty_ordered' => $snapshot['qty'],
                     'unit_price' => $snapshot['unit_price'],
+                    'labor_unit' => $snapshot['labor_unit'],
                     'material_total' => $snapshot['material_total'],
                     'labor_total' => $snapshot['labor_total'],
                     'discount_type' => 'amount',
@@ -187,7 +188,7 @@ class ProjectSalesOrderBootstrapService
                     'item_variant_id' => $snapshot['item_variant_id'],
                     'baseline_project_quotation_line_id' => $line->id,
                     'baseline_name' => $snapshot['name'],
-                    'baseline_description' => $snapshot['description'],
+                    'baseline_description' => null,
                     'baseline_item_id' => $snapshot['item_id'],
                     'baseline_item_variant_id' => $snapshot['item_variant_id'],
                     'baseline_qty' => $snapshot['qty'],
@@ -254,7 +255,7 @@ class ProjectSalesOrderBootstrapService
     }
 
     /**
-     * @return array{name:string,description:?string,unit:string,qty:float,unit_price:float,line_total:float,material_total:float,labor_total:float,item_id:int|null,item_variant_id:int|null}
+     * @return array{name:string,description:?string,unit:string,qty:float,unit_price:float,labor_unit:float,line_total:float,material_total:float,labor_total:float,item_id:int|null,item_variant_id:int|null}
      */
     private function buildLineSnapshot($line): array
     {
@@ -296,8 +297,26 @@ class ProjectSalesOrderBootstrapService
             }
         }
 
-        $unitPrice = $qty > 0 ? round($lineTotal / $qty, 2) : round((float) ($line->unit_price ?? 0), 2);
-        $unitPrice = max($unitPrice, 0);
+        $unitPrice = 0.0;
+        if ($qty > 0 && $materialTotal > 0) {
+            $unitPrice = round($materialTotal / $qty, 2);
+        } else {
+            $unitPrice = round(max((float) ($line->unit_price ?? 0), 0), 2);
+            if ($qty > 0) {
+                $materialTotal = round($qty * $unitPrice, 2);
+            }
+        }
+        $laborUnit = 0.0;
+        if ($qty > 0) {
+            $laborUnit = round(max((float) ($line->labor_unit_cost_snapshot ?? 0), 0), 2);
+            if ($laborUnit <= 0 && $laborTotal > 0) {
+                $laborUnit = round($laborTotal / $qty, 2);
+            }
+            $laborTotal = round($qty * $laborUnit, 2);
+        } else {
+            $laborTotal = 0.0;
+        }
+        $lineTotal = round($materialTotal + $laborTotal, 2);
 
         return [
             'name' => $name,
@@ -305,6 +324,7 @@ class ProjectSalesOrderBootstrapService
             'unit' => (string) ($line->unit ?: 'LS'),
             'qty' => $qty,
             'unit_price' => $unitPrice,
+            'labor_unit' => $laborUnit,
             'line_total' => $lineTotal,
             'material_total' => $materialTotal,
             'labor_total' => $laborTotal,
@@ -421,7 +441,8 @@ class ProjectSalesOrderBootstrapService
             }
 
             $qty = max((float) ($salesLine->qty_ordered ?? 0), 0);
-            $unitPrice = $qty > 0 ? round($lineSub / $qty, 2) : $lineSub;
+            $unitPrice = $qty > 0 ? round($targetMaterial / $qty, 2) : max((float) ($salesLine->unit_price ?? 0), 0);
+            $laborUnit = $qty > 0 ? round($targetLabor / $qty, 2) : 0.0;
             $discountAmount = min(max((float) ($salesLine->discount_amount ?? 0), 0), $lineSub);
             $lineTotal = round(max($lineSub - $discountAmount, 0), 2);
 
@@ -429,6 +450,7 @@ class ProjectSalesOrderBootstrapService
                 'material_total' => $targetMaterial,
                 'labor_total' => $targetLabor,
                 'unit_price' => $unitPrice,
+                'labor_unit' => $laborUnit,
                 'line_subtotal' => $lineSub,
                 'line_total' => $lineTotal,
             ]);

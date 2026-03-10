@@ -208,6 +208,7 @@ class SalesOrderController extends Controller
             'lines.*.unit'        => ['nullable','string','max:20'],
             'lines.*.qty'         => ['required','string'],
             'lines.*.unit_price'  => ['required','string'],
+            'lines.*.labor_unit'  => ['nullable','string'],
             'lines.*.material_total' => ['nullable','string'],
             'lines.*.labor_total' => ['nullable','string'],
             'lines.*.discount_type'  => ['nullable','in:amount,percent'],
@@ -276,23 +277,22 @@ class SalesOrderController extends Controller
         $this->enforceVariantSelectionForLines($linesInput->all(), $disableInventoryLink);
         foreach ($linesInput as $idx => $ln) {
             $qty = max($toNum($ln['qty'] ?? 0), 0);
-            $inputPrice = max($toNum($ln['unit_price'] ?? 0), 0);
-            $materialTotal = $isProjectPo ? max($toNum($ln['material_total'] ?? 0), 0) : 0.0;
-            $laborTotal = $isProjectPo ? max($toNum($ln['labor_total'] ?? 0), 0) : 0.0;
+            $materialUnit = max($toNum($ln['unit_price'] ?? 0), 0);
+            $laborUnit = $isProjectPo ? max($toNum($ln['labor_unit'] ?? 0), 0) : 0.0;
+            $materialTotal = 0.0;
+            $laborTotal = 0.0;
 
             if ($isProjectPo) {
+                $materialTotal = round($qty * $materialUnit, 2);
+                $laborTotal = round($qty * $laborUnit, 2);
                 $lineSubtotal = round($materialTotal + $laborTotal, 2);
-                if ($lineSubtotal <= 0) {
-                    $lineSubtotal = round($qty * $inputPrice, 2);
-                    $materialTotal = $lineSubtotal;
-                    $laborTotal = 0.0;
-                }
-                $price = $qty > 0 ? round($lineSubtotal / $qty, 2) : $lineSubtotal;
+                $price = $materialUnit;
             } else {
-                $price = $inputPrice;
+                $price = $materialUnit;
                 $lineSubtotal = round($qty * $price, 2);
                 $materialTotal = $lineSubtotal;
                 $laborTotal = 0.0;
+                $laborUnit = 0.0;
             }
             $grossSubtotal += $lineSubtotal;
 
@@ -317,10 +317,11 @@ class SalesOrderController extends Controller
                 'item_variant_id' => $disableInventoryLink ? null : ($ln['item_variant_id'] ?? null),
                 'name'            => $ln['name'] ?? null,
                 'po_item_name'    => $ln['po_item_name'] ?? null,
-                'description'     => $ln['description'] ?? null,
+                'description'     => $isProjectPo ? null : ($ln['description'] ?? null),
                 'unit'            => $ln['unit'] ?? null,
                 'qty'             => $qty,
                 'unit_price'      => $price,
+                'labor_unit'      => $laborUnit,
                 'discount_type'   => $dType,
                 'discount_value'  => $dVal,
                 'discount_amount' => $discAmt,
@@ -329,7 +330,7 @@ class SalesOrderController extends Controller
                 'material_total'  => $materialTotal,
                 'labor_total'     => $laborTotal,
                 'baseline_name' => $ln['name'] ?? null,
-                'baseline_description' => $ln['description'] ?? null,
+                'baseline_description' => $isProjectPo ? null : ($ln['description'] ?? null),
                 'baseline_item_id' => $disableInventoryLink ? null : ($ln['item_id'] ?? null),
                 'baseline_item_variant_id' => $disableInventoryLink ? null : ($ln['item_variant_id'] ?? null),
                 'baseline_qty' => $qty,
@@ -408,6 +409,7 @@ class SalesOrderController extends Controller
                     'unit'             => $ln['unit'] ?? null,
                     'qty_ordered'      => $ln['qty'],
                     'unit_price'       => $ln['unit_price'],
+                    'labor_unit'       => $ln['labor_unit'] ?? 0,
                     'material_total'   => $ln['material_total'] ?? 0,
                     'labor_total'      => $ln['labor_total'] ?? 0,
                     'discount_type'    => $ln['discount_type'],
@@ -620,6 +622,7 @@ class SalesOrderController extends Controller
                 'qty'             => (float) $l->qty_ordered,                 // <-- kirim qty
                 'unit'            => $l->unit ?? 'pcs',
                 'unit_price'      => (float) $l->unit_price,
+                'labor_unit'      => (float) ($l->labor_unit ?? 0),
                 'material_total'  => (float) ($l->material_total ?? 0),
                 'labor_total'     => (float) ($l->labor_total ?? 0),
                 'discount_type'   => $l->discount_type ?? 'amount',
@@ -703,6 +706,7 @@ class SalesOrderController extends Controller
             'lines.*.unit'           => ['nullable','string','max:20'],
             'lines.*.qty'            => ['required','string'],
             'lines.*.unit_price'     => ['required','string'],
+            'lines.*.labor_unit'     => ['nullable','string'],
             'lines.*.material_total' => ['nullable','string'],
             'lines.*.labor_total'    => ['nullable','string'],
             'lines.*.discount_type'  => ['nullable','in:amount,percent'],
@@ -775,44 +779,23 @@ class SalesOrderController extends Controller
         $sub = 0; $perLineDc = 0;
         $cleanLines = [];
         foreach ($data['lines'] as $i => $ln) {
-            $existingLine = null;
-            if (!empty($ln['id'])) {
-                $existingLine = $salesOrder->lines->firstWhere('id', (int) $ln['id']);
-            }
-
             $qty = max($parse($ln['qty'] ?? 0), 0);
-            $inputPrice = max($parse($ln['unit_price'] ?? 0), 0);
-            $materialTotal = $isProjectPo ? max($parse($ln['material_total'] ?? 0), 0) : 0.0;
-            $laborTotal = $isProjectPo ? max($parse($ln['labor_total'] ?? 0), 0) : 0.0;
+            $materialUnit = max($parse($ln['unit_price'] ?? 0), 0);
+            $laborUnit = $isProjectPo ? max($parse($ln['labor_unit'] ?? 0), 0) : 0.0;
+            $materialTotal = 0.0;
+            $laborTotal = 0.0;
 
             if ($isProjectPo) {
+                $materialTotal = round($qty * $materialUnit, 2);
+                $laborTotal = round($qty * $laborUnit, 2);
                 $lineSub = round($materialTotal + $laborTotal, 2);
-                if ($lineSub <= 0) {
-                    $existingMaterial = max((float) ($existingLine->material_total ?? 0), 0);
-                    $existingLabor = max((float) ($existingLine->labor_total ?? 0), 0);
-                    $baselineMaterial = max((float) ($existingLine->baseline_material_total ?? 0), 0);
-                    $baselineLabor = max((float) ($existingLine->baseline_labor_total ?? 0), 0);
-
-                    if (($existingMaterial + $existingLabor) > 0) {
-                        $materialTotal = $existingMaterial;
-                        $laborTotal = $existingLabor;
-                        $lineSub = round($materialTotal + $laborTotal, 2);
-                    } elseif (($baselineMaterial + $baselineLabor) > 0) {
-                        $materialTotal = $baselineMaterial;
-                        $laborTotal = $baselineLabor;
-                        $lineSub = round($materialTotal + $laborTotal, 2);
-                    } else {
-                        $lineSub = round($qty * $inputPrice, 2);
-                        $materialTotal = $lineSub;
-                        $laborTotal = 0.0;
-                    }
-                }
-                $price = $qty > 0 ? round($lineSub / $qty, 2) : $lineSub;
+                $price = $materialUnit;
             } else {
-                $price = $inputPrice;
+                $price = $materialUnit;
                 $lineSub = round($qty * $price, 2);
                 $materialTotal = $lineSub;
                 $laborTotal = 0.0;
+                $laborUnit = 0.0;
             }
 
             $dt    = $ln['discount_type'] ?? 'amount';
@@ -843,10 +826,11 @@ class SalesOrderController extends Controller
                 'position'        => $i,
                 'name'            => $ln['name'],
                 'po_item_name'    => $ln['po_item_name'] ?? null,
-                'description'     => $ln['description'] ?? null,
+                'description'     => $isProjectPo ? null : ($ln['description'] ?? null),
                 'unit'            => $ln['unit'] ?? null,
                 'qty_ordered'     => $qty,
                 'unit_price'      => $price,
+                'labor_unit'      => $laborUnit,
                 'discount_type'   => $dt,
                 'discount_value'  => $dv,
                 'discount_amount' => $dcAmt,
@@ -1326,18 +1310,33 @@ class SalesOrderController extends Controller
             $linesSubtotal = 0.0;
             foreach ($quotation->lines as $idx => $ql) {
                 $qty       = (float)($ql->qty ?? $ql->quantity ?? 0);
-                $unitPrice = (float)($ql->unit_price ?? 0);
                 $materialTotal = max((float) ($ql->material_total ?? 0), 0);
                 $laborTotal = max((float) ($ql->labor_total ?? 0), 0);
+                $unitPrice = (float)($ql->unit_price ?? 0);
+                $laborUnit = 0.0;
 
                 if ($isProjectPo) {
-                    $lineSub = round($materialTotal + $laborTotal, 2);
-                    if ($lineSub <= 0) {
-                        $lineSub = round($qty * $unitPrice, 2);
-                        $materialTotal = $lineSub;
+                    if ($qty > 0) {
+                        if ($materialTotal <= 0 && $unitPrice > 0) {
+                            $materialTotal = round($qty * $unitPrice, 2);
+                        }
+                        if ($materialTotal > 0) {
+                            $unitPrice = round($materialTotal / $qty, 2);
+                        } else {
+                            $unitPrice = max($unitPrice, 0);
+                            $materialTotal = round($qty * $unitPrice, 2);
+                        }
+                        $laborUnit = $ql->labor_unit_cost_snapshot !== null
+                            ? max((float) $ql->labor_unit_cost_snapshot, 0)
+                            : ($laborTotal > 0 ? round($laborTotal / $qty, 2) : 0.0);
+                        $laborTotal = round($qty * $laborUnit, 2);
+                    } else {
+                        $unitPrice = max($unitPrice, 0);
+                        $laborUnit = 0.0;
+                        $materialTotal = 0.0;
                         $laborTotal = 0.0;
                     }
-                    $unitPrice = $qty > 0 ? round($lineSub / $qty, 2) : $lineSub;
+                    $lineSub = round($materialTotal + $laborTotal, 2);
                 } else {
                     $lineSub = round($qty * $unitPrice, 2);
                     $materialTotal = $lineSub;
@@ -1364,10 +1363,11 @@ class SalesOrderController extends Controller
                     'sales_order_id'   => $so->id,
                     'position'         => $idx,
                     'name'             => $ql->name,
-                    'description'      => $ql->description,
+                    'description'      => $isProjectPo ? null : $ql->description,
                     'unit'             => $ql->unit ?? $ql->unit_name ?? 'PCS',
                     'qty_ordered'      => $qty,
                     'unit_price'       => $unitPrice,
+                    'labor_unit'       => $isProjectPo ? $laborUnit : 0,
                     'material_total'   => $materialTotal,
                     'labor_total'      => $laborTotal,
                     'discount_type'    => $discType,
@@ -1379,7 +1379,7 @@ class SalesOrderController extends Controller
                     'item_variant_id'  => $disableInventoryLink ? null : ($ql->item_variant_id ?? $ql->variant_id ?? null),
                     'baseline_project_quotation_line_id' => null,
                     'baseline_name' => $ql->name,
-                    'baseline_description' => $ql->description,
+                    'baseline_description' => $isProjectPo ? null : $ql->description,
                     'baseline_item_id' => $disableInventoryLink ? null : ($ql->item_id ?? null),
                     'baseline_item_variant_id' => $disableInventoryLink ? null : ($ql->item_variant_id ?? $ql->variant_id ?? null),
                     'baseline_qty' => $qty,
