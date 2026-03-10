@@ -11,6 +11,7 @@ class ProjectBillingTermStatusService
     private const COMPONENT_COMBINED = 'combined';
     private const COMPONENT_MATERIAL = 'material';
     private const COMPONENT_LABOR = 'labor';
+    private array $componentBreakdownCache = [];
 
     /**
      * @return array{
@@ -28,8 +29,14 @@ class ProjectBillingTermStatusService
         $term->loadMissing('salesOrder');
         $salesOrder = $term->salesOrder;
 
-        $mode = $this->normalizeMode($salesOrder?->project_billing_mode);
-        $requiredComponents = $this->componentsForMode($mode);
+        $breakdown = $salesOrder
+            ? $this->componentBreakdownForSalesOrder($salesOrder)
+            : [
+                'mode' => SalesOrder::PROJECT_BILLING_MODE_COMBINED,
+                'required_components' => [self::COMPONENT_COMBINED],
+            ];
+        $mode = (string) ($breakdown['mode'] ?? SalesOrder::PROJECT_BILLING_MODE_COMBINED);
+        $requiredComponents = (array) ($breakdown['required_components'] ?? [self::COMPONENT_COMBINED]);
 
         $invoices = Invoice::query()
             ->where('sales_order_id', (int) $term->sales_order_id)
@@ -128,6 +135,89 @@ class ProjectBillingTermStatusService
         }
 
         return [self::COMPONENT_COMBINED];
+    }
+
+    /**
+     * @return array{
+     *   mode:string,
+     *   material_total:float,
+     *   labor_total:float,
+     *   has_material:bool,
+     *   has_labor:bool,
+     *   required_components:array<int,string>
+     * }
+     */
+    public function componentBreakdownForSalesOrder(SalesOrder $salesOrder): array
+    {
+        $cacheKey = (int) $salesOrder->id;
+        if ($cacheKey > 0 && isset($this->componentBreakdownCache[$cacheKey])) {
+            return $this->componentBreakdownCache[$cacheKey];
+        }
+
+        $mode = $this->normalizeMode($salesOrder->project_billing_mode);
+        $poType = strtolower((string) ($salesOrder->po_type ?? 'goods'));
+        if ($poType !== 'project') {
+            $result = [
+                'mode' => SalesOrder::PROJECT_BILLING_MODE_COMBINED,
+                'material_total' => 0.0,
+                'labor_total' => 0.0,
+                'has_material' => false,
+                'has_labor' => false,
+                'required_components' => [self::COMPONENT_COMBINED],
+            ];
+            if ($cacheKey > 0) {
+                $this->componentBreakdownCache[$cacheKey] = $result;
+            }
+            return $result;
+        }
+
+        if ($salesOrder->relationLoaded('lines')) {
+            $materialTotal = (float) $salesOrder->lines->sum(fn ($line) => (float) ($line->material_total ?? 0));
+            $laborTotal = (float) $salesOrder->lines->sum(fn ($line) => (float) ($line->labor_total ?? 0));
+        } else {
+            $totals = $salesOrder->lines()
+                ->selectRaw('COALESCE(SUM(material_total),0) as material_total, COALESCE(SUM(labor_total),0) as labor_total')
+                ->first();
+            $materialTotal = (float) ($totals->material_total ?? 0);
+            $laborTotal = (float) ($totals->labor_total ?? 0);
+        }
+
+        $materialTotal = round(max($materialTotal, 0), 2);
+        $laborTotal = round(max($laborTotal, 0), 2);
+
+        $hasMaterial = $materialTotal > 0.0001;
+        $hasLabor = $laborTotal > 0.0001;
+
+        if ($hasMaterial && $hasLabor) {
+            $requiredComponents = $this->componentsForMode($mode);
+        } elseif ($hasMaterial) {
+            $requiredComponents = [self::COMPONENT_MATERIAL];
+        } elseif ($hasLabor) {
+            $requiredComponents = [self::COMPONENT_LABOR];
+        } else {
+            $requiredComponents = [self::COMPONENT_COMBINED];
+        }
+
+        $result = [
+            'mode' => $mode,
+            'material_total' => $materialTotal,
+            'labor_total' => $laborTotal,
+            'has_material' => $hasMaterial,
+            'has_labor' => $hasLabor,
+            'required_components' => $requiredComponents,
+        ];
+
+        if ($cacheKey > 0) {
+            $this->componentBreakdownCache[$cacheKey] = $result;
+        }
+
+        return $result;
+    }
+
+    public function componentsForSalesOrder(SalesOrder $salesOrder): array
+    {
+        $breakdown = $this->componentBreakdownForSalesOrder($salesOrder);
+        return (array) ($breakdown['required_components'] ?? [self::COMPONENT_COMBINED]);
     }
 
     public function normalizeMode(?string $mode): string

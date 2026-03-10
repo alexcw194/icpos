@@ -233,10 +233,12 @@
     <td>Subtotal</td>
     <td class="text-end">{{ number_format((float)$invoice->subtotal, 2) }}</td>
   </tr>
-  <tr>
-    <td>Discount</td>
-    <td class="text-end">{{ number_format((float)$invoice->discount, 2) }}</td>
-  </tr>
+  @if(((float) $invoice->discount) > 0)
+    <tr>
+      <td>Discount</td>
+      <td class="text-end">{{ number_format((float)$invoice->discount, 2) }}</td>
+    </tr>
+  @endif
   <tr>
     <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)$invoice->tax_percent, 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
     <td class="text-end">{{ number_format((float)$invoice->tax_amount, 2) }}</td>

@@ -9,6 +9,7 @@ use App\Models\{
     SalesOrderAttachment,
     SalesOrderBillingTerm,
     BillingDocument,
+    Invoice,
     Company,
     Customer,
     Item,
@@ -559,12 +560,40 @@ class SalesOrderController extends Controller
             ? $this->executionVariance->build($salesOrder)
             : ['rows' => [], 'totals' => []];
 
+        $projectBillingComposition = [
+            'material_total' => 0.0,
+            'labor_total' => 0.0,
+            'has_material' => false,
+            'has_labor' => false,
+            'can_choose_mode' => false,
+        ];
+
+        if (strtolower((string) ($salesOrder->po_type ?? 'goods')) === 'project') {
+            $materialTotal = (float) $salesOrder->lines->sum(fn ($line) => (float) ($line->material_total ?? 0));
+            $laborTotal = (float) $salesOrder->lines->sum(fn ($line) => (float) ($line->labor_total ?? 0));
+            $hasMaterial = $materialTotal > 0.0001;
+            $hasLabor = $laborTotal > 0.0001;
+            $hasAnyBillingOrInvoice = BillingDocument::query()
+                ->where('sales_order_id', $salesOrder->id)
+                ->where('status', '!=', 'void')
+                ->exists() || Invoice::query()->where('sales_order_id', $salesOrder->id)->exists();
+
+            $projectBillingComposition = [
+                'material_total' => round(max($materialTotal, 0), 2),
+                'labor_total' => round(max($laborTotal, 0), 2),
+                'has_material' => $hasMaterial,
+                'has_labor' => $hasLabor,
+                'can_choose_mode' => $hasMaterial && $hasLabor && !$hasAnyBillingOrInvoice && $salesOrder->status !== 'cancelled',
+            ];
+        }
+
         return view('sales_orders.show', [
             'salesOrder' => $salesOrder,
             'billingDoc' => $billingDoc,
             'commissionSummary' => $commissionSummary,
             'executionRows' => $execution['rows'],
             'executionTotals' => $execution['totals'],
+            'projectBillingComposition' => $projectBillingComposition,
         ]);
     }
 
@@ -1039,6 +1068,53 @@ class SalesOrderController extends Controller
         }
 
         return redirect()->route('sales-orders.show', $salesOrder)->with('ok','Sales Order updated.');
+    }
+
+    public function updateProjectBillingMode(Request $request, SalesOrder $salesOrder)
+    {
+        $this->authorize('update', $salesOrder);
+
+        if (strtolower((string) ($salesOrder->po_type ?? 'goods')) !== 'project') {
+            return back()->with('error', 'Mode billing hanya berlaku untuk SO Project.');
+        }
+
+        $data = $request->validate([
+            'project_billing_mode' => ['required', 'in:combined,split_material_labor'],
+        ]);
+
+        $totals = $salesOrder->lines()
+            ->selectRaw('COALESCE(SUM(material_total),0) as material_total, COALESCE(SUM(labor_total),0) as labor_total')
+            ->first();
+        $hasMaterial = max((float) ($totals->material_total ?? 0), 0) > 0.0001;
+        $hasLabor = max((float) ($totals->labor_total ?? 0), 0) > 0.0001;
+
+        if (!($hasMaterial && $hasLabor)) {
+            return back()->with('warning', 'Mode billing tidak bisa diubah karena SO hanya memiliki satu komponen aktif (material atau labor).');
+        }
+
+        $hasBilling = BillingDocument::query()
+            ->where('sales_order_id', $salesOrder->id)
+            ->where('status', '!=', 'void')
+            ->exists();
+        $hasInvoice = Invoice::query()
+            ->where('sales_order_id', $salesOrder->id)
+            ->exists();
+
+        if ($hasBilling || $hasInvoice) {
+            return back()->with('error', 'Project billing mode tidak bisa diubah karena billing/invoice sudah ada.');
+        }
+
+        $nextMode = (string) $data['project_billing_mode'];
+        $currentMode = (string) ($salesOrder->project_billing_mode ?: SalesOrder::PROJECT_BILLING_MODE_COMBINED);
+        if ($nextMode === $currentMode) {
+            return back()->with('ok', 'Project billing mode tidak berubah.');
+        }
+
+        $salesOrder->update([
+            'project_billing_mode' => $nextMode,
+        ]);
+
+        return back()->with('success', 'Project billing mode berhasil diperbarui.');
     }
 
     public function updateCommission(Request $request, SalesOrder $salesOrder)

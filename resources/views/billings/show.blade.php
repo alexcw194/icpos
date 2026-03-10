@@ -11,10 +11,13 @@
   ];
   [$statusLabel, $statusClass] = $badgeMap[$billingStatus] ?? [$billingStatus,'bg-secondary-lt'];
   $isEditable = $billing->isEditable();
-  $canIssueProforma = !$isNew && !$billing->isLocked() && $billing->status !== 'void';
+  $hasProforma = !empty($billing->pi_number);
+  $hasInvoice = !empty($billing->inv_number);
+  $canIssueProforma = !$isNew && !$billing->isLocked() && $billing->status !== 'void' && !$hasProforma && !$hasInvoice;
   $so = $billing->salesOrder;
+  $isProjectSo = strtolower((string) ($so->po_type ?? 'goods')) === 'project';
   $npwpBlocked = $so && $so->npwp_required && ($so->npwp_status ?? 'missing') !== 'ok';
-  $canIssueInvoice = $canIssueProforma && !$npwpBlocked;
+  $canIssueInvoice = !$isNew && !$billing->isLocked() && !$hasInvoice && $billing->status !== 'void' && !$npwpBlocked;
   $displayNumber = $billing->inv_number ?? $billing->pi_number ?? ($isNew ? 'DRAFT' : 'DRAFT-'.$billing->id);
 @endphp
 
@@ -156,12 +159,21 @@
             <tr>
               <th>#</th>
               <th>Item</th>
-              <th>Description</th>
+              @unless($isProjectSo)
+                <th>Description</th>
+              @endunless
               <th class="text-end">Qty</th>
               <th>Unit</th>
-              <th class="text-end">Unit Price</th>
+              <th class="text-end">{{ $isProjectSo ? 'Price' : 'Unit Price' }}</th>
+              @if($isProjectSo)
+                <th class="text-end">Material</th>
+                <th class="text-end">Labor Unit</th>
+                <th class="text-end">Labor</th>
+              @endif
               <th class="text-end">Disc</th>
-              <th class="text-end">Subtotal</th>
+              @unless($isProjectSo)
+                <th class="text-end">Subtotal</th>
+              @endunless
               <th class="text-end">Line Total</th>
             </tr>
           </thead>
@@ -183,13 +195,15 @@
                   @endif
                   <input type="hidden" name="lines[{{ $i }}][name]" value="{{ $ln->name }}">
                 </td>
-                <td>
-                  @if($isEditable)
-                    <textarea name="lines[{{ $i }}][description]" class="form-control form-control-sm" rows="2">{{ $ln->description }}</textarea>
-                  @else
-                    {{ $ln->description ?? '-' }}
-                  @endif
-                </td>
+                @unless($isProjectSo)
+                  <td>
+                    @if($isEditable)
+                      <textarea name="lines[{{ $i }}][description]" class="form-control form-control-sm" rows="2">{{ $ln->description }}</textarea>
+                    @else
+                      {{ $ln->description ?? '-' }}
+                    @endif
+                  </td>
+                @endunless
                 <td class="text-end">
                   @if($isEditable)
                     <input type="number" step="0.01" min="0" name="lines[{{ $i }}][qty]" class="form-control form-control-sm text-end js-qty" value="{{ number_format((float) $ln->qty, 2, '.', '') }}">
@@ -211,12 +225,25 @@
                     {{ number_format((float) $ln->unit_price, 2) }}
                   @endif
                 </td>
+                @if($isProjectSo)
+                  <td class="text-end line-material">{{ number_format((float) ($ln->material_total ?? 0), 2) }}</td>
+                  <td class="text-end">
+                    @if($isEditable)
+                      <input type="text" inputmode="decimal" name="lines[{{ $i }}][labor_unit]" class="form-control form-control-sm text-end js-labor-unit" value="{{ number_format((float) ($ln->labor_unit ?? 0), 2, ',', '.') }}">
+                    @else
+                      {{ number_format((float) ($ln->labor_unit ?? 0), 2) }}
+                    @endif
+                  </td>
+                  <td class="text-end line-labor">{{ number_format((float) ($ln->labor_total ?? 0), 2) }}</td>
+                @endif
                 <td class="text-end">
                   <span class="text-muted">{{ $discLabel }}</span>
                   <input type="hidden" name="lines[{{ $i }}][discount_type]" value="{{ $ln->discount_type ?? 'amount' }}">
                   <input type="hidden" name="lines[{{ $i }}][discount_value]" value="{{ number_format((float) $ln->discount_value, 2, '.', '') }}">
                 </td>
-                <td class="text-end line-subtotal">{{ number_format((float) $ln->line_subtotal, 2) }}</td>
+                @unless($isProjectSo)
+                  <td class="text-end line-subtotal">{{ number_format((float) $ln->line_subtotal, 2) }}</td>
+                @endunless
                 <td class="text-end fw-semibold line-total">{{ number_format((float) $ln->line_total, 2) }}</td>
               </tr>
             @endforeach
@@ -337,6 +364,7 @@
 @if($isEditable)
 <script>
   (function () {
+    const isProjectSo = @json($isProjectSo);
     const toNumber = (val) => {
       if (val === null || val === undefined) return 0;
       if (typeof val === 'number') return Number.isFinite(val) ? val : 0;
@@ -374,14 +402,25 @@
       rows.forEach((row) => {
         const qty = toNumber(row.querySelector('.js-qty')?.value);
         const price = toNumber(row.querySelector('.js-price')?.value);
+        const laborUnit = isProjectSo ? toNumber(row.querySelector('.js-labor-unit')?.value) : 0;
         const discType = row.querySelector('input[name*="[discount_type]"]')?.value || 'amount';
         const discValue = toNumber(row.querySelector('input[name*="[discount_value]"]')?.value);
-        const lineSubtotal = qty * price;
+        const materialTotal = qty * price;
+        const laborTotal = qty * laborUnit;
+        const lineSubtotal = isProjectSo ? (materialTotal + laborTotal) : materialTotal;
         const discAmt = discType === 'percent'
           ? Math.round(lineSubtotal * Math.min(Math.max(discValue, 0), 100) / 100 * 100) / 100
           : Math.min(Math.max(discValue, 0), lineSubtotal);
         const lineTotal = Math.max(lineSubtotal - discAmt, 0);
-        row.querySelector('.line-subtotal').textContent = format(lineSubtotal);
+        if (isProjectSo) {
+          const materialEl = row.querySelector('.line-material');
+          const laborEl = row.querySelector('.line-labor');
+          if (materialEl) materialEl.textContent = format(materialTotal);
+          if (laborEl) laborEl.textContent = format(laborTotal);
+        } else {
+          const subtotalCell = row.querySelector('.line-subtotal');
+          if (subtotalCell) subtotalCell.textContent = format(lineSubtotal);
+        }
         row.querySelector('.line-total').textContent = format(lineTotal);
         subtotal += lineTotal;
       });
@@ -409,4 +448,3 @@
 @endif
 @endpush
 @endsection
-

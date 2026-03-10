@@ -160,25 +160,12 @@
               </td>
               <td class="text-end">
                 @if($row->can_create_billing_draft)
-                  @if($row->is_split_mode)
-                    <form method="POST" action="{{ route('projects.active.billing-terms.create-draft', ['project' => $project, 'term' => $term]) }}" class="d-inline-flex align-items-center gap-2 flex-wrap justify-content-end">
-                      @csrf
-                      <div class="input-group input-group-sm" style="width:150px;">
-                        <span class="input-group-text">M</span>
-                        <input type="text" name="material_amount" class="form-control text-end" inputmode="decimal" value="{{ number_format(((float) ($row->term_total ?? 0)) / 2, 2, '.', '') }}">
-                      </div>
-                      <div class="input-group input-group-sm" style="width:150px;">
-                        <span class="input-group-text">L</span>
-                        <input type="text" name="labor_amount" class="form-control text-end" inputmode="decimal" value="{{ number_format(((float) ($row->term_total ?? 0)) / 2, 2, '.', '') }}">
-                      </div>
-                      <button type="submit" class="btn btn-sm btn-primary">Create Draft Split</button>
-                    </form>
-                  @else
-                    <form method="POST" action="{{ route('projects.active.billing-terms.create-draft', ['project' => $project, 'term' => $term]) }}" class="d-inline">
-                      @csrf
-                      <button type="submit" class="btn btn-sm btn-primary">Create Billing Draft</button>
-                    </form>
-                  @endif
+                  <form method="POST" action="{{ route('projects.active.billing-terms.create-draft', ['project' => $project, 'term' => $term]) }}" class="d-inline">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn-primary">
+                      {{ $row->is_split_mode ? 'Create Billing Draft (Auto Split)' : 'Create Billing Draft' }}
+                    </button>
+                  </form>
                 @elseif($billing)
                   <a href="{{ route('billings.show', $billing) }}" class="btn btn-sm btn-outline-primary">Open Billing</a>
                 @elseif($invoice)

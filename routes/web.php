@@ -277,6 +277,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('sales-orders.edit');
     Route::match (['put','patch'], 'sales-orders/{salesOrder}', [SalesOrderController::class, 'update'])
         ->name('sales-orders.update');
+    Route::patch('sales-orders/{salesOrder}/project-billing-mode', [SalesOrderController::class, 'updateProjectBillingMode'])
+        ->name('sales-orders.project-billing-mode.update');
     Route::patch('sales-orders/{salesOrder}/commission', [SalesOrderController::class, 'updateCommission'])
         ->name('sales-orders.commission.update');
     Route::post  ('sales-orders/{salesOrder}/cancel', [SalesOrderController::class, 'cancel'])

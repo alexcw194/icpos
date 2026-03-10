@@ -157,8 +157,8 @@ class ProjectActiveController extends Controller
         $termRows = $salesOrder->billingTerms->map(function (SalesOrderBillingTerm $term) use ($billingByTerm, $invoicesByTerm, $salesOrder) {
             $progress = $this->projectBillingTermStatus->progressForTerm($term);
             $requiredComponents = $progress['required_components'];
-            $isSplitMode = $progress['mode'] === SalesOrder::PROJECT_BILLING_MODE_SPLIT;
             $requiredCount = count($requiredComponents);
+            $isSplitMode = $progress['mode'] === SalesOrder::PROJECT_BILLING_MODE_SPLIT && $requiredCount > 1;
 
             $billingComponents = collect($billingByTerm->get((int) $term->id, []));
             $invoiceComponents = collect($invoicesByTerm->get((int) $term->id, []));
@@ -284,8 +284,9 @@ class ProjectActiveController extends Controller
             return back()->with('error', 'Nilai billing term tidak valid.');
         }
 
-        $mode = $this->projectBillingTermStatus->normalizeMode($salesOrder->project_billing_mode);
-        $components = $this->projectBillingTermStatus->componentsForMode($mode);
+        $componentBreakdown = $this->projectBillingTermStatus->componentBreakdownForSalesOrder($salesOrder);
+        $components = (array) ($componentBreakdown['required_components'] ?? ['combined']);
+        $hasMultiComponents = count($components) > 1;
 
         $existingDrafts = BillingDocument::query()
             ->where('sales_order_id', $salesOrder->id)
@@ -297,19 +298,26 @@ class ProjectActiveController extends Controller
             ->groupBy(fn (BillingDocument $doc) => $this->normalizeBillingComponent($doc->billing_component))
             ->map(fn ($docs) => $docs->first());
 
-        if ($mode === SalesOrder::PROJECT_BILLING_MODE_COMBINED && $existingDrafts->isNotEmpty()) {
+        if ($components === ['combined'] && $existingDrafts->isNotEmpty()) {
             /** @var BillingDocument $doc */
             $doc = $existingDrafts->first();
             return redirect()
                 ->route('billings.show', $doc)
                 ->with('ok', 'Billing draft untuk term ini sudah ada.');
         }
-        if ($mode === SalesOrder::PROJECT_BILLING_MODE_SPLIT && $existingDrafts->has('combined')) {
+        if ($hasMultiComponents && $existingDrafts->has('combined')) {
             /** @var BillingDocument $doc */
             $doc = $existingDrafts->get('combined');
             return redirect()
                 ->route('billings.show', $doc)
                 ->with('warning', 'Term ini sudah punya billing draft combined.');
+        }
+        if ($components === ['combined'] && ($existingDrafts->has('material') || $existingDrafts->has('labor'))) {
+            /** @var BillingDocument $doc */
+            $doc = $existingDrafts->get('material') ?? $existingDrafts->get('labor');
+            return redirect()
+                ->route('billings.show', $doc)
+                ->with('warning', 'Term ini sudah punya billing draft component.');
         }
         foreach ($components as $component) {
             $activeDraft = $existingDrafts->get($component);
@@ -328,11 +336,14 @@ class ProjectActiveController extends Controller
             ->groupBy(fn (Invoice $invoice) => $this->normalizeBillingComponent($invoice->billing_component))
             ->map(fn ($invoices) => $invoices->first());
 
-        if ($mode === SalesOrder::PROJECT_BILLING_MODE_COMBINED && $invoiceByComponent->isNotEmpty()) {
+        if ($components === ['combined'] && $invoiceByComponent->isNotEmpty()) {
             return back()->with('warning', 'Term ini sudah memiliki invoice.');
         }
-        if ($mode === SalesOrder::PROJECT_BILLING_MODE_SPLIT && $invoiceByComponent->has('combined')) {
+        if ($hasMultiComponents && $invoiceByComponent->has('combined')) {
             return back()->with('warning', 'Term ini sudah memiliki invoice combined.');
+        }
+        if ($components === ['combined'] && ($invoiceByComponent->has('material') || $invoiceByComponent->has('labor'))) {
+            return back()->with('warning', 'Term ini sudah memiliki invoice component.');
         }
         foreach ($components as $component) {
             if ($invoiceByComponent->has($component)) {
@@ -346,30 +357,51 @@ class ProjectActiveController extends Controller
         }
 
         $amountByComponent = [];
-        if ($mode === SalesOrder::PROJECT_BILLING_MODE_SPLIT) {
-            $validated = $request->validate([
-                'material_amount' => ['required', 'string'],
-                'labor_amount' => ['required', 'string'],
-            ]);
-
-            $materialAmount = max(0, $this->toNumber($validated['material_amount'] ?? 0));
-            $laborAmount = max(0, $this->toNumber($validated['labor_amount'] ?? 0));
-            $splitTotal = round($materialAmount + $laborAmount, 2);
-            if (abs($splitTotal - $total) > 0.01) {
-                return back()->with('error', 'Total split Material + Labor harus sama dengan nilai term.');
-            }
-
-            $amountByComponent = [
-                'material' => round($materialAmount, 2),
-                'labor' => round($laborAmount, 2),
-            ];
+        if ($components === ['combined']) {
+            $amountByComponent = ['combined' => round($total, 2)];
+        } elseif ($components === ['material']) {
+            $amountByComponent = ['material' => round($total, 2)];
+        } elseif ($components === ['labor']) {
+            $amountByComponent = ['labor' => round($total, 2)];
         } else {
+            $materialPool = max((float) ($componentBreakdown['material_total'] ?? 0), 0);
+            $laborPool = max((float) ($componentBreakdown['labor_total'] ?? 0), 0);
+            $poolTotal = $materialPool + $laborPool;
+            if ($poolTotal <= 0) {
+                $materialAmount = round($total / 2, 2);
+            } else {
+                $materialAmount = round($total * ($materialPool / $poolTotal), 2);
+            }
+            $laborAmount = round($total - $materialAmount, 2);
             $amountByComponent = [
-                'combined' => round($total, 2),
+                'material' => $materialAmount,
+                'labor' => $laborAmount,
             ];
         }
 
-        $createdBillings = DB::transaction(function () use ($salesOrder, $term, $project, $amountByComponent) {
+        $lineComposition = [];
+        if ($components === ['combined']) {
+            $materialPool = max((float) ($componentBreakdown['material_total'] ?? 0), 0);
+            $laborPool = max((float) ($componentBreakdown['labor_total'] ?? 0), 0);
+            $poolTotal = $materialPool + $laborPool;
+            if ($poolTotal > 0) {
+                $lineMaterial = round($amountByComponent['combined'] * ($materialPool / $poolTotal), 2);
+                $lineLabor = round($amountByComponent['combined'] - $lineMaterial, 2);
+            } else {
+                $lineMaterial = $amountByComponent['combined'];
+                $lineLabor = 0.0;
+            }
+            $lineComposition['combined'] = ['material' => $lineMaterial, 'labor' => $lineLabor];
+        } elseif ($components === ['material']) {
+            $lineComposition['material'] = ['material' => $amountByComponent['material'], 'labor' => 0.0];
+        } elseif ($components === ['labor']) {
+            $lineComposition['labor'] = ['material' => 0.0, 'labor' => $amountByComponent['labor']];
+        } else {
+            $lineComposition['material'] = ['material' => $amountByComponent['material'], 'labor' => 0.0];
+            $lineComposition['labor'] = ['material' => 0.0, 'labor' => $amountByComponent['labor']];
+        }
+
+        $createdBillings = DB::transaction(function () use ($salesOrder, $term, $project, $amountByComponent, $lineComposition) {
             $taxPercent = (float) ($salesOrder->tax_percent ?? 0);
             $created = collect();
 
@@ -411,6 +443,12 @@ class ProjectActiveController extends Controller
                     'updated_by' => auth()->id(),
                 ]);
 
+                $componentLine = $lineComposition[$component] ?? ['material' => $subtotal, 'labor' => 0.0];
+                $lineMaterialTotal = round(max((float) ($componentLine['material'] ?? 0), 0), 2);
+                $lineLaborTotal = round(max((float) ($componentLine['labor'] ?? 0), 0), 2);
+                $lineMaterialUnit = $lineMaterialTotal;
+                $lineLaborUnit = $lineLaborTotal;
+
                 $billing->lines()->create([
                     'sales_order_line_id' => null,
                     'position' => 1,
@@ -422,7 +460,10 @@ class ProjectActiveController extends Controller
                     ),
                     'unit' => 'ls',
                     'qty' => 1,
-                    'unit_price' => $subtotal,
+                    'unit_price' => $lineMaterialUnit,
+                    'labor_unit' => $lineLaborUnit,
+                    'material_total' => $lineMaterialTotal,
+                    'labor_total' => $lineLaborTotal,
                     'discount_type' => 'amount',
                     'discount_value' => 0,
                     'discount_amount' => 0,
@@ -447,25 +488,6 @@ class ProjectActiveController extends Controller
         return redirect()
             ->route('billings.show', $createdBillings->first())
             ->with('success', $message);
-    }
-
-    private function toNumber($value): float
-    {
-        if ($value === null || $value === '') {
-            return 0.0;
-        }
-        if (is_numeric($value)) {
-            return (float) $value;
-        }
-        $string = str_replace([' ', "\xc2\xa0"], '', (string) $value);
-        if (str_contains($string, ',') && str_contains($string, '.')) {
-            $string = str_replace('.', '', $string);
-            $string = str_replace(',', '.', $string);
-        } else {
-            $string = str_replace(',', '.', $string);
-        }
-
-        return (float) $string;
     }
 
     private function normalizeBillingComponent(?string $component): string

@@ -200,10 +200,12 @@
     <td>Subtotal</td>
     <td class="text-end">{{ number_format((float)$billing->subtotal, 2) }}</td>
   </tr>
-  <tr>
-    <td>Discount</td>
-    <td class="text-end">{{ number_format((float)$billing->discount_amount, 2) }}</td>
-  </tr>
+  @if(((float) $billing->discount_amount) > 0)
+    <tr>
+      <td>Discount</td>
+      <td class="text-end">{{ number_format((float)$billing->discount_amount, 2) }}</td>
+    </tr>
+  @endif
   <tr>
     <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)$billing->tax_percent, 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
     <td class="text-end">{{ number_format((float)$billing->tax_amount, 2) }}</td>

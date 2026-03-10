@@ -10,6 +10,7 @@ class BillingDocumentLine extends Model
     protected $fillable = [
         'billing_document_id','sales_order_line_id','position',
         'name','description','unit','qty','unit_price',
+        'labor_unit','material_total','labor_total',
         'discount_type','discount_value','discount_amount',
         'line_subtotal','line_total',
     ];
@@ -17,6 +18,9 @@ class BillingDocumentLine extends Model
     protected $casts = [
         'qty' => 'decimal:4',
         'unit_price' => 'decimal:2',
+        'labor_unit' => 'decimal:2',
+        'material_total' => 'decimal:2',
+        'labor_total' => 'decimal:2',
         'discount_value' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'line_subtotal' => 'decimal:2',

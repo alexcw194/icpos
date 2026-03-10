@@ -40,6 +40,15 @@
   $commissionTotal = $feeAmount + $underAmount;
   $grossProfit = (float) ($commissionSummary['gross_profit'] ?? 0);
   $netProfit = (float) ($commissionSummary['net_profit'] ?? ($grossProfit - $commissionTotal));
+  $isSalesReadOnly = (auth()->user()?->hasRole('Sales') ?? false)
+    && !(auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin', 'Finance', 'SalesManager']) ?? false);
+  $projectBillingComposition = $projectBillingComposition ?? [
+    'material_total' => 0.0,
+    'labor_total' => 0.0,
+    'has_material' => false,
+    'has_labor' => false,
+    'can_choose_mode' => false,
+  ];
 @endphp
 
 <div class="container-xl">
@@ -73,40 +82,41 @@
       </div>
     </div>
     <div class="btn-list">
-      {{-- Delivery & Invoice actions --}}
-      @if(!$isCancelled)
-        @can('deliveries.create')
-          @if(($o->po_type ?? 'goods') === 'maintenance')
-            <span class="btn btn-secondary disabled" title="Maintenance tidak menggunakan Delivery Note">Create Delivery Note</span>
-          @elseif($o->status === 'delivered')
-            <span class="btn btn-secondary disabled" title="Sales order sudah terkirim penuh">Create Delivery Note</span>
+      @if(!$isSalesReadOnly)
+        {{-- Delivery & Invoice actions --}}
+        @if(!$isCancelled)
+          @can('deliveries.create')
+            @if(($o->po_type ?? 'goods') === 'maintenance')
+              <span class="btn btn-secondary disabled" title="Maintenance tidak menggunakan Delivery Note">Create Delivery Note</span>
+            @elseif($o->status === 'delivered')
+              <span class="btn btn-secondary disabled" title="Sales order sudah terkirim penuh">Create Delivery Note</span>
+            @else
+              <a href="{{ route('deliveries.create', ['sales_order_id' => $o->id]) }}" class="btn btn-secondary">Create Delivery Note</a>
+            @endif
           @else
-            <a href="{{ route('deliveries.create', ['sales_order_id' => $o->id]) }}" class="btn btn-secondary">Create Delivery Note</a>
-          @endif
-        @else
-          <span class="btn btn-secondary disabled" title="Anda tidak memiliki akses">Create Delivery Note</span>
-        @endcan
+            <span class="btn btn-secondary disabled" title="Anda tidak memiliki akses">Create Delivery Note</span>
+          @endcan
 
-        {{-- NEW: actions --}}
-        @can('update', $o)
-          <a href="{{ route('sales-orders.edit', $o) }}" class="btn">Edit</a>
-        @endcan
+          @can('update', $o)
+            <a href="{{ route('sales-orders.edit', $o) }}" class="btn">Edit</a>
+          @endcan
 
-        @can('amend', $o)
-          <a href="{{ route('sales-orders.variations.create', $o) }}" class="btn btn-outline-primary">Create VO</a>
-        @endcan
+          @can('amend', $o)
+            <a href="{{ route('sales-orders.variations.create', $o) }}" class="btn btn-outline-primary">Create VO</a>
+          @endcan
 
-        @can('cancel', $o)
-          <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalCancelSo">Cancel SO</button>
-        @endcan
+          @can('cancel', $o)
+            <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalCancelSo">Cancel SO</button>
+          @endcan
 
-        @can('delete', $o)
-          <form action="{{ route('sales-orders.destroy', $o) }}" method="POST" class="d-inline"
-                onsubmit="return confirm('Delete this Sales Order? This cannot be undone.')">
-            @csrf @method('DELETE')
-            <button type="submit" class="btn btn-danger">Delete</button>
-          </form>
-        @endcan
+          @can('delete', $o)
+            <form action="{{ route('sales-orders.destroy', $o) }}" method="POST" class="d-inline"
+                  onsubmit="return confirm('Delete this Sales Order? This cannot be undone.')">
+              @csrf @method('DELETE')
+              <button type="submit" class="btn btn-danger">Delete</button>
+            </form>
+          @endcan
+        @endif
       @endif
     </div>
   </div>
@@ -319,54 +329,83 @@
         <div class="card-header">
           <h3 class="card-title">Billing</h3>
           <div class="ms-auto btn-list">
-            @if(!$billingDoc || $billingDoc->status === 'void')
-              <a href="{{ route('billings.create-from-so', $o) }}" class="btn btn-sm btn-primary">Create Billing Draft</a>
-            @endif
-
-            @if($billingDoc)
-              <a href="{{ route('billings.show', $billingDoc) }}" class="btn btn-sm btn-outline-primary">View Billing</a>
-
-              @if($canIssueProforma)
-                <form action="{{ route('billings.issue-proforma', $billingDoc) }}" method="POST" class="d-inline"
-                      onsubmit="return confirm('Issue Proforma Invoice?')">
-                  @csrf
-                  <button class="btn btn-sm btn-outline-secondary">Issue Proforma</button>
-                </form>
+            @if(!$isSalesReadOnly)
+              @if(!$billingDoc || $billingDoc->status === 'void')
+                <a href="{{ route('billings.create-from-so', $o) }}" class="btn btn-sm btn-primary">Create Billing Draft</a>
               @endif
 
-              @if(!empty($billingDoc->pi_number))
-                <a href="{{ route('billings.pdf.proforma', $billingDoc) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                  View/Print Proforma
-                </a>
-              @endif
+              @if($billingDoc)
+                <a href="{{ route('billings.show', $billingDoc) }}" class="btn btn-sm btn-outline-primary">View Billing</a>
 
-              @if(!$hasInvoice && $billingDoc->status !== 'void' && !$billingDoc->locked_at)
-                @if($canIssueInvoice)
-                  <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalIssueInvoiceSo">
-                    Issue Invoice
-                  </button>
-                @else
-                  <button class="btn btn-sm btn-outline-success disabled" title="NPWP wajib diisi sebelum issue invoice">
-                    Issue Invoice
+                @if($canIssueProforma)
+                  <form action="{{ route('billings.issue-proforma', $billingDoc) }}" method="POST" class="d-inline"
+                        onsubmit="return confirm('Issue Proforma Invoice?')">
+                    @csrf
+                    <button class="btn btn-sm btn-outline-secondary">Issue Proforma</button>
+                  </form>
+                @endif
+
+                @if(!empty($billingDoc->pi_number))
+                  <a href="{{ route('billings.pdf.proforma', $billingDoc) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                    View/Print Proforma
+                  </a>
+                @endif
+
+                @if(!$hasInvoice && $billingDoc->status !== 'void' && !$billingDoc->locked_at)
+                  @if($canIssueInvoice)
+                    <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalIssueInvoiceSo">
+                      Issue Invoice
+                    </button>
+                  @else
+                    <button class="btn btn-sm btn-outline-success disabled" title="NPWP wajib diisi sebelum issue invoice">
+                      Issue Invoice
+                    </button>
+                  @endif
+                @endif
+
+                @if(!empty($billingDoc->inv_number))
+                  <a href="{{ route('billings.pdf.invoice', $billingDoc) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    View/Print Invoice
+                  </a>
+                @endif
+
+                @if($billingDoc->status !== 'void')
+                  <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalVoidBillingSo">
+                    Void
                   </button>
                 @endif
-              @endif
-
-              @if(!empty($billingDoc->inv_number))
-                <a href="{{ route('billings.pdf.invoice', $billingDoc) }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                  View/Print Invoice
-                </a>
-              @endif
-
-              @if($billingDoc->status !== 'void')
-                <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalVoidBillingSo">
-                  Void
-                </button>
               @endif
             @endif
           </div>
         </div>
         <div class="card-body">
+          @if(($o->po_type ?? 'goods') === 'project')
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+              <span class="text-muted">Project Billing Mode:</span>
+              <span class="badge bg-azure-lt text-dark">
+                {{ ($o->project_billing_mode ?? 'combined') === 'split_material_labor' ? 'Split Material/Labor' : 'Combined' }}
+              </span>
+              @if(($projectBillingComposition['has_material'] ?? false) && !($projectBillingComposition['has_labor'] ?? false))
+                <span class="badge bg-yellow-lt text-dark">Auto Material Only</span>
+              @elseif(!($projectBillingComposition['has_material'] ?? false) && ($projectBillingComposition['has_labor'] ?? false))
+                <span class="badge bg-yellow-lt text-dark">Auto Labor Only</span>
+              @endif
+
+              @if(!$isSalesReadOnly && ($projectBillingComposition['can_choose_mode'] ?? false))
+                @can('update', $o)
+                  <form method="POST" action="{{ route('sales-orders.project-billing-mode.update', $o) }}" class="d-inline-flex align-items-center gap-2 ms-2">
+                    @csrf
+                    @method('PATCH')
+                    <select name="project_billing_mode" class="form-select form-select-sm">
+                      <option value="combined" {{ ($o->project_billing_mode ?? 'combined') === 'combined' ? 'selected' : '' }}>Combined</option>
+                      <option value="split_material_labor" {{ ($o->project_billing_mode ?? 'combined') === 'split_material_labor' ? 'selected' : '' }}>Split Material/Labor</option>
+                    </select>
+                    <button class="btn btn-sm btn-outline-primary" type="submit">Update Mode</button>
+                  </form>
+                @endcan
+              @endif
+            </div>
+          @endif
           @if($billingDoc)
             <div class="row g-3">
               <div class="col-md-3">
@@ -439,6 +478,7 @@
                         <th class="text-end">Price</th>
                         @if(($o->po_type ?? 'goods') === 'project')
                           <th class="text-end">Material</th>
+                          <th class="text-end">Labor Unit</th>
                           <th class="text-end">Labor</th>
                         @endif
                         <th class="text-end">Disc</th>
@@ -461,6 +501,7 @@
                           <td class="text-end">{{ number_format($ln->unit_price,2) }}</td>
                           @if(($o->po_type ?? 'goods') === 'project')
                             <td class="text-end">{{ number_format((float) ($ln->material_total ?? 0),2) }}</td>
+                            <td class="text-end">{{ number_format((float) ($ln->labor_unit ?? 0),2) }}</td>
                             <td class="text-end">{{ number_format((float) ($ln->labor_total ?? 0),2) }}</td>
                           @endif
                           <td class="text-end">
@@ -586,18 +627,20 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">Attachments</div>
-            @can('uploadAttachment', $o)
-              <form action="{{ route('sales-orders.attachments.store', $o) }}" method="POST" enctype="multipart/form-data" class="d-inline-flex align-items-center gap-2">
-                @csrf
-                <select name="category" class="form-select form-select-sm">
-                  <option value="other">Other</option>
-                  <option value="po_spk">PO/SPK</option>
-                  <option value="agreement">Agreement</option>
-                </select>
-                <input type="file" name="attachments[]" class="form-control form-control-sm" multiple>
-                <button type="submit" class="btn btn-sm btn-outline-primary">Upload</button>
-              </form>
-            @endcan
+            @if(!$isSalesReadOnly)
+              @can('uploadAttachment', $o)
+                <form action="{{ route('sales-orders.attachments.store', $o) }}" method="POST" enctype="multipart/form-data" class="d-inline-flex align-items-center gap-2">
+                  @csrf
+                  <select name="category" class="form-select form-select-sm">
+                    <option value="other">Other</option>
+                    <option value="po_spk">PO/SPK</option>
+                    <option value="agreement">Agreement</option>
+                  </select>
+                  <input type="file" name="attachments[]" class="form-control form-control-sm" multiple>
+                  <button type="submit" class="btn btn-sm btn-outline-primary">Upload</button>
+                </form>
+              @endcan
+            @endif
         </div>
 
         @if($o->attachments->count())
@@ -616,13 +659,15 @@
                   @endphp
                   <span class="badge bg-secondary-lt text-dark ms-2">{{ $attCategory }}</span>
                 </div>
-                @can('deleteAttachment', [$o, $att])
-                  <form action="{{ route('sales-orders.attachments.destroy_legacy', [$o, $att]) }}" method="POST"
-                        onsubmit="return confirm('Delete this attachment?')">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                  </form>
-                @endcan
+                @if(!$isSalesReadOnly)
+                  @can('deleteAttachment', [$o, $att])
+                    <form action="{{ route('sales-orders.attachments.destroy_legacy', [$o, $att]) }}" method="POST"
+                          onsubmit="return confirm('Delete this attachment?')">
+                      @csrf @method('DELETE')
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                  @endcan
+                @endif
               </div>
             @endforeach
           </div>
@@ -635,7 +680,7 @@
   </div>
 </div>
 
-@if($billingDoc)
+@if(!$isSalesReadOnly && $billingDoc)
   {{-- Modal Issue Invoice --}}
   <div class="modal fade" id="modalIssueInvoiceSo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -695,6 +740,7 @@
   </div>
 @endif
 
+@if(!$isSalesReadOnly)
 @can('manageCommission', $o)
   <div class="modal fade" id="modalCommissionSo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -738,8 +784,10 @@
     </div>
   </div>
 @endcan
+@endif
 
 {{-- Modal Cancel SO --}}
+@if(!$isSalesReadOnly)
 <div class="modal fade" id="modalCancelSo" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <form action="{{ route('sales-orders.cancel', $o) }}" method="POST" class="modal-content">
@@ -760,6 +808,7 @@
     </form>
   </div>
 </div>
+@endif
 
 @endsection
 

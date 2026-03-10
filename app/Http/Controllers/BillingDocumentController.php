@@ -56,6 +56,7 @@ class BillingDocumentController extends Controller
         }
 
         $salesOrder->load(['company','customer','lines']);
+        $isProjectSo = strtolower((string) ($salesOrder->po_type ?? 'goods')) === 'project';
 
         $billing = BillingDocument::make([
             'sales_order_id' => $salesOrder->id,
@@ -74,20 +75,30 @@ class BillingDocumentController extends Controller
             'notes' => $salesOrder->notes,
         ]);
 
-        $lines = $salesOrder->lines->map(function ($ln, $idx) {
+        $lines = $salesOrder->lines->map(function ($ln, $idx) use ($isProjectSo) {
+            $qty = round((float) ($ln->qty_ordered ?? 0), 2);
+            $materialUnit = (float) ($ln->unit_price ?? 0);
+            $laborUnit = (float) ($ln->labor_unit ?? 0);
+            $materialTotal = (float) ($ln->material_total ?? ($qty * $materialUnit));
+            $laborTotal = (float) ($ln->labor_total ?? ($qty * $laborUnit));
+            $lineSubtotal = (float) ($ln->line_subtotal ?? ($materialTotal + $laborTotal));
+            $lineTotal = (float) ($ln->line_total ?? max($lineSubtotal - (float) ($ln->discount_amount ?? 0), 0));
             return new BillingDocumentLine([
                 'sales_order_line_id' => $ln->id,
                 'position' => $ln->position ?? $idx + 1,
                 'name' => $ln->name,
                 'description' => $ln->po_item_name ?: $ln->description,
                 'unit' => $ln->unit,
-                'qty' => round((float) ($ln->qty_ordered ?? 0), 2),
-                'unit_price' => (float) ($ln->unit_price ?? 0),
+                'qty' => $qty,
+                'unit_price' => $materialUnit,
+                'labor_unit' => $isProjectSo ? $laborUnit : 0,
+                'material_total' => $isProjectSo ? $materialTotal : $lineSubtotal,
+                'labor_total' => $isProjectSo ? $laborTotal : 0,
                 'discount_type' => $ln->discount_type ?? 'amount',
                 'discount_value' => (float) ($ln->discount_value ?? 0),
                 'discount_amount' => (float) ($ln->discount_amount ?? 0),
-                'line_subtotal' => (float) ($ln->line_subtotal ?? 0),
-                'line_total' => (float) ($ln->line_total ?? 0),
+                'line_subtotal' => $lineSubtotal,
+                'line_total' => $lineTotal,
             ]);
         });
 
@@ -129,24 +140,35 @@ class BillingDocumentController extends Controller
             'lines.*.qty' => ['required','string'],
             'lines.*.unit' => ['nullable','string','max:16'],
             'lines.*.unit_price' => ['required','string'],
+            'lines.*.labor_unit' => ['nullable','string'],
             'lines.*.discount_type' => ['nullable','in:amount,percent'],
             'lines.*.discount_value' => ['nullable','string'],
             'lines.*.sales_order_line_id' => ['nullable','integer'],
         ]);
 
         $salesOrder->load(['company','customer']);
+        $isProjectSo = strtolower((string) ($salesOrder->po_type ?? 'goods')) === 'project';
 
-        $billing = DB::transaction(function () use ($salesOrder, $data) {
+        $billing = DB::transaction(function () use ($salesOrder, $data, $isProjectSo) {
             $subtotal = 0.0;
             $lines = [];
 
             foreach ($data['lines'] as $idx => $row) {
-                $qty = round($this->toNumber($row['qty'] ?? 0), 2);
-                $unitPrice = $this->toNumber($row['unit_price'] ?? 0);
+                $qty = max(round($this->toNumber($row['qty'] ?? 0), 2), 0);
+                $unitPrice = max($this->toNumber($row['unit_price'] ?? 0), 0);
+                $laborUnit = $isProjectSo ? max($this->toNumber($row['labor_unit'] ?? 0), 0) : 0.0;
                 $discType = $row['discount_type'] ?? 'amount';
                 $discValue = $this->toNumber($row['discount_value'] ?? 0);
 
-                $lineSubtotal = round($qty * $unitPrice, 2);
+                if ($isProjectSo) {
+                    $materialTotal = round($qty * $unitPrice, 2);
+                    $laborTotal = round($qty * $laborUnit, 2);
+                    $lineSubtotal = round($materialTotal + $laborTotal, 2);
+                } else {
+                    $materialTotal = round($qty * $unitPrice, 2);
+                    $laborTotal = 0.0;
+                    $lineSubtotal = $materialTotal;
+                }
                 if ($discType === 'percent') {
                     $discAmount = round($lineSubtotal * max(min($discValue, 100), 0) / 100, 2);
                 } else {
@@ -158,10 +180,13 @@ class BillingDocumentController extends Controller
                     'sales_order_line_id' => $row['sales_order_line_id'] ?? null,
                     'position' => $idx + 1,
                     'name' => $row['name'],
-                    'description' => $row['description'] ?? null,
+                    'description' => $isProjectSo ? null : ($row['description'] ?? null),
                     'unit' => $row['unit'] ?? null,
                     'qty' => $qty,
                     'unit_price' => $unitPrice,
+                    'labor_unit' => $laborUnit,
+                    'material_total' => $materialTotal,
+                    'labor_total' => $laborTotal,
                     'discount_type' => $discType,
                     'discount_value' => $discValue,
                     'discount_amount' => $discAmount,
@@ -217,19 +242,23 @@ class BillingDocumentController extends Controller
             abort(422, 'Billing document sudah terkunci.');
         }
 
+        $billing->loadMissing('salesOrder');
+        $isProjectSo = strtolower((string) ($billing->salesOrder?->po_type ?? 'goods')) === 'project';
+
         $data = $request->validate([
             'notes' => ['nullable','string'],
-            'discount_amount' => ['nullable','numeric','min:0'],
-            'tax_percent' => ['nullable','numeric','min:0','max:100'],
+            'discount_amount' => ['nullable','string'],
+            'tax_percent' => ['nullable','string'],
             'lines' => ['required','array','min:1'],
             'lines.*.id' => ['required','integer'],
             'lines.*.name' => ['required','string'],
             'lines.*.description' => ['nullable','string'],
-            'lines.*.qty' => ['required','numeric','min:0.01'],
+            'lines.*.qty' => ['required','string'],
             'lines.*.unit' => ['nullable','string','max:16'],
-            'lines.*.unit_price' => ['required','numeric','min:0'],
+            'lines.*.unit_price' => ['required','string'],
+            'lines.*.labor_unit' => ['nullable','string'],
             'lines.*.discount_type' => ['nullable','in:amount,percent'],
-            'lines.*.discount_value' => ['nullable','numeric','min:0'],
+            'lines.*.discount_value' => ['nullable','string'],
         ]);
 
         $lineIds = collect($data['lines'])->pluck('id')->map(fn ($id) => (int) $id)->all();
@@ -239,17 +268,26 @@ class BillingDocumentController extends Controller
             abort(422, 'Line tidak valid.');
         }
 
-        DB::transaction(function () use ($billing, $data, $existing) {
+        DB::transaction(function () use ($billing, $data, $existing, $isProjectSo) {
             $subtotal = 0.0;
 
             foreach ($data['lines'] as $row) {
                 $line = $existing[(int) $row['id']];
-                $qty = round($this->toNumber($row['qty'] ?? 0), 2);
-                $unitPrice = $this->toNumber($row['unit_price'] ?? 0);
+                $qty = max(round($this->toNumber($row['qty'] ?? 0), 2), 0);
+                $unitPrice = max($this->toNumber($row['unit_price'] ?? 0), 0);
+                $laborUnit = $isProjectSo ? max($this->toNumber($row['labor_unit'] ?? 0), 0) : 0.0;
                 $discType = $row['discount_type'] ?? 'amount';
                 $discValue = $this->toNumber($row['discount_value'] ?? 0);
 
-                $lineSubtotal = round($qty * $unitPrice, 2);
+                if ($isProjectSo) {
+                    $materialTotal = round($qty * $unitPrice, 2);
+                    $laborTotal = round($qty * $laborUnit, 2);
+                    $lineSubtotal = round($materialTotal + $laborTotal, 2);
+                } else {
+                    $materialTotal = round($qty * $unitPrice, 2);
+                    $laborTotal = 0.0;
+                    $lineSubtotal = $materialTotal;
+                }
                 if ($discType === 'percent') {
                     $discAmount = round($lineSubtotal * max(min($discValue, 100), 0) / 100, 2);
                 } else {
@@ -259,10 +297,13 @@ class BillingDocumentController extends Controller
 
                 $line->update([
                     'name' => $row['name'],
-                    'description' => $row['description'] ?? null,
+                    'description' => $isProjectSo ? null : ($row['description'] ?? null),
                     'qty' => $qty,
                     'unit' => $row['unit'] ?? null,
                     'unit_price' => $unitPrice,
+                    'labor_unit' => $laborUnit,
+                    'material_total' => $materialTotal,
+                    'labor_total' => $laborTotal,
                     'discount_type' => $discType,
                     'discount_value' => $discValue,
                     'discount_amount' => $discAmount,

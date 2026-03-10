@@ -24,9 +24,12 @@ class SalesOrderPolicy
     // Edit header/lines only when OPEN and without DN/Invoice.
     public function update(User $user, SalesOrder $so): bool
     {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
         return $this->isOpenAndUnlocked($so)
-            && ($this->isAdmin($user) || $this->isSalesOwner($user, $so))
-            || $this->isSuperAdmin($user);
+            && ($this->isAdmin($user) || $this->isFinance($user));
     }
 
     // Cancel only when still active.
@@ -36,7 +39,7 @@ class SalesOrderPolicy
             return false;
         }
 
-        return $this->isSuperAdmin($user) || $this->isAdmin($user);
+        return $this->isSuperAdmin($user) || $this->isAdmin($user) || $this->isFinance($user);
     }
 
     // Delete: SuperAdmin only, OPEN and no DN/Invoice.
@@ -49,7 +52,7 @@ class SalesOrderPolicy
     public function uploadAttachment(User $user, SalesOrder $so): bool
     {
         return $so->status === 'open'
-            && ($this->isAdmin($user) || $this->isSalesOwner($user, $so));
+            && ($this->isSuperAdmin($user) || $this->isAdmin($user) || $this->isFinance($user));
     }
 
     // Amend (VO) blocked on cancelled SO.
@@ -61,7 +64,7 @@ class SalesOrderPolicy
 
         return $this->isSuperAdmin($user)
             || $this->isAdmin($user)
-            || $this->isSalesOwner($user, $so);
+            || $this->isFinance($user);
     }
 
     public function deleteAttachment(User $user, SalesOrder $so, ?SalesOrderAttachment $att = null): bool
@@ -70,12 +73,8 @@ class SalesOrderPolicy
             return false;
         }
 
-        if ($this->isSuperAdmin($user) || $this->isAdmin($user)) {
+        if ($this->isSuperAdmin($user) || $this->isAdmin($user) || $this->isFinance($user)) {
             return true;
-        }
-
-        if ($att) {
-            return (int) $att->uploaded_by_user_id === (int) $user->id;
         }
 
         return false;
@@ -83,12 +82,12 @@ class SalesOrderPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['Sales', 'SalesManager', 'Admin', 'SuperAdmin']);
+        return $user->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']);
     }
 
     public function manageCommission(User $user, SalesOrder $so): bool
     {
-        return $this->isSuperAdmin($user) || $this->isAdmin($user);
+        return $this->isSuperAdmin($user) || $this->isAdmin($user) || $this->isFinance($user);
     }
 
     protected function isOpenAndUnlocked(SalesOrder $so): bool
@@ -116,5 +115,10 @@ class SalesOrderPolicy
     protected function isSuperAdmin(User $user): bool
     {
         return method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin();
+    }
+
+    protected function isFinance(User $user): bool
+    {
+        return method_exists($user, 'hasRole') && $user->hasRole('Finance');
     }
 }

@@ -89,6 +89,15 @@
   $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true);
 
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
+  $showLineDiscountColumn = collect($quotation->lines ?? [])->contains(function ($line) {
+    $discountAmount = (float) ($line->discount_amount ?? 0);
+    $discountType = (string) ($line->discount_type ?? 'amount');
+    $discountValue = (float) ($line->discount_value ?? 0);
+    if ($discountAmount > 0.0001) {
+      return true;
+    }
+    return $discountType === 'percent' && $discountValue > 0.0001;
+  });
 @endphp
 
 {{-- ===== HEADER: 3 kolom ===== --}}
@@ -140,7 +149,9 @@
       <th style="width:10%" class="right">Qty</th>
       <th style="width:10%">Unit</th>
       <th style="width:14%" class="right">Unit Price</th>
-      <th style="width:14%" class="right">Discount</th>
+      @if($showLineDiscountColumn)
+        <th style="width:14%" class="right">Discount</th>
+      @endif
       <th style="width:14%" class="right">Line Total</th>
     </tr>
   </thead>
@@ -154,17 +165,19 @@
         <td class="right">{{ rtrim(rtrim(number_format((float)$ln->qty, 2, '.', ''), '0'), '.') }}</td>
         <td>{{ $ln->unit }}</td>
         <td class="right">{{ number_format((float)$ln->unit_price, 2, ',', '.') }}</td>
-        <td class="right">
-          @if(($ln->discount_type ?? 'amount') === 'percent')
-            {{ rtrim(rtrim(number_format((float)$ln->discount_value, 2, '.', ''), '0'), '.') }}%
-          @else
-            {{ number_format((float)($ln->discount_amount ?? 0), 2, ',', '.') }}
-          @endif
-        </td>
+        @if($showLineDiscountColumn)
+          <td class="right">
+            @if(($ln->discount_type ?? 'amount') === 'percent')
+              {{ rtrim(rtrim(number_format((float)$ln->discount_value, 2, '.', ''), '0'), '.') }}%
+            @else
+              {{ number_format((float)($ln->discount_amount ?? 0), 2, ',', '.') }}
+            @endif
+          </td>
+        @endif
         <td class="right">{{ number_format((float)$ln->line_total, 2, ',', '.') }}</td>
       </tr>
     @empty
-      <tr><td colspan="6" class="right">No lines.</td></tr>
+      <tr><td colspan="{{ $showLineDiscountColumn ? 6 : 5 }}" class="right">No lines.</td></tr>
     @endforelse
   </tbody>
 </table>
