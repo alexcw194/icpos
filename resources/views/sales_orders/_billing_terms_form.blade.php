@@ -106,7 +106,7 @@
     </table>
   </div>
   <div class="card-footer d-flex align-items-center">
-    <div class="text-muted">Total percent harus 100%</div>
+    <div class="text-muted" id="billing-terms-total-note">Total percent harus 100%</div>
     <div class="ms-auto fw-semibold" id="billing-terms-total">0%</div>
   </div>
 </div>
@@ -167,6 +167,8 @@
   const addBtn = document.getElementById('btn-add-billing-term');
   const tpl = document.getElementById('billing-term-row-tpl');
   const totalEl = document.getElementById('billing-terms-total');
+  const totalNoteEl = document.getElementById('billing-terms-total-note');
+  const soForm = document.getElementById('soForm');
   if (!table || !addBtn || !tpl) return;
 
   const parseNum = (val) => {
@@ -185,12 +187,33 @@
     return isNaN(n) ? 0 : n;
   };
 
+  const formatPercent = (val) => {
+    return Number(val || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   const updateTotal = () => {
     let sum = 0;
     table.querySelectorAll('input[name*="[percent]"]:not([data-skip-total])').forEach((inp) => {
       sum += parseNum(inp.value);
     });
-    if (totalEl) totalEl.textContent = sum.toFixed(2) + '%';
+    const valid = Math.abs(sum - 100) <= 0.01;
+
+    if (totalEl) {
+      totalEl.textContent = formatPercent(sum) + '%';
+      totalEl.classList.toggle('text-success', valid);
+      totalEl.classList.toggle('text-danger', !valid);
+    }
+
+    if (totalNoteEl) {
+      totalNoteEl.textContent = valid
+        ? 'Total percent sudah 100%.'
+        : `Total percent harus 100% (saat ini ${formatPercent(sum)}%).`;
+      totalNoteEl.classList.toggle('text-muted', false);
+      totalNoteEl.classList.toggle('text-success', valid);
+      totalNoteEl.classList.toggle('text-danger', !valid);
+    }
+
+    return { sum, valid };
   };
 
   const reindex = () => {
@@ -333,6 +356,15 @@
   updateTotal();
   applyTopFilter();
   applyScheduleVisibility();
+
+  if (soForm) {
+    soForm.addEventListener('submit', (e) => {
+      const summary = updateTotal();
+      if (summary.valid) return;
+      e.preventDefault();
+      alert(`Total percent Billing Terms harus 100%. Saat ini ${formatPercent(summary.sum)}%.`);
+    });
+  }
 
   window.setBillingTermsRows = function(rows) {
     const body = table.querySelector('tbody');
