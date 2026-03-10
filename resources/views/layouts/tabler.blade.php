@@ -394,18 +394,34 @@
     })();
     </script>
 
-  {{-- Mobile: auto-close sidebar offcanvas tanpa blok navigasi --}}
+  {{-- Mobile: auto-close sidebar offcanvas hanya untuk navigasi final --}}
   <script>
     document.addEventListener('click', function (e) {
       const link = e.target.closest('#sidebar-menu a[href]');
       if (!link) return;
 
-      const el = document.getElementById('sidebar-menu');
-      if (!el) return;
+      const sidebarEl = document.getElementById('sidebar-menu');
+      if (!sidebarEl) return;
 
-      // Kalau sedang offcanvas (mobile), close setelah klik. Jangan preventDefault.
-      const instance = bootstrap.Offcanvas.getInstance(el) || new bootstrap.Offcanvas(el);
-      instance.hide();
+      const href = (link.getAttribute('href') || '').trim();
+      const isGroupToggle = link.classList.contains('nav-group-toggle')
+        || link.getAttribute('data-bs-toggle') === 'collapse'
+        || href.startsWith('#sidebar-group-');
+
+      // Parent menu (expand/collapse) harus tetap membuka sidebar.
+      if (isGroupToggle) return;
+
+      // Link dummy/disabled bukan navigasi final.
+      if (!href || href === '#' || link.classList.contains('disabled')) return;
+
+      // Hanya close saat benar-benar offcanvas mobile yang sedang terbuka.
+      const isMobile = window.matchMedia('(max-width: 991.98px)').matches;
+      const isOpen = sidebarEl.classList.contains('show');
+      if (!isMobile || !isOpen) return;
+
+      if (!window.bootstrap || !window.bootstrap.Offcanvas) return;
+      const instance = window.bootstrap.Offcanvas.getInstance(sidebarEl);
+      if (instance) instance.hide();
     });
   </script>
 
