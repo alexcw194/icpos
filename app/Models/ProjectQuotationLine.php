@@ -9,6 +9,7 @@ class ProjectQuotationLine extends Model
 {
     protected $fillable = [
         'section_id',
+        'revision_source_line_id',
         'line_no',
         'description',
         'source_type',
@@ -47,11 +48,17 @@ class ProjectQuotationLine extends Model
         'line_total' => 'decimal:2',
         'percent_value' => 'decimal:4',
         'computed_amount' => 'decimal:2',
+        'revision_source_line_id' => 'integer',
         'item_variant_id' => 'integer',
     ];
 
     public function section(): BelongsTo
     {
         return $this->belongsTo(ProjectQuotationSection::class, 'section_id');
+    }
+
+    public function revisionSourceLine(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'revision_source_line_id');
     }
 }

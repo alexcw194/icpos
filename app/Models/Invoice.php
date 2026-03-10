@@ -9,6 +9,7 @@ class Invoice extends Model
     protected $fillable = [
         'company_id','customer_id','quotation_id','project_id','project_quotation_id','project_payment_term_id',
         'sales_order_id','so_billing_term_id',
+        'billing_component',
         'number','date','status',
         'invoice_kind','payment_schedule_seq','payment_schedule_meta',
         'subtotal','discount','tax_percent','tax_amount','total',

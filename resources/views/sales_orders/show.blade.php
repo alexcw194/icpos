@@ -133,6 +133,12 @@
         @if($projectLabel)
           <div class="mb-2"><strong>Project:</strong> {{ $projectLabel }}</div>
         @endif
+        @if(($o->po_type ?? 'goods') === 'project')
+          <div class="mb-2">
+            <strong>Project Billing Mode:</strong>
+            {{ ($o->project_billing_mode ?? 'combined') === 'split_material_labor' ? 'Split Material/Labor' : 'Combined' }}
+          </div>
+        @endif
         <div class="mb-2"><strong>Deadline:</strong> {{ $o->deadline ?? '—' }}</div>
         <div class="mb-2"><strong>Salesperson:</strong> {{ $o->salesUser->name ?? '-' }}</div>
         <div class="mb-2"><strong>Operational Scope Total:</strong> {{ number_format((float) $o->total, 2) }}</div>
@@ -429,6 +435,10 @@
                         <th class="text-end">Qty</th>
                         <th>Unit</th>
                         <th class="text-end">Price</th>
+                        @if(($o->po_type ?? 'goods') === 'project')
+                          <th class="text-end">Material</th>
+                          <th class="text-end">Labor</th>
+                        @endif
                         <th class="text-end">Disc</th>
                         <th class="text-end">Line Total</th>
                       </tr>
@@ -447,6 +457,10 @@
                           <td class="text-end">{{ number_format($ln->qty_ordered,0) }}</td>
                           <td>{{ $ln->unit }}</td>
                           <td class="text-end">{{ number_format($ln->unit_price,2) }}</td>
+                          @if(($o->po_type ?? 'goods') === 'project')
+                            <td class="text-end">{{ number_format((float) ($ln->material_total ?? 0),2) }}</td>
+                            <td class="text-end">{{ number_format((float) ($ln->labor_total ?? 0),2) }}</td>
+                          @endif
                           <td class="text-end">
                             @if($ln->discount_amount>0)
                               {{ $ln->discount_type==='percent'

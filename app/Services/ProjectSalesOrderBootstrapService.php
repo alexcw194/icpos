@@ -62,6 +62,7 @@ class ProjectSalesOrderBootstrapService
                 'project_id' => $project->id,
                 'project_quotation_id' => $quotation->id,
                 'project_name' => $project->name,
+                'project_billing_mode' => SalesOrder::PROJECT_BILLING_MODE_COMBINED,
                 'sales_user_id' => $quotation->sales_owner_user_id ?: $project->sales_owner_user_id,
                 'so_number' => app(DocNumberService::class)->next('sales_order', $company, $orderDate),
                 'order_date' => $orderDate->toDateString(),
@@ -104,6 +105,7 @@ class ProjectSalesOrderBootstrapService
 
     private function syncLinkedSalesOrder(SalesOrder $salesOrder, Project $project, ProjectQuotation $quotation): void
     {
+        $previousQuotationId = (int) ($salesOrder->project_quotation_id ?? 0);
         $updates = [];
         if ((int) ($salesOrder->project_quotation_id ?? 0) !== (int) $quotation->id) {
             $updates['project_quotation_id'] = $quotation->id;
@@ -119,6 +121,9 @@ class ProjectSalesOrderBootstrapService
         }
         if (empty($salesOrder->customer_ref_type)) {
             $updates['customer_ref_type'] = 'po';
+        }
+        if (empty($salesOrder->project_billing_mode)) {
+            $updates['project_billing_mode'] = SalesOrder::PROJECT_BILLING_MODE_COMBINED;
         }
         if ((float) ($salesOrder->contract_value ?? 0) <= 0) {
             $updates['contract_value'] = (float) ($quotation->grand_total ?? $salesOrder->total ?? 0);
@@ -144,6 +149,8 @@ class ProjectSalesOrderBootstrapService
             foreach ($this->buildLinePayloads($quotation) as $payload) {
                 $salesOrder->lines()->create($payload);
             }
+        } elseif ($previousQuotationId !== (int) $quotation->id) {
+            $this->syncProjectBaselineFromRevision($salesOrder, $quotation);
         }
     }
 
@@ -157,56 +164,36 @@ class ProjectSalesOrderBootstrapService
 
         foreach ($quotation->sections->sortBy('sort_order') as $section) {
             foreach ($section->lines as $line) {
-                $name = trim((string) ($line->item_label ?: $line->description ?: 'Project Scope'));
-                if ($name === '') {
-                    $name = 'Project Scope';
-                }
-                if (mb_strlen($name) > 255) {
-                    $name = mb_substr($name, 0, 255);
-                }
-
-                $qty = (float) ($line->qty ?? 0);
-                if ($qty <= 0) {
-                    $qty = 1.0;
-                }
-                $qty = round($qty, 4);
-
-                $lineTotal = (float) ($line->line_total ?? 0);
-                if ($lineTotal <= 0) {
-                    $lineTotal = (float) ($line->material_total ?? 0) + (float) ($line->labor_total ?? 0);
-                }
-                if ($lineTotal <= 0) {
-                    $lineTotal = round($qty * (float) ($line->unit_price ?? 0), 2);
-                }
-                $lineTotal = round(max($lineTotal, 0), 2);
-
-                $unitPrice = $qty > 0 ? round($lineTotal / $qty, 2) : round((float) ($line->unit_price ?? 0), 2);
-                $unitPrice = max($unitPrice, 0);
+                $snapshot = $this->buildLineSnapshot($line);
 
                 $rows[] = [
                     'position' => $position++,
-                    'name' => $name,
+                    'name' => $snapshot['name'],
                     'po_item_name' => null,
-                    'description' => $line->description,
-                    'unit' => (string) ($line->unit ?: 'LS'),
-                    'qty_ordered' => $qty,
-                    'unit_price' => $unitPrice,
+                    'description' => $snapshot['description'],
+                    'unit' => $snapshot['unit'],
+                    'qty_ordered' => $snapshot['qty'],
+                    'unit_price' => $snapshot['unit_price'],
+                    'material_total' => $snapshot['material_total'],
+                    'labor_total' => $snapshot['labor_total'],
                     'discount_type' => 'amount',
                     'discount_value' => 0,
                     'discount_amount' => 0,
-                    'line_subtotal' => $lineTotal,
-                    'line_total' => $lineTotal,
-                    'item_id' => $line->item_id ?: null,
-                    'item_variant_id' => $line->item_variant_id ?: null,
+                    'line_subtotal' => $snapshot['line_total'],
+                    'line_total' => $snapshot['line_total'],
+                    'item_id' => $snapshot['item_id'],
+                    'item_variant_id' => $snapshot['item_variant_id'],
                     'baseline_project_quotation_line_id' => $line->id,
-                    'baseline_name' => $name,
-                    'baseline_description' => $line->description,
-                    'baseline_item_id' => $line->item_id ?: null,
-                    'baseline_item_variant_id' => $line->item_variant_id ?: null,
-                    'baseline_qty' => $qty,
-                    'baseline_unit' => (string) ($line->unit ?: 'LS'),
-                    'baseline_unit_price' => $unitPrice,
-                    'baseline_line_total' => $lineTotal,
+                    'baseline_name' => $snapshot['name'],
+                    'baseline_description' => $snapshot['description'],
+                    'baseline_item_id' => $snapshot['item_id'],
+                    'baseline_item_variant_id' => $snapshot['item_variant_id'],
+                    'baseline_qty' => $snapshot['qty'],
+                    'baseline_unit' => $snapshot['unit'],
+                    'baseline_unit_price' => $snapshot['unit_price'],
+                    'baseline_material_total' => $snapshot['material_total'],
+                    'baseline_labor_total' => $snapshot['labor_total'],
+                    'baseline_line_total' => $snapshot['line_total'],
                 ];
             }
         }
@@ -263,5 +250,111 @@ class ProjectSalesOrderBootstrapService
 
         $salesOrder->billingTerms()->createMany($payloads);
     }
-}
 
+    /**
+     * @return array{name:string,description:?string,unit:string,qty:float,unit_price:float,line_total:float,material_total:float,labor_total:float,item_id:int|null,item_variant_id:int|null}
+     */
+    private function buildLineSnapshot($line): array
+    {
+        $name = trim((string) ($line->item_label ?: $line->description ?: 'Project Scope'));
+        if ($name === '') {
+            $name = 'Project Scope';
+        }
+        if (mb_strlen($name) > 255) {
+            $name = mb_substr($name, 0, 255);
+        }
+
+        $qty = (float) ($line->qty ?? 0);
+        if ($qty <= 0) {
+            $qty = 1.0;
+        }
+        $qty = round($qty, 4);
+
+        $materialTotal = round(max((float) ($line->material_total ?? 0), 0), 2);
+        $laborTotal = round(max((float) ($line->labor_total ?? 0), 0), 2);
+
+        $lineTotal = (float) ($line->line_total ?? 0);
+        if ($lineTotal <= 0) {
+            $lineTotal = $materialTotal + $laborTotal;
+        }
+        if ($lineTotal <= 0) {
+            $lineTotal = round($qty * (float) ($line->unit_price ?? 0), 2);
+        }
+        $lineTotal = round(max($lineTotal, 0), 2);
+
+        $componentTotal = round($materialTotal + $laborTotal, 2);
+        if ($componentTotal <= 0 && $lineTotal > 0) {
+            $materialTotal = $lineTotal;
+            $laborTotal = 0.0;
+        } elseif (abs($componentTotal - $lineTotal) > 0.01) {
+            $materialTotal = round(max($lineTotal - $laborTotal, 0), 2);
+            $componentTotal = round($materialTotal + $laborTotal, 2);
+            if (abs($componentTotal - $lineTotal) > 0.01) {
+                $lineTotal = $componentTotal;
+            }
+        }
+
+        $unitPrice = $qty > 0 ? round($lineTotal / $qty, 2) : round((float) ($line->unit_price ?? 0), 2);
+        $unitPrice = max($unitPrice, 0);
+
+        return [
+            'name' => $name,
+            'description' => $line->description,
+            'unit' => (string) ($line->unit ?: 'LS'),
+            'qty' => $qty,
+            'unit_price' => $unitPrice,
+            'line_total' => $lineTotal,
+            'material_total' => $materialTotal,
+            'labor_total' => $laborTotal,
+            'item_id' => $line->item_id ?: null,
+            'item_variant_id' => $line->item_variant_id ?: null,
+        ];
+    }
+
+    private function syncProjectBaselineFromRevision(SalesOrder $salesOrder, ProjectQuotation $quotation): void
+    {
+        $quotation->loadMissing([
+            'sections.lines' => fn ($query) => $query->orderBy('id'),
+        ]);
+        $salesOrder->loadMissing('lines');
+
+        $lineBySourceId = [];
+        $lineById = [];
+        foreach ($quotation->sections as $section) {
+            foreach ($section->lines as $line) {
+                $lineById[(int) $line->id] = $line;
+                $sourceId = (int) ($line->revision_source_line_id ?? 0);
+                if ($sourceId > 0 && !isset($lineBySourceId[$sourceId])) {
+                    $lineBySourceId[$sourceId] = $line;
+                }
+            }
+        }
+
+        foreach ($salesOrder->lines as $salesLine) {
+            $baselineLineId = (int) ($salesLine->baseline_project_quotation_line_id ?? 0);
+            if ($baselineLineId <= 0) {
+                continue;
+            }
+
+            $targetLine = $lineBySourceId[$baselineLineId] ?? $lineById[$baselineLineId] ?? null;
+            if (!$targetLine) {
+                continue;
+            }
+
+            $snapshot = $this->buildLineSnapshot($targetLine);
+            $salesLine->update([
+                'baseline_project_quotation_line_id' => $targetLine->id,
+                'baseline_name' => $snapshot['name'],
+                'baseline_description' => $snapshot['description'],
+                'baseline_item_id' => $snapshot['item_id'],
+                'baseline_item_variant_id' => $snapshot['item_variant_id'],
+                'baseline_qty' => $snapshot['qty'],
+                'baseline_unit' => $snapshot['unit'],
+                'baseline_unit_price' => $snapshot['unit_price'],
+                'baseline_material_total' => $snapshot['material_total'],
+                'baseline_labor_total' => $snapshot['labor_total'],
+                'baseline_line_total' => $snapshot['line_total'],
+            ]);
+        }
+    }
+}

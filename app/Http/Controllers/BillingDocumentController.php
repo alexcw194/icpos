@@ -9,6 +9,7 @@ use App\Models\SalesOrderBillingTerm;
 use App\Services\AutoDeliveryDraftFromSoService;
 use App\Services\BillingInvoiceSyncService;
 use App\Services\DocNumberService;
+use App\Services\ProjectBillingTermStatusService;
 use App\Services\SalesOrderStatusSyncService;
 use Carbon\Carbon;
 use Dompdf\Dompdf;
@@ -21,7 +22,8 @@ class BillingDocumentController extends Controller
     public function __construct(
         private readonly BillingInvoiceSyncService $billingInvoiceSync,
         private readonly AutoDeliveryDraftFromSoService $autoDeliveryDraftFromSo,
-        private readonly SalesOrderStatusSyncService $salesOrderStatusSync
+        private readonly SalesOrderStatusSyncService $salesOrderStatusSync,
+        private readonly ProjectBillingTermStatusService $projectBillingTermStatus
     ) {
     }
 
@@ -62,6 +64,7 @@ class BillingDocumentController extends Controller
             'customer_id' => $salesOrder->customer_id,
             'status' => 'draft',
             'mode' => null,
+            'billing_component' => 'combined',
             'subtotal' => (float) ($salesOrder->lines_subtotal ?? 0),
             'discount_amount' => (float) ($salesOrder->total_discount_amount ?? 0),
             'tax_percent' => (float) ($salesOrder->tax_percent ?? 0),
@@ -184,6 +187,7 @@ class BillingDocumentController extends Controller
                 'customer_id' => $salesOrder->customer_id,
                 'status' => 'draft',
                 'mode' => null,
+                'billing_component' => 'combined',
                 'subtotal' => $subtotal,
                 'discount_amount' => $discountAmount,
                 'tax_percent' => $taxPercent,
@@ -388,13 +392,14 @@ class BillingDocumentController extends Controller
                 'ar_posted_at' => $issuedAt,
                 'updated_by' => auth()->id(),
             ]);
-            $this->billingInvoiceSync->sync($billing, [
+            $syncedInvoice = $this->billingInvoiceSync->sync($billing, [
                 'invoice_number' => $invNumber,
                 'issue_date' => $issueDate,
                 'posted_at' => $issuedAt,
                 'sync_lines' => true,
                 'preserve_paid' => true,
                 'so_billing_term_id' => $billing->so_billing_term_id,
+                'billing_component' => $billing->billing_component ?? 'combined',
             ]);
 
             if ($billing->so_billing_term_id) {
@@ -403,14 +408,11 @@ class BillingDocumentController extends Controller
                     ->where('sales_order_id', $billing->sales_order_id)
                     ->first();
                 if ($term) {
-                    $invoice = \App\Models\Invoice::query()
-                        ->where('company_id', $billing->company_id)
-                        ->where('number', $invNumber)
-                        ->first();
-                    $term->update([
-                        'status' => 'invoiced',
-                        'invoice_id' => $invoice?->id,
-                    ]);
+                    if ($syncedInvoice) {
+                        $term->invoice_id = $syncedInvoice->id;
+                        $term->save();
+                    }
+                    $this->projectBillingTermStatus->syncTermStatus($term->fresh());
                 }
             }
 
@@ -491,6 +493,7 @@ class BillingDocumentController extends Controller
                     'customer_id' => $billing->customer_id,
                     'status' => 'draft',
                     'mode' => null,
+                    'billing_component' => $billing->billing_component ?? 'combined',
                     'subtotal' => $billing->subtotal,
                     'discount_amount' => $billing->discount_amount,
                     'tax_percent' => $billing->tax_percent,

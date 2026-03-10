@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Invoice, Quotation, Company, SalesOrder, SalesOrderBillingTerm, Bank};
 use App\Services\DocNumberService;
+use App\Services\ProjectBillingTermStatusService;
 use App\Services\SalesOrderStatusSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,8 @@ use Carbon\Carbon;
 class InvoiceController extends Controller
 {
     public function __construct(
-        private readonly SalesOrderStatusSyncService $salesOrderStatusSync
+        private readonly SalesOrderStatusSyncService $salesOrderStatusSync,
+        private readonly ProjectBillingTermStatusService $projectBillingTermStatus
     ) {
     }
 
@@ -156,6 +158,7 @@ class InvoiceController extends Controller
                 'customer_id' => $salesOrder->customer_id,
                 'sales_order_id' => $salesOrder->id,
                 'so_billing_term_id' => $term->id,
+                'billing_component' => 'combined',
                 'quotation_id' => $salesOrder->quotation_id,
                 'number' => 'TEMP',
                 'date' => $invDate,
@@ -187,9 +190,9 @@ class InvoiceController extends Controller
             ]);
 
             $term->update([
-                'status' => 'invoiced',
                 'invoice_id' => $invoice->id,
             ]);
+            $this->projectBillingTermStatus->syncTermStatus($term->fresh());
 
             $this->salesOrderStatusSync->sync($salesOrder);
         });
@@ -415,8 +418,9 @@ class InvoiceController extends Controller
             if ($invoice->so_billing_term_id) {
                 $term = SalesOrderBillingTerm::find($invoice->so_billing_term_id);
                 if ($term) {
-                    $term->status = 'paid';
+                    $term->invoice_id = $invoice->id;
                     $term->save();
+                    $this->projectBillingTermStatus->syncTermStatus($term->fresh());
                     if ($term->salesOrder) {
                         $salesOrderId = (int) $term->salesOrder->id;
                     }

@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Project;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderBillingTerm;
+use App\Services\ProjectBillingTermStatusService;
 use App\Services\ProjectSalesOrderBootstrapService;
 use App\Services\SalesOrderExecutionVarianceService;
 use Illuminate\Http\Request;
@@ -16,7 +17,8 @@ class ProjectActiveController extends Controller
 {
     public function __construct(
         private readonly ProjectSalesOrderBootstrapService $projectSoBootstrap,
-        private readonly SalesOrderExecutionVarianceService $executionVariance
+        private readonly SalesOrderExecutionVarianceService $executionVariance,
+        private readonly ProjectBillingTermStatusService $projectBillingTermStatus
     ) {
     }
 
@@ -130,7 +132,11 @@ class ProjectActiveController extends Controller
                 ->orderByDesc('id')
                 ->get()
                 ->groupBy(fn (BillingDocument $doc) => (int) $doc->so_billing_term_id)
-                ->map(fn ($group) => $group->first());
+                ->map(function ($group) {
+                    return $group
+                        ->groupBy(fn (BillingDocument $doc) => $this->normalizeBillingComponent($doc->billing_component))
+                        ->map(fn ($docs) => $docs->first());
+                });
         }
 
         $invoicesByTerm = collect();
@@ -141,42 +147,88 @@ class ProjectActiveController extends Controller
                 ->orderByDesc('id')
                 ->get()
                 ->groupBy(fn (Invoice $invoice) => (int) $invoice->so_billing_term_id)
-                ->map(fn ($group) => $group->first());
+                ->map(function ($group) {
+                    return $group
+                        ->groupBy(fn (Invoice $invoice) => $this->normalizeBillingComponent($invoice->billing_component))
+                        ->map(fn ($invoices) => $invoices->first());
+                });
         }
 
-        $termRows = $salesOrder->billingTerms->map(function (SalesOrderBillingTerm $term) use ($billingByTerm, $invoicesByTerm) {
-            $billing = $billingByTerm->get((int) $term->id);
-            $invoice = $invoicesByTerm->get((int) $term->id);
+        $termRows = $salesOrder->billingTerms->map(function (SalesOrderBillingTerm $term) use ($billingByTerm, $invoicesByTerm, $salesOrder) {
+            $progress = $this->projectBillingTermStatus->progressForTerm($term);
+            $requiredComponents = $progress['required_components'];
+            $isSplitMode = $progress['mode'] === SalesOrder::PROJECT_BILLING_MODE_SPLIT;
+            $requiredCount = count($requiredComponents);
+
+            $billingComponents = collect($billingByTerm->get((int) $term->id, []));
+            $invoiceComponents = collect($invoicesByTerm->get((int) $term->id, []));
 
             $status = 'Not Billed';
             $statusClass = 'bg-secondary-lt text-dark';
+            $progressLabel = null;
 
-            if ($invoice) {
-                $isPaid = strtolower((string) $invoice->status) === 'paid' || (bool) $invoice->paid_at;
-                $status = $isPaid ? 'Paid' : 'Invoiced';
-                $statusClass = $isPaid ? 'bg-green-lt text-green' : 'bg-blue-lt text-blue';
-            } elseif ($billing) {
-                $isProforma = strtolower((string) ($billing->mode ?? '')) === 'proforma'
-                    && strtolower((string) ($billing->status ?? '')) === 'sent'
-                    && empty($billing->inv_number);
-                if ($isProforma) {
+            if ($progress['status'] === 'paid') {
+                $status = 'Paid';
+                $statusClass = 'bg-green-lt text-green';
+            } elseif ($progress['status'] === 'invoiced') {
+                $status = 'Invoiced';
+                $statusClass = 'bg-blue-lt text-blue';
+            } else {
+                $hasProforma = $billingComponents
+                    ->whereIn('status', ['sent'])
+                    ->contains(function (BillingDocument $doc) {
+                        return strtolower((string) ($doc->mode ?? '')) === 'proforma'
+                            && empty($doc->inv_number);
+                    });
+                $hasDraft = $billingComponents
+                    ->whereIn('status', ['draft', 'sent'])
+                    ->isNotEmpty();
+
+                if ($hasProforma) {
                     $status = 'Proforma';
                     $statusClass = 'bg-purple-lt text-purple';
-                } else {
+                } elseif ($hasDraft) {
                     $status = 'Draft';
                     $statusClass = 'bg-yellow-lt text-dark';
                 }
             }
 
-            $hasActiveBilling = $billing && in_array((string) $billing->status, ['draft', 'sent'], true);
+            $hasActiveBilling = collect($requiredComponents)->contains(function (string $component) use ($billingComponents) {
+                $doc = $billingComponents->get($component);
+                if (!$doc) {
+                    return false;
+                }
+
+                return in_array((string) $doc->status, ['draft', 'sent'], true) && empty($doc->inv_number);
+            });
+
+            if ($isSplitMode) {
+                $progressLabel = sprintf(
+                    'Invoiced %d/%d | Paid %d/%d',
+                    (int) $progress['invoiced_count'],
+                    $requiredCount,
+                    (int) $progress['paid_count'],
+                    $requiredCount
+                );
+            }
+
+            $primaryBilling = $billingComponents->get('combined') ?? $billingComponents->first();
+            $primaryInvoice = $invoiceComponents->get('combined') ?? $invoiceComponents->first();
+            $termTotal = round(((float) ($salesOrder->contract_value ?? $salesOrder->total ?? 0)) * ((float) ($term->percent ?? 0)) / 100, 2);
 
             return (object) [
                 'term' => $term,
-                'billing' => $billing,
-                'invoice' => $invoice,
+                'billing' => $primaryBilling,
+                'invoice' => $primaryInvoice,
+                'billing_components' => $billingComponents,
+                'invoice_components' => $invoiceComponents,
                 'status' => $status,
                 'status_class' => $statusClass,
-                'can_create_billing_draft' => !$hasActiveBilling && $invoice === null,
+                'progress_label' => $progressLabel,
+                'is_split_mode' => $isSplitMode,
+                'required_components' => $requiredComponents,
+                'term_total' => $termTotal,
+                'can_create_billing_draft' => !$hasActiveBilling && ((int) $progress['invoiced_count'] < $requiredCount),
             ];
         });
 
@@ -192,7 +244,7 @@ class ProjectActiveController extends Controller
         ]);
     }
 
-    public function createBillingDraftFromTerm(Project $project, SalesOrderBillingTerm $term)
+    public function createBillingDraftFromTerm(Request $request, Project $project, SalesOrderBillingTerm $term)
     {
         $this->authorizeProjectActiveAccess();
         $this->authorize('view', $project);
@@ -217,27 +269,6 @@ class ProjectActiveController extends Controller
             return back()->with('warning', 'Billing term sudah paid.');
         }
 
-        $activeDraft = BillingDocument::query()
-            ->where('sales_order_id', $salesOrder->id)
-            ->where('so_billing_term_id', $term->id)
-            ->whereIn('status', ['draft', 'sent'])
-            ->whereNull('inv_number')
-            ->orderByDesc('id')
-            ->first();
-        if ($activeDraft) {
-            return redirect()
-                ->route('billings.show', $activeDraft)
-                ->with('ok', 'Billing draft untuk term ini sudah ada.');
-        }
-
-        $invoiceExists = Invoice::query()
-            ->where('sales_order_id', $salesOrder->id)
-            ->where('so_billing_term_id', $term->id)
-            ->exists();
-        if ($invoiceExists) {
-            return back()->with('warning', 'Term ini sudah memiliki invoice.');
-        }
-
         $percent = (float) ($term->percent ?? 0);
         if ($percent <= 0) {
             return back()->with('error', 'Percent billing term harus lebih besar dari 0%.');
@@ -253,64 +284,207 @@ class ProjectActiveController extends Controller
             return back()->with('error', 'Nilai billing term tidak valid.');
         }
 
-        $taxPercent = (float) ($salesOrder->tax_percent ?? 0);
-        if ($taxPercent > 0) {
-            $subtotal = round($total / (1 + ($taxPercent / 100)), 2);
-            $taxAmount = round($total - $subtotal, 2);
-        } else {
-            $subtotal = $total;
-            $taxAmount = 0.0;
+        $mode = $this->projectBillingTermStatus->normalizeMode($salesOrder->project_billing_mode);
+        $components = $this->projectBillingTermStatus->componentsForMode($mode);
+
+        $existingDrafts = BillingDocument::query()
+            ->where('sales_order_id', $salesOrder->id)
+            ->where('so_billing_term_id', $term->id)
+            ->whereIn('status', ['draft', 'sent'])
+            ->whereNull('inv_number')
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy(fn (BillingDocument $doc) => $this->normalizeBillingComponent($doc->billing_component))
+            ->map(fn ($docs) => $docs->first());
+
+        if ($mode === SalesOrder::PROJECT_BILLING_MODE_COMBINED && $existingDrafts->isNotEmpty()) {
+            /** @var BillingDocument $doc */
+            $doc = $existingDrafts->first();
+            return redirect()
+                ->route('billings.show', $doc)
+                ->with('ok', 'Billing draft untuk term ini sudah ada.');
+        }
+        if ($mode === SalesOrder::PROJECT_BILLING_MODE_SPLIT && $existingDrafts->has('combined')) {
+            /** @var BillingDocument $doc */
+            $doc = $existingDrafts->get('combined');
+            return redirect()
+                ->route('billings.show', $doc)
+                ->with('warning', 'Term ini sudah punya billing draft combined.');
+        }
+        foreach ($components as $component) {
+            $activeDraft = $existingDrafts->get($component);
+            if ($activeDraft) {
+                return redirect()
+                    ->route('billings.show', $activeDraft)
+                    ->with('ok', 'Billing draft untuk term ini sudah ada.');
+            }
         }
 
-        $billing = DB::transaction(function () use ($salesOrder, $term, $subtotal, $taxPercent, $taxAmount, $total, $project) {
-            $billing = BillingDocument::create([
-                'sales_order_id' => $salesOrder->id,
-                'so_billing_term_id' => $term->id,
-                'company_id' => $salesOrder->company_id,
-                'customer_id' => $salesOrder->customer_id,
-                'status' => 'draft',
-                'mode' => null,
-                'subtotal' => $subtotal,
-                'discount_amount' => 0,
-                'tax_percent' => $taxPercent,
-                'tax_amount' => $taxAmount,
-                'total' => $total,
-                'currency' => $salesOrder->currency ?? 'IDR',
-                'notes' => sprintf(
-                    'Project %s - Term %s (%s%%)',
-                    $project->code ?: $project->name,
-                    $term->top_code,
-                    rtrim(rtrim(number_format((float) $term->percent, 2, '.', ''), '0'), '.')
-                ),
-                'created_by' => auth()->id(),
-                'updated_by' => auth()->id(),
+        $invoiceByComponent = Invoice::query()
+            ->where('sales_order_id', $salesOrder->id)
+            ->where('so_billing_term_id', $term->id)
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy(fn (Invoice $invoice) => $this->normalizeBillingComponent($invoice->billing_component))
+            ->map(fn ($invoices) => $invoices->first());
+
+        if ($mode === SalesOrder::PROJECT_BILLING_MODE_COMBINED && $invoiceByComponent->isNotEmpty()) {
+            return back()->with('warning', 'Term ini sudah memiliki invoice.');
+        }
+        if ($mode === SalesOrder::PROJECT_BILLING_MODE_SPLIT && $invoiceByComponent->has('combined')) {
+            return back()->with('warning', 'Term ini sudah memiliki invoice combined.');
+        }
+        foreach ($components as $component) {
+            if ($invoiceByComponent->has($component)) {
+                return back()->with('warning', 'Term ini sudah memiliki invoice untuk salah satu komponen.');
+            }
+        }
+
+        $progress = $this->projectBillingTermStatus->progressForTerm($term);
+        if ((int) $progress['invoiced_count'] >= count($components)) {
+            return back()->with('warning', 'Term ini sudah complete invoiced.');
+        }
+
+        $amountByComponent = [];
+        if ($mode === SalesOrder::PROJECT_BILLING_MODE_SPLIT) {
+            $validated = $request->validate([
+                'material_amount' => ['required', 'string'],
+                'labor_amount' => ['required', 'string'],
             ]);
 
-            $billing->lines()->create([
-                'sales_order_line_id' => null,
-                'position' => 1,
-                'name' => sprintf('Billing Term %s', $term->top_code),
-                'description' => sprintf(
-                    '%s - %s',
-                    $salesOrder->so_number,
-                    trim((string) ($term->note ?: $term->top_code))
-                ),
-                'unit' => 'ls',
-                'qty' => 1,
-                'unit_price' => $subtotal,
-                'discount_type' => 'amount',
-                'discount_value' => 0,
-                'discount_amount' => 0,
-                'line_subtotal' => $subtotal,
-                'line_total' => $subtotal,
-            ]);
+            $materialAmount = max(0, $this->toNumber($validated['material_amount'] ?? 0));
+            $laborAmount = max(0, $this->toNumber($validated['labor_amount'] ?? 0));
+            $splitTotal = round($materialAmount + $laborAmount, 2);
+            if (abs($splitTotal - $total) > 0.01) {
+                return back()->with('error', 'Total split Material + Labor harus sama dengan nilai term.');
+            }
 
-            return $billing;
+            $amountByComponent = [
+                'material' => round($materialAmount, 2),
+                'labor' => round($laborAmount, 2),
+            ];
+        } else {
+            $amountByComponent = [
+                'combined' => round($total, 2),
+            ];
+        }
+
+        $createdBillings = DB::transaction(function () use ($salesOrder, $term, $project, $amountByComponent) {
+            $taxPercent = (float) ($salesOrder->tax_percent ?? 0);
+            $created = collect();
+
+            foreach ($amountByComponent as $component => $componentTotal) {
+                if ($componentTotal <= 0) {
+                    continue;
+                }
+
+                if ($taxPercent > 0) {
+                    $subtotal = round($componentTotal / (1 + ($taxPercent / 100)), 2);
+                    $taxAmount = round($componentTotal - $subtotal, 2);
+                } else {
+                    $subtotal = $componentTotal;
+                    $taxAmount = 0.0;
+                }
+
+                $billing = BillingDocument::create([
+                    'sales_order_id' => $salesOrder->id,
+                    'so_billing_term_id' => $term->id,
+                    'company_id' => $salesOrder->company_id,
+                    'customer_id' => $salesOrder->customer_id,
+                    'status' => 'draft',
+                    'mode' => null,
+                    'billing_component' => $component,
+                    'subtotal' => $subtotal,
+                    'discount_amount' => 0,
+                    'tax_percent' => $taxPercent,
+                    'tax_amount' => $taxAmount,
+                    'total' => $componentTotal,
+                    'currency' => $salesOrder->currency ?? 'IDR',
+                    'notes' => sprintf(
+                        'Project %s - Term %s (%s%%) - %s',
+                        $project->code ?: $project->name,
+                        $term->top_code,
+                        rtrim(rtrim(number_format((float) $term->percent, 2, '.', ''), '0'), '.'),
+                        $this->componentLabel($component)
+                    ),
+                    'created_by' => auth()->id(),
+                    'updated_by' => auth()->id(),
+                ]);
+
+                $billing->lines()->create([
+                    'sales_order_line_id' => null,
+                    'position' => 1,
+                    'name' => sprintf('Billing Term %s - %s', $term->top_code, $this->componentLabel($component)),
+                    'description' => sprintf(
+                        '%s - %s',
+                        $salesOrder->so_number,
+                        trim((string) ($term->note ?: $term->top_code))
+                    ),
+                    'unit' => 'ls',
+                    'qty' => 1,
+                    'unit_price' => $subtotal,
+                    'discount_type' => 'amount',
+                    'discount_value' => 0,
+                    'discount_amount' => 0,
+                    'line_subtotal' => $subtotal,
+                    'line_total' => $subtotal,
+                ]);
+
+                $created->push($billing);
+            }
+
+            return $created;
         });
 
+        if ($createdBillings->isEmpty()) {
+            return back()->with('error', 'Tidak ada billing draft yang dibuat.');
+        }
+
+        $message = $createdBillings->count() > 1
+            ? 'Billing draft project (material + labor) berhasil dibuat dari payment term.'
+            : 'Billing draft project berhasil dibuat dari payment term.';
+
         return redirect()
-            ->route('billings.show', $billing)
-            ->with('success', 'Billing draft project berhasil dibuat dari payment term.');
+            ->route('billings.show', $createdBillings->first())
+            ->with('success', $message);
+    }
+
+    private function toNumber($value): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+        $string = str_replace([' ', "\xc2\xa0"], '', (string) $value);
+        if (str_contains($string, ',') && str_contains($string, '.')) {
+            $string = str_replace('.', '', $string);
+            $string = str_replace(',', '.', $string);
+        } else {
+            $string = str_replace(',', '.', $string);
+        }
+
+        return (float) $string;
+    }
+
+    private function normalizeBillingComponent(?string $component): string
+    {
+        $component = strtolower(trim((string) $component));
+        if (in_array($component, ['material', 'labor'], true)) {
+            return $component;
+        }
+
+        return 'combined';
+    }
+
+    private function componentLabel(string $component): string
+    {
+        return match ($this->normalizeBillingComponent($component)) {
+            'material' => 'Material',
+            'labor' => 'Labor',
+            default => 'Combined',
+        };
     }
 
     private function authorizeProjectActiveAccess(): void

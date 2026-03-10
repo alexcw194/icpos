@@ -186,6 +186,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('projects.quotations.bq-csv.export');
     Route::post('projects/{project}/quotations/{quotation}/won', [ProjectQuotationController::class, 'markWon'])
         ->name('projects.quotations.won');
+    Route::post('projects/{project}/quotations/{quotation}/revisions', [ProjectQuotationController::class, 'editAsRevision'])
+        ->name('projects.quotations.revision');
     Route::post('projects/{project}/quotations/{quotation}/lost', [ProjectQuotationController::class, 'markLost'])
         ->name('projects.quotations.lost');
 

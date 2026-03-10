@@ -10,7 +10,7 @@ class BillingDocument extends Model
 {
     protected $fillable = [
         'sales_order_id','so_billing_term_id','company_id','customer_id',
-        'status','mode',
+        'status','mode','billing_component',
         'pi_number','pi_revision','pi_issued_at',
         'inv_number','invoice_date','issued_at','locked_at','ar_posted_at',
         'subtotal','discount_amount','tax_percent','tax_amount','total',

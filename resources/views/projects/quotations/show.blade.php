@@ -13,8 +13,17 @@
         <h2 class="page-title">BQ {{ $quotation->number }}</h2>
         <div class="text-muted">
           <span class="badge bg-blue-lt text-blue-9">{{ ucfirst($quotation->status) }}</span>
+          <span class="ms-2">v{{ $quotation->version }}</span>
           <span class="ms-2">{{ optional($quotation->quotation_date)->format('d M Y') }}</span>
         </div>
+        @if($quotation->parentRevision)
+          <div class="text-muted small mt-1">
+            Revision from:
+            <a href="{{ route('projects.quotations.show', [$project, $quotation->parentRevision]) }}">
+              {{ $quotation->parentRevision->number }} (v{{ $quotation->parentRevision->version }})
+            </a>
+          </div>
+        @endif
       </div>
       @php
         $pdfViewUrl = route('projects.quotations.pdf', [$project, $quotation]);
@@ -23,7 +32,12 @@
 
       <div class="col-auto ms-auto btn-list">
         @can('update', $quotation)
-          @if(!$quotation->isLocked())
+          @if((string) $quotation->status === \App\Models\ProjectQuotation::STATUS_WON)
+            <form method="POST" action="{{ route('projects.quotations.revision', [$project, $quotation]) }}" class="d-inline">
+              @csrf
+              <button class="btn btn-warning" onclick="return confirm('Buat revision dari BQ won ini?')">Edit as Revision</button>
+            </form>
+          @elseif(!$quotation->isLocked())
             <a href="{{ route('projects.quotations.edit', [$project, $quotation]) }}" class="btn btn-warning">Edit</a>
           @endif
         @endcan
@@ -66,6 +80,17 @@
       </div>
     </div>
   </div>
+
+  @if(($quotation->revisions ?? collect())->isNotEmpty())
+    <div class="alert alert-info py-2">
+      <strong>Revision History:</strong>
+      @foreach($quotation->revisions as $revision)
+        <a class="ms-2" href="{{ route('projects.quotations.show', [$project, $revision]) }}">
+          {{ $revision->number }} (v{{ $revision->version }}, {{ ucfirst($revision->status) }})
+        </a>
+      @endforeach
+    </div>
+  @endif
 
   <div class="row g-3">
     <div class="col-lg-8">

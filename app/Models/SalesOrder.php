@@ -10,13 +10,16 @@ use App\Models\{Invoice, Delivery, SalesOrderVariation, BillingDocument, Project
 
 class SalesOrder extends Model
 {
+    public const PROJECT_BILLING_MODE_COMBINED = 'combined';
+    public const PROJECT_BILLING_MODE_SPLIT = 'split_material_labor';
+
     protected $fillable = [
         'company_id','customer_id','quotation_id','sales_user_id',
         'so_number','order_date',
         'customer_po_number','customer_po_date','customer_ref_type','deadline',
         'po_type',
         'payment_term_id','payment_term_snapshot',
-        'project_id','project_quotation_id','project_name',
+        'project_id','project_quotation_id','project_name','project_billing_mode',
         'ship_to','bill_to','notes',
         'private_notes','fee_amount','under_amount','fee_paid_at','under_paid_at',
         'discount_mode',

@@ -11,6 +11,7 @@ class SalesOrderLine extends Model
         'sales_order_id','position',
         'name','po_item_name','description','unit',
         'qty_ordered','unit_price',
+        'material_total','labor_total',
         'discount_type','discount_value','discount_amount',
         'line_subtotal','line_total',
         // NEW
@@ -23,12 +24,16 @@ class SalesOrderLine extends Model
         'baseline_qty',
         'baseline_unit',
         'baseline_unit_price',
+        'baseline_material_total',
+        'baseline_labor_total',
         'baseline_line_total',
     ];
 
     protected $casts = [
         'qty_ordered'     => 'decimal:2',
         'unit_price'      => 'decimal:2',
+        'material_total'  => 'decimal:2',
+        'labor_total'     => 'decimal:2',
         'discount_value'  => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'line_subtotal'   => 'decimal:2',
@@ -41,6 +46,8 @@ class SalesOrderLine extends Model
         'baseline_item_variant_id' => 'integer',
         'baseline_qty' => 'decimal:4',
         'baseline_unit_price' => 'decimal:2',
+        'baseline_material_total' => 'decimal:2',
+        'baseline_labor_total' => 'decimal:2',
         'baseline_line_total' => 'decimal:2',
     ];
 

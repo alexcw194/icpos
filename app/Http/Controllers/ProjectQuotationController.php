@@ -276,6 +276,8 @@ class ProjectQuotationController extends Controller
             'customer',
             'company',
             'salesOwner',
+            'parentRevision:id,number,version,status',
+            'revisions:id,parent_revision_id,number,version,status,quotation_date',
             'sections.lines',
             'paymentTerms',
         ]);
@@ -355,7 +357,7 @@ class ProjectQuotationController extends Controller
         if ($quotation->isLocked()) {
             return redirect()
                 ->route('projects.quotations.show', [$project, $quotation])
-                ->with('warning', 'BQ yang sudah issued/won/lost tidak bisa diedit.');
+                ->with('warning', 'BQ yang sudah issued/won/lost/superseded tidak bisa diedit langsung. Gunakan Edit as Revision untuk BQ won.');
         }
 
         $quotation->load(['sections.lines', 'paymentTerms']);
@@ -441,7 +443,7 @@ class ProjectQuotationController extends Controller
         $this->ensureProjectMatch($project, $quotation);
 
         if ($quotation->isLocked()) {
-            return back()->with('warning', 'BQ yang sudah issued/won/lost tidak bisa diedit.');
+            return back()->with('warning', 'BQ yang sudah issued/won/lost/superseded tidak bisa diedit langsung. Gunakan Edit as Revision untuk BQ won.');
         }
 
         $data = $this->validateQuotation($request);
@@ -687,6 +689,84 @@ class ProjectQuotationController extends Controller
         $safe = trim($safe, '-');
 
         return ($safe !== '' ? $safe : 'bq') . '.pdf';
+    }
+
+    public function editAsRevision(Project $project, ProjectQuotation $quotation)
+    {
+        $this->authorize('update', $quotation);
+        $this->ensureProjectMatch($project, $quotation);
+
+        if ((string) $quotation->status !== ProjectQuotation::STATUS_WON) {
+            return back()->with('warning', 'Edit as Revision hanya bisa untuk BQ status won.');
+        }
+
+        $quotation->load([
+            'company',
+            'sections.lines' => fn ($query) => $query->orderBy('id'),
+            'paymentTerms' => fn ($query) => $query->orderBy('sequence'),
+        ]);
+
+        $newQuotation = DB::transaction(function () use ($project, $quotation) {
+            $nextVersion = ((int) ProjectQuotation::query()
+                ->where('project_id', $project->id)
+                ->max('version')) + 1;
+
+            $newQuotation = $quotation->replicate();
+            $newQuotation->number = app(\App\Services\DocNumberService::class)
+                ->next(
+                    'project_quotation',
+                    $quotation->company,
+                    Carbon::parse($quotation->quotation_date ?: now())
+                );
+            $newQuotation->version = max($nextVersion, (int) $quotation->version + 1);
+            $newQuotation->status = ProjectQuotation::STATUS_WON;
+            $newQuotation->parent_revision_id = $quotation->id;
+            $newQuotation->won_at = now();
+            $newQuotation->issued_at = null;
+            $newQuotation->lost_at = null;
+            $newQuotation->save();
+
+            foreach ($quotation->sections as $section) {
+                $newSection = $section->replicate();
+                $newSection->project_quotation_id = $newQuotation->id;
+                $newSection->save();
+
+                foreach ($section->lines as $line) {
+                    $newLine = $line->replicate();
+                    $newLine->section_id = $newSection->id;
+                    if (Schema::hasColumn('project_quotation_lines', 'revision_source_line_id')) {
+                        $newLine->revision_source_line_id = $line->id;
+                    }
+                    $newLine->save();
+                }
+            }
+
+            foreach ($quotation->paymentTerms as $term) {
+                $newTerm = $term->replicate();
+                $newTerm->project_quotation_id = $newQuotation->id;
+                $newTerm->save();
+            }
+
+            ProjectQuotation::query()
+                ->where('project_id', $project->id)
+                ->where('status', ProjectQuotation::STATUS_WON)
+                ->where('id', '!=', $newQuotation->id)
+                ->update([
+                    'status' => ProjectQuotation::STATUS_SUPERSEDED,
+                ]);
+
+            return $newQuotation->fresh([
+                'sections.lines',
+                'paymentTerms',
+            ]);
+        });
+
+        app(ProjectSalesOrderBootstrapService::class)
+            ->ensureForWonQuotation($project->fresh(), $newQuotation);
+
+        return redirect()
+            ->route('projects.quotations.show', [$project, $newQuotation])
+            ->with('success', 'Revision BQ berhasil dibuat. Versi baru menjadi won, versi sebelumnya superseded.');
     }
 
     public function markWon(Project $project, ProjectQuotation $quotation)

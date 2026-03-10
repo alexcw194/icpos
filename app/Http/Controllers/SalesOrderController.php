@@ -175,6 +175,7 @@ class SalesOrderController extends Controller
             'customer_po_date'     => ['nullable','date'],
             'customer_ref_type'    => ['nullable','in:po,spk'],
             'po_type'              => ['required','in:goods,project,maintenance'],
+            'project_billing_mode' => ['nullable','in:combined,split_material_labor'],
             'project_id'           => ['nullable','integer','exists:projects,id'],
             'project_name'         => ['nullable','string','max:255'],
             'deadline'             => ['nullable','date'],
@@ -207,6 +208,8 @@ class SalesOrderController extends Controller
             'lines.*.unit'        => ['nullable','string','max:20'],
             'lines.*.qty'         => ['required','string'],
             'lines.*.unit_price'  => ['required','string'],
+            'lines.*.material_total' => ['nullable','string'],
+            'lines.*.labor_total' => ['nullable','string'],
             'lines.*.discount_type'  => ['nullable','in:amount,percent'],
             'lines.*.discount_value' => ['nullable','string'],
             'lines.*.item_id'         => ['nullable','exists:items,id'],
@@ -230,8 +233,13 @@ class SalesOrderController extends Controller
 
         // 2) Normalisasi input header
         $poType       = (string) ($data['po_type'] ?? 'goods');
+        $isProjectPo  = $poType === 'project';
         $isScope      = in_array($poType, ['project', 'maintenance'], true);
         $disableInventoryLink = $poType === 'maintenance';
+        $projectBillingMode = (
+            $isProjectPo
+            && in_array((string) ($data['project_billing_mode'] ?? ''), [SalesOrder::PROJECT_BILLING_MODE_COMBINED, SalesOrder::PROJECT_BILLING_MODE_SPLIT], true)
+        ) ? (string) $data['project_billing_mode'] : SalesOrder::PROJECT_BILLING_MODE_COMBINED;
         $poNumber     = trim((string) ($data['customer_po_number'] ?? ''));
         $poNumber     = $poNumber !== '' ? $poNumber : null;
         $customerRefType = in_array(($data['customer_ref_type'] ?? 'po'), ['po', 'spk'], true)
@@ -252,6 +260,26 @@ class SalesOrderController extends Controller
                 ->withInput();
         }
 
+        $previousProjectBillingMode = (string) ($salesOrder->project_billing_mode ?: SalesOrder::PROJECT_BILLING_MODE_COMBINED);
+        if (
+            $poType === 'project'
+            && $previousProjectBillingMode !== $projectBillingMode
+        ) {
+            $hasIssuedOrDraftBilling = BillingDocument::query()
+                ->where('sales_order_id', $salesOrder->id)
+                ->where('status', '!=', 'void')
+                ->exists();
+            $hasInvoice = \App\Models\Invoice::query()
+                ->where('sales_order_id', $salesOrder->id)
+                ->exists();
+
+            if ($hasIssuedOrDraftBilling || $hasInvoice) {
+                return back()
+                    ->withErrors(['project_billing_mode' => 'Project billing mode tidak bisa diubah karena billing/invoice sudah ada.'])
+                    ->withInput();
+            }
+        }
+
         if ($isScope) {
             $mode = 'total';
             $data['discount_mode'] = 'total';
@@ -267,9 +295,25 @@ class SalesOrderController extends Controller
         $linesInput = collect($data['lines'] ?? [])->values();
         $this->enforceVariantSelectionForLines($linesInput->all(), $disableInventoryLink);
         foreach ($linesInput as $idx => $ln) {
-            $qty   = max($toNum($ln['qty'] ?? 0), 0);
-            $price = max($toNum($ln['unit_price'] ?? 0), 0);
-            $lineSubtotal = $qty * $price;
+            $qty = max($toNum($ln['qty'] ?? 0), 0);
+            $inputPrice = max($toNum($ln['unit_price'] ?? 0), 0);
+            $materialTotal = $isProjectPo ? max($toNum($ln['material_total'] ?? 0), 0) : 0.0;
+            $laborTotal = $isProjectPo ? max($toNum($ln['labor_total'] ?? 0), 0) : 0.0;
+
+            if ($isProjectPo) {
+                $lineSubtotal = round($materialTotal + $laborTotal, 2);
+                if ($lineSubtotal <= 0) {
+                    $lineSubtotal = round($qty * $inputPrice, 2);
+                    $materialTotal = $lineSubtotal;
+                    $laborTotal = 0.0;
+                }
+                $price = $qty > 0 ? round($lineSubtotal / $qty, 2) : $lineSubtotal;
+            } else {
+                $price = $inputPrice;
+                $lineSubtotal = round($qty * $price, 2);
+                $materialTotal = $lineSubtotal;
+                $laborTotal = 0.0;
+            }
             $grossSubtotal += $lineSubtotal;
 
             $dType = $mode === 'per_item' ? ($ln['discount_type'] ?? 'amount') : 'amount';
@@ -302,6 +346,8 @@ class SalesOrderController extends Controller
                 'discount_amount' => $discAmt,
                 'line_subtotal'   => $lineSubtotal,
                 'line_total'      => $lineTotal,
+                'material_total'  => $materialTotal,
+                'labor_total'     => $laborTotal,
                 'baseline_name' => $ln['name'] ?? null,
                 'baseline_description' => $ln['description'] ?? null,
                 'baseline_item_id' => $disableInventoryLink ? null : ($ln['item_id'] ?? null),
@@ -309,6 +355,8 @@ class SalesOrderController extends Controller
                 'baseline_qty' => $qty,
                 'baseline_unit' => $ln['unit'] ?? null,
                 'baseline_unit_price' => $price,
+                'baseline_material_total' => $materialTotal,
+                'baseline_labor_total' => $laborTotal,
                 'baseline_line_total' => $lineTotal,
             ];
 
@@ -340,7 +388,7 @@ class SalesOrderController extends Controller
 
         /** @var \App\Models\SalesOrder $so */
         $so = null;
-        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, $mode, $poNumber, $customerRefType, &$so) {
+        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, $mode, $poNumber, $customerRefType, $projectBillingMode, &$so) {
             $so = SalesOrder::create([
                 'company_id'          => $company->id,
                 'customer_id'         => $data['customer_id'],
@@ -357,6 +405,7 @@ class SalesOrderController extends Controller
                 'project_id'          => $projectId,
                 'project_quotation_id'=> null,
                 'project_name'        => $projectName,
+                'project_billing_mode'=> $projectBillingMode,
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
                 'notes'               => $data['notes'] ?? null,
@@ -379,6 +428,8 @@ class SalesOrderController extends Controller
                     'unit'             => $ln['unit'] ?? null,
                     'qty_ordered'      => $ln['qty'],
                     'unit_price'       => $ln['unit_price'],
+                    'material_total'   => $ln['material_total'] ?? 0,
+                    'labor_total'      => $ln['labor_total'] ?? 0,
                     'discount_type'    => $ln['discount_type'],
                     'discount_value'   => $ln['discount_value'],
                     'discount_amount'  => $ln['discount_amount'],
@@ -393,6 +444,8 @@ class SalesOrderController extends Controller
                     'baseline_qty' => $ln['baseline_qty'] ?? null,
                     'baseline_unit' => $ln['baseline_unit'] ?? null,
                     'baseline_unit_price' => $ln['baseline_unit_price'] ?? null,
+                    'baseline_material_total' => $ln['baseline_material_total'] ?? null,
+                    'baseline_labor_total' => $ln['baseline_labor_total'] ?? null,
                     'baseline_line_total' => $ln['baseline_line_total'] ?? null,
                 ]);
             }
@@ -587,6 +640,8 @@ class SalesOrderController extends Controller
                 'qty'             => (float) $l->qty_ordered,                 // <-- kirim qty
                 'unit'            => $l->unit ?? 'pcs',
                 'unit_price'      => (float) $l->unit_price,
+                'material_total'  => (float) ($l->material_total ?? 0),
+                'labor_total'     => (float) ($l->labor_total ?? 0),
                 'discount_type'   => $l->discount_type ?? 'amount',
                 'discount_value'  => (float) ($l->discount_value ?? 0),
             ];
@@ -637,6 +692,7 @@ class SalesOrderController extends Controller
             'customer_po_date'   => ['nullable','date'],
             'customer_ref_type'  => ['nullable','in:po,spk'],
             'po_type'            => ['required','in:goods,project,maintenance'],
+            'project_billing_mode' => ['nullable','in:combined,split_material_labor'],
             'project_id'         => ['nullable','integer','exists:projects,id'],
             'project_name'       => ['nullable','string','max:255'],
             'deadline'           => ['nullable','date'],
@@ -667,6 +723,8 @@ class SalesOrderController extends Controller
             'lines.*.unit'           => ['nullable','string','max:20'],
             'lines.*.qty'            => ['required','string'],
             'lines.*.unit_price'     => ['required','string'],
+            'lines.*.material_total' => ['nullable','string'],
+            'lines.*.labor_total'    => ['nullable','string'],
             'lines.*.discount_type'  => ['nullable','in:amount,percent'],
             'lines.*.discount_value' => ['nullable','string'],
             'lines.*.item_id'         => ['nullable','integer','exists:items,id'],
@@ -682,8 +740,13 @@ class SalesOrderController extends Controller
 
         // Hitung ulang totals
         $poType      = (string) ($data['po_type'] ?? 'goods');
+        $isProjectPo = $poType === 'project';
         $isScope     = in_array($poType, ['project', 'maintenance'], true);
         $disableInventoryLink = $poType === 'maintenance';
+        $projectBillingMode = (
+            $isProjectPo
+            && in_array((string) ($data['project_billing_mode'] ?? ''), [SalesOrder::PROJECT_BILLING_MODE_COMBINED, SalesOrder::PROJECT_BILLING_MODE_SPLIT], true)
+        ) ? (string) $data['project_billing_mode'] : SalesOrder::PROJECT_BILLING_MODE_COMBINED;
         $poNumber    = trim((string) ($data['customer_po_number'] ?? ''));
         $poNumber    = $poNumber !== '' ? $poNumber : null;
         $customerRefType = in_array(($data['customer_ref_type'] ?? 'po'), ['po', 'spk'], true)
@@ -712,9 +775,25 @@ class SalesOrderController extends Controller
         $sub = 0; $perLineDc = 0;
         $cleanLines = [];
         foreach ($data['lines'] as $i => $ln) {
-            $qty     = max($parse($ln['qty'] ?? 0), 0);
-            $price   = max($parse($ln['unit_price'] ?? 0), 0);
-            $lineSub = $qty * $price;
+            $qty = max($parse($ln['qty'] ?? 0), 0);
+            $inputPrice = max($parse($ln['unit_price'] ?? 0), 0);
+            $materialTotal = $isProjectPo ? max($parse($ln['material_total'] ?? 0), 0) : 0.0;
+            $laborTotal = $isProjectPo ? max($parse($ln['labor_total'] ?? 0), 0) : 0.0;
+
+            if ($isProjectPo) {
+                $lineSub = round($materialTotal + $laborTotal, 2);
+                if ($lineSub <= 0) {
+                    $lineSub = round($qty * $inputPrice, 2);
+                    $materialTotal = $lineSub;
+                    $laborTotal = 0.0;
+                }
+                $price = $qty > 0 ? round($lineSub / $qty, 2) : $lineSub;
+            } else {
+                $price = $inputPrice;
+                $lineSub = round($qty * $price, 2);
+                $materialTotal = $lineSub;
+                $laborTotal = 0.0;
+            }
 
             $dt    = $ln['discount_type'] ?? 'amount';
             $dvRaw = $parse($ln['discount_value'] ?? 0);
@@ -753,6 +832,8 @@ class SalesOrderController extends Controller
                 'discount_amount' => $dcAmt,
                 'line_subtotal'   => $lineSub,
                 'line_total'      => $lineTotal,
+                'material_total'  => $materialTotal,
+                'labor_total'     => $laborTotal,
 
                 'item_id'         => $disableInventoryLink ? null : ($ln['item_id'] ?? null),
                 'item_variant_id' => $disableInventoryLink ? null : ($ln['item_variant_id'] ?? null),
@@ -828,7 +909,7 @@ class SalesOrderController extends Controller
             }
         }
 
-        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$billingTerms,$existingTerms,$poNumber,$customerRefType,$nextContractValue) {
+        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$projectBillingMode,$billingTerms,$existingTerms,$poNumber,$customerRefType,$nextContractValue) {
             $salesOrder->update([
                 'customer_po_number'    => $poNumber,
                 'customer_po_date'      => $data['customer_po_date'] ?? null,
@@ -838,6 +919,7 @@ class SalesOrderController extends Controller
                 'payment_term_snapshot' => null,
                 'project_id'            => $projectId,
                 'project_name'          => $projectName,
+                'project_billing_mode'  => $projectBillingMode,
                 'deadline'              => $data['deadline'] ?? null,
                 'ship_to'               => $data['ship_to'] ?? null,
                 'bill_to'               => $data['bill_to'] ?? null,
@@ -924,6 +1006,8 @@ class SalesOrderController extends Controller
                         $newPayload['baseline_qty'] = $ln['qty_ordered'] ?? null;
                         $newPayload['baseline_unit'] = $ln['unit'] ?? null;
                         $newPayload['baseline_unit_price'] = $ln['unit_price'] ?? null;
+                        $newPayload['baseline_material_total'] = $ln['material_total'] ?? null;
+                        $newPayload['baseline_labor_total'] = $ln['labor_total'] ?? null;
                         $newPayload['baseline_line_total'] = $ln['line_total'] ?? null;
                     }
                     $salesOrder->lines()->create($newPayload);
@@ -1100,6 +1184,7 @@ class SalesOrderController extends Controller
             'po_date'        => ['nullable','date'],
             'customer_ref_type' => ['nullable','in:po,spk'],
             'po_type'        => ['required','in:goods,project,maintenance'],
+            'project_billing_mode' => ['nullable','in:combined,split_material_labor'],
             'project_id'     => ['nullable','integer','exists:projects,id'],
             'project_name'   => ['nullable','string','max:255'],
             'deadline'       => ['nullable','date'],
@@ -1143,8 +1228,13 @@ class SalesOrderController extends Controller
         $projectName  = trim((string) ($data['project_name'] ?? ''));
         $projectName  = $projectName !== '' ? $projectName : null;
         $poType       = (string) ($data['po_type'] ?? 'goods');
+        $isProjectPo  = $poType === 'project';
         $isScope      = in_array($poType, ['project', 'maintenance'], true);
         $disableInventoryLink = $poType === 'maintenance';
+        $projectBillingMode = (
+            $isProjectPo
+            && in_array((string) ($data['project_billing_mode'] ?? ''), [SalesOrder::PROJECT_BILLING_MODE_COMBINED, SalesOrder::PROJECT_BILLING_MODE_SPLIT], true)
+        ) ? (string) $data['project_billing_mode'] : SalesOrder::PROJECT_BILLING_MODE_COMBINED;
 
         if (($data['po_type'] ?? 'goods') === 'project' && !$projectId && !$projectName) {
             return back()
@@ -1173,7 +1263,7 @@ class SalesOrderController extends Controller
             ?: ($quotation->sales_user_id ?: auth()->id());
 
         /** @var SalesOrder $so */
-        $so = DB::transaction(function() use ($quotation, $company, $data, $fee, $under, $poNumber, $customerRefType, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms, $disableInventoryLink) {
+        $so = DB::transaction(function() use ($quotation, $company, $data, $fee, $under, $poNumber, $customerRefType, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $projectBillingMode, $billingTerms, $disableInventoryLink, $isProjectPo) {
 
             // Nomor SO
             $number = app(DocNumberService::class)->next('sales_order', $company, now());
@@ -1197,6 +1287,7 @@ class SalesOrderController extends Controller
                 'project_id'          => $projectId,
                 'project_quotation_id'=> null,
                 'project_name'        => $projectName,
+                'project_billing_mode'=> $projectBillingMode,
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
 
@@ -1216,6 +1307,22 @@ class SalesOrderController extends Controller
             foreach ($quotation->lines as $idx => $ql) {
                 $qty       = (float)($ql->qty ?? $ql->quantity ?? 0);
                 $unitPrice = (float)($ql->unit_price ?? 0);
+                $materialTotal = max((float) ($ql->material_total ?? 0), 0);
+                $laborTotal = max((float) ($ql->labor_total ?? 0), 0);
+
+                if ($isProjectPo) {
+                    $lineSub = round($materialTotal + $laborTotal, 2);
+                    if ($lineSub <= 0) {
+                        $lineSub = round($qty * $unitPrice, 2);
+                        $materialTotal = $lineSub;
+                        $laborTotal = 0.0;
+                    }
+                    $unitPrice = $qty > 0 ? round($lineSub / $qty, 2) : $lineSub;
+                } else {
+                    $lineSub = round($qty * $unitPrice, 2);
+                    $materialTotal = $lineSub;
+                    $laborTotal = 0.0;
+                }
 
                 $discType  = $discountMode === 'per_item' ? ($ql->discount_type ?? 'amount') : 'amount';
                 $discValue = $discountMode === 'per_item' ? (float)($ql->discount_value ?? 0) : 0.0;
@@ -1224,7 +1331,6 @@ class SalesOrderController extends Controller
                     $discValue = 0.0;
                 }
 
-                $lineSub   = $qty * $unitPrice;
                 $lineDcAmt = 0.0;
                 if ($discountMode === 'per_item') {
                     $lineDcAmt = $discType === 'percent'
@@ -1242,6 +1348,8 @@ class SalesOrderController extends Controller
                     'unit'             => $ql->unit ?? $ql->unit_name ?? 'PCS',
                     'qty_ordered'      => $qty,
                     'unit_price'       => $unitPrice,
+                    'material_total'   => $materialTotal,
+                    'labor_total'      => $laborTotal,
                     'discount_type'    => $discType,
                     'discount_value'   => $discValue,
                     'discount_amount'  => $lineDcAmt,
@@ -1257,6 +1365,8 @@ class SalesOrderController extends Controller
                     'baseline_qty' => $qty,
                     'baseline_unit' => $ql->unit ?? $ql->unit_name ?? 'PCS',
                     'baseline_unit_price' => $unitPrice,
+                    'baseline_material_total' => $materialTotal,
+                    'baseline_labor_total' => $laborTotal,
                     'baseline_line_total' => $lineTotal,
                 ]);
 

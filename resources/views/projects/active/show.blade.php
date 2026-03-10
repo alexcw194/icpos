@@ -50,6 +50,10 @@
           <div class="text-muted">SO Project</div>
           <div class="fw-semibold">{{ $salesOrder->so_number ?? '-' }}</div>
           <div class="text-muted text-capitalize">{{ $salesOrder->status ?? '-' }}</div>
+          <div class="text-muted">
+            Billing Mode:
+            {{ ($salesOrder->project_billing_mode ?? 'combined') === 'split_material_labor' ? 'Split Material/Labor' : 'Combined' }}
+          </div>
         </div>
       </div>
     </div>
@@ -85,6 +89,7 @@
             <th>Seq</th>
             <th>Code</th>
             <th class="text-end">Percent</th>
+            <th class="text-end">Term Value</th>
             <th>Billing Draft</th>
             <th>Invoice</th>
             <th>Status</th>
@@ -102,8 +107,23 @@
               <td>{{ $term->seq }}</td>
               <td>{{ $term->top_code }}</td>
               <td class="text-end">{{ number_format((float) $term->percent, 2, ',', '.') }}%</td>
+              <td class="text-end">Rp {{ number_format((float) ($row->term_total ?? 0), 2, ',', '.') }}</td>
               <td>
-                @if($billing)
+                @if($row->is_split_mode)
+                  @foreach($row->required_components as $component)
+                    @php $componentBilling = $row->billing_components->get($component); @endphp
+                    <div>
+                      <span class="text-muted text-capitalize">{{ $component }}:</span>
+                      @if($componentBilling)
+                        <a href="{{ route('billings.show', $componentBilling) }}" class="fw-semibold">
+                          {{ $componentBilling->inv_number ?: ($componentBilling->pi_number ?: ('DRAFT-'.$componentBilling->id)) }}
+                        </a>
+                      @else
+                        <span class="text-muted">-</span>
+                      @endif
+                    </div>
+                  @endforeach
+                @elseif($billing)
                   <a href="{{ route('billings.show', $billing) }}" class="fw-semibold">
                     {{ $billing->inv_number ?: ($billing->pi_number ?: ('DRAFT-'.$billing->id)) }}
                   </a>
@@ -113,7 +133,19 @@
                 @endif
               </td>
               <td>
-                @if($invoice)
+                @if($row->is_split_mode)
+                  @foreach($row->required_components as $component)
+                    @php $componentInvoice = $row->invoice_components->get($component); @endphp
+                    <div>
+                      <span class="text-muted text-capitalize">{{ $component }}:</span>
+                      @if($componentInvoice)
+                        <a href="{{ route('invoices.show', $componentInvoice) }}" class="fw-semibold">{{ $componentInvoice->number }}</a>
+                      @else
+                        <span class="text-muted">-</span>
+                      @endif
+                    </div>
+                  @endforeach
+                @elseif($invoice)
                   <a href="{{ route('invoices.show', $invoice) }}" class="fw-semibold">{{ $invoice->number }}</a>
                   <div class="text-muted">{{ optional($invoice->date)->format('d M Y') }}</div>
                 @else
@@ -122,13 +154,31 @@
               </td>
               <td>
                 <span class="badge {{ $row->status_class }}">{{ $row->status }}</span>
+                @if($row->progress_label)
+                  <div class="text-muted small mt-1">{{ $row->progress_label }}</div>
+                @endif
               </td>
               <td class="text-end">
                 @if($row->can_create_billing_draft)
-                  <form method="POST" action="{{ route('projects.active.billing-terms.create-draft', ['project' => $project, 'term' => $term]) }}" class="d-inline">
-                    @csrf
-                    <button type="submit" class="btn btn-sm btn-primary">Create Billing Draft</button>
-                  </form>
+                  @if($row->is_split_mode)
+                    <form method="POST" action="{{ route('projects.active.billing-terms.create-draft', ['project' => $project, 'term' => $term]) }}" class="d-inline-flex align-items-center gap-2 flex-wrap justify-content-end">
+                      @csrf
+                      <div class="input-group input-group-sm" style="width:150px;">
+                        <span class="input-group-text">M</span>
+                        <input type="text" name="material_amount" class="form-control text-end" inputmode="decimal" value="{{ number_format(((float) ($row->term_total ?? 0)) / 2, 2, '.', '') }}">
+                      </div>
+                      <div class="input-group input-group-sm" style="width:150px;">
+                        <span class="input-group-text">L</span>
+                        <input type="text" name="labor_amount" class="form-control text-end" inputmode="decimal" value="{{ number_format(((float) ($row->term_total ?? 0)) / 2, 2, '.', '') }}">
+                      </div>
+                      <button type="submit" class="btn btn-sm btn-primary">Create Draft Split</button>
+                    </form>
+                  @else
+                    <form method="POST" action="{{ route('projects.active.billing-terms.create-draft', ['project' => $project, 'term' => $term]) }}" class="d-inline">
+                      @csrf
+                      <button type="submit" class="btn btn-sm btn-primary">Create Billing Draft</button>
+                    </form>
+                  @endif
                 @elseif($billing)
                   <a href="{{ route('billings.show', $billing) }}" class="btn btn-sm btn-outline-primary">Open Billing</a>
                 @elseif($invoice)
@@ -140,7 +190,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="7" class="text-center text-muted">No billing terms on SO Project.</td>
+              <td colspan="8" class="text-center text-muted">No billing terms on SO Project.</td>
             </tr>
           @endforelse
         </tbody>

@@ -76,6 +76,14 @@
             <option value="maintenance" {{ $poType === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
           </select>
         </div>
+        <div class="col-md-2" id="projectBillingModeWrap">
+          <label class="form-label">Project Billing Mode</label>
+          @php $projectBillingMode = old('project_billing_mode', $so->project_billing_mode ?? 'combined'); @endphp
+          <select name="project_billing_mode" id="project_billing_mode" class="form-select">
+            <option value="combined" {{ $projectBillingMode === 'combined' ? 'selected' : '' }}>Combined</option>
+            <option value="split_material_labor" {{ $projectBillingMode === 'split_material_labor' ? 'selected' : '' }}>Split Material/Labor</option>
+          </select>
+        </div>
         <div class="col-md-2">
           <label class="form-label">Deadline</label>
           <input type="date" name="deadline" class="form-control"
@@ -294,6 +302,8 @@
                   <th class="col-qty text-end">Qty</th>
                   <th class="col-unit">Unit</th>
                   <th class="col-price text-end">Unit Price</th>
+                  <th class="col-material text-end">Material</th>
+                  <th class="col-labor text-end">Labor</th>
                   <th class="col-disc" data-col="disc-input">Diskon (tipe + nilai)</th>
                   <th class="col-subtotal text-end">Subtotal</th>
                   <th class="col-disc-amount text-end">Disc Rp</th>
@@ -400,6 +410,12 @@
     <td class="col-price text-end">
       <input type="text" name="lines[__IDX__][unit_price]" class="form-control form-control-sm text-end price q-item-rate" inputmode="decimal" placeholder="0">
     </td>
+    <td class="col-material text-end">
+      <input type="text" name="lines[__IDX__][material_total]" class="form-control form-control-sm text-end material q-item-material" inputmode="decimal" value="0">
+    </td>
+    <td class="col-labor text-end">
+      <input type="text" name="lines[__IDX__][labor_total]" class="form-control form-control-sm text-end labor q-item-labor" inputmode="decimal" value="0">
+    </td>
     <td class="col-disc disc-cell">
       <div class="row g-2 align-items-center">
         <div class="col-auto">
@@ -445,7 +461,8 @@
   #linesTable .col-desc       { width:18%; }
   #linesTable .col-po         { width:16%; }
   #linesTable .col-qty        { width:8ch;}   #linesTable .col-unit{ width:7ch; }
-  #linesTable .col-price      { width:14%; }  #linesTable .col-disc{ width:16%; }
+  #linesTable .col-price      { width:10%; }  #linesTable .col-material{ width:10%; }
+  #linesTable .col-labor      { width:10%; }  #linesTable .col-disc{ width:14%; }
   #linesTable .col-subtotal   { width:9%; }   #linesTable .col-disc-amount{ width:9%; }
   #linesTable .col-total      { width:14%; }  #linesTable .col-actions{ width:4%; }
   #linesTable input.qty { max-width:8ch; }    #linesTable input.unit{ max-width:7ch; }
@@ -530,6 +547,8 @@
       'qty'             => (float) $qty,
       'unit'            => $ln->unit ?? 'pcs',
       'unit_price'      => (float) $price,
+      'material_total'  => (float) ($ln->material_total ?? 0),
+      'labor_total'     => (float) ($ln->labor_total ?? 0),
       'discount_type'   => $discT,
       'discount_value'  => (float) $discV,
     ];
@@ -555,6 +574,8 @@
   const customerRefNumberLabel = document.getElementById('customer_ref_number_label');
   const customerRefDateLabel = document.getElementById('customer_ref_date_label');
   const poTypeSelect = document.querySelector('select[name="po_type"]');
+  const projectBillingModeWrap = document.getElementById('projectBillingModeWrap');
+  const projectBillingModeSelect = document.getElementById('project_billing_mode');
   const projectSection = document.querySelector('[data-project-section]');
   const stageWrap = document.getElementById('stageWrap');
   const scopeActions = document.getElementById('scopeLineActions');
@@ -575,9 +596,12 @@
     projectSection.style.display = poTypeSelect?.value === 'project' ? '' : 'none';
   }
 
-  function setRowScopeState(row, isScope) {
+  function setRowScopeState(row, isScope, isProject) {
     const nameInput = row.querySelector('.q-item-name');
     const unitInput = row.querySelector('.q-item-unit');
+    const priceInput = row.querySelector('.q-item-rate');
+    const materialInput = row.querySelector('.q-item-material');
+    const laborInput = row.querySelector('.q-item-labor');
     if (nameInput) {
       nameInput.readOnly = !isScope;
       nameInput.placeholder = isScope ? 'Nama pekerjaan' : 'pilih dari kotak atas';
@@ -586,14 +610,30 @@
       unitInput.readOnly = !isScope;
       if (isScope && !unitInput.value) unitInput.value = 'lot';
     }
+    if (priceInput) {
+      priceInput.readOnly = isProject;
+    }
+    if (materialInput) {
+      materialInput.readOnly = !isProject;
+    }
+    if (laborInput) {
+      laborInput.readOnly = !isProject;
+    }
   }
 
   function applyPoTypeRules() {
     const isScope = ['project', 'maintenance'].includes(poTypeSelect?.value || '');
+    const isProject = (poTypeSelect?.value || '') === 'project';
     const form = document.getElementById('soForm');
     form?.classList.toggle('scope-mode', isScope);
     if (stageWrap) stageWrap.style.display = isScope ? 'none' : '';
     if (scopeActions) scopeActions.classList.toggle('d-none', !isScope);
+    if (projectBillingModeWrap) {
+      projectBillingModeWrap.style.display = isProject ? '' : 'none';
+    }
+    if (!isProject && projectBillingModeSelect) {
+      projectBillingModeSelect.value = 'combined';
+    }
 
     const hiddenMode = document.getElementById('discount_mode_hidden');
     const dmTotal = document.getElementById('dm-total');
@@ -608,7 +648,7 @@
     }
 
     document.querySelectorAll('#linesBody tr[data-line-row]').forEach((row) => {
-      setRowScopeState(row, isScope);
+      setRowScopeState(row, isScope, isProject);
       if (isScope) {
         const discType = row.querySelector('.disc-type');
         const discValue = row.querySelector('.disc-value');
@@ -616,6 +656,14 @@
         if (discType) discType.value = 'amount';
         if (discValue) discValue.value = '0';
         if (discUnit) discUnit.textContent = 'IDR';
+      }
+      if (!isProject) {
+        const qty = toNum(row.querySelector('.q-item-qty')?.value || '0');
+        const price = toNum(row.querySelector('.q-item-rate')?.value || '0');
+        const materialInput = row.querySelector('.q-item-material');
+        const laborInput = row.querySelector('.q-item-labor');
+        if (materialInput) materialInput.value = formatMoneyValue(qty * price);
+        if (laborInput) laborInput.value = formatMoneyValue(0);
       }
     });
 
@@ -731,6 +779,15 @@
     if (rateInput) {
       rateInput.value = formatMoneyValue(d.unit_price ?? 0);
     }
+    const materialInput = tr.querySelector('.q-item-material');
+    if (materialInput) {
+      const materialVal = d.material_total ?? ((toNum(d.qty ?? 0) || 0) * (toNum(d.unit_price ?? 0) || 0));
+      materialInput.value = formatMoneyValue(materialVal);
+    }
+    const laborInput = tr.querySelector('.q-item-labor');
+    if (laborInput) {
+      laborInput.value = formatMoneyValue(d.labor_total ?? 0);
+    }
 
     const dtSel=tr.querySelector('.disc-type'); const dvInp=tr.querySelector('.disc-value');
     if (dtSel) dtSel.value = d.discount_type ?? 'amount';
@@ -740,7 +797,8 @@
 
     body.appendChild(tr);
     const isScope = ['project', 'maintenance'].includes(poTypeSelect?.value || '');
-    setRowScopeState(tr, isScope);
+    const isProject = (poTypeSelect?.value || '') === 'project';
+    setRowScopeState(tr, isScope, isProject);
     idx++;
   }
 
@@ -759,6 +817,8 @@
       qty: toNum((document.getElementById('stage_qty')||{}).value || '1'),
       unit:(document.getElementById('stage_unit')||{}).value || 'pcs',
       unit_price: toNum((document.getElementById('stage_price')||{}).value || '0'),
+      material_total: toNum((document.getElementById('stage_qty')||{}).value || '1') * toNum((document.getElementById('stage_price')||{}).value || '0'),
+      labor_total: 0,
       discount_type:'amount',
       discount_value:0,
     });
@@ -791,11 +851,13 @@
     tr.querySelector('.q-item-qty').value = '1';
     tr.querySelector('.q-item-unit').value = 'lot';
     tr.querySelector('.q-item-rate').value = '';
+    tr.querySelector('.q-item-material').value = '';
+    tr.querySelector('.q-item-labor').value = '';
     tr.querySelector('.disc-type').value = 'amount';
     tr.querySelector('.disc-value').value = '0';
     tr.querySelector('.removeRowBtn')?.addEventListener('click', ()=>{ tr.remove(); recalc(); });
     body.appendChild(tr);
-    setRowScopeState(tr, true);
+    setRowScopeState(tr, true, (poTypeSelect?.value || '') === 'project');
     idx++;
     recalc();
   }
@@ -816,13 +878,36 @@
 
   function recalc(){
     let sub=0;
+    const isProject = (poTypeSelect?.value || '') === 'project';
     body.querySelectorAll('tr[data-line-row]').forEach(tr=>{
       const qty=toNum(tr.querySelector('.qty')?.value || '0');
-      const price=toNum(tr.querySelector('.price')?.value || '0');
+      let price=toNum(tr.querySelector('.price')?.value || '0');
+      let material = toNum(tr.querySelector('.material')?.value || '0');
+      let labor = toNum(tr.querySelector('.labor')?.value || '0');
       const dt=tr.querySelector('.disc-type')?.value || 'amount';
       const dvRaw=toNum(tr.querySelector('.disc-value')?.value || '0');
 
-      const lineSub = qty * price;
+      let lineSub = qty * price;
+      if (isProject) {
+        lineSub = material + labor;
+        if (lineSub <= 0) {
+          lineSub = qty * price;
+          material = lineSub;
+          labor = 0;
+        }
+        if (qty > 0) {
+          price = lineSub / qty;
+        } else {
+          price = lineSub;
+        }
+        const priceInput = tr.querySelector('.price');
+        if (priceInput) priceInput.value = formatMoneyValue(price);
+      } else {
+        const materialInput = tr.querySelector('.material');
+        const laborInput = tr.querySelector('.labor');
+        if (materialInput) materialInput.value = formatMoneyValue(lineSub);
+        if (laborInput) laborInput.value = formatMoneyValue(0);
+      }
       const discAmt = dt==='percent' ? Math.min(Math.max(dvRaw,0),100)/100*lineSub
                                      : Math.min(Math.max(dvRaw,0), lineSub);
       const lineTot = Math.max(lineSub - discAmt, 0);
@@ -884,7 +969,13 @@
   document.getElementById('dm-per')?.addEventListener('change',  ()=>applyMode('per_item'));
 
   body.addEventListener('input', e=>{
-    if (e.target.classList.contains('qty') || e.target.classList.contains('price') || e.target.classList.contains('disc-value')) recalc();
+    if (
+      e.target.classList.contains('qty')
+      || e.target.classList.contains('price')
+      || e.target.classList.contains('material')
+      || e.target.classList.contains('labor')
+      || e.target.classList.contains('disc-value')
+    ) recalc();
   });
   body.addEventListener('change', e=>{
     if (e.target.classList.contains('disc-type')){
@@ -895,7 +986,12 @@
   });
 
   document.addEventListener('blur', (e) => {
-    if (e.target?.classList?.contains('price') || e.target?.id === 'stage_price') {
+    if (
+      e.target?.classList?.contains('price')
+      || e.target?.classList?.contains('material')
+      || e.target?.classList?.contains('labor')
+      || e.target?.id === 'stage_price'
+    ) {
       formatMoneyInput(e.target);
     }
   }, true);

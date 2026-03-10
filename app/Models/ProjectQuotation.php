@@ -19,6 +19,7 @@ class ProjectQuotation extends Model
 
     protected $fillable = [
         'project_id',
+        'parent_revision_id',
         'company_id',
         'customer_id',
         'sub_contractor_id',
@@ -55,6 +56,7 @@ class ProjectQuotation extends Model
         'won_at' => 'datetime',
         'lost_at' => 'datetime',
         'tax_enabled' => 'boolean',
+        'parent_revision_id' => 'integer',
         'tax_percent' => 'decimal:2',
         'sub_contractor_id' => 'integer',
         'subtotal_material' => 'decimal:2',
@@ -68,6 +70,16 @@ class ProjectQuotation extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function parentRevision(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_revision_id');
+    }
+
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_revision_id')->orderBy('version');
     }
 
     public function company(): BelongsTo
