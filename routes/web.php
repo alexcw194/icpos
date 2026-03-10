@@ -188,6 +188,8 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('projects.quotations.won');
     Route::post('projects/{project}/quotations/{quotation}/revisions', [ProjectQuotationController::class, 'editAsRevision'])
         ->name('projects.quotations.revision');
+    Route::post('projects/{project}/quotations/{quotation}/copy', [ProjectQuotationController::class, 'copy'])
+        ->name('projects.quotations.copy');
     Route::post('projects/{project}/quotations/{quotation}/lost', [ProjectQuotationController::class, 'markLost'])
         ->name('projects.quotations.lost');
 

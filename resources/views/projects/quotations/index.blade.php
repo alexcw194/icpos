@@ -1,6 +1,9 @@
 @extends('layouts.tabler')
 
 @section('content')
+@php
+  $canCopyBq = auth()->user()?->can('create', \App\Models\ProjectQuotation::class) ?? false;
+@endphp
 <div class="container-xl">
   <div class="page-header d-print-none">
     <div class="row align-items-center">
@@ -33,6 +36,9 @@
             <th>Status</th>
             <th>Date</th>
             <th class="text-end">Total</th>
+            @if($canCopyBq)
+              <th class="text-end">Actions</th>
+            @endif
           </tr>
         </thead>
         <tbody>
@@ -47,10 +53,18 @@
               <td><span class="badge bg-blue-lt text-blue-9">{{ ucfirst($bq->status) }}</span></td>
               <td>{{ optional($bq->quotation_date)->format('d M Y') ?? '-' }}</td>
               <td class="text-end">Rp {{ number_format((float)$bq->grand_total, 2, ',', '.') }}</td>
+              @if($canCopyBq)
+                <td class="text-end">
+                  <form method="POST" action="{{ route('projects.quotations.copy', [$project, $bq]) }}" class="d-inline">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn-outline-primary" onclick="return confirm('Copy BQ ini menjadi dokumen baru?')">Copy BQ</button>
+                  </form>
+                </td>
+              @endif
             </tr>
           @empty
             <tr>
-              <td colspan="5" class="text-center text-muted">No quotations.</td>
+              <td colspan="{{ $canCopyBq ? 6 : 5 }}" class="text-center text-muted">No quotations.</td>
             </tr>
           @endforelse
         </tbody>

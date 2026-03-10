@@ -680,6 +680,65 @@ class ProjectQuotationController extends Controller
             ->with('success', 'BQ dihapus.');
     }
 
+    public function copy(Project $project, ProjectQuotation $quotation)
+    {
+        $this->authorize('create', ProjectQuotation::class);
+        $this->ensureProjectMatch($project, $quotation);
+
+        $quotation->load([
+            'company',
+            'sections.lines' => fn ($query) => $query->orderBy('id'),
+            'paymentTerms' => fn ($query) => $query->orderBy('sequence'),
+        ]);
+
+        $newQuotation = DB::transaction(function () use ($quotation) {
+            $today = now()->toDateString();
+
+            $newQuotation = $quotation->replicate();
+            $newQuotation->number = app(\App\Services\DocNumberService::class)
+                ->next(
+                    'project_quotation',
+                    $quotation->company,
+                    Carbon::parse($today)
+                );
+            $newQuotation->quotation_date = $today;
+            $newQuotation->status = ProjectQuotation::STATUS_DRAFT;
+            $newQuotation->version = 1;
+            $newQuotation->parent_revision_id = null;
+            $newQuotation->issued_at = null;
+            $newQuotation->won_at = null;
+            $newQuotation->lost_at = null;
+            $newQuotation->save();
+
+            foreach ($quotation->sections as $section) {
+                $newSection = $section->replicate();
+                $newSection->project_quotation_id = $newQuotation->id;
+                $newSection->save();
+
+                foreach ($section->lines as $line) {
+                    $newLine = $line->replicate();
+                    $newLine->section_id = $newSection->id;
+                    if (Schema::hasColumn('project_quotation_lines', 'revision_source_line_id')) {
+                        $newLine->revision_source_line_id = null;
+                    }
+                    $newLine->save();
+                }
+            }
+
+            foreach ($quotation->paymentTerms as $term) {
+                $newTerm = $term->replicate();
+                $newTerm->project_quotation_id = $newQuotation->id;
+                $newTerm->save();
+            }
+
+            return $newQuotation;
+        });
+
+        return redirect()
+            ->route('projects.quotations.edit', [$project, $newQuotation])
+            ->with('success', 'BQ berhasil dicopy menjadi dokumen baru.');
+    }
+
     private function safePdfFilename(?string $raw): string
     {
         $safe = trim((string) $raw);
