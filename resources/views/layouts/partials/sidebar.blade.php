@@ -24,8 +24,9 @@
   } catch (\Throwable $e) {}
 
   $isCrmActive = request()->is('customers*') || request()->is('lead-discovery*') || request()->is('crm/new-leads*');
-  $isSalesActive = ((!$financeOnly && request()->is('quotations*')) || request()->is('sales-orders*') || request()->is('deliveries*') || request()->is('invoices*') || request()->routeIs('reports.income.*'));
-  $isProjectsActive = request()->is('projects*') || request()->is('project-items*') || request()->is('project-stocks*') || request()->is('project-deliveries*') || request()->is('project-invoices*');
+  $isSalesActive = ((!$financeOnly && request()->is('quotations*')) || request()->is('sales-orders*'));
+  $isFinanceActive = request()->is('deliveries*') || request()->is('invoices*') || request()->routeIs('reports.income.*');
+  $isProjectsActive = request()->is('projects*') || request()->is('projects-active*') || request()->is('project-items*') || request()->is('project-stocks*') || request()->is('project-deliveries*');
   $isDocumentsActive = request()->is('documents*');
   $isPurchaseActive = request()->routeIs('po.*') || request()->routeIs('suppliers.*');
   $isInventoryActive = request()->is('inventory*');
@@ -161,6 +162,20 @@
                 @if(Route::has('sales-orders.index'))
                   <li><a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}" href="{{ route('sales-orders.index') }}">Sales Orders</a></li>
                 @endif
+              </ul>
+            </li>
+          @endif
+
+          @if(!$isDokumenOnly && auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']))
+            <li class="nav-item nav-group js-sidebar-group" data-group-key="finance" data-group-active="{{ $isFinanceActive ? '1' : '0' }}">
+              <a class="nav-link nav-group-toggle {{ $isFinanceActive ? 'active' : '' }}"
+                 data-bs-toggle="collapse" href="#sidebar-group-finance" role="button"
+                 aria-expanded="false" aria-controls="sidebar-group-finance">
+                <span class="nav-link-icon ti ti-cash"></span>
+                <span class="nav-link-title">Finance</span>
+                <span class="nav-group-caret ti ti-chevron-down"></span>
+              </a>
+              <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-finance" data-bs-parent="#sidebar-accordion">
                 @if(Route::has('deliveries.index'))
                   <li><a class="nav-link {{ request()->is('deliveries*') ? 'active' : '' }}" href="{{ route('deliveries.index') }}">Delivery Orders</a></li>
                 @endif
@@ -188,10 +203,20 @@
 
               <ul class="nav nav-pills sub-nav flex-column collapse" id="sidebar-group-projects" data-bs-parent="#sidebar-accordion">
                 <li>
-                  <a class="nav-link {{ (request()->is('projects*') && !request()->is('projects/labor*')) ? 'active' : '' }}" href="{{ route('projects.index') }}">
+                  <a class="nav-link {{ ((request()->is('projects') || request()->is('projects/*')) && !request()->is('projects/labor*')) ? 'active' : '' }}" href="{{ route('projects.index') }}">
                     Projects List
                   </a>
                 </li>
+
+                @if(Route::has('projects.active.index'))
+                  @hasanyrole('SuperAdmin|Admin|Finance')
+                    <li>
+                      <a class="nav-link {{ request()->is('projects-active*') ? 'active' : '' }}" href="{{ route('projects.active.index') }}">
+                        Project Active
+                      </a>
+                    </li>
+                  @endhasanyrole
+                @endif
 
                 <li>
                   @if(Route::has('project-items.index'))
@@ -235,15 +260,6 @@
                   @endif
                 </li>
 
-                <li>
-                  @if(Route::has('project-invoices.index'))
-                    <a class="nav-link {{ request()->is('project-invoices*') ? 'active' : '' }}" href="{{ route('project-invoices.index') }}">
-                      Projects Invoices
-                    </a>
-                  @else
-                    <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Projects Invoices</a>
-                  @endif
-                </li>
               </ul>
             </li>
           @endif

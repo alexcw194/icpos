@@ -38,7 +38,17 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice)
     {
         $this->authorize('view', $invoice);
-        $invoice->load(['company','customer','quotation.items','lines','salesOrder','billingTerm']);
+        $invoice->load([
+            'company',
+            'customer',
+            'quotation.items',
+            'lines',
+            'salesOrder',
+            'billingTerm',
+            'project',
+            'projectQuotation',
+            'projectPaymentTerm',
+        ]);
 
         $banks = Bank::active()
             ->forCompany($invoice->company_id)
@@ -202,7 +212,16 @@ class InvoiceController extends Controller
     public function pdfProforma(\App\Models\Invoice $invoice)
     {
         $this->authorizePermission('invoices.view'); // selaras dengan pola delivery
-        $invoice->load(['company','customer','lines','quotation']);
+        $invoice->load([
+            'company',
+            'customer',
+            'lines',
+            'quotation',
+            'salesOrder',
+            'project',
+            'projectQuotation',
+            'projectPaymentTerm',
+        ]);
 
         $options = new Options();
         $options->set('isRemoteEnabled', true);
@@ -228,7 +247,16 @@ class InvoiceController extends Controller
     public function pdfInvoice(\App\Models\Invoice $invoice)
     {
         $this->authorizePermission('invoices.view');
-        $invoice->load(['company','customer','lines','quotation']);
+        $invoice->load([
+            'company',
+            'customer',
+            'lines',
+            'quotation',
+            'salesOrder',
+            'project',
+            'projectQuotation',
+            'projectPaymentTerm',
+        ]);
 
         $options = new Options();
         $options->set('isRemoteEnabled', true);
@@ -413,4 +441,3 @@ if (!function_exists('schema')) {
         return \Illuminate\Support\Facades\Schema::getFacadeRoot();
     }
 }
-

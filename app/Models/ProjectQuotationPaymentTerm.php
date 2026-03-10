@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ProjectQuotationPaymentTerm extends Model
 {
@@ -28,5 +29,10 @@ class ProjectQuotationPaymentTerm extends Model
     public function quotation(): BelongsTo
     {
         return $this->belongsTo(ProjectQuotation::class, 'project_quotation_id');
+    }
+
+    public function invoice(): HasOne
+    {
+        return $this->hasOne(Invoice::class, 'project_payment_term_id');
     }
 }

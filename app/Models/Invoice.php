@@ -7,7 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class Invoice extends Model
 {
     protected $fillable = [
-        'company_id','customer_id','quotation_id','sales_order_id','so_billing_term_id',
+        'company_id','customer_id','quotation_id','project_id','project_quotation_id','project_payment_term_id',
+        'sales_order_id','so_billing_term_id',
         'number','date','status',
         'invoice_kind','payment_schedule_seq','payment_schedule_meta',
         'subtotal','discount','tax_percent','tax_amount','total',
@@ -28,6 +29,9 @@ class Invoice extends Model
     public function company(){ return $this->belongsTo(Company::class); }
     public function customer(){ return $this->belongsTo(Customer::class); }
     public function quotation(){ return $this->belongsTo(Quotation::class); }
+    public function project(){ return $this->belongsTo(Project::class); }
+    public function projectQuotation(){ return $this->belongsTo(ProjectQuotation::class, 'project_quotation_id'); }
+    public function projectPaymentTerm(){ return $this->belongsTo(ProjectQuotationPaymentTerm::class, 'project_payment_term_id'); }
     public function salesOrder(){ return $this->belongsTo(SalesOrder::class); }
     public function billingTerm(){ return $this->belongsTo(SalesOrderBillingTerm::class, 'so_billing_term_id'); }
     public function lines(){ return $this->hasMany(\App\Models\InvoiceLine::class); }

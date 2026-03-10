@@ -12,6 +12,7 @@ use App\Http\Controllers\{
     ItemVariantController,
     InventoryRowController,
     ProjectController,
+    ProjectActiveController,
     ProjectQuotationController,
     QuotationController,
     InvoiceController,
@@ -149,6 +150,13 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
 
     // Projects & Project Quotations (BQ)
     Route::resource('projects', ProjectController::class);
+    Route::get('projects-active', [ProjectActiveController::class, 'index'])
+        ->name('projects.active.index');
+    Route::get('projects-active/{project}', [ProjectActiveController::class, 'show'])
+        ->name('projects.active.show');
+    Route::post('projects/{project}/active/payment-terms/{term}/create-invoice', [ProjectActiveController::class, 'createInvoiceFromTerm'])
+        ->whereNumber('term')
+        ->name('projects.active.payment-terms.create-invoice');
     Route::get('projects/labor', [ProjectLaborController::class, 'index'])->name('projects.labor.index');
     Route::post('projects/labor/default-sub-contractor', [ProjectLaborController::class, 'setDefaultSubContractor'])
         ->name('projects.labor.default-sub-contractor');

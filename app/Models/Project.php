@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Builder;
 
 class Project extends Model
@@ -50,6 +51,21 @@ class Project extends Model
     public function quotations(): HasMany
     {
         return $this->hasMany(ProjectQuotation::class);
+    }
+
+    public function wonQuotations(): HasMany
+    {
+        return $this->hasMany(ProjectQuotation::class)
+            ->where('status', ProjectQuotation::STATUS_WON);
+    }
+
+    public function latestWonQuotation(): HasOne
+    {
+        return $this->hasOne(ProjectQuotation::class)
+            ->ofMany(
+                ['id' => 'max'],
+                fn (Builder $query) => $query->where('status', ProjectQuotation::STATUS_WON)
+            );
     }
 
     public function scopeVisibleTo(Builder $query, ?User $user = null): Builder

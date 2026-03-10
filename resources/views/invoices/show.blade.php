@@ -121,6 +121,35 @@
           </div>
         @endif
 
+        @if($invoice->project)
+          <div class="col-md-3">
+            <div class="text-muted">Project</div>
+            <div class="fw-semibold">
+              <a href="{{ route('projects.show', $invoice->project) }}">
+                {{ $invoice->project->code ?? ('#'.$invoice->project->id) }}
+              </a>
+            </div>
+          </div>
+        @endif
+        @if($invoice->projectQuotation)
+          <div class="col-md-3">
+            <div class="text-muted">BQ</div>
+            <div class="fw-semibold">{{ $invoice->projectQuotation->number }}</div>
+          </div>
+        @endif
+        @if($invoice->projectPaymentTerm)
+          <div class="col-md-3">
+            <div class="text-muted">Project Term</div>
+            <div class="fw-semibold">
+              {{ $invoice->projectPaymentTerm->code }}
+              @if($invoice->projectPaymentTerm->label)
+                - {{ $invoice->projectPaymentTerm->label }}
+              @endif
+              ({{ number_format((float) $invoice->projectPaymentTerm->percent, 2) }}%)
+            </div>
+          </div>
+        @endif
+
         <div class="col-md-3">
           <div class="text-muted">Due Date</div>
           <div class="fw-semibold">{{ optional($invoice->due_date)->format('Y-m-d') ?? '-' }}</div>

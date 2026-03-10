@@ -174,6 +174,28 @@
       @endif
     </tr>
   @endif
+  @if($invoice->project || $invoice->projectQuotation || $invoice->projectPaymentTerm)
+    <tr>
+      <th>Project</th>
+      <td>{{ $invoice->project?->code ?? $invoice->project?->name ?? '-' }}</td>
+      <th>BQ</th>
+      <td>{{ $invoice->projectQuotation?->number ?? '-' }}</td>
+    </tr>
+    <tr>
+      <th>Payment Term</th>
+      <td colspan="3">
+        @if($invoice->projectPaymentTerm)
+          {{ $invoice->projectPaymentTerm->code }}
+          @if($invoice->projectPaymentTerm->label)
+            - {{ $invoice->projectPaymentTerm->label }}
+          @endif
+          ({{ rtrim(rtrim(number_format((float) $invoice->projectPaymentTerm->percent, 2, '.', ''), '0'), '.') }}%)
+        @else
+          -
+        @endif
+      </td>
+    </tr>
+  @endif
 </table>
 
 <table class="items">

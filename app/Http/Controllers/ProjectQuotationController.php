@@ -697,10 +697,18 @@ class ProjectQuotationController extends Controller
             return back()->with('warning', 'Status sudah final.');
         }
 
-        $quotation->update([
-            'status' => ProjectQuotation::STATUS_WON,
-            'won_at' => now(),
-        ]);
+        DB::transaction(function () use ($project, $quotation) {
+            $quotation->update([
+                'status' => ProjectQuotation::STATUS_WON,
+                'won_at' => now(),
+            ]);
+
+            if ($project->status === 'draft') {
+                $project->update([
+                    'status' => 'active',
+                ]);
+            }
+        });
 
         return back()->with('success', 'BQ ditandai sebagai won.');
     }
