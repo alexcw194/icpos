@@ -42,6 +42,8 @@
   $netProfit = (float) ($commissionSummary['net_profit'] ?? ($grossProfit - $commissionTotal));
   $isSalesReadOnly = (auth()->user()?->hasRole('Sales') ?? false)
     && !(auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin', 'Finance', 'SalesManager']) ?? false);
+  $canSeeProfitMetrics = auth()->user()?->hasAnyRole(['Admin', 'SuperAdmin']) ?? false;
+  $totalCommissionColClass = $canSeeProfitMetrics ? 'col-md-2' : 'col-md-6';
   $projectBillingComposition = $projectBillingComposition ?? [
     'material_total' => 0.0,
     'labor_total' => 0.0,
@@ -229,23 +231,25 @@
                 {{ $o->under_paid_at ? ('Paid: ' . $o->under_paid_at->format('d-m-Y')) : 'Belum dibayar' }}
               </div>
             </div>
-            <div class="col-md-2">
+            <div class="{{ $totalCommissionColClass }}">
               <div class="text-muted">Total Komisi</div>
               <div class="fw-semibold">{{ number_format($commissionTotal, 2, ',', '.') }}</div>
             </div>
-            <div class="col-md-2">
-              <div class="text-muted">Gross Margin</div>
-              <div class="fw-semibold {{ $grossProfit < 0 ? 'text-danger' : 'text-success' }}">
-                {{ number_format($grossProfit, 2, ',', '.') }}
+            @if($canSeeProfitMetrics)
+              <div class="col-md-2">
+                <div class="text-muted">Gross Margin</div>
+                <div class="fw-semibold {{ $grossProfit < 0 ? 'text-danger' : 'text-success' }}">
+                  {{ number_format($grossProfit, 2, ',', '.') }}
+                </div>
               </div>
-            </div>
-            <div class="col-md-2">
-              <div class="text-muted">Net Income</div>
-              <div class="fw-bold {{ $netProfit < 0 ? 'text-danger' : 'text-success' }}">
-                {{ number_format($netProfit, 2, ',', '.') }}
+              <div class="col-md-2">
+                <div class="text-muted">Net Income</div>
+                <div class="fw-bold {{ $netProfit < 0 ? 'text-danger' : 'text-success' }}">
+                  {{ number_format($netProfit, 2, ',', '.') }}
+                </div>
               </div>
-            </div>
-            @if(($commissionSummary['missing_cost_lines'] ?? 0) > 0)
+            @endif
+            @if($canSeeProfitMetrics && ($commissionSummary['missing_cost_lines'] ?? 0) > 0)
               <div class="col-12">
                 <div class="text-muted small">
                   Ada {{ number_format((int) ($commissionSummary['missing_cost_lines'] ?? 0), 0, ',', '.') }} line tanpa cost; gross/net memakai cost yang tersedia.
