@@ -53,8 +53,8 @@
         <div class="col-md-4">
           <label class="form-label">Customer <span class="text-danger">*</span></label>
           <input id="customerPicker" type="text" class="form-control" placeholder="Ketik nama perusahaan/kontak…">
-          <input type="hidden" name="customer_id" id="customer_id" value="{{ old('customer_id') }}">
-          <input type="hidden" name="contact_id"  id="contact_id"  value="{{ old('contact_id') }}">
+          <input type="hidden" name="customer_id" id="customer_id" value="{{ old('customer_id', $currentCustomerPreset['customer_id'] ?? '') }}">
+          <input type="hidden" name="contact_id"  id="contact_id"  value="{{ old('contact_id', $currentCustomerPreset['contact_id'] ?? '') }}">
           <small class="form-hint">Contoh: <em>Ersindo</em> atau <em>Ruru</em>.</small>
         </div>
 
@@ -298,6 +298,7 @@
   })->values();
 
   $CUSTOMER_SEARCH_URL = route('customers.search', [], false);
+  $CURRENT_CUSTOMER = $currentCustomerPreset ?? null;
 @endphp
 
 {{-- TEMPLATE ROW --}}
@@ -748,7 +749,7 @@
   const vTaxAmt          = document.getElementById('v_tax_amount');
   const vTotal           = document.getElementById('v_total');
 
-  /* ===== Customer TomSelect (remote) ===== */
+  /* ===== Customer TomSelect (remote + PRESET) ===== */
   const SEARCH_URL = {!! json_encode($CUSTOMER_SEARCH_URL, JSON_UNESCAPED_SLASHES) !!};
   (function initCustomerTS(){
     const input = document.getElementById('customerPicker');
@@ -757,7 +758,7 @@
     const hidCustomer = document.getElementById('customer_id');
     const hidContact  = document.getElementById('contact_id');
 
-    new TomSelect(input, {
+    const picker = new TomSelect(input, {
       valueField : 'uid',
       labelField : 'label',
       searchField: ['name','label'],
@@ -783,6 +784,15 @@
         this.close();
       }
     });
+
+    const PRESET = @json($CURRENT_CUSTOMER);
+    if (PRESET && PRESET.customer_id) {
+      picker.addOption(PRESET);
+      picker.addItem(PRESET.uid, true);
+      picker.setTextboxValue(PRESET.label);
+      hidCustomer.value = PRESET.customer_id;
+      hidContact.value  = PRESET.contact_id || '';
+    }
   })();
 
   /* ===== Item TomSelect (satu kotak di staging) ===== */

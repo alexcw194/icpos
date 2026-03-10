@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Quotation, QuotationLine, Customer, Item, ItemVariant, Company, User};
+use App\Models\{Quotation, QuotationLine, Customer, Contact, Item, ItemVariant, Company, User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
@@ -119,8 +119,52 @@ class QuotationController extends Controller
         $defaultSalesUserId  = auth()->id();
         $defaultDiscountMode = 'total';
 
+        $currentCustomerPreset = null;
+        $selectedCustomerId = (int) session()->getOldInput('customer_id', request()->query('customer_id', 0));
+        if ($selectedCustomerId > 0) {
+            $customer = Customer::query()
+                ->visibleTo(auth()->user())
+                ->whereKey($selectedCustomerId)
+                ->first();
+
+            if ($customer) {
+                $requestedContactId = (int) session()->getOldInput('contact_id', request()->query('contact_id', 0));
+                $contact = null;
+                if ($requestedContactId > 0) {
+                    $contact = Contact::query()
+                        ->where('customer_id', $customer->id)
+                        ->whereKey($requestedContactId)
+                        ->first();
+                }
+                if (!$contact) {
+                    $contact = Contact::query()
+                        ->where('customer_id', $customer->id)
+                        ->orderBy('first_name')
+                        ->orderBy('last_name')
+                        ->orderBy('id')
+                        ->first();
+                }
+
+                $currentCustomerPreset = [
+                    'uid'         => $contact ? ('contact-'.$contact->id) : ('customer-'.$customer->id),
+                    'customer_id' => $customer->id,
+                    'contact_id'  => $contact?->id,
+                    'label'       => $contact ? ($customer->name.' ('.$contact->name.')') : $customer->name,
+                    'name'        => $customer->name,
+                    'type'        => $contact ? 'contact' : 'customer',
+                ];
+            }
+        }
+
         return view('quotations.create', compact(
-            'customers','items','companies','defaultCompanyId','sales','defaultSalesUserId','defaultDiscountMode'
+            'customers',
+            'items',
+            'companies',
+            'defaultCompanyId',
+            'sales',
+            'defaultSalesUserId',
+            'defaultDiscountMode',
+            'currentCustomerPreset'
         ));
     }
 
