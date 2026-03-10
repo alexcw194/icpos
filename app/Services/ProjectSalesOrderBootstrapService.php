@@ -152,6 +152,8 @@ class ProjectSalesOrderBootstrapService
         } elseif ($previousQuotationId !== (int) $quotation->id) {
             $this->syncProjectBaselineFromRevision($salesOrder, $quotation);
         }
+
+        $this->healOperationalComponentsFromBaseline($salesOrder, $quotation);
     }
 
     /**
@@ -356,5 +358,110 @@ class ProjectSalesOrderBootstrapService
                 'baseline_line_total' => $snapshot['line_total'],
             ]);
         }
+    }
+
+    private function healOperationalComponentsFromBaseline(SalesOrder $salesOrder, ProjectQuotation $quotation): void
+    {
+        $quotation->loadMissing([
+            'sections.lines' => fn ($query) => $query->orderBy('id'),
+        ]);
+        $salesOrder->loadMissing('lines');
+
+        $lineById = [];
+        $lineByKey = [];
+        $duplicateKeys = [];
+        foreach ($quotation->sections as $section) {
+            foreach ($section->lines as $line) {
+                $lineById[(int) $line->id] = $line;
+                $lineKey = $this->normalizeScopeLineKey((string) ($line->description ?? $line->item_label ?? ''));
+                if ($lineKey !== '') {
+                    if (isset($lineByKey[$lineKey])) {
+                        $duplicateKeys[$lineKey] = true;
+                    } else {
+                        $lineByKey[$lineKey] = $line;
+                    }
+                }
+            }
+        }
+        foreach (array_keys($duplicateKeys) as $dupKey) {
+            unset($lineByKey[$dupKey]);
+        }
+
+        $updatedAny = false;
+        foreach ($salesOrder->lines as $salesLine) {
+            $currentMaterial = max((float) ($salesLine->material_total ?? 0), 0);
+            $currentLabor = max((float) ($salesLine->labor_total ?? 0), 0);
+            if (($currentMaterial + $currentLabor) > 0) {
+                continue;
+            }
+
+            $targetMaterial = max((float) ($salesLine->baseline_material_total ?? 0), 0);
+            $targetLabor = max((float) ($salesLine->baseline_labor_total ?? 0), 0);
+
+            if (($targetMaterial + $targetLabor) <= 0) {
+                $baselineLineId = (int) ($salesLine->baseline_project_quotation_line_id ?? 0);
+                if ($baselineLineId > 0 && isset($lineById[$baselineLineId])) {
+                    $snapshot = $this->buildLineSnapshot($lineById[$baselineLineId]);
+                    $targetMaterial = max((float) ($snapshot['material_total'] ?? 0), 0);
+                    $targetLabor = max((float) ($snapshot['labor_total'] ?? 0), 0);
+                }
+            }
+            if (($targetMaterial + $targetLabor) <= 0) {
+                $lineKey = $this->normalizeScopeLineKey((string) ($salesLine->name ?: $salesLine->description ?: ''));
+                if ($lineKey !== '' && isset($lineByKey[$lineKey])) {
+                    $snapshot = $this->buildLineSnapshot($lineByKey[$lineKey]);
+                    $targetMaterial = max((float) ($snapshot['material_total'] ?? 0), 0);
+                    $targetLabor = max((float) ($snapshot['labor_total'] ?? 0), 0);
+                }
+            }
+
+            $lineSub = round($targetMaterial + $targetLabor, 2);
+            if ($lineSub <= 0) {
+                continue;
+            }
+
+            $qty = max((float) ($salesLine->qty_ordered ?? 0), 0);
+            $unitPrice = $qty > 0 ? round($lineSub / $qty, 2) : $lineSub;
+            $discountAmount = min(max((float) ($salesLine->discount_amount ?? 0), 0), $lineSub);
+            $lineTotal = round(max($lineSub - $discountAmount, 0), 2);
+
+            $salesLine->update([
+                'material_total' => $targetMaterial,
+                'labor_total' => $targetLabor,
+                'unit_price' => $unitPrice,
+                'line_subtotal' => $lineSub,
+                'line_total' => $lineTotal,
+            ]);
+            $updatedAny = true;
+        }
+
+        if (!$updatedAny) {
+            return;
+        }
+
+        $salesOrder->refresh();
+        $lineSubtotal = (float) $salesOrder->lines()->sum('line_total');
+        $totalDiscountAmount = (float) ($salesOrder->total_discount_amount ?? 0);
+        $taxableBase = max($lineSubtotal - $totalDiscountAmount, 0);
+        $taxPercent = max((float) ($salesOrder->tax_percent ?? 0), 0);
+        $taxAmount = round($taxableBase * ($taxPercent / 100), 2);
+        $total = round($taxableBase + $taxAmount, 2);
+
+        $salesOrder->update([
+            'lines_subtotal' => round($lineSubtotal, 2),
+            'taxable_base' => round($taxableBase, 2),
+            'tax_amount' => $taxAmount,
+            'total' => $total,
+        ]);
+    }
+
+    private function normalizeScopeLineKey(string $value): string
+    {
+        $value = strtolower(trim($value));
+        if ($value === '') {
+            return '';
+        }
+
+        return preg_replace('/\s+/', ' ', $value) ?? '';
     }
 }

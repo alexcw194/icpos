@@ -526,15 +526,27 @@
   }
 
   $ITEM_OPTIONS = $ITEM_OPTIONS->values();
-  // ⬇️ map id → label untuk fallback nama di kolom Item
+  // map id -> label untuk fallback nama di kolom Item
   $ITEM_LABELS = ($items ?? collect())->pluck('name','id');
+  $isProjectPo = (($so->po_type ?? 'goods') === 'project');
 
   // PRELOAD defensif
-  $PRELOAD = ($lines ?? collect())->map(function($ln){
+  $PRELOAD = ($lines ?? collect())->map(function($ln) use ($isProjectPo){
     $qty   = $ln->qty_ordered ?? $ln->qty ?? $ln->quantity ?? 0;
     $price = $ln->unit_price ?? $ln->price ?? 0;
     $discT = $ln->discount_type ?? $ln->disc_type ?? 'amount';
     $discV = $ln->discount_value ?? $ln->disc_value ?? 0;
+    $materialTotal = (float) ($ln->material_total ?? 0);
+    $laborTotal = (float) ($ln->labor_total ?? 0);
+
+    if ($isProjectPo && ($materialTotal + $laborTotal) <= 0) {
+      $baselineMaterial = (float) ($ln->baseline_material_total ?? 0);
+      $baselineLabor = (float) ($ln->baseline_labor_total ?? 0);
+      if (($baselineMaterial + $baselineLabor) > 0) {
+        $materialTotal = $baselineMaterial;
+        $laborTotal = $baselineLabor;
+      }
+    }
 
     if ((float)$qty <= 0) { $qty = 1; }
 
@@ -547,8 +559,8 @@
       'qty'             => (float) $qty,
       'unit'            => $ln->unit ?? 'pcs',
       'unit_price'      => (float) $price,
-      'material_total'  => (float) ($ln->material_total ?? 0),
-      'labor_total'     => (float) ($ln->labor_total ?? 0),
+      'material_total'  => $materialTotal,
+      'labor_total'     => $laborTotal,
       'discount_type'   => $discT,
       'discount_value'  => (float) $discV,
     ];

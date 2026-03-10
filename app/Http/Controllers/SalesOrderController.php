@@ -260,26 +260,6 @@ class SalesOrderController extends Controller
                 ->withInput();
         }
 
-        $previousProjectBillingMode = (string) ($salesOrder->project_billing_mode ?: SalesOrder::PROJECT_BILLING_MODE_COMBINED);
-        if (
-            $poType === 'project'
-            && $previousProjectBillingMode !== $projectBillingMode
-        ) {
-            $hasIssuedOrDraftBilling = BillingDocument::query()
-                ->where('sales_order_id', $salesOrder->id)
-                ->where('status', '!=', 'void')
-                ->exists();
-            $hasInvoice = \App\Models\Invoice::query()
-                ->where('sales_order_id', $salesOrder->id)
-                ->exists();
-
-            if ($hasIssuedOrDraftBilling || $hasInvoice) {
-                return back()
-                    ->withErrors(['project_billing_mode' => 'Project billing mode tidak bisa diubah karena billing/invoice sudah ada.'])
-                    ->withInput();
-            }
-        }
-
         if ($isScope) {
             $mode = 'total';
             $data['discount_mode'] = 'total';
@@ -765,6 +745,26 @@ class SalesOrderController extends Controller
                 ->withInput();
         }
 
+        $previousProjectBillingMode = (string) ($salesOrder->project_billing_mode ?: SalesOrder::PROJECT_BILLING_MODE_COMBINED);
+        if (
+            $poType === 'project'
+            && $previousProjectBillingMode !== $projectBillingMode
+        ) {
+            $hasIssuedOrDraftBilling = BillingDocument::query()
+                ->where('sales_order_id', $salesOrder->id)
+                ->where('status', '!=', 'void')
+                ->exists();
+            $hasInvoice = \App\Models\Invoice::query()
+                ->where('sales_order_id', $salesOrder->id)
+                ->exists();
+
+            if ($hasIssuedOrDraftBilling || $hasInvoice) {
+                return back()
+                    ->withErrors(['project_billing_mode' => 'Project billing mode tidak bisa diubah karena billing/invoice sudah ada.'])
+                    ->withInput();
+            }
+        }
+
         if ($isScope) {
             $mode = 'total';
             $data['discount_mode'] = 'total';
@@ -775,6 +775,11 @@ class SalesOrderController extends Controller
         $sub = 0; $perLineDc = 0;
         $cleanLines = [];
         foreach ($data['lines'] as $i => $ln) {
+            $existingLine = null;
+            if (!empty($ln['id'])) {
+                $existingLine = $salesOrder->lines->firstWhere('id', (int) $ln['id']);
+            }
+
             $qty = max($parse($ln['qty'] ?? 0), 0);
             $inputPrice = max($parse($ln['unit_price'] ?? 0), 0);
             $materialTotal = $isProjectPo ? max($parse($ln['material_total'] ?? 0), 0) : 0.0;
@@ -783,9 +788,24 @@ class SalesOrderController extends Controller
             if ($isProjectPo) {
                 $lineSub = round($materialTotal + $laborTotal, 2);
                 if ($lineSub <= 0) {
-                    $lineSub = round($qty * $inputPrice, 2);
-                    $materialTotal = $lineSub;
-                    $laborTotal = 0.0;
+                    $existingMaterial = max((float) ($existingLine->material_total ?? 0), 0);
+                    $existingLabor = max((float) ($existingLine->labor_total ?? 0), 0);
+                    $baselineMaterial = max((float) ($existingLine->baseline_material_total ?? 0), 0);
+                    $baselineLabor = max((float) ($existingLine->baseline_labor_total ?? 0), 0);
+
+                    if (($existingMaterial + $existingLabor) > 0) {
+                        $materialTotal = $existingMaterial;
+                        $laborTotal = $existingLabor;
+                        $lineSub = round($materialTotal + $laborTotal, 2);
+                    } elseif (($baselineMaterial + $baselineLabor) > 0) {
+                        $materialTotal = $baselineMaterial;
+                        $laborTotal = $baselineLabor;
+                        $lineSub = round($materialTotal + $laborTotal, 2);
+                    } else {
+                        $lineSub = round($qty * $inputPrice, 2);
+                        $materialTotal = $lineSub;
+                        $laborTotal = 0.0;
+                    }
                 }
                 $price = $qty > 0 ? round($lineSub / $qty, 2) : $lineSub;
             } else {
