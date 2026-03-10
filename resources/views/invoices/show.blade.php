@@ -85,7 +85,7 @@
       <div class="row g-3">
         <div class="col-md-3">
           <div class="text-muted">Company</div>
-          <div class="fw-semibold">{{ $invoice->company->alias ?? $invoice->company->name }}</div>
+          <div class="fw-semibold">{{ $invoice->company?->alias ?? $invoice->company?->name ?? '-' }}</div>
         </div>
         <div class="col-md-3">
           <div class="text-muted">Customer</div>
@@ -199,7 +199,7 @@
   @if($invoice->quotation)
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Lines (dari Quotation {{ $invoice->quotation->number }})</h3>
+        <h3 class="card-title">Lines (dari Quotation {{ $invoice->quotation->number ?? ('#'.$invoice->quotation->id) }})</h3>
       </div>
       <div class="table-responsive">
         <table class="table card-table">
@@ -212,7 +212,7 @@
           </tr>
           </thead>
           <tbody>
-          @foreach($invoice->quotation->items as $ln)
+          @foreach($invoice->quotation->lines as $ln)
             <tr>
               <td>{{ $ln->name }}</td>
               <td class="text-end">{{ $ln->qty }} {{ $ln->unit }}</td>
@@ -249,7 +249,7 @@
               <td>{{ $i + 1 }}</td>
               <td>{{ $ln->description }}</td>
               <td class="text-end">{{ number_format((float) $ln->qty, 2) }}</td>
-              <td>{{ strtoupper($ln->unit) }}</td>
+              <td>{{ strtoupper((string) ($ln->unit ?? '-')) }}</td>
               <td class="text-end">{{ number_format((float) $ln->unit_price, 2) }}</td>
               <td class="text-end">{{ number_format((float) $ln->discount_amount, 2) }}</td>
               <td class="text-end">{{ number_format((float) $ln->line_subtotal, 2) }}</td>

@@ -43,7 +43,7 @@ class InvoiceController extends Controller
         $invoice->load([
             'company',
             'customer',
-            'quotation.items',
+            'quotation.lines',
             'lines',
             'salesOrder',
             'billingTerm',
