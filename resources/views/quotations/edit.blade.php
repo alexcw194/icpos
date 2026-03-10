@@ -829,6 +829,7 @@
     if (!stageName || !window.TomSelect) return;
     const priceFmt = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const stockFmt = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const isMobileLayout = () => window.matchMedia('(max-width: 767.98px)').matches;
 
     const ts = new TomSelect(stageName, {
       valueField:'uid', labelField:'name', searchField:['name','sku'],
@@ -861,6 +862,9 @@
       render:{
         option(d,esc){
           const name = esc(d.name || '');
+          if (isMobileLayout()) {
+            return `<div class="text-truncate">${name}</div>`;
+          }
           const priceVal = Number(d.price ?? 0);
           const stockVal = Number(d.stock ?? 0);
           const priceText = `Rp ${priceFmt.format(Number.isFinite(priceVal) ? priceVal : 0)}`;
