@@ -311,8 +311,10 @@
             'void' => ['Void','bg-red-lt text-dark'],
           ];
           [$billingLabel, $billingClass] = $billingBadgeMap[$billingStatus] ?? ['—','bg-secondary-lt'];
-          $canIssueProforma = $billingDoc && !$billingDoc->isLocked() && $billingDoc->status !== 'void';
-          $canIssueInvoice = $canIssueProforma && (!$o->npwp_required || $o->npwp_status === 'ok');
+          $hasProforma = $billingDoc && !empty($billingDoc->pi_number);
+          $hasInvoice = $billingDoc && !empty($billingDoc->inv_number);
+          $canIssueProforma = $billingDoc && !$billingDoc->isLocked() && $billingDoc->status !== 'void' && !$hasProforma && !$hasInvoice;
+          $canIssueInvoice = $billingDoc && !$hasInvoice && $billingDoc->status !== 'void' && (!$o->npwp_required || $o->npwp_status === 'ok');
         @endphp
         <div class="card-header">
           <h3 class="card-title">Billing</h3>
@@ -338,7 +340,7 @@
                 </a>
               @endif
 
-              @if($billingDoc->status !== 'void' && !$billingDoc->locked_at)
+              @if(!$hasInvoice && $billingDoc->status !== 'void' && !$billingDoc->locked_at)
                 @if($canIssueInvoice)
                   <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalIssueInvoiceSo">
                     Issue Invoice
