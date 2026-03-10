@@ -19,15 +19,22 @@ use App\Models\{
 };
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use App\Services\DocNumberService;
 use App\Services\SalesCostAsOfDateService;
+use App\Services\SalesOrderExecutionVarianceService;
 use App\Http\Controllers\SalesOrderAttachmentController as SOAtt;
 
 class SalesOrderController extends Controller
 {
+    public function __construct(
+        private readonly SalesOrderExecutionVarianceService $executionVariance
+    ) {
+    }
+
     private const BILLING_DUE_TRIGGERS = [
         'on_invoice',
         'after_invoice_days',
@@ -166,6 +173,7 @@ class SalesOrderController extends Controller
             'customer_id'          => ['required','exists:customers,id'],
             'customer_po_number'   => ['nullable','string','max:100'],
             'customer_po_date'     => ['nullable','date'],
+            'customer_ref_type'    => ['nullable','in:po,spk'],
             'po_type'              => ['required','in:goods,project,maintenance'],
             'project_id'           => ['nullable','integer','exists:projects,id'],
             'project_name'         => ['nullable','string','max:255'],
@@ -221,9 +229,14 @@ class SalesOrderController extends Controller
         };
 
         // 2) Normalisasi input header
-        $isScope      = in_array(($data['po_type'] ?? 'goods'), ['project', 'maintenance'], true);
+        $poType       = (string) ($data['po_type'] ?? 'goods');
+        $isScope      = in_array($poType, ['project', 'maintenance'], true);
+        $disableInventoryLink = $poType === 'maintenance';
         $poNumber     = trim((string) ($data['customer_po_number'] ?? ''));
         $poNumber     = $poNumber !== '' ? $poNumber : null;
+        $customerRefType = in_array(($data['customer_ref_type'] ?? 'po'), ['po', 'spk'], true)
+            ? (string) $data['customer_ref_type']
+            : 'po';
         $mode         = $data['discount_mode'] ?? 'total';
         $tdType       = $data['total_discount_type'] ?? 'amount';
         $tdVal        = $toNum($data['total_discount_value'] ?? 0);
@@ -252,7 +265,7 @@ class SalesOrderController extends Controller
         $afterPerItem  = 0.0;
 
         $linesInput = collect($data['lines'] ?? [])->values();
-        $this->enforceVariantSelectionForLines($linesInput->all(), $isScope);
+        $this->enforceVariantSelectionForLines($linesInput->all(), $disableInventoryLink);
         foreach ($linesInput as $idx => $ln) {
             $qty   = max($toNum($ln['qty'] ?? 0), 0);
             $price = max($toNum($ln['unit_price'] ?? 0), 0);
@@ -276,8 +289,8 @@ class SalesOrderController extends Controller
 
             $computedLines[] = [
                 'position'        => $idx + 1,
-                'item_id'         => $isScope ? null : ($ln['item_id'] ?? null),
-                'item_variant_id' => $isScope ? null : ($ln['item_variant_id'] ?? null),
+                'item_id'         => $disableInventoryLink ? null : ($ln['item_id'] ?? null),
+                'item_variant_id' => $disableInventoryLink ? null : ($ln['item_variant_id'] ?? null),
                 'name'            => $ln['name'] ?? null,
                 'po_item_name'    => $ln['po_item_name'] ?? null,
                 'description'     => $ln['description'] ?? null,
@@ -289,6 +302,14 @@ class SalesOrderController extends Controller
                 'discount_amount' => $discAmt,
                 'line_subtotal'   => $lineSubtotal,
                 'line_total'      => $lineTotal,
+                'baseline_name' => $ln['name'] ?? null,
+                'baseline_description' => $ln['description'] ?? null,
+                'baseline_item_id' => $disableInventoryLink ? null : ($ln['item_id'] ?? null),
+                'baseline_item_variant_id' => $disableInventoryLink ? null : ($ln['item_variant_id'] ?? null),
+                'baseline_qty' => $qty,
+                'baseline_unit' => $ln['unit'] ?? null,
+                'baseline_unit_price' => $price,
+                'baseline_line_total' => $lineTotal,
             ];
 
             $afterPerItem += $lineTotal;
@@ -319,7 +340,7 @@ class SalesOrderController extends Controller
 
         /** @var \App\Models\SalesOrder $so */
         $so = null;
-        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, $mode, $poNumber, &$so) {
+        DB::transaction(function () use ($data, $company, $number, $salesUserId, $computedLines, $sub, $tdType, $tdVal, $totalDc, $dpp, $taxPct, $ppn, $grand, $projectId, $projectName, $billingTerms, $mode, $poNumber, $customerRefType, &$so) {
             $so = SalesOrder::create([
                 'company_id'          => $company->id,
                 'customer_id'         => $data['customer_id'],
@@ -329,10 +350,12 @@ class SalesOrderController extends Controller
                 'sales_user_id'       => $salesUserId, // ✅ JANGAN pakai $request di sini
                 'customer_po_number'  => $poNumber,
                 'customer_po_date'    => $data['customer_po_date'] ?? null,
+                'customer_ref_type'   => $customerRefType,
                 'po_type'             => $data['po_type'],
                 'payment_term_id'     => null,
                 'payment_term_snapshot' => null,
                 'project_id'          => $projectId,
+                'project_quotation_id'=> null,
                 'project_name'        => $projectName,
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
@@ -363,6 +386,14 @@ class SalesOrderController extends Controller
                     'line_total'       => $ln['line_total'],
                     'item_id'          => $ln['item_id'] ?? null,
                     'item_variant_id'  => $ln['item_variant_id'] ?? null,
+                    'baseline_name' => $ln['baseline_name'] ?? null,
+                    'baseline_description' => $ln['baseline_description'] ?? null,
+                    'baseline_item_id' => $ln['baseline_item_id'] ?? null,
+                    'baseline_item_variant_id' => $ln['baseline_item_variant_id'] ?? null,
+                    'baseline_qty' => $ln['baseline_qty'] ?? null,
+                    'baseline_unit' => $ln['baseline_unit'] ?? null,
+                    'baseline_unit_price' => $ln['baseline_unit_price'] ?? null,
+                    'baseline_line_total' => $ln['baseline_line_total'] ?? null,
                 ]);
             }
 
@@ -489,7 +520,17 @@ class SalesOrderController extends Controller
             'missing_cost_lines' => $missingCostLines,
         ];
 
-        return view('sales_orders.show', compact('salesOrder', 'billingDoc', 'commissionSummary'));
+        $execution = strtolower((string) ($salesOrder->po_type ?? 'goods')) === 'project'
+            ? $this->executionVariance->build($salesOrder)
+            : ['rows' => [], 'totals' => []];
+
+        return view('sales_orders.show', [
+            'salesOrder' => $salesOrder,
+            'billingDoc' => $billingDoc,
+            'commissionSummary' => $commissionSummary,
+            'executionRows' => $execution['rows'],
+            'executionTotals' => $execution['totals'],
+        ]);
     }
 
     /** Edit form (header + lines + attachments upload). */
@@ -594,6 +635,7 @@ class SalesOrderController extends Controller
         $data = $request->validate([
             'customer_po_number' => ['nullable','string','max:100'],
             'customer_po_date'   => ['nullable','date'],
+            'customer_ref_type'  => ['nullable','in:po,spk'],
             'po_type'            => ['required','in:goods,project,maintenance'],
             'project_id'         => ['nullable','integer','exists:projects,id'],
             'project_name'       => ['nullable','string','max:255'],
@@ -635,12 +677,18 @@ class SalesOrderController extends Controller
 
             // optional upload saat edit
             'attachments.*' => ['nullable','file','mimes:pdf,jpg,jpeg,png','max:5120'],
+            'attachment_category' => ['nullable','in:po_spk,agreement,other'],
         ]);
 
         // Hitung ulang totals
-        $isScope     = in_array(($data['po_type'] ?? 'goods'), ['project', 'maintenance'], true);
+        $poType      = (string) ($data['po_type'] ?? 'goods');
+        $isScope     = in_array($poType, ['project', 'maintenance'], true);
+        $disableInventoryLink = $poType === 'maintenance';
         $poNumber    = trim((string) ($data['customer_po_number'] ?? ''));
         $poNumber    = $poNumber !== '' ? $poNumber : null;
+        $customerRefType = in_array(($data['customer_ref_type'] ?? 'po'), ['po', 'spk'], true)
+            ? (string) $data['customer_ref_type']
+            : 'po';
         $mode        = $data['discount_mode'];
         $taxPctInput = $parse($data['tax_percent'] ?? 0);
         $taxPct      = ($company->is_taxable ?? false) ? $clamp($taxPctInput, 0, 100) : 0.0;
@@ -706,11 +754,19 @@ class SalesOrderController extends Controller
                 'line_subtotal'   => $lineSub,
                 'line_total'      => $lineTotal,
 
-                'item_id'         => $isScope ? null : ($ln['item_id'] ?? null),
-                'item_variant_id' => $isScope ? null : ($ln['item_variant_id'] ?? null),
+                'item_id'         => $disableInventoryLink ? null : ($ln['item_id'] ?? null),
+                'item_variant_id' => $disableInventoryLink ? null : ($ln['item_variant_id'] ?? null),
+                'baseline_name' => null,
+                'baseline_description' => null,
+                'baseline_item_id' => null,
+                'baseline_item_variant_id' => null,
+                'baseline_qty' => null,
+                'baseline_unit' => null,
+                'baseline_unit_price' => null,
+                'baseline_line_total' => null,
             ];
         }
-        $this->enforceVariantSelectionForLines($cleanLines, $isScope);
+        $this->enforceVariantSelectionForLines($cleanLines, $disableInventoryLink);
 
         $tdType  = $data['total_discount_type'] ?? 'amount';
         $tdValRaw= $parse($data['total_discount_value'] ?? 0);
@@ -731,6 +787,9 @@ class SalesOrderController extends Controller
         $dpp   = max($sub - $totalDc, 0);
         $ppn   = ($company->is_taxable ?? false) ? ($dpp * ($taxPct/100)) : 0;
         $grand = $dpp + $ppn;
+
+        $this->guardProjectLineRealization($salesOrder, $cleanLines, $poType);
+        $nextContractValue = $this->resolveContractValueOnUpdate($salesOrder, $poType, $grand);
 
         // Simpan header + sinkronisasi lines
         $existingTerms = $salesOrder->billingTerms()->get()->keyBy('top_code');
@@ -769,10 +828,11 @@ class SalesOrderController extends Controller
             }
         }
 
-        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$billingTerms,$existingTerms,$poNumber) {
+        DB::transaction(function () use ($salesOrder,$data,$mode,$sub,$tdType,$tdVal,$totalDc,$dpp,$taxPct,$ppn,$grand,$cleanLines,$projectId,$projectName,$billingTerms,$existingTerms,$poNumber,$customerRefType,$nextContractValue) {
             $salesOrder->update([
                 'customer_po_number'    => $poNumber,
                 'customer_po_date'      => $data['customer_po_date'] ?? null,
+                'customer_ref_type'     => $customerRefType,
                 'po_type'               => $data['po_type'],
                 'payment_term_id'       => null,
                 'payment_term_snapshot' => null,
@@ -793,7 +853,7 @@ class SalesOrderController extends Controller
                 'tax_percent'           => $taxPct,
                 'tax_amount'            => $ppn,
                 'total'                 => $grand,
-                'contract_value'        => $grand,
+                'contract_value'        => $nextContractValue,
                 'fee_amount'            => (float) ($data['fee_amount'] ?? 0),
                 'under_amount'          => (float) ($data['under_amount'] ?? 0),
             ]);
@@ -843,9 +903,30 @@ class SalesOrderController extends Controller
             foreach ($cleanLines as $ln) {
                 if (!empty($ln['id'])) {
                     $salesOrder->lines()->where('id', $ln['id'])
-                        ->update(collect($ln)->except('id')->toArray());
+                        ->update(collect($ln)->except(
+                            'id',
+                            'baseline_name',
+                            'baseline_description',
+                            'baseline_item_id',
+                            'baseline_item_variant_id',
+                            'baseline_qty',
+                            'baseline_unit',
+                            'baseline_unit_price',
+                            'baseline_line_total'
+                        )->toArray());
                 } else {
-                    $salesOrder->lines()->create(collect($ln)->except('id')->toArray());
+                    $newPayload = collect($ln)->except('id')->toArray();
+                    if (($data['po_type'] ?? 'goods') !== 'project') {
+                        $newPayload['baseline_name'] = $ln['name'] ?? null;
+                        $newPayload['baseline_description'] = $ln['description'] ?? null;
+                        $newPayload['baseline_item_id'] = $ln['item_id'] ?? null;
+                        $newPayload['baseline_item_variant_id'] = $ln['item_variant_id'] ?? null;
+                        $newPayload['baseline_qty'] = $ln['qty_ordered'] ?? null;
+                        $newPayload['baseline_unit'] = $ln['unit'] ?? null;
+                        $newPayload['baseline_unit_price'] = $ln['unit_price'] ?? null;
+                        $newPayload['baseline_line_total'] = $ln['line_total'] ?? null;
+                    }
+                    $salesOrder->lines()->create($newPayload);
                 }
             }
         });
@@ -853,6 +934,7 @@ class SalesOrderController extends Controller
         // Upload attachments (opsional, saat edit)
         if ($request->hasFile('attachments')) {
             $this->authorize('uploadAttachment', $salesOrder);
+            $attachmentCategory = (string) $request->input('attachment_category', 'other');
             foreach ($request->file('attachments') as $file) {
                 if (!$file) continue;
                 $path = $file->store("sales_orders/{$salesOrder->id}", 'public');
@@ -860,6 +942,7 @@ class SalesOrderController extends Controller
                     'disk'          => 'public',
                     'path'          => $path,
                     'original_name' => $file->getClientOriginalName(),
+                    'category'      => $attachmentCategory,
                     'mime'          => $file->getClientMimeType(),
                     'size'          => $file->getSize(),
                     'uploaded_by'   => auth()->id(),
@@ -961,8 +1044,10 @@ class SalesOrderController extends Controller
 
         $request->validate([
             'attachments.*' => ['required','file','mimes:pdf,jpg,jpeg,png','max:5120'],
+            'category' => ['nullable','in:po_spk,agreement,other'],
         ]);
 
+        $category = $request->input('category', 'other');
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
                 if (!$file) continue;
@@ -971,6 +1056,7 @@ class SalesOrderController extends Controller
                     'disk'          => 'public',
                     'path'          => $path,
                     'original_name' => $file->getClientOriginalName(),
+                    'category'      => $category,
                     'mime'          => $file->getClientMimeType(),
                     'size'          => $file->getSize(),
                     'uploaded_by'   => auth()->id(),
@@ -1012,6 +1098,7 @@ class SalesOrderController extends Controller
         $data = $request->validate([
             'po_number'      => ['nullable','string','max:100'],
             'po_date'        => ['nullable','date'],
+            'customer_ref_type' => ['nullable','in:po,spk'],
             'po_type'        => ['required','in:goods,project,maintenance'],
             'project_id'     => ['nullable','integer','exists:projects,id'],
             'project_name'   => ['nullable','string','max:255'],
@@ -1044,6 +1131,9 @@ class SalesOrderController extends Controller
         $under        = $this->toNumber($data['under_amount'] ?? 0);
         $poNumber     = trim((string) ($data['po_number'] ?? ''));
         $poNumber     = $poNumber !== '' ? $poNumber : null;
+        $customerRefType = in_array(($data['customer_ref_type'] ?? 'po'), ['po', 'spk'], true)
+            ? (string) $data['customer_ref_type']
+            : 'po';
         $taxPctInput  = $this->toNumber($data['tax_percent'] ?? ($quotation->tax_percent ?? 0));
         $discountMode = $data['discount_mode'] ?? ($quotation->discount_mode ?? 'total');
         $company      = $quotation->company()->firstOrFail();
@@ -1052,7 +1142,9 @@ class SalesOrderController extends Controller
         $projectId    = !empty($data['project_id']) ? (int) $data['project_id'] : null;
         $projectName  = trim((string) ($data['project_name'] ?? ''));
         $projectName  = $projectName !== '' ? $projectName : null;
-        $isScope      = in_array(($data['po_type'] ?? 'goods'), ['project', 'maintenance'], true);
+        $poType       = (string) ($data['po_type'] ?? 'goods');
+        $isScope      = in_array($poType, ['project', 'maintenance'], true);
+        $disableInventoryLink = $poType === 'maintenance';
 
         if (($data['po_type'] ?? 'goods') === 'project' && !$projectId && !$projectName) {
             return back()
@@ -1072,7 +1164,7 @@ class SalesOrderController extends Controller
             ])
             ->values()
             ->all();
-        $this->enforceVariantSelectionForLines($quotationLinesForValidation, $isScope);
+        $this->enforceVariantSelectionForLines($quotationLinesForValidation, $disableInventoryLink);
 
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
 
@@ -1081,7 +1173,7 @@ class SalesOrderController extends Controller
             ?: ($quotation->sales_user_id ?: auth()->id());
 
         /** @var SalesOrder $so */
-        $so = DB::transaction(function() use ($quotation, $company, $data, $fee, $under, $poNumber, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms, $isScope) {
+        $so = DB::transaction(function() use ($quotation, $company, $data, $fee, $under, $poNumber, $customerRefType, $discountMode, $taxPct, $isTaxable, $salesUserId, $projectId, $projectName, $billingTerms, $disableInventoryLink) {
 
             // Nomor SO
             $number = app(DocNumberService::class)->next('sales_order', $company, now());
@@ -1098,10 +1190,12 @@ class SalesOrderController extends Controller
 
                 'customer_po_number'  => $poNumber,
                 'customer_po_date'    => $data['po_date'] ?? null,
+                'customer_ref_type'   => $customerRefType,
                 'po_type'             => $data['po_type'],
                 'payment_term_id'     => null,
                 'payment_term_snapshot' => null,
                 'project_id'          => $projectId,
+                'project_quotation_id'=> null,
                 'project_name'        => $projectName,
                 'ship_to'             => $data['ship_to'] ?? null,
                 'bill_to'             => $data['bill_to'] ?? null,
@@ -1125,7 +1219,7 @@ class SalesOrderController extends Controller
 
                 $discType  = $discountMode === 'per_item' ? ($ql->discount_type ?? 'amount') : 'amount';
                 $discValue = $discountMode === 'per_item' ? (float)($ql->discount_value ?? 0) : 0.0;
-                if ($isScope) {
+                if ($disableInventoryLink) {
                     $discType = 'amount';
                     $discValue = 0.0;
                 }
@@ -1153,8 +1247,17 @@ class SalesOrderController extends Controller
                     'discount_amount'  => $lineDcAmt,
                     'line_subtotal'    => $lineSub,
                     'line_total'       => $lineTotal,
-                    'item_id'          => $isScope ? null : ($ql->item_id ?? null),
-                    'item_variant_id'  => $isScope ? null : ($ql->item_variant_id ?? $ql->variant_id ?? null),
+                    'item_id'          => $disableInventoryLink ? null : ($ql->item_id ?? null),
+                    'item_variant_id'  => $disableInventoryLink ? null : ($ql->item_variant_id ?? $ql->variant_id ?? null),
+                    'baseline_project_quotation_line_id' => null,
+                    'baseline_name' => $ql->name,
+                    'baseline_description' => $ql->description,
+                    'baseline_item_id' => $disableInventoryLink ? null : ($ql->item_id ?? null),
+                    'baseline_item_variant_id' => $disableInventoryLink ? null : ($ql->item_variant_id ?? $ql->variant_id ?? null),
+                    'baseline_qty' => $qty,
+                    'baseline_unit' => $ql->unit ?? $ql->unit_name ?? 'PCS',
+                    'baseline_unit_price' => $unitPrice,
+                    'baseline_line_total' => $lineTotal,
                 ]);
 
                 $linesSubtotal += $lineTotal;
@@ -1503,6 +1606,111 @@ class SalesOrderController extends Controller
             return true;
         }
         return in_array($poType, $applies, true);
+    }
+
+    private function resolveContractValueOnUpdate(SalesOrder $salesOrder, string $incomingPoType, float $nextGrand): float
+    {
+        $incomingPoType = strtolower(trim($incomingPoType));
+        $currentPoType = strtolower((string) ($salesOrder->po_type ?? 'goods'));
+        $isProjectContext = $incomingPoType === 'project' || $currentPoType === 'project';
+
+        if (!$isProjectContext) {
+            return $nextGrand;
+        }
+
+        $currentContract = (float) ($salesOrder->contract_value ?? 0);
+        if ($currentContract > 0) {
+            return $currentContract;
+        }
+
+        $currentTotal = (float) ($salesOrder->total ?? 0);
+        if ($currentTotal > 0) {
+            return $currentTotal;
+        }
+
+        return $nextGrand;
+    }
+
+    private function guardProjectLineRealization(SalesOrder $salesOrder, array $incomingLines, string $incomingPoType): void
+    {
+        $incomingPoType = strtolower(trim($incomingPoType));
+        $currentPoType = strtolower((string) ($salesOrder->po_type ?? 'goods'));
+        if ($incomingPoType !== 'project' && $currentPoType !== 'project') {
+            return;
+        }
+
+        $salesOrder->loadMissing('lines:id,sales_order_id,name,qty_ordered,qty_delivered');
+        if ($salesOrder->lines->isEmpty()) {
+            return;
+        }
+
+        $existingLineIds = $salesOrder->lines
+            ->pluck('id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $poStats = [];
+        if (
+            !empty($existingLineIds)
+            && Schema::hasTable('purchase_order_lines')
+            && Schema::hasColumn('purchase_order_lines', 'sales_order_line_id')
+        ) {
+            $poStats = DB::table('purchase_order_lines')
+                ->selectRaw('sales_order_line_id, SUM(COALESCE(qty_ordered,0)) as po_ordered_qty, SUM(COALESCE(qty_received,0)) as gr_received_qty')
+                ->whereIn('sales_order_line_id', $existingLineIds)
+                ->groupBy('sales_order_line_id')
+                ->get()
+                ->keyBy(fn ($row) => (int) $row->sales_order_line_id)
+                ->all();
+        }
+
+        $incomingById = collect($incomingLines)
+            ->filter(fn ($line) => !empty($line['id']))
+            ->mapWithKeys(function ($line) {
+                $id = (int) ($line['id'] ?? 0);
+                if ($id <= 0) {
+                    return [];
+                }
+                return [$id => $line];
+            });
+
+        foreach ($salesOrder->lines as $line) {
+            $lineId = (int) $line->id;
+            $stats = $poStats[$lineId] ?? null;
+
+            $poOrdered = (float) ($stats->po_ordered_qty ?? 0);
+            $grReceived = (float) ($stats->gr_received_qty ?? 0);
+            $delivered = (float) ($line->qty_delivered ?? 0);
+            $realizedFloor = max($poOrdered, $grReceived, $delivered);
+
+            if ($realizedFloor <= 0.0001) {
+                continue;
+            }
+
+            $lineName = trim((string) ($line->name ?? 'Line #'.$lineId));
+            $incoming = $incomingById->get($lineId);
+
+            if (!$incoming) {
+                throw ValidationException::withMessages([
+                    'lines' => "Line '{$lineName}' tidak bisa dihapus karena sudah ada realisasi PO/GR/Delivery.",
+                ]);
+            }
+
+            $nextQty = (float) ($incoming['qty_ordered'] ?? 0);
+            if ($nextQty + 0.0001 < $realizedFloor) {
+                $position = (int) ($incoming['position'] ?? 0);
+                $errorKey = 'lines';
+                if ($position >= 0) {
+                    $errorKey = "lines.{$position}.qty";
+                }
+
+                throw ValidationException::withMessages([
+                    $errorKey => "Qty line '{$lineName}' tidak boleh kurang dari realisasi ({$realizedFloor}).",
+                ]);
+            }
+        }
     }
 
 }

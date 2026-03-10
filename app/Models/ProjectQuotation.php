@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ProjectQuotation extends Model
 {
@@ -97,6 +98,11 @@ class ProjectQuotation extends Model
     public function lines(): HasManyThrough
     {
         return $this->hasManyThrough(ProjectQuotationLine::class, ProjectQuotationSection::class, 'project_quotation_id', 'section_id');
+    }
+
+    public function salesOrder(): HasOne
+    {
+        return $this->hasOne(SalesOrder::class, 'project_quotation_id');
     }
 
     public function isLocked(): bool

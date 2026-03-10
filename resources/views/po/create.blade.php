@@ -88,6 +88,7 @@
                   <input type="text" class="form-control po-item-search" placeholder="Cari item..." autocomplete="off">
                   <input type="hidden" name="lines[0][item_id]" class="po-item-id">
                   <input type="hidden" name="lines[0][item_variant_id]" class="po-variant-id">
+                  <input type="hidden" name="lines[0][sales_order_line_id]" class="po-so-line-id">
                 </td>
                 <td><input type="number" name="lines[0][qty_ordered]" class="form-control text-end po-qty" step="0.0001" min="0" required></td>
                 <td><input type="text" name="lines[0][uom]" class="form-control po-uom" value="PCS"></td>
@@ -413,6 +414,7 @@ function addLine() {
       <input type="text" class="form-control po-item-search" placeholder="Cari item..." autocomplete="off">
       <input type="hidden" name="lines[${lineIdx}][item_id]" class="po-item-id">
       <input type="hidden" name="lines[${lineIdx}][item_variant_id]" class="po-variant-id">
+      <input type="hidden" name="lines[${lineIdx}][sales_order_line_id]" class="po-so-line-id">
     </td>
     <td><input type="number" name="lines[${lineIdx}][qty_ordered]" class="form-control text-end po-qty" step="0.0001" min="0" required></td>
     <td><input type="text" name="lines[${lineIdx}][uom]" class="form-control po-uom" value="PCS"></td>

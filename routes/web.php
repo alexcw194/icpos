@@ -154,9 +154,9 @@ Route::get('project-items/{item}', [ItemController::class, 'show'])
         ->name('projects.active.index');
     Route::get('projects-active/{project}', [ProjectActiveController::class, 'show'])
         ->name('projects.active.show');
-    Route::post('projects/{project}/active/payment-terms/{term}/create-invoice', [ProjectActiveController::class, 'createInvoiceFromTerm'])
+    Route::post('projects/{project}/active/billing-terms/{term}/create-draft', [ProjectActiveController::class, 'createBillingDraftFromTerm'])
         ->whereNumber('term')
-        ->name('projects.active.payment-terms.create-invoice');
+        ->name('projects.active.billing-terms.create-draft');
     Route::get('projects/labor', [ProjectLaborController::class, 'index'])->name('projects.labor.index');
     Route::post('projects/labor/default-sub-contractor', [ProjectLaborController::class, 'setDefaultSubContractor'])
         ->name('projects.labor.default-sub-contractor');

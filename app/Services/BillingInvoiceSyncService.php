@@ -22,6 +22,7 @@ class BillingInvoiceSyncService
      *   posted_at?: \DateTimeInterface|string|null,
      *   sync_lines?: bool,
      *   preserve_paid?: bool,
+     *   so_billing_term_id?: int|null,
      * } $options
      */
     public function sync(BillingDocument $billing, array $options = []): Invoice
@@ -48,6 +49,7 @@ class BillingInvoiceSyncService
             'customer_id' => $billing->customer_id,
             'quotation_id' => $billing->salesOrder?->quotation_id,
             'sales_order_id' => $billing->sales_order_id,
+            'so_billing_term_id' => $options['so_billing_term_id'] ?? $billing->so_billing_term_id,
             'number' => $invoiceNumber,
             'date' => $issueDate->toDateString(),
             'status' => 'posted',

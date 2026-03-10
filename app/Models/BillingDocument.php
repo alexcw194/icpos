@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class BillingDocument extends Model
 {
     protected $fillable = [
-        'sales_order_id','company_id','customer_id',
+        'sales_order_id','so_billing_term_id','company_id','customer_id',
         'status','mode',
         'pi_number','pi_revision','pi_issued_at',
         'inv_number','invoice_date','issued_at','locked_at','ar_posted_at',
@@ -37,6 +37,11 @@ class BillingDocument extends Model
     public function salesOrder(): BelongsTo
     {
         return $this->belongsTo(SalesOrder::class);
+    }
+
+    public function billingTerm(): BelongsTo
+    {
+        return $this->belongsTo(SalesOrderBillingTerm::class, 'so_billing_term_id');
     }
 
     public function company(): BelongsTo

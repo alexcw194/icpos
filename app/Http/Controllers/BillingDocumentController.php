@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BillingDocument;
 use App\Models\BillingDocumentLine;
 use App\Models\SalesOrder;
+use App\Models\SalesOrderBillingTerm;
 use App\Services\AutoDeliveryDraftFromSoService;
 use App\Services\BillingInvoiceSyncService;
 use App\Services\DocNumberService;
@@ -56,6 +57,7 @@ class BillingDocumentController extends Controller
 
         $billing = BillingDocument::make([
             'sales_order_id' => $salesOrder->id,
+            'so_billing_term_id' => null,
             'company_id' => $salesOrder->company_id,
             'customer_id' => $salesOrder->customer_id,
             'status' => 'draft',
@@ -177,6 +179,7 @@ class BillingDocumentController extends Controller
 
             $billing = BillingDocument::create([
                 'sales_order_id' => $salesOrder->id,
+                'so_billing_term_id' => null,
                 'company_id' => $salesOrder->company_id,
                 'customer_id' => $salesOrder->customer_id,
                 'status' => 'draft',
@@ -391,7 +394,25 @@ class BillingDocumentController extends Controller
                 'posted_at' => $issuedAt,
                 'sync_lines' => true,
                 'preserve_paid' => true,
+                'so_billing_term_id' => $billing->so_billing_term_id,
             ]);
+
+            if ($billing->so_billing_term_id) {
+                $term = SalesOrderBillingTerm::query()
+                    ->where('id', $billing->so_billing_term_id)
+                    ->where('sales_order_id', $billing->sales_order_id)
+                    ->first();
+                if ($term) {
+                    $invoice = \App\Models\Invoice::query()
+                        ->where('company_id', $billing->company_id)
+                        ->where('number', $invNumber)
+                        ->first();
+                    $term->update([
+                        'status' => 'invoiced',
+                        'invoice_id' => $invoice?->id,
+                    ]);
+                }
+            }
 
             if ($isGoods && $so && !$hasAnyDelivered) {
                 $result = $this->autoDeliveryDraftFromSo->ensureForSalesOrder($so);
@@ -465,6 +486,7 @@ class BillingDocumentController extends Controller
             if ($replace) {
                 $newDoc = BillingDocument::create([
                     'sales_order_id' => $billing->sales_order_id,
+                    'so_billing_term_id' => $billing->so_billing_term_id,
                     'company_id' => $billing->company_id,
                     'customer_id' => $billing->customer_id,
                     'status' => 'draft',
@@ -586,4 +608,3 @@ class BillingDocumentController extends Controller
         return (float) $s;
     }
 }
-

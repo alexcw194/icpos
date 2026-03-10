@@ -6,17 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Database\Eloquent\Casts\Attribute;
-use App\Models\{Invoice, Delivery, SalesOrderVariation, BillingDocument};
+use App\Models\{Invoice, Delivery, SalesOrderVariation, BillingDocument, ProjectQuotation};
 
 class SalesOrder extends Model
 {
     protected $fillable = [
         'company_id','customer_id','quotation_id','sales_user_id',
         'so_number','order_date',
-        'customer_po_number','customer_po_date','deadline',
+        'customer_po_number','customer_po_date','customer_ref_type','deadline',
         'po_type',
         'payment_term_id','payment_term_snapshot',
-        'project_id','project_name',
+        'project_id','project_quotation_id','project_name',
         'ship_to','bill_to','notes',
         'private_notes','fee_amount','under_amount','fee_paid_at','under_paid_at',
         'discount_mode',
@@ -109,6 +109,7 @@ class SalesOrder extends Model
     public function company(): BelongsTo   { return $this->belongsTo(Company::class); }
     public function customer(): BelongsTo  { return $this->belongsTo(Customer::class); }
     public function quotation(): BelongsTo { return $this->belongsTo(Quotation::class); }
+    public function projectQuotation(): BelongsTo { return $this->belongsTo(ProjectQuotation::class, 'project_quotation_id'); }
     public function salesUser(): BelongsTo { return $this->belongsTo(User::class, 'sales_user_id'); }
     public function project(): BelongsTo   { return $this->belongsTo(Project::class); }
     public function paymentTerm(): BelongsTo { return $this->belongsTo(TermOfPayment::class, 'payment_term_id'); }

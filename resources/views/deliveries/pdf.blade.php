@@ -80,6 +80,9 @@
 
     $docNo = $delivery->number ?? ('DRAFT-'.$delivery->id);
     $salesOrder = $delivery->salesOrder;
+    $customerRefType = strtolower((string) ($salesOrder->customer_ref_type ?? 'po')) === 'spk' ? 'spk' : 'po';
+    $customerRefLabel = $customerRefType === 'spk' ? 'SPK Customer' : 'PO Customer';
+    $customerRefDateLabel = $customerRefType === 'spk' ? 'SPK date' : 'PO date';
     $poCustomer = $salesOrder->customer_po_number ?? null;
     $poDate = $salesOrder->customer_po_date ?? null;
     $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
@@ -111,10 +114,10 @@
         <div class="doc-number"># {{ $docNo }}</div>
         <div class="doc-row"><span class="small">Date:</span> {{ $fmtDate($delivery->date ?? $delivery->created_at) }}</div>
         @if($poCustomer)
-          <div class="doc-row"><span class="small">PO Customer:</span> {{ $poCustomer }}</div>
+          <div class="doc-row"><span class="small">{{ $customerRefLabel }}:</span> {{ $poCustomer }}</div>
         @endif
         @if($poDate)
-          <div class="doc-row"><span class="small">PO date:</span> {{ $fmtDate($poDate) }}</div>
+          <div class="doc-row"><span class="small">{{ $customerRefDateLabel }}:</span> {{ $fmtDate($poDate) }}</div>
         @endif
       </td>
     </tr>
@@ -124,13 +127,13 @@
     <tr>
       <th width="20%">Customer</th>
       <td width="30%">{{ $delivery->customer->name ?? '-' }}</td>
-      <th width="20%">PO Customer</th>
+      <th width="20%">{{ $customerRefLabel }}</th>
       <td width="30%">{{ $poCustomer ?: '-' }}</td>
     </tr>
     <tr>
       <th>Recipient</th>
       <td>{{ $delivery->recipient ?? '-' }}</td>
-      <th>PO date</th>
+      <th>{{ $customerRefDateLabel }}</th>
       <td>{{ $poDate ? $fmtDate($poDate) : '-' }}</td>
     </tr>
     <tr>

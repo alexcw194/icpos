@@ -112,6 +112,7 @@
                   <input type="text" class="form-control po-item-search" placeholder="Cari item..." autocomplete="off" value="{{ old('lines.' . $idx . '.item_label', $line['item_label'] ?? '') }}">
                   <input type="hidden" name="lines[{{ $idx }}][item_id]" class="po-item-id" value="{{ old('lines.' . $idx . '.item_id', $line['item_id'] ?? '') }}">
                   <input type="hidden" name="lines[{{ $idx }}][item_variant_id]" class="po-variant-id" value="{{ old('lines.' . $idx . '.item_variant_id', $line['item_variant_id'] ?? '') }}">
+                  <input type="hidden" name="lines[{{ $idx }}][sales_order_line_id]" class="po-so-line-id" value="{{ old('lines.' . $idx . '.sales_order_line_id', $line['sales_order_line_id'] ?? '') }}">
                 </td>
                 <td><input type="number" name="lines[{{ $idx }}][qty_ordered]" class="form-control text-end po-qty" step="0.0001" min="0" required value="{{ old('lines.' . $idx . '.qty_ordered', $line['qty_ordered'] ?? '') }}"></td>
                 <td><input type="text" name="lines[{{ $idx }}][uom]" class="form-control po-uom" value="{{ old('lines.' . $idx . '.uom', $line['uom'] ?? 'PCS') }}"></td>
@@ -442,6 +443,7 @@ function addLine() {
       <input type="text" class="form-control po-item-search" placeholder="Cari item..." autocomplete="off">
       <input type="hidden" name="lines[${lineIdx}][item_id]" class="po-item-id">
       <input type="hidden" name="lines[${lineIdx}][item_variant_id]" class="po-variant-id">
+      <input type="hidden" name="lines[${lineIdx}][sales_order_line_id]" class="po-so-line-id">
     </td>
     <td><input type="number" name="lines[${lineIdx}][qty_ordered]" class="form-control text-end po-qty" step="0.0001" min="0" required></td>
     <td><input type="text" name="lines[${lineIdx}][uom]" class="form-control po-uom" value="PCS"></td>

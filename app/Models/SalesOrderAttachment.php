@@ -15,6 +15,7 @@ class SalesOrderAttachment extends Model
         'disk',
         'path',
         'original_name',
+        'category',
         'mime',
         'size',
         'uploaded_by',

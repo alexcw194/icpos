@@ -20,6 +20,7 @@ class SalesOrderAttachmentController extends Controller
             $data = $request->validate([
                 'sales_order_id' => ['required','exists:sales_orders,id'],
                 'file'           => ['required','file','mimes:pdf,jpg,jpeg,png','max:20480'],
+                'category'       => ['nullable','in:po_spk,agreement,other'],
             ]);
 
             $so   = SalesOrder::findOrFail($data['sales_order_id']);
@@ -33,6 +34,7 @@ class SalesOrderAttachmentController extends Controller
                 'disk'           => $disk,
                 'path'           => $path,
                 'original_name'  => $request->file('file')->getClientOriginalName(),
+                'category'       => $data['category'] ?? 'other',
                 'mime'           => $request->file('file')->getClientMimeType(),
                 'size'           => $request->file('file')->getSize(),
                 'uploaded_by'    => optional($request->user())->id,
@@ -50,6 +52,7 @@ class SalesOrderAttachmentController extends Controller
         $data = $request->validate([
             'draft_token' => ['required','string','max:64'],
             'file'        => ['required','file','mimes:pdf,jpg,jpeg,png','max:20480'],
+            'category'    => ['nullable','in:po_spk,agreement,other'],
         ]);
 
         $disk = 'public';
@@ -62,6 +65,7 @@ class SalesOrderAttachmentController extends Controller
             'disk'           => $disk,
             'path'           => $path,
             'original_name'  => $request->file('file')->getClientOriginalName(),
+            'category'       => $data['category'] ?? 'other',
             'mime'           => $request->file('file')->getClientMimeType(),
             'size'           => $request->file('file')->getSize(),
             'uploaded_by'    => optional($request->user())->id,
@@ -114,6 +118,7 @@ class SalesOrderAttachmentController extends Controller
                 'id'   => (int) $att->id,
                 'name' => (string) ($att->original_name ?: basename($att->path)),
                 'size' => (int) ($att->size ?: 0),
+                'category' => (string) ($att->category ?: 'other'),
                 'url'  => Storage::disk($disk)->url($att->path),
             ];
         });

@@ -48,15 +48,23 @@
     <div class="card-body">
       {{-- Row 1: PO No, PO Date, PO Type, Deadline --}}
       <div class="row g-3">
-        <div class="col-md-3">
-          <label class="form-label">Customer PO No</label>
+        <div class="col-md-2">
+          <label class="form-label">Customer Ref Type</label>
+          @php $customerRefType = old('customer_ref_type', 'po'); @endphp
+          <select name="customer_ref_type" id="customer_ref_type" class="form-select">
+            <option value="po" {{ $customerRefType === 'po' ? 'selected' : '' }}>PO</option>
+            <option value="spk" {{ $customerRefType === 'spk' ? 'selected' : '' }}>SPK</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label" id="customer_ref_number_label">Customer PO No</label>
           <input type="text" name="po_number" class="form-control" value="{{ old('po_number') }}">
         </div>
-        <div class="col-md-3">
-          <label class="form-label">Customer PO Date</label>
+        <div class="col-md-2">
+          <label class="form-label" id="customer_ref_date_label">Customer PO Date</label>
           <input type="date" name="po_date" class="form-control" value="{{ old('po_date', now()->format('Y-m-d')) }}">
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label required">PO Type</label>
           <select name="po_type" class="form-select" required>
             @php $poType = old('po_type', 'goods'); @endphp
@@ -65,7 +73,7 @@
             <option value="maintenance" {{ $poType === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">Deadline</label>
           <input type="date" name="deadline" class="form-control" value="{{ $validUntil }}">
         </div>
@@ -121,6 +129,11 @@
       {{-- Attachments (draft upload) --}}
       <div class="mt-3">
         <label class="form-label">Attachments (PO Customer) — PDF/JPG/PNG</label>
+        <select id="so_attachment_category" class="form-select mb-2" style="max-width:260px">
+          <option value="other">Category: Other</option>
+          <option value="po_spk">Category: PO/SPK</option>
+          <option value="agreement">Category: Agreement</option>
+        </select>
         <input type="file" id="soUpload" class="form-control" multiple accept="application/pdf,image/jpeg,image/png">
         <div class="form-text">
           File yang diupload sebelum disimpan akan disimpan sebagai <em>draft</em> dan otomatis terhubung ke SO saat kamu klik “Create SO”.
@@ -439,10 +452,23 @@
   const emptyEl     = document.getElementById('soFilesEmpty');
   const draftToken  = (document.getElementById('draft_token')||{}).value || '';
   const csrf        = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const customerRefTypeSelect = document.getElementById('customer_ref_type');
+  const customerRefNumberLabel = document.getElementById('customer_ref_number_label');
+  const customerRefDateLabel = document.getElementById('customer_ref_date_label');
   const poTypeSelect = document.querySelector('select[name="po_type"]');
   const projectSection = document.querySelector('[data-project-section]');
   const stageWrap = document.getElementById('stageWrap');
   const scopeActions = document.getElementById('scopeLineActions');
+
+  function syncCustomerRefLabels() {
+    const isSpk = (customerRefTypeSelect?.value || 'po') === 'spk';
+    if (customerRefNumberLabel) {
+      customerRefNumberLabel.textContent = isSpk ? 'Customer SPK No' : 'Customer PO No';
+    }
+    if (customerRefDateLabel) {
+      customerRefDateLabel.textContent = isSpk ? 'Customer SPK Date' : 'Customer PO Date';
+    }
+  }
 
   function toggleProjectSection() {
     if (!projectSection) return;
@@ -500,6 +526,8 @@
     toggleProjectSection();
     applyPoTypeRules();
   });
+  customerRefTypeSelect?.addEventListener('change', syncCustomerRefLabels);
+  syncCustomerRefLabels();
   toggleProjectSection();
 
 
@@ -571,6 +599,7 @@
       const fd = new FormData();
       fd.append('file', f);
       fd.append('draft_token', draftToken);
+      fd.append('category', (document.getElementById('so_attachment_category') || {}).value || 'other');
       await fetch(@json(route('sales-orders.attachments.upload')), {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },

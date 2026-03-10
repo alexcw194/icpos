@@ -6,7 +6,7 @@
     <div class="row align-items-center">
       <div class="col">
         <h2 class="page-title">Project Active</h2>
-        <div class="text-muted">Monitoring latest BQ won dan progress invoicing per payment term</div>
+        <div class="text-muted">Monitoring SO Project, payment terms, dan progress billing per term</div>
       </div>
     </div>
   </div>
@@ -37,13 +37,15 @@
             <th>Company</th>
             <th>Sales Owner</th>
             <th>Latest Won BQ</th>
-            <th class="text-end">Grand Total BQ</th>
+            <th>SO Project</th>
+            <th class="text-end">Contract Value</th>
             <th class="text-end">Action</th>
           </tr>
         </thead>
         <tbody>
           @forelse($projects as $project)
             @php $won = $project->latestWonQuotation; @endphp
+            @php $so = $project->latestProjectSalesOrder; @endphp
             <tr>
               <td>
                 <div class="fw-semibold">{{ $project->code }}</div>
@@ -60,8 +62,22 @@
                   <span class="text-muted">-</span>
                 @endif
               </td>
+              <td>
+                @if($so)
+                  <div class="fw-semibold">{{ $so->so_number }}</div>
+                  <div class="text-muted text-capitalize">{{ $so->status ?? '-' }}</div>
+                @else
+                  <span class="text-muted">Belum dibuat</span>
+                @endif
+              </td>
               <td class="text-end">
-                {{ $won ? 'Rp '.number_format((float) $won->grand_total, 2, ',', '.') : '-' }}
+                @if($so)
+                  {{ 'Rp '.number_format((float) $so->contract_value, 2, ',', '.') }}
+                @elseif($won)
+                  {{ 'Rp '.number_format((float) $won->grand_total, 2, ',', '.') }}
+                @else
+                  -
+                @endif
               </td>
               <td class="text-end">
                 <a href="{{ route('projects.active.show', $project) }}" class="btn btn-sm btn-primary">Open</a>
@@ -69,7 +85,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="7" class="text-center text-muted">No active project with won BQ.</td>
+              <td colspan="8" class="text-center text-muted">No active project with won BQ.</td>
             </tr>
           @endforelse
         </tbody>

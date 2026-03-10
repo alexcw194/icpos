@@ -2,16 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BillingDocument;
 use App\Models\Invoice;
 use App\Models\Project;
-use App\Models\ProjectQuotationPaymentTerm;
-use App\Services\DocNumberService;
-use Carbon\Carbon;
+use App\Models\SalesOrder;
+use App\Models\SalesOrderBillingTerm;
+use App\Services\ProjectSalesOrderBootstrapService;
+use App\Services\SalesOrderExecutionVarianceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProjectActiveController extends Controller
 {
+    public function __construct(
+        private readonly ProjectSalesOrderBootstrapService $projectSoBootstrap,
+        private readonly SalesOrderExecutionVarianceService $executionVariance
+    ) {
+    }
+
     public function index(Request $request)
     {
         $this->authorizeProjectActiveAccess();
@@ -20,7 +28,9 @@ class ProjectActiveController extends Controller
         $q = trim((string) $request->query('q', ''));
 
         $projects = Project::query()
+            ->select('projects.*')
             ->visibleTo($user)
+            ->where('projects.status', 'active')
             ->whereHas('wonQuotations')
             ->with([
                 'customer:id,name',
@@ -35,14 +45,24 @@ class ProjectActiveController extends Controller
                         'project_quotations.grand_total',
                         'project_quotations.won_at',
                     ]),
+                'latestProjectSalesOrder' => fn ($query) => $query
+                    ->select([
+                        'sales_orders.id',
+                        'sales_orders.project_id',
+                        'sales_orders.project_quotation_id',
+                        'sales_orders.so_number',
+                        'sales_orders.contract_value',
+                        'sales_orders.total',
+                        'sales_orders.status',
+                    ]),
             ])
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($w) use ($q) {
-                    $w->where('code', 'like', "%{$q}%")
-                        ->orWhere('name', 'like', "%{$q}%");
+                    $w->where('projects.code', 'like', "%{$q}%")
+                        ->orWhere('projects.name', 'like', "%{$q}%");
                 });
             })
-            ->orderByDesc('updated_at')
+            ->orderByDesc('projects.updated_at')
             ->paginate(15)
             ->withQueryString();
 
@@ -83,95 +103,157 @@ class ProjectActiveController extends Controller
                 ->route('projects.active.index')
                 ->with('warning', 'Project tidak punya BQ won.');
         }
+        if (strtolower((string) ($project->status ?? '')) !== 'active') {
+            return redirect()
+                ->route('projects.active.index')
+                ->with('warning', 'Project belum berstatus active.');
+        }
 
-        $termIds = $quotation->paymentTerms
+        $salesOrder = $this->projectSoBootstrap->ensureForWonQuotation($project, $quotation);
+        $salesOrder->load([
+            'billingTerms.term',
+            'billingTerms.invoice',
+        ]);
+
+        $termIds = $salesOrder->billingTerms
             ->pluck('id')
             ->filter()
             ->map(fn ($id) => (int) $id)
             ->values();
 
-        $invoicesByTermId = collect();
+        $billingByTerm = collect();
         if ($termIds->isNotEmpty()) {
-            $invoicesByTermId = Invoice::query()
-                ->with(['projectPaymentTerm:id,code,label,percent,sequence'])
-                ->whereIn('project_payment_term_id', $termIds->all())
+            $billingByTerm = BillingDocument::query()
+                ->where('sales_order_id', $salesOrder->id)
+                ->whereIn('so_billing_term_id', $termIds->all())
+                ->where('status', '!=', 'void')
+                ->orderByDesc('id')
                 ->get()
-                ->keyBy(fn (Invoice $invoice) => (int) $invoice->project_payment_term_id);
+                ->groupBy(fn (BillingDocument $doc) => (int) $doc->so_billing_term_id)
+                ->map(fn ($group) => $group->first());
         }
 
-        $termRows = $quotation->paymentTerms->map(function (ProjectQuotationPaymentTerm $term) use ($invoicesByTermId) {
-            $invoice = $invoicesByTermId->get((int) $term->id);
+        $invoicesByTerm = collect();
+        if ($termIds->isNotEmpty()) {
+            $invoicesByTerm = Invoice::query()
+                ->where('sales_order_id', $salesOrder->id)
+                ->whereIn('so_billing_term_id', $termIds->all())
+                ->orderByDesc('id')
+                ->get()
+                ->groupBy(fn (Invoice $invoice) => (int) $invoice->so_billing_term_id)
+                ->map(fn ($group) => $group->first());
+        }
 
-            $status = 'Not Invoiced';
+        $termRows = $salesOrder->billingTerms->map(function (SalesOrderBillingTerm $term) use ($billingByTerm, $invoicesByTerm) {
+            $billing = $billingByTerm->get((int) $term->id);
+            $invoice = $invoicesByTerm->get((int) $term->id);
+
+            $status = 'Not Billed';
             $statusClass = 'bg-secondary-lt text-dark';
+
             if ($invoice) {
                 $isPaid = strtolower((string) $invoice->status) === 'paid' || (bool) $invoice->paid_at;
                 $status = $isPaid ? 'Paid' : 'Invoiced';
                 $statusClass = $isPaid ? 'bg-green-lt text-green' : 'bg-blue-lt text-blue';
+            } elseif ($billing) {
+                $isProforma = strtolower((string) ($billing->mode ?? '')) === 'proforma'
+                    && strtolower((string) ($billing->status ?? '')) === 'sent'
+                    && empty($billing->inv_number);
+                if ($isProforma) {
+                    $status = 'Proforma';
+                    $statusClass = 'bg-purple-lt text-purple';
+                } else {
+                    $status = 'Draft';
+                    $statusClass = 'bg-yellow-lt text-dark';
+                }
             }
+
+            $hasActiveBilling = $billing && in_array((string) $billing->status, ['draft', 'sent'], true);
 
             return (object) [
                 'term' => $term,
+                'billing' => $billing,
                 'invoice' => $invoice,
                 'status' => $status,
                 'status_class' => $statusClass,
-                'can_create_invoice' => $invoice === null,
+                'can_create_billing_draft' => !$hasActiveBilling && $invoice === null,
             ];
         });
+
+        $variance = $this->executionVariance->build($salesOrder);
 
         return view('projects.active.show', [
             'project' => $project,
             'quotation' => $quotation,
+            'salesOrder' => $salesOrder,
             'termRows' => $termRows,
+            'executionRows' => $variance['rows'],
+            'executionTotals' => $variance['totals'],
         ]);
     }
 
-    public function createInvoiceFromTerm(Project $project, ProjectQuotationPaymentTerm $term)
+    public function createBillingDraftFromTerm(Project $project, SalesOrderBillingTerm $term)
     {
         $this->authorizeProjectActiveAccess();
         $this->authorize('view', $project);
-        $this->authorize('create', Invoice::class);
-
-        $project->load([
-            'company:id,alias,name',
-            'customer:id,name',
-            'latestWonQuotation' => fn ($query) => $query->with([
-                'paymentTerms' => fn ($terms) => $terms->orderBy('sequence'),
-            ]),
-        ]);
-
-        $quotation = $project->latestWonQuotation;
-        if (!$quotation) {
-            return back()->with('error', 'Project tidak punya BQ won.');
+        $this->authorizePermission('invoices.create');
+        if (strtolower((string) ($project->status ?? '')) !== 'active') {
+            return back()->with('warning', 'Project harus berstatus active.');
         }
 
-        if ((int) $term->project_quotation_id !== (int) $quotation->id) {
-            return back()->with('error', 'Term harus berasal dari latest BQ won.');
+        $salesOrder = SalesOrder::query()
+            ->with(['project', 'billingTerms', 'projectQuotation'])
+            ->findOrFail((int) $term->sales_order_id);
+
+        if ((int) ($salesOrder->project_id ?? 0) !== (int) $project->id) {
+            abort(404);
         }
 
-        $existing = Invoice::query()
-            ->where('project_payment_term_id', $term->id)
+        if (strtolower((string) ($salesOrder->po_type ?? '')) !== 'project') {
+            return back()->with('error', 'Billing term ini bukan milik SO Project.');
+        }
+
+        if ((string) ($term->status ?? 'planned') === 'paid') {
+            return back()->with('warning', 'Billing term sudah paid.');
+        }
+
+        $activeDraft = BillingDocument::query()
+            ->where('sales_order_id', $salesOrder->id)
+            ->where('so_billing_term_id', $term->id)
+            ->whereIn('status', ['draft', 'sent'])
+            ->whereNull('inv_number')
+            ->orderByDesc('id')
+            ->first();
+        if ($activeDraft) {
+            return redirect()
+                ->route('billings.show', $activeDraft)
+                ->with('ok', 'Billing draft untuk term ini sudah ada.');
+        }
+
+        $invoiceExists = Invoice::query()
+            ->where('sales_order_id', $salesOrder->id)
+            ->where('so_billing_term_id', $term->id)
             ->exists();
-        if ($existing) {
-            return back()->with('warning', 'Term ini sudah dibuatkan invoice.');
+        if ($invoiceExists) {
+            return back()->with('warning', 'Term ini sudah memiliki invoice.');
         }
 
         $percent = (float) ($term->percent ?? 0);
         if ($percent <= 0) {
-            return back()->with('error', 'Percent payment term harus lebih besar dari 0%.');
+            return back()->with('error', 'Percent billing term harus lebih besar dari 0%.');
         }
 
-        $grandTotal = (float) ($quotation->grand_total ?? 0);
-        if ($grandTotal <= 0) {
-            return back()->with('error', 'Grand total BQ tidak valid.');
+        $contractValue = (float) ($salesOrder->contract_value ?? $salesOrder->total ?? 0);
+        if ($contractValue <= 0) {
+            return back()->with('error', 'Contract value SO Project tidak valid.');
         }
 
-        $total = round($grandTotal * $percent / 100, 2);
+        $total = round($contractValue * $percent / 100, 2);
         if ($total <= 0) {
-            return back()->with('error', 'Nilai invoice term tidak valid.');
+            return back()->with('error', 'Nilai billing term tidak valid.');
         }
 
-        $taxPercent = (bool) $quotation->tax_enabled ? (float) ($quotation->tax_percent ?? 0) : 0.0;
+        $taxPercent = (float) ($salesOrder->tax_percent ?? 0);
         if ($taxPercent > 0) {
             $subtotal = round($total / (1 + ($taxPercent / 100)), 2);
             $taxAmount = round($total - $subtotal, 2);
@@ -180,86 +262,55 @@ class ProjectActiveController extends Controller
             $taxAmount = 0.0;
         }
 
-        $company = $quotation->company ?? $project->company;
-        $companyId = (int) ($company?->id ?? 0);
-        $customerId = (int) ($quotation->customer_id ?? $project->customer_id ?? 0);
-        if ($companyId <= 0 || $customerId <= 0) {
-            return back()->with('error', 'Company atau customer project tidak valid.');
-        }
-
-        $invoiceDate = now();
-        $dueDate = $this->resolveDueDate($term, $invoiceDate);
-
-        $invoice = null;
-        DB::transaction(function () use (
-            $project,
-            $quotation,
-            $term,
-            $company,
-            $companyId,
-            $customerId,
-            $invoiceDate,
-            $dueDate,
-            $taxPercent,
-            $subtotal,
-            $taxAmount,
-            $total,
-            &$invoice
-        ) {
-            $invoice = Invoice::create([
-                'company_id' => $companyId,
-                'customer_id' => $customerId,
-                'project_id' => $project->id,
-                'project_quotation_id' => $quotation->id,
-                'project_payment_term_id' => $term->id,
-                'quotation_id' => null,
-                'sales_order_id' => null,
-                'so_billing_term_id' => null,
-                'number' => 'TEMP',
-                'date' => $invoiceDate,
-                'due_date' => $dueDate,
+        $billing = DB::transaction(function () use ($salesOrder, $term, $subtotal, $taxPercent, $taxAmount, $total, $project) {
+            $billing = BillingDocument::create([
+                'sales_order_id' => $salesOrder->id,
+                'so_billing_term_id' => $term->id,
+                'company_id' => $salesOrder->company_id,
+                'customer_id' => $salesOrder->customer_id,
                 'status' => 'draft',
-                'invoice_kind' => 'project_term',
+                'mode' => null,
                 'subtotal' => $subtotal,
-                'discount' => 0,
+                'discount_amount' => 0,
                 'tax_percent' => $taxPercent,
                 'tax_amount' => $taxAmount,
                 'total' => $total,
-                'currency' => 'IDR',
-                'brand_snapshot' => $quotation->brand_snapshot,
+                'currency' => $salesOrder->currency ?? 'IDR',
                 'notes' => sprintf(
-                    'Project %s - BQ %s - Term %s (%s%%)',
+                    'Project %s - Term %s (%s%%)',
                     $project->code ?: $project->name,
-                    $quotation->number,
-                    $term->code,
+                    $term->top_code,
                     rtrim(rtrim(number_format((float) $term->percent, 2, '.', ''), '0'), '.')
                 ),
                 'created_by' => auth()->id(),
+                'updated_by' => auth()->id(),
             ]);
 
-            $invoice->update([
-                'number' => app(DocNumberService::class)->next('invoice', $company, $invoiceDate),
-            ]);
-
-            $invoice->lines()->create([
+            $billing->lines()->create([
+                'sales_order_line_id' => null,
+                'position' => 1,
+                'name' => sprintf('Billing Term %s', $term->top_code),
                 'description' => sprintf(
-                    '%s - %s (%s%%)',
-                    $quotation->number,
-                    $term->label ?: $term->code,
-                    rtrim(rtrim(number_format((float) $term->percent, 2, '.', ''), '0'), '.')
+                    '%s - %s',
+                    $salesOrder->so_number,
+                    trim((string) ($term->note ?: $term->top_code))
                 ),
                 'unit' => 'ls',
                 'qty' => 1,
                 'unit_price' => $subtotal,
+                'discount_type' => 'amount',
+                'discount_value' => 0,
                 'discount_amount' => 0,
                 'line_subtotal' => $subtotal,
                 'line_total' => $subtotal,
             ]);
+
+            return $billing;
         });
 
         return redirect()
-            ->route('invoices.show', $invoice)
-            ->with('success', 'Invoice project berhasil dibuat dari payment term.');
+            ->route('billings.show', $billing)
+            ->with('success', 'Billing draft project berhasil dibuat dari payment term.');
     }
 
     private function authorizeProjectActiveAccess(): void
@@ -268,17 +319,13 @@ class ProjectActiveController extends Controller
         abort_unless($user && $user->hasAnyRole(['Admin', 'SuperAdmin', 'Finance']), 403);
     }
 
-    private function resolveDueDate(ProjectQuotationPaymentTerm $term, Carbon $invoiceDate): string
+    private function authorizePermission(string $permission): void
     {
-        $trigger = strtolower((string) ($term->due_trigger ?? ''));
-        $offsetDays = max(0, (int) ($term->offset_days ?? 0));
-        $dayOfMonth = max(1, min(28, (int) ($term->day_of_month ?? 1)));
-
-        return match ($trigger) {
-            'after_invoice_days' => $invoiceDate->copy()->addDays($offsetDays)->toDateString(),
-            'eom_day' => $invoiceDate->copy()->endOfMonth()->startOfMonth()->addDays($dayOfMonth - 1)->toDateString(),
-            'next_month_day' => $invoiceDate->copy()->addMonthNoOverflow()->startOfMonth()->addDays($dayOfMonth - 1)->toDateString(),
-            default => $invoiceDate->toDateString(),
-        };
+        $user = auth()->user();
+        abort_unless($user, 403, 'This action is unauthorized.');
+        if ($user->hasAnyRole(['Admin', 'SuperAdmin'])) {
+            return;
+        }
+        abort_unless($user->can($permission), 403, 'This action is unauthorized.');
     }
 }

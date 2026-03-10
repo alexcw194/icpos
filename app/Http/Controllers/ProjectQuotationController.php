@@ -17,6 +17,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\ProjectQuotationTotalsService;
 use App\Services\BqCsvImportService;
+use App\Services\ProjectSalesOrderBootstrapService;
 use App\Support\Number;
 use App\Support\ProjectSystems;
 use Dompdf\Dompdf;
@@ -709,9 +710,12 @@ class ProjectQuotationController extends Controller
                     'status' => 'active',
                 ]);
             }
+
+            app(ProjectSalesOrderBootstrapService::class)
+                ->ensureForWonQuotation($project->fresh(), $quotation->fresh());
         });
 
-        return back()->with('success', 'BQ ditandai sebagai won.');
+        return back()->with('success', 'BQ ditandai sebagai won dan SO Project sudah disiapkan.');
     }
 
     public function markLost(Project $project, ProjectQuotation $quotation)

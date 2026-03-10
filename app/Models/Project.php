@@ -68,6 +68,21 @@ class Project extends Model
             );
     }
 
+    public function salesOrders(): HasMany
+    {
+        return $this->hasMany(SalesOrder::class)
+            ->where('po_type', 'project');
+    }
+
+    public function latestProjectSalesOrder(): HasOne
+    {
+        return $this->hasOne(SalesOrder::class)
+            ->ofMany(['id' => 'max'], function (Builder $query) {
+                $query->where('po_type', 'project')
+                    ->where('status', '!=', 'cancelled');
+            });
+    }
+
     public function scopeVisibleTo(Builder $query, ?User $user = null): Builder
     {
         $u = $user ?: auth()->user();

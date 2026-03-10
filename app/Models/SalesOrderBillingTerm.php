@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SalesOrderBillingTerm extends Model
 {
@@ -41,5 +42,10 @@ class SalesOrderBillingTerm extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function billingDocuments(): HasMany
+    {
+        return $this->hasMany(BillingDocument::class, 'so_billing_term_id');
     }
 }

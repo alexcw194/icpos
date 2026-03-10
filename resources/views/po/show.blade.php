@@ -67,15 +67,22 @@
       <hr class="my-3">
 
       <div class="table-responsive">
-        <table class="table">
+          <table class="table">
           <thead><tr>
-            <th>Item</th><th>Variant</th><th class="text-end">Ordered</th><th class="text-end">Received</th><th class="text-end">Remaining</th><th class="text-end">Price</th>
+            <th>Item</th><th>Variant</th><th>SO Line</th><th class="text-end">Ordered</th><th class="text-end">Received</th><th class="text-end">Remaining</th><th class="text-end">Price</th>
           </tr></thead>
           <tbody>
             @foreach($po->lines as $ln)
             <tr>
               <td>{{ $ln->sku_snapshot ?? ($ln->item->sku ?? '') }} - {{ $ln->item_name_snapshot ?? ($ln->item->name ?? '') }}</td>
               <td>{{ $ln->variant->sku ?? '-' }}</td>
+              <td>
+                @if($ln->salesOrderLine)
+                  {{ $ln->salesOrderLine->salesOrder->so_number ?? 'SO' }} / Line {{ $ln->salesOrderLine->position ?? $ln->salesOrderLine->id }}
+                @else
+                  -
+                @endif
+              </td>
               <td class="text-end">{{ number_format((float)$ln->qty_ordered,2,'.',',') }} {{ $ln->uom ?? '' }}</td>
               <td class="text-end">{{ number_format((float)($ln->qty_received ?? 0),2,'.',',') }}</td>
               <td class="text-end">{{ number_format((float)($ln->qty_ordered - ($ln->qty_received ?? 0)),2,'.',',') }}</td>

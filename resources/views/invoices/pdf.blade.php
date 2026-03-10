@@ -101,6 +101,9 @@
     : [];
   $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true)
     && (bool) ($invoiceAttrs['show_tax_percent_label'] ?? true);
+  $customerRefType = strtolower((string) ($invoice->salesOrder?->customer_ref_type ?? 'po')) === 'spk' ? 'spk' : 'po';
+  $customerRefLabel = $customerRefType === 'spk' ? 'SPK No.' : 'PO No.';
+  $customerRefDateLabel = $customerRefType === 'spk' ? 'Tgl. SPK' : 'Tgl. PO';
   $poNumber = trim((string) ($invoice->salesOrder?->customer_po_number ?? ''));
   $poDate = $invoice->salesOrder?->customer_po_date
     ? \Illuminate\Support\Carbon::parse($invoice->salesOrder->customer_po_date)->format('d-m-Y')
@@ -156,7 +159,7 @@
     <th width="25%">Customer</th>
     <td>{{ $invoice->customer->name ?? '-' }}</td>
     @if($poNumber !== '')
-      <th width="25%">PO No.</th>
+      <th width="25%">{{ $customerRefLabel }}</th>
       <td>{{ $poNumber }}</td>
     @else
       <td colspan="2"></td>
@@ -167,7 +170,7 @@
       <th>Sales Order</th>
       <td>{{ $invoice->salesOrder?->so_number ?? '-' }}</td>
       @if($poDate !== '')
-        <th>Tgl. PO</th>
+        <th>{{ $customerRefDateLabel }}</th>
         <td>{{ $poDate }}</td>
       @else
         <td colspan="2"></td>

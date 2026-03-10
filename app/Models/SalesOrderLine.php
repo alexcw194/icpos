@@ -15,6 +15,15 @@ class SalesOrderLine extends Model
         'line_subtotal','line_total',
         // NEW
         'item_id','item_variant_id',
+        'baseline_project_quotation_line_id',
+        'baseline_name',
+        'baseline_description',
+        'baseline_item_id',
+        'baseline_item_variant_id',
+        'baseline_qty',
+        'baseline_unit',
+        'baseline_unit_price',
+        'baseline_line_total',
     ];
 
     protected $casts = [
@@ -27,6 +36,12 @@ class SalesOrderLine extends Model
         // (opsional) bantu casting id
         'item_id'         => 'integer',
         'item_variant_id' => 'integer',
+        'baseline_project_quotation_line_id' => 'integer',
+        'baseline_item_id' => 'integer',
+        'baseline_item_variant_id' => 'integer',
+        'baseline_qty' => 'decimal:4',
+        'baseline_unit_price' => 'decimal:2',
+        'baseline_line_total' => 'decimal:2',
     ];
 
     public function salesOrder(): BelongsTo { return $this->belongsTo(SalesOrder::class); }
@@ -34,4 +49,6 @@ class SalesOrderLine extends Model
     // NEW
     public function item(): BelongsTo { return $this->belongsTo(Item::class); }
     public function variant(): BelongsTo { return $this->belongsTo(ItemVariant::class, 'item_variant_id'); }
+    public function baselineItem(): BelongsTo { return $this->belongsTo(Item::class, 'baseline_item_id'); }
+    public function baselineVariant(): BelongsTo { return $this->belongsTo(ItemVariant::class, 'baseline_item_variant_id'); }
 }

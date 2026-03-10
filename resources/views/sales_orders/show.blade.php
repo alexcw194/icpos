@@ -32,6 +32,9 @@
     'maintenance' => ['Maintenance','bg-teal-lt text-dark'],
   ];
   [$poLabel, $poClass] = $poTypeMap[$o->po_type ?? 'goods'] ?? ['Goods','bg-azure-lt text-dark'];
+  $customerRefType = strtolower((string) ($o->customer_ref_type ?? 'po')) === 'spk' ? 'spk' : 'po';
+  $customerRefLabel = $customerRefType === 'spk' ? 'Customer SPK' : 'Customer PO';
+  $customerRefDateLabel = $customerRefType === 'spk' ? 'SPK Date' : 'PO Date';
   $feeAmount = (float) ($o->fee_amount ?? 0);
   $underAmount = (float) ($o->under_amount ?? 0);
   $commissionTotal = $feeAmount + $underAmount;
@@ -117,7 +120,7 @@
             ? \Illuminate\Support\Carbon::parse($o->customer_po_date)->format('d-m-Y')
             : null;
         @endphp
-        <div class="mb-2"><strong>Customer PO:</strong> {{ $o->customer_po_number }}@if($poDate) ({{ $poDate }})@endif</div>
+        <div class="mb-2"><strong>{{ $customerRefLabel }}:</strong> {{ $o->customer_po_number ?: '—' }}@if($poDate) ({{ $poDate }})@endif</div>
         <div class="mb-2"><strong>PO Type:</strong> {{ ucfirst($o->po_type ?? 'goods') }}</div>
         @php
           $projectLabel = null;
@@ -132,7 +135,7 @@
         @endif
         <div class="mb-2"><strong>Deadline:</strong> {{ $o->deadline ?? '—' }}</div>
         <div class="mb-2"><strong>Salesperson:</strong> {{ $o->salesUser->name ?? '-' }}</div>
-        <div class="mb-2"><strong>Original Value:</strong> {{ number_format((float) $o->total, 2) }}</div>
+        <div class="mb-2"><strong>Operational Scope Total:</strong> {{ number_format((float) $o->total, 2) }}</div>
         <div class="mb-2"><strong>VO Total:</strong> {{ number_format((float) $voAppliedTotal, 2) }}</div>
         <div class="mb-2"><strong>Current Contract Value:</strong> {{ number_format((float) $contractValue, 2) }}</div>
         <div class="bg-white border rounded p-2" style="white-space: pre-wrap;">
@@ -158,6 +161,29 @@
         @endif
       </div></div>
     </div>
+
+    @if(($o->po_type ?? 'goods') === 'project')
+      <div class="col-12">
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <div class="text-muted">Contract Value (Billing Base)</div>
+                <div class="h2 mb-0">{{ number_format((float) $contractValue, 2) }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <div class="text-muted">Operational Scope Total</div>
+                <div class="h2 mb-0">{{ number_format((float) ($o->total ?? 0), 2) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    @endif
 
     <div class="col-12">
       <div class="card mb-3">
@@ -447,6 +473,70 @@
                     <div class="d-flex justify-content-between fw-bold"><div>Grand Total</div><div>{{ number_format($o->total,2) }}</div></div>
                   </div>
                 </div>
+
+                @if(($o->po_type ?? 'goods') === 'project')
+                  <div class="mt-4">
+                    <h4 class="mb-2">Operational Variance (Planned vs PO vs GR vs Delivery)</h4>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-vcenter">
+                        <thead>
+                          <tr>
+                            <th>Line</th>
+                            <th class="text-end">Planned</th>
+                            <th class="text-end">PO</th>
+                            <th class="text-end">GR</th>
+                            <th class="text-end">Delivered</th>
+                            <th class="text-end">Variance PO</th>
+                            <th class="text-end">Variance Delivery</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @forelse(($executionRows ?? []) as $row)
+                            @php
+                              $poVarianceClass = ($row['ordered_variance_state'] ?? '') === 'balanced'
+                                ? 'text-muted'
+                                : (($row['ordered_variance_state'] ?? '') === 'excess' ? 'text-success' : 'text-danger');
+                              $deliveryVarianceClass = ($row['delivered_variance_state'] ?? '') === 'balanced'
+                                ? 'text-muted'
+                                : (($row['delivered_variance_state'] ?? '') === 'excess' ? 'text-success' : 'text-danger');
+                            @endphp
+                            <tr>
+                              <td>
+                                <div class="fw-semibold">{{ $row['line_name'] ?? '-' }}</div>
+                                @if(!empty($row['line_description']))
+                                  <div class="text-muted small">{{ $row['line_description'] }}</div>
+                                @endif
+                              </td>
+                              <td class="text-end">{{ number_format((float) ($row['planned_qty'] ?? 0), 2) }}</td>
+                              <td class="text-end">{{ number_format((float) ($row['po_ordered_qty'] ?? 0), 2) }}</td>
+                              <td class="text-end">{{ number_format((float) ($row['gr_received_qty'] ?? 0), 2) }}</td>
+                              <td class="text-end">{{ number_format((float) ($row['delivered_qty'] ?? 0), 2) }}</td>
+                              <td class="text-end {{ $poVarianceClass }}">{{ number_format((float) ($row['ordered_variance_qty'] ?? 0), 2) }}</td>
+                              <td class="text-end {{ $deliveryVarianceClass }}">{{ number_format((float) ($row['delivered_variance_qty'] ?? 0), 2) }}</td>
+                            </tr>
+                          @empty
+                            <tr>
+                              <td colspan="7" class="text-center text-muted">No execution variance data.</td>
+                            </tr>
+                          @endforelse
+                        </tbody>
+                        @if(!empty($executionRows))
+                          <tfoot>
+                            <tr class="fw-semibold">
+                              <td>Total</td>
+                              <td class="text-end">{{ number_format((float) ($executionTotals['planned_qty'] ?? 0), 2) }}</td>
+                              <td class="text-end">{{ number_format((float) ($executionTotals['po_ordered_qty'] ?? 0), 2) }}</td>
+                              <td class="text-end">{{ number_format((float) ($executionTotals['gr_received_qty'] ?? 0), 2) }}</td>
+                              <td class="text-end">{{ number_format((float) ($executionTotals['delivered_qty'] ?? 0), 2) }}</td>
+                              <td class="text-end">{{ number_format((float) ($executionTotals['ordered_variance_qty'] ?? 0), 2) }}</td>
+                              <td class="text-end">{{ number_format((float) ($executionTotals['delivered_variance_qty'] ?? 0), 2) }}</td>
+                            </tr>
+                          </tfoot>
+                        @endif
+                      </table>
+                    </div>
+                  </div>
+                @endif
               </div>
 
               {{-- TAB 2: MORE INFO (Private Notes dulu, lalu Under) --}}
@@ -481,10 +571,15 @@
         <div class="card-header">
           <div class="card-title">Attachments</div>
             @can('uploadAttachment', $o)
-              <form action="{{ route('sales-orders.attachments.store', $o) }}" method="POST" enctype="multipart/form-data" class="d-inline">
+              <form action="{{ route('sales-orders.attachments.store', $o) }}" method="POST" enctype="multipart/form-data" class="d-inline-flex align-items-center gap-2">
                 @csrf
-                <input type="file" name="attachments[]" multiple style="display:none" id="so-upload-{{ $o->id }}">
-                <label for="so-upload-{{ $o->id }}" class="btn btn-sm btn-outline-primary">Upload</label>
+                <select name="category" class="form-select form-select-sm">
+                  <option value="other">Other</option>
+                  <option value="po_spk">PO/SPK</option>
+                  <option value="agreement">Agreement</option>
+                </select>
+                <input type="file" name="attachments[]" class="form-control form-control-sm" multiple>
+                <button type="submit" class="btn btn-sm btn-outline-primary">Upload</button>
               </form>
             @endcan
         </div>
@@ -496,9 +591,17 @@
                 <div class="me-3">
                   <a href="{{ asset('storage/'.$att->path) }}" target="_blank">{{ $att->original_name ?? basename($att->path) }}</a>
                   <span class="text-muted small">({{ $att->mime }}, {{ number_format($att->size/1024,0) }} KB)</span>
+                  @php
+                    $attCategory = match((string) ($att->category ?? 'other')) {
+                      'po_spk' => 'PO/SPK',
+                      'agreement' => 'Agreement',
+                      default => 'Other',
+                    };
+                  @endphp
+                  <span class="badge bg-secondary-lt text-dark ms-2">{{ $attCategory }}</span>
                 </div>
                 @can('deleteAttachment', [$o, $att])
-                  <form action="{{ route('sales-orders.attachments.destroy', [$o, $att]) }}" method="POST"
+                  <form action="{{ route('sales-orders.attachments.destroy_legacy', [$o, $att]) }}" method="POST"
                         onsubmit="return confirm('Delete this attachment?')">
                     @csrf @method('DELETE')
                     <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>

@@ -49,17 +49,25 @@
     <div class="card-body">
       {{-- Row 1: PO & Deadline --}}
       <div class="row g-3">
-        <div class="col-md-3">
-          <label class="form-label">Customer PO No</label>
+        <div class="col-md-2">
+          <label class="form-label">Customer Ref Type</label>
+          @php $customerRefType = old('customer_ref_type', $so->customer_ref_type ?? 'po'); @endphp
+          <select name="customer_ref_type" id="customer_ref_type" class="form-select">
+            <option value="po" {{ $customerRefType === 'po' ? 'selected' : '' }}>PO</option>
+            <option value="spk" {{ $customerRefType === 'spk' ? 'selected' : '' }}>SPK</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label" id="customer_ref_number_label">Customer PO No</label>
           <input type="text" name="customer_po_number" class="form-control"
                  value="{{ old('customer_po_number', $so->customer_po_number) }}">
         </div>
-        <div class="col-md-3">
-          <label class="form-label">Customer PO Date</label>
+        <div class="col-md-2">
+          <label class="form-label" id="customer_ref_date_label">Customer PO Date</label>
           <input type="date" name="customer_po_date" class="form-control"
                  value="{{ old('customer_po_date', optional($so->customer_po_date ?? $so->po_date)->format('Y-m-d')) }}">
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label required">PO Type</label>
           <select name="po_type" class="form-select" required>
             @php $poType = old('po_type', $so->po_type ?? 'goods'); @endphp
@@ -68,7 +76,7 @@
             <option value="maintenance" {{ $poType === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">Deadline</label>
           <input type="date" name="deadline" class="form-control"
                  value="{{ old('deadline', optional($so->deadline)->format('Y-m-d')) }}">
@@ -136,6 +144,11 @@
       {{-- Attachments --}}
       <div class="mt-3">
         <label class="form-label">Attachments — PDF/JPG/PNG</label>
+        <select id="so_attachment_category" class="form-select mb-2" style="max-width:260px">
+          <option value="other">Category: Other</option>
+          <option value="po_spk">Category: PO/SPK</option>
+          <option value="agreement">Category: Agreement</option>
+        </select>
         <input type="file" id="soUpload" class="form-control" multiple accept="application/pdf,image/jpeg,image/png">
         <div class="form-text">
           @if($so->exists)
@@ -153,6 +166,11 @@
                 <a href="{{ asset('storage/'.$f->path) }}" target="_blank" rel="noopener">
                   {{ $f->original_name ?? basename($f->path) }}
                 </a>
+                @php
+                  $cat = (string) ($f->category ?? 'other');
+                  $catLabel = $cat === 'po_spk' ? 'PO/SPK' : ($cat === 'agreement' ? 'Agreement' : 'Other');
+                @endphp
+                <span class="badge bg-azure-lt ms-1">{{ $catLabel }}</span>
                 <span class="text-muted small">({{ $f->mime }}, {{ number_format(($f->size ?? 0)/1024, 0) }} KB)</span>
               </div>
 
@@ -533,11 +551,24 @@
   const existWrap  = document.getElementById('soFilesExisting');
   const draftWrap  = document.getElementById('soFiles');          // hanya ada saat create
   const emptyDraft = document.getElementById('soFilesEmpty');     // hanya ada saat create
+  const customerRefTypeSelect = document.getElementById('customer_ref_type');
+  const customerRefNumberLabel = document.getElementById('customer_ref_number_label');
+  const customerRefDateLabel = document.getElementById('customer_ref_date_label');
   const poTypeSelect = document.querySelector('select[name="po_type"]');
   const projectSection = document.querySelector('[data-project-section]');
   const stageWrap = document.getElementById('stageWrap');
   const scopeActions = document.getElementById('scopeLineActions');
   const scopeAddBtn = document.getElementById('scope_add_btn');
+
+  function syncCustomerRefLabels() {
+    const isSpk = (customerRefTypeSelect?.value || 'po') === 'spk';
+    if (customerRefNumberLabel) {
+      customerRefNumberLabel.textContent = isSpk ? 'Customer SPK No' : 'Customer PO No';
+    }
+    if (customerRefDateLabel) {
+      customerRefDateLabel.textContent = isSpk ? 'Customer SPK Date' : 'Customer PO Date';
+    }
+  }
 
   function toggleProjectSection() {
     if (!projectSection) return;
@@ -595,7 +626,9 @@
     toggleProjectSection();
     applyPoTypeRules();
   });
+  customerRefTypeSelect?.addEventListener('change', syncCustomerRefLabels);
   toggleProjectSection();
+  syncCustomerRefLabels();
 
 
   function listUrl(){
@@ -887,8 +920,11 @@
     const csrf=document.querySelector('meta[name="csrf-token"]')?.content || '';
 
     function rowFile(file){
+      const cat = String(file.category || 'other');
+      const catLabel = cat === 'po_spk' ? 'PO/SPK' : (cat === 'agreement' ? 'Agreement' : 'Other');
       return `<div class="list-group-item d-flex align-items-center gap-2" data-id="${file.id}">
         <a class="me-auto" href="${file.url}" target="_blank" rel="noopener">${file.name}</a>
+        <span class="badge bg-azure-lt">${catLabel}</span>
         <span class="text-secondary small">${Math.round((file.size||0)/1024)} KB</span>
         <button type="button" class="btn btn-sm btn-outline-danger" data-action="del">Delete</button>
       </div>`;
@@ -929,6 +965,7 @@
         fd.append('file', f);
         if (draftToken) fd.append('draft_token', draftToken);
         else            fd.append('sales_order_id', soId);
+        fd.append('category', (document.getElementById('so_attachment_category') || {}).value || 'other');
 
         const r = await fetch(@json(route('sales-orders.attachments.upload')), {
           method:'POST',

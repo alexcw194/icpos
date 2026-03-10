@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{PurchaseOrder, PurchaseOrderLine, GoodsReceipt, GoodsReceiptLine, Item, ItemVariant, Supplier, TermOfPayment};
+use App\Models\{PurchaseOrder, PurchaseOrderLine, GoodsReceipt, GoodsReceiptLine, Item, ItemVariant, SalesOrderLine, Supplier, TermOfPayment};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Company;
@@ -130,6 +130,7 @@ class PurchaseOrderController extends Controller
                 return [
                     'item_id' => $line->item_id,
                     'item_variant_id' => $line->item_variant_id,
+                    'sales_order_line_id' => $line->sales_order_line_id,
                     'item_label' => trim($itemSku . ' - ' . $itemName, ' -'),
                     'qty_ordered' => (float) $line->qty_ordered,
                     'uom' => $line->uom,
@@ -191,6 +192,7 @@ class PurchaseOrderController extends Controller
             'lines' => ['required','array','min:1'],
             'lines.*.item_id' => ['required','exists:items,id'],
             'lines.*.item_variant_id' => ['nullable','exists:item_variants,id'],
+            'lines.*.sales_order_line_id' => ['nullable','integer','exists:sales_order_lines,id'],
             'lines.*.qty_ordered' => ['required','numeric','min:0.0001'],
             'lines.*.uom' => ['nullable','string','max:16'],
             'lines.*.unit_price' => ['nullable','numeric','min:0'],
@@ -253,8 +255,30 @@ class PurchaseOrderController extends Controller
             $subtotal = 0.0;
 
             foreach ($data['lines'] ?? [] as $lineIndex => $ln) {
+                $salesOrderLineId = !empty($ln['sales_order_line_id']) ? (int) $ln['sales_order_line_id'] : null;
+                $sourceSoLine = $salesOrderLineId ? SalesOrderLine::query()->findOrFail($salesOrderLineId) : null;
+
+                if ($sourceSoLine) {
+                    if (empty($ln['item_id']) && !empty($sourceSoLine->item_id)) {
+                        $ln['item_id'] = $sourceSoLine->item_id;
+                    }
+                    if (empty($ln['item_variant_id']) && !empty($sourceSoLine->item_variant_id)) {
+                        $ln['item_variant_id'] = $sourceSoLine->item_variant_id;
+                    }
+                }
+
                 $item = Item::findOrFail($ln['item_id']);
                 $variantId = $ln['item_variant_id'] ?? null;
+                if ($sourceSoLine && (int) ($sourceSoLine->item_id ?? 0) !== (int) $item->id) {
+                    throw ValidationException::withMessages([
+                        "lines.{$lineIndex}.sales_order_line_id" => 'SO line tidak sesuai dengan item PO.',
+                    ]);
+                }
+                if ($sourceSoLine && $sourceSoLine->item_variant_id && (int) $sourceSoLine->item_variant_id !== (int) ($variantId ?? 0)) {
+                    throw ValidationException::withMessages([
+                        "lines.{$lineIndex}.item_variant_id" => 'Variant PO harus sama dengan variant pada SO line sumber.',
+                    ]);
+                }
                 $qty = $this->toNumber($ln['qty_ordered'] ?? 0);
                 $price = $this->toNumber($ln['unit_price'] ?? 0);
                 $lineTotal = $price * $qty;
@@ -263,6 +287,7 @@ class PurchaseOrderController extends Controller
 
                 PurchaseOrderLine::create([
                     'purchase_order_id'  => $po->id,
+                    'sales_order_line_id' => $salesOrderLineId,
                     'item_id'            => $item->id,
                     'item_variant_id'    => $variantId,
                     'item_name_snapshot' => $snapshot['item_name_snapshot'],
@@ -315,6 +340,7 @@ class PurchaseOrderController extends Controller
             'lines' => ['required','array','min:1'],
             'lines.*.item_id' => ['required','exists:items,id'],
             'lines.*.item_variant_id' => ['nullable','exists:item_variants,id'],
+            'lines.*.sales_order_line_id' => ['nullable','integer','exists:sales_order_lines,id'],
             'lines.*.qty_ordered' => ['required','numeric','min:0.0001'],
             'lines.*.uom' => ['nullable','string','max:16'],
             'lines.*.unit_price' => ['nullable','numeric','min:0'],
@@ -355,8 +381,30 @@ class PurchaseOrderController extends Controller
 
             $subtotal = 0;
             foreach ($data['lines'] ?? [] as $lineIndex => $ln) {
+                $salesOrderLineId = !empty($ln['sales_order_line_id']) ? (int) $ln['sales_order_line_id'] : null;
+                $sourceSoLine = $salesOrderLineId ? SalesOrderLine::query()->findOrFail($salesOrderLineId) : null;
+
+                if ($sourceSoLine) {
+                    if (empty($ln['item_id']) && !empty($sourceSoLine->item_id)) {
+                        $ln['item_id'] = $sourceSoLine->item_id;
+                    }
+                    if (empty($ln['item_variant_id']) && !empty($sourceSoLine->item_variant_id)) {
+                        $ln['item_variant_id'] = $sourceSoLine->item_variant_id;
+                    }
+                }
+
                 $item = Item::findOrFail($ln['item_id']);
                 $variantId = $ln['item_variant_id'] ?? null;
+                if ($sourceSoLine && (int) ($sourceSoLine->item_id ?? 0) !== (int) $item->id) {
+                    throw ValidationException::withMessages([
+                        "lines.{$lineIndex}.sales_order_line_id" => 'SO line tidak sesuai dengan item PO.',
+                    ]);
+                }
+                if ($sourceSoLine && $sourceSoLine->item_variant_id && (int) $sourceSoLine->item_variant_id !== (int) ($variantId ?? 0)) {
+                    throw ValidationException::withMessages([
+                        "lines.{$lineIndex}.item_variant_id" => 'Variant PO harus sama dengan variant pada SO line sumber.',
+                    ]);
+                }
                 $qty = $this->toNumber($ln['qty_ordered'] ?? 0);
                 $price = $this->toNumber($ln['unit_price'] ?? 0);
                 $lineTotal = $price * $qty;
@@ -365,6 +413,7 @@ class PurchaseOrderController extends Controller
 
                 PurchaseOrderLine::create([
                     'purchase_order_id'  => $po->id,
+                    'sales_order_line_id' => $salesOrderLineId,
                     'item_id'            => $item->id,
                     'item_variant_id'    => $variantId,
                     'item_name_snapshot' => $snapshot['item_name_snapshot'],
@@ -419,7 +468,7 @@ class PurchaseOrderController extends Controller
     }
 
     public function show(PurchaseOrder $po) {
-        $po->load('lines.item','lines.variant','billingTerms','supplier','company','warehouse');
+        $po->load('lines.item','lines.variant','lines.salesOrderLine.salesOrder','billingTerms','supplier','company','warehouse');
         $hasGoodsReceipts = GoodsReceipt::query()->where('purchase_order_id', $po->id)->exists();
         return view('po.show', compact('po', 'hasGoodsReceipts'));
     }
