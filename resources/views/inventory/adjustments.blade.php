@@ -2,6 +2,7 @@
 
 @section('content')
 <div class="container-xl">
+  @php $scope = $listType ?? request('list_type', ''); @endphp
   @if(session('success'))
     <div class="alert alert-success mb-3">
       {{ session('success') }}
@@ -10,7 +11,23 @@
   <div class="card">
     <div class="card-header d-flex">
       <h3 class="card-title">Stock Adjustments</h3>
-      <a href="{{ route('inventory.adjustments.create') }}" class="btn btn-primary ms-auto">+ New Adjustment</a>
+      <a href="{{ route('inventory.adjustments.create', request()->only('list_type')) }}" class="btn btn-primary ms-auto">+ New Adjustment</a>
+    </div>
+
+    <div class="card-body border-bottom pb-3">
+      <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">Scope</label>
+          <select name="list_type" class="form-select">
+            <option value="" @selected($scope === '')>All</option>
+            <option value="retail" @selected($scope === 'retail')>Item</option>
+            <option value="project" @selected($scope === 'project')>Project</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary w-100">Filter</button>
+        </div>
+      </form>
     </div>
 
     <div class="table-responsive">

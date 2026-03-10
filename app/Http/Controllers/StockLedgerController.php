@@ -11,6 +11,11 @@ class StockLedgerController extends Controller
 {
     public function index(Request $request)
     {
+        $listType = (string) $request->input('list_type', '');
+        if (!in_array($listType, ['', 'retail', 'project'], true)) {
+            $listType = '';
+        }
+
         $query = StockLedger::with([
             'warehouse',
             'item' => fn ($q) => $q->withCount('variants'),
@@ -21,6 +26,10 @@ class StockLedgerController extends Controller
 
         if ($request->filled('warehouse_id')) {
             $query->where('warehouse_id', $request->warehouse_id);
+        }
+
+        if ($listType !== '') {
+            $query->whereHas('item', fn ($q) => $q->where('list_type', $listType));
         }
 
         if ($request->filled('item_id')) {
@@ -40,10 +49,11 @@ class StockLedgerController extends Controller
             ->orderBy('name')
             ->get();
         $items = Item::query()
+            ->when($listType !== '', fn ($q) => $q->where('list_type', $listType))
             ->orderBy('name')
             ->limit(200)
             ->get();
 
-        return view('inventory.ledger', compact('ledgers', 'warehouses', 'items'));
+        return view('inventory.ledger', compact('ledgers', 'warehouses', 'items', 'listType'));
     }
 }

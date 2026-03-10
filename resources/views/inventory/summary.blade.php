@@ -5,7 +5,13 @@
   <div class="card">
     <div class="card-header d-flex align-items-center">
       <h3 class="card-title">Stock Summary</h3>
+      @php $scope = $listType ?? request('list_type', ''); @endphp
       <form class="ms-auto d-flex" method="get">
+        <select name="list_type" class="form-select form-select-sm me-2" onchange="this.form.submit()">
+          <option value="" @selected($scope === '')>All</option>
+          <option value="retail" @selected($scope === 'retail')>Item</option>
+          <option value="project" @selected($scope === 'project')>Project</option>
+        </select>
         <select name="warehouse_id" class="form-select form-select-sm me-2" onchange="this.form.submit()">
           <option value="">All Warehouses</option>
           @foreach($warehouses as $w)

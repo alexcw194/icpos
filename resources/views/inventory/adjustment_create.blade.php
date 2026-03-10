@@ -24,9 +24,20 @@
         $selectedWarehouseId = old('warehouse_id', $selectedWarehouseId ?? request('warehouse_id'));
         $selectedDate = old('adjustment_date', now()->toDateString());
         $selectedCompanyId = old('company_id', $companyId ?? auth()->user()->company_id);
+        $scope = old('list_type', $listType ?? request('list_type', ''));
         $singleWarehouse = ($warehouses ?? collect())->count() === 1;
         $defaultWarehouse = $singleWarehouse ? $warehouses->first() : null;
       @endphp
+
+      <div class="mb-3">
+        <label class="form-label">Scope</label>
+        <select class="form-select" id="adjustScopeSelect">
+          <option value="" @selected($scope === '')>All</option>
+          <option value="retail" @selected($scope === 'retail')>Item</option>
+          <option value="project" @selected($scope === 'project')>Project</option>
+        </select>
+        <div class="form-hint">Pilih sumber stok: item retail, project item, atau gabungan semua.</div>
+      </div>
 
       <div class="mb-3">
         <label class="form-label">Item</label>
@@ -75,7 +86,7 @@
       </div>
     </div>
     @include('layouts.partials.form_footer', [
-        'cancelUrl' => route('inventory.adjustments.index'),
+        'cancelUrl' => route('inventory.adjustments.index', request()->only('list_type')),
         'cancelLabel' => 'Cancel',
         'cancelInline' => true,
         'buttons' => [['label' => 'Save Adjustment', 'type' => 'submit', 'class' => 'btn btn-primary']]
@@ -101,6 +112,7 @@
   const itemIdInput = document.getElementById('adjust_item_id');
   const variantIdInput = document.getElementById('adjust_variant_id');
   const warehouseSel = document.getElementById('adjustWarehouseSelect');
+  const scopeSel = document.getElementById('adjustScopeSelect');
   const qtyInput = document.getElementById('adjustQtyInput');
   const balanceEl = document.getElementById('adjustBalanceValue');
   const balanceHint = document.getElementById('adjustBalanceHint');
@@ -223,6 +235,20 @@
   });
 
   warehouseSel?.addEventListener('change', fetchBalance);
+
+  scopeSel?.addEventListener('change', () => {
+    const url = new URL(window.location.href);
+    const scope = scopeSel.value || '';
+    if (scope) {
+      url.searchParams.set('list_type', scope);
+    } else {
+      url.searchParams.delete('list_type');
+    }
+    if (warehouseSel?.value) {
+      url.searchParams.set('warehouse_id', warehouseSel.value);
+    }
+    window.location.href = url.toString();
+  });
 })();
 </script>
 @endpush

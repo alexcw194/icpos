@@ -12,6 +12,11 @@ class StockSummaryController extends Controller
 {
     public function index(Request $request)
     {
+        $listType = (string) $request->input('list_type', '');
+        if (!in_array($listType, ['', 'retail', 'project'], true)) {
+            $listType = '';
+        }
+
         $query = StockSummary::query()
             ->from('stock_summaries as ss')
             ->leftJoin('warehouses as w', 'w.id', '=', 'ss.warehouse_id')
@@ -46,6 +51,9 @@ class StockSummaryController extends Controller
         if ($request->filled('warehouse_id')) {
             $query->where('ss.warehouse_id', $request->warehouse_id);
         }
+        if ($listType !== '') {
+            $query->where('i.list_type', $listType);
+        }
 
         $summaries = $query->paginate(50);
         $warehouses = Warehouse::query()
@@ -74,6 +82,6 @@ class StockSummaryController extends Controller
                 ->all();
         }
 
-        return view('inventory.summary', compact('summaries', 'warehouses', 'variantLabels'));
+        return view('inventory.summary', compact('summaries', 'warehouses', 'variantLabels', 'listType'));
     }
 }

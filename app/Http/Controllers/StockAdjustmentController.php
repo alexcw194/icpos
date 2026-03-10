@@ -15,26 +15,41 @@ use Illuminate\Support\Facades\DB;
 
 class StockAdjustmentController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $adjustments = StockAdjustment::with(['item','variant','warehouse'])
-            ->latest()->paginate(50);
+        $listType = (string) $request->input('list_type', '');
+        if (!in_array($listType, ['', 'retail', 'project'], true)) {
+            $listType = '';
+        }
 
-        return view('inventory.adjustments', compact('adjustments'));
+        $adjustments = StockAdjustment::with(['item','variant','warehouse'])
+            ->when($listType !== '', fn ($q) => $q->whereHas('item', fn ($w) => $w->where('list_type', $listType)))
+            ->latest()
+            ->paginate(50)
+            ->withQueryString();
+
+        return view('inventory.adjustments', compact('adjustments', 'listType'));
     }
 
     public function create(Request $r)
     {
+        $listType = (string) $r->input('list_type', '');
+        if (!in_array($listType, ['', 'retail', 'project'], true)) {
+            $listType = '';
+        }
+
         $companyId = (int) ($r->company_id ?? Company::where('is_default', true)->value('id'));
 
         $items = Item::query()
             ->with('unit:id,code')
             ->withCount('variants')
+            ->when($listType !== '', fn ($q) => $q->where('list_type', $listType))
             ->orderBy('name')
             ->get(['id', 'name', 'sku', 'unit_id', 'variant_type']);
 
         $variants = ItemVariant::query()
             ->with(['item:id,name,unit_id,variant_type,name_template', 'item.unit:id,code'])
+            ->when($listType !== '', fn ($q) => $q->whereHas('item', fn ($w) => $w->where('list_type', $listType)))
             ->orderBy('item_id')
             ->orderBy('id')
             ->get(['id', 'item_id', 'sku', 'attributes', 'is_active']);
@@ -112,7 +127,8 @@ class StockAdjustmentController extends Controller
             'warehouses',
             'selectedItemId',
             'selectedVariantId',
-            'companyId'
+            'companyId',
+            'listType'
         ));
     }
 

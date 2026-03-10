@@ -28,7 +28,7 @@
     || request()->is('crm/new-leads*')
     || ((!$financeOnly && request()->is('quotations*')) || request()->is('sales-orders*'));
   $isFinanceActive = request()->is('deliveries*') || request()->is('invoices*') || request()->routeIs('reports.income.*');
-  $isProjectsActive = request()->is('projects*') || request()->is('projects-active*') || request()->is('project-items*') || request()->is('project-stocks*') || request()->is('project-deliveries*');
+  $isProjectsActive = request()->is('projects*') || request()->is('projects-active*') || request()->is('project-items*') || request()->is('project-deliveries*');
   $isDocumentsActive = request()->is('documents*');
   $isPurchaseActive = request()->routeIs('po.*') || request()->routeIs('suppliers.*');
   $isInventoryActive = request()->is('inventory*');
@@ -211,16 +211,6 @@
                     @endif
                   </li>
                 @endhasanyrole
-
-                <li>
-                  @if(Route::has('project-stocks.index'))
-                    <a class="nav-link {{ request()->is('project-stocks*') ? 'active' : '' }}" href="{{ route('project-stocks.index') }}">
-                      Project Stocks
-                    </a>
-                  @else
-                    <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Project Stocks</a>
-                  @endif
-                </li>
 
                 <li>
                   @if(Route::has('project-deliveries.index'))

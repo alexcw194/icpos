@@ -8,8 +8,17 @@
     </div>
 
     <div class="card-body border-bottom pb-3">
+      @php $scope = $listType ?? request('list_type', ''); @endphp
       <form method="GET" class="row g-2 align-items-end">
-        <div class="col-md-3">
+        <div class="col-md-2">
+          <label class="form-label">Scope</label>
+          <select name="list_type" class="form-select">
+            <option value="" @selected($scope === '')>All</option>
+            <option value="retail" @selected($scope === 'retail')>Item</option>
+            <option value="project" @selected($scope === 'project')>Project</option>
+          </select>
+        </div>
+        <div class="col-md-2">
           <label class="form-label">Warehouse</label>
           <select name="warehouse_id" class="form-select">
             <option value="">All Warehouses</option>
@@ -20,7 +29,7 @@
             @endforeach
           </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Item</label>
           <select name="item_id" class="form-select">
             <option value="">All Items</option>
