@@ -26,7 +26,15 @@ class ProjectActiveController extends Controller
                 'customer:id,name',
                 'company:id,alias,name',
                 'salesOwner:id,name',
-                'latestWonQuotation:id,project_id,number,quotation_date,grand_total,won_at',
+                'latestWonQuotation' => fn ($query) => $query
+                    ->select([
+                        'project_quotations.id',
+                        'project_quotations.project_id',
+                        'project_quotations.number',
+                        'project_quotations.quotation_date',
+                        'project_quotations.grand_total',
+                        'project_quotations.won_at',
+                    ]),
             ])
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($w) use ($q) {
@@ -52,17 +60,17 @@ class ProjectActiveController extends Controller
             'salesOwner:id,name',
             'latestWonQuotation' => fn ($query) => $query
                 ->select([
-                    'id',
-                    'project_id',
-                    'company_id',
-                    'customer_id',
-                    'number',
-                    'quotation_date',
-                    'won_at',
-                    'tax_enabled',
-                    'tax_percent',
-                    'grand_total',
-                    'status',
+                    'project_quotations.id',
+                    'project_quotations.project_id',
+                    'project_quotations.company_id',
+                    'project_quotations.customer_id',
+                    'project_quotations.number',
+                    'project_quotations.quotation_date',
+                    'project_quotations.won_at',
+                    'project_quotations.tax_enabled',
+                    'project_quotations.tax_percent',
+                    'project_quotations.grand_total',
+                    'project_quotations.status',
                 ])
                 ->with([
                     'paymentTerms' => fn ($terms) => $terms->orderBy('sequence'),
