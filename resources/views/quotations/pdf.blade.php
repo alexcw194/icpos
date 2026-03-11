@@ -86,6 +86,7 @@
   $companyAttrs = (is_object($companyModel) && method_exists($companyModel, 'getAttributes'))
     ? ($companyModel->getAttributes() ?? [])
     : [];
+  $isCompanyTaxable = (bool) ($companyAttrs['is_taxable'] ?? (is_object($companyModel) ? ($companyModel->is_taxable ?? true) : true));
   $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true);
 
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
@@ -193,10 +194,12 @@
           <tr><td>Discount</td><td class="right">-{{ number_format((float)$quotation->total_discount_amount, 2, ',', '.') }}</td></tr>
         @endif
         <tr><td>Taxable</td><td class="right">{{ number_format((float)$quotation->taxable_base, 2, ',', '.') }}</td></tr>
-        <tr>
-          <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)$quotation->tax_percent, 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
-          <td class="right">{{ number_format((float)$quotation->tax_amount, 2, ',', '.') }}</td>
-        </tr>
+        @if($isCompanyTaxable)
+          <tr>
+            <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)$quotation->tax_percent, 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
+            <td class="right">{{ number_format((float)$quotation->tax_amount, 2, ',', '.') }}</td>
+          </tr>
+        @endif
         <tr>
           <td><strong>Total</strong></td>
           <td class="right"><strong>{{ $quotation->total_idr ?? number_format((float)$quotation->total, 2, ',', '.') }}</strong></td>

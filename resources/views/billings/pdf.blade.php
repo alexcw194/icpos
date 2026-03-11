@@ -95,6 +95,7 @@
   $companyAttrs = (is_object($company) && method_exists($company, 'getAttributes'))
     ? ($company->getAttributes() ?? [])
     : [];
+  $isCompanyTaxable = (bool) ($companyAttrs['is_taxable'] ?? (is_object($company) ? ($company->is_taxable ?? true) : true));
   $billingAttrs = (is_object($billing) && method_exists($billing, 'getAttributes'))
     ? ($billing->getAttributes() ?? [])
     : [];
@@ -206,10 +207,12 @@
       <td class="text-end">{{ number_format((float)$billing->discount_amount, 2) }}</td>
     </tr>
   @endif
-  <tr>
-    <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)$billing->tax_percent, 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
-    <td class="text-end">{{ number_format((float)$billing->tax_amount, 2) }}</td>
-  </tr>
+  @if($isCompanyTaxable)
+    <tr>
+      <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)$billing->tax_percent, 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
+      <td class="text-end">{{ number_format((float)$billing->tax_amount, 2) }}</td>
+    </tr>
+  @endif
   <tr>
     <td><strong>Total</strong></td>
     <td class="text-end"><strong>{{ number_format((float)$billing->total, 2) }}</strong></td>

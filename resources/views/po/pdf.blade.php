@@ -89,8 +89,11 @@
   $companyAttrs = (is_object($companyModel) && method_exists($companyModel, 'getAttributes'))
     ? ($companyModel->getAttributes() ?? [])
     : [];
+  $isCompanyTaxable = (bool) ($companyAttrs['is_taxable'] ?? (is_object($companyModel) ? ($companyModel->is_taxable ?? true) : true));
   $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true);
   $isTaxIncluded = $taxAmount > 0 && abs($total - $subtotal) < 0.01;
+  $showTaxRow = $isCompanyTaxable && !$isTaxIncluded && $taxAmount > 0;
+  $showTotalIncludesTaxLabel = $isCompanyTaxable && $isTaxIncluded;
 
   $stampPath = \App\Models\Setting::get('documents.stamp_path');
   $directorSignaturePath = \App\Models\Setting::get('documents.director_signature_path');
@@ -199,14 +202,14 @@
           <td>Subtotal</td>
           <td class="right">{{ number_format($subtotal, 2, ',', '.') }}</td>
         </tr>
-        @if(!$isTaxIncluded && $taxAmount > 0)
+        @if($showTaxRow)
           <tr>
             <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)($po->tax_percent ?? 0), 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
             <td class="right">{{ number_format($taxAmount, 2, ',', '.') }}</td>
           </tr>
         @endif
         <tr>
-          <td><strong>{{ $isTaxIncluded ? 'Total (Termasuk Pajak)' : 'Total' }}</strong></td>
+          <td><strong>{{ $showTotalIncludesTaxLabel ? 'Total (Termasuk Pajak)' : 'Total' }}</strong></td>
           <td class="right"><strong>{{ number_format($total, 2, ',', '.') }}</strong></td>
         </tr>
       </table>
