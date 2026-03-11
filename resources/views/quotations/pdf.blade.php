@@ -88,6 +88,9 @@
     : [];
   $isCompanyTaxable = (bool) ($companyAttrs['is_taxable'] ?? (is_object($companyModel) ? ($companyModel->is_taxable ?? true) : true));
   $showTaxPercentLabel = (bool) ($companyAttrs['show_tax_percent_on_pdf'] ?? true);
+  $taxPercent = (float) ($quotation->tax_percent ?? 0);
+  $taxAmount = (float) ($quotation->tax_amount ?? 0);
+  $showTaxRows = $isCompanyTaxable && ($taxPercent > 0 || abs($taxAmount) > 0.0001);
 
   $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
   $showLineDiscountColumn = collect($quotation->lines ?? [])->contains(function ($line) {
@@ -193,11 +196,11 @@
         @if(($quotation->total_discount_amount ?? 0) > 0)
           <tr><td>Discount</td><td class="right">-{{ number_format((float)$quotation->total_discount_amount, 2, ',', '.') }}</td></tr>
         @endif
-        <tr><td>Taxable</td><td class="right">{{ number_format((float)$quotation->taxable_base, 2, ',', '.') }}</td></tr>
-        @if($isCompanyTaxable)
+        @if($showTaxRows)
+          <tr><td>Taxable</td><td class="right">{{ number_format((float)$quotation->taxable_base, 2, ',', '.') }}</td></tr>
           <tr>
-            <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format((float)$quotation->tax_percent, 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
-            <td class="right">{{ number_format((float)$quotation->tax_amount, 2, ',', '.') }}</td>
+            <td>PPN{{ $showTaxPercentLabel ? ' (' . rtrim(rtrim(number_format($taxPercent, 2, '.', ''), '0'), '.') . '%)' : '' }}</td>
+            <td class="right">{{ number_format($taxAmount, 2, ',', '.') }}</td>
           </tr>
         @endif
         <tr>
