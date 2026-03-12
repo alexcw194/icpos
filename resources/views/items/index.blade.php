@@ -313,50 +313,57 @@
       vertical-align: middle;
     }
     .inventory-table-desktop th.col-name,
-    .inventory-table-desktop td.col-name{ width: 40%; }
-    .inventory-table-desktop th.col-sku,
-    .inventory-table-desktop td.col-sku{ width: 12%; }
+    .inventory-table-desktop td.col-name{ width: 42%; }
     .inventory-table-desktop th.col-brand,
-    .inventory-table-desktop td.col-brand{ width: 10%; }
+    .inventory-table-desktop td.col-brand{ width: 12%; }
     .inventory-table-desktop th.col-size,
-    .inventory-table-desktop td.col-size{ width: 8%; }
+    .inventory-table-desktop td.col-size{ width: 9%; }
     .inventory-table-desktop th.col-color,
-    .inventory-table-desktop td.col-color{ width: 10%; }
+    .inventory-table-desktop td.col-color{ width: 9%; }
     .inventory-table-desktop th.col-price,
-    .inventory-table-desktop td.col-price{ width: 10%; }
+    .inventory-table-desktop td.col-price{ width: 160px; }
     .inventory-table-desktop th.col-stock,
     .inventory-table-desktop td.col-stock{
-      width: 48px;
+      width: 110px;
       text-align: right;
       white-space: nowrap;
     }
     .inventory-table-desktop th.col-actions,
     .inventory-table-desktop td.col-actions{
-      width: 120px;
+      width: 130px;
       white-space: nowrap;
     }
     .inventory-table-desktop.project-items-table th.col-size,
     .inventory-table-desktop.project-items-table td.col-size{ width: 7.6%; }
     .inventory-table-desktop.project-items-table th.col-color,
     .inventory-table-desktop.project-items-table td.col-color{ width: 9.5%; }
-    .inventory-table-desktop.project-items-table td.col-sku.sku-compact{
-      font-size: 13px;
-    }
 
     .inventory-table-desktop td.col-name{
-      overflow: hidden;
+      overflow: visible;
     }
     .inventory-table-desktop td.col-name .inventory-name{
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      overflow: visible;
+      text-overflow: unset;
+      white-space: normal;
       display: block;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .inventory-table-desktop th.col-price,
     .inventory-table-desktop td.col-price,
     .inventory-table-desktop th.col-actions,
     .inventory-table-desktop td.col-actions{
       white-space: nowrap;
+    }
+    .inventory-table-desktop th.col-price,
+    .inventory-table-desktop td.col-price{
+      padding-right: 1.1rem;
+    }
+    .inventory-table-desktop th.col-stock,
+    .inventory-table-desktop td.col-stock{
+      padding-left: .9rem;
+      padding-right: .8rem;
     }
     .inventory-table-desktop .inv-actions{
       display: flex;

@@ -55,7 +55,7 @@ class InventoryRowBuilder
                     'price'         => (float) ($itemPriceValue ?? 0),
                     'price_label'   => $this->formatPriceRange($minVariantPrice, $maxVariantPrice, $item->price),
                     'stock'         => $itemStockValue,
-                    'stock_label'   => number_format($itemStockValue, 2, ',', '.'),
+                    'stock_label'   => number_format($itemStockValue, 0, ',', '.'),
                     'low_stock'     => ($item->min_stock ?? 0) > 0 && $itemStockValue < $item->min_stock,
                     'inactive'      => false,
                     'attributes'    => [
@@ -102,7 +102,7 @@ class InventoryRowBuilder
                     'price'         => (float) ($variant->price ?? $item->price ?? 0),
                     'price_label'   => 'Rp ' . number_format((float) ($variant->price ?? 0), 2, ',', '.'),
                     'stock'         => $variantStock,
-                    'stock_label'   => number_format($variantStock, 2, ',', '.'),
+                    'stock_label'   => number_format($variantStock, 0, ',', '.'),
                     'low_stock'     => ($variant->min_stock ?? 0) > 0 && $variantStock < $variant->min_stock,
                     'inactive'      => !$this->isVariantActive($variant),
                     'attributes'    => [
@@ -180,8 +180,8 @@ class InventoryRowBuilder
                 continue;
             }
             $stockLabel = $activeVariants->isNotEmpty()
-                ? number_format($totalVariantStock, 2, ',', '.')
-                : number_format($itemBaseStock, 2, ',', '.');
+                ? number_format($totalVariantStock, 0, ',', '.')
+                : number_format($itemBaseStock, 0, ',', '.');
 
             $chipData = $this->buildAttributeChipData($activeVariants);
 
@@ -192,7 +192,7 @@ class InventoryRowBuilder
                     'label'  => $item->renderVariantDisplayName(is_array($attrs) ? $attrs : [], $variant->sku),
                     'sku'    => $variant->sku ?: $item->sku,
                     'price'  => number_format((float) ($variant->price ?? 0), 2, ',', '.'),
-                    'stock'  => number_format($variantStock, 2, ',', '.'),
+                    'stock'  => number_format($variantStock, 0, ',', '.'),
                     'active' => (bool) $variant->is_active,
                 ];
             });

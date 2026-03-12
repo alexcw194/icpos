@@ -30,7 +30,6 @@
     <thead>
       <tr>
         <th class="col-name">Nama</th>
-        <th class="col-sku">SKU</th>
         <th class="col-brand">Brand</th>
         <th class="col-size">Size</th>
         <th class="col-color">Color</th>
@@ -97,7 +96,6 @@
               @endif
             </div>
           </td>
-          <td class="text-muted col-sku {{ $isProjectItems ? 'sku-compact' : '' }}">{{ $row['sku'] ?? '-' }}</td>
           <td class="text-muted col-brand">{{ $row['brand'] ?? '-' }}</td>
           <td class="text-muted col-size">{{ $size }}</td>
           <td class="text-muted col-color">{{ $color }}</td>
@@ -137,7 +135,7 @@
         </tr>
       @empty
         <tr>
-          <td colspan="8" class="text-center text-muted">Tidak ada data untuk filter saat ini.</td>
+          <td colspan="7" class="text-center text-muted">Tidak ada data untuk filter saat ini.</td>
         </tr>
       @endforelse
     </tbody>
@@ -176,11 +174,8 @@
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start gap-2">
           <div class="flex-grow-1">
-            {{-- Row 1: Identity + badges --}}
-            <div class="d-flex justify-content-between align-items-center">
-              <div class="text-muted small">
-                {{ $row['sku'] ?? '—' }}
-              </div>
+            {{-- Row 1: badges --}}
+            <div class="d-flex justify-content-end align-items-center">
               <div class="d-flex gap-1">
                 @if($isVariant)
                   <span class="badge bg-primary-subtle text-primary">V</span>

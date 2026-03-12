@@ -48,7 +48,7 @@
                 <div class="fw-semibold">
                   <a href="{{ route($itemShowRoute, $item) }}">{{ $item->name }}</a>
                 </div>
-                <div class="text-muted small mt-1">SKU: {{ $item->sku ?: '-' }} • {{ optional($item->brand)->name ?: '-' }} • {{ optional($item->unit)->code ?: optional($item->unit)->name ?: '-' }}</div>
+                <div class="text-muted small mt-1">{{ optional($item->brand)->name ?: '-' }} • {{ optional($item->unit)->code ?: optional($item->unit)->name ?: '-' }}</div>
                 <div class="text-muted small d-flex flex-wrap gap-2 mt-1">
                   @if($sizeSummary)
                     <span>{{ $sizeSummary }}</span>
@@ -98,7 +98,6 @@
                   <thead>
                     <tr>
                       <th>Label</th>
-                      <th>SKU</th>
                       <th>Harga</th>
                       <th>Stok</th>
                       <th>Status</th>
@@ -108,7 +107,6 @@
                     @foreach($row['preview'] as $preview)
                       <tr>
                         <td>{{ $preview['label'] }}</td>
-                        <td>{{ $preview['sku'] ?: '-' }}</td>
                         <td>Rp {{ $preview['price'] }}</td>
                         <td>{{ $preview['stock'] }}</td>
                         <td>
@@ -156,7 +154,7 @@
             <div class="fw-semibold">
               <a href="{{ route($itemShowRoute, $item) }}">{{ $item->name }}</a>
             </div>
-            <div class="text-muted small mt-1">SKU: {{ $item->sku ?: '-' }} • {{ optional($item->brand)->name ?: '-' }} • {{ optional($item->unit)->code ?: optional($item->unit)->name ?: '-' }}</div>
+            <div class="text-muted small mt-1">{{ optional($item->brand)->name ?: '-' }} • {{ optional($item->unit)->code ?: optional($item->unit)->name ?: '-' }}</div>
             <div class="text-muted small mt-1">{{ $row['price_label'] }} • Stok {{ $row['stock_label'] }}</div>
           </div>
           <span class="badge {{ $row['has_variants'] ? 'bg-primary text-white' : 'bg-light text-muted' }}">{{ $row['has_variants'] ? 'Varian (' . $row['variant_count'] . ')' : 'Single' }}</span>
@@ -168,7 +166,6 @@
               <div class="d-flex justify-content-between small border-top py-1">
                 <div>
                   <div>{{ $preview['label'] }}</div>
-                  <div class="text-muted">SKU {{ $preview['sku'] ?: '-' }}</div>
                 </div>
                 <div class="text-end">
                   <div>Rp {{ $preview['price'] }}</div>
