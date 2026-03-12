@@ -29,6 +29,11 @@
   <table class="table table-vcenter table-striped inventory-table inventory-table-desktop {{ $isProjectItems ? 'project-items-table' : '' }}">
     <thead>
       <tr>
+        @if($canManageItems)
+          <th class="col-select text-center">
+            <input type="checkbox" class="form-check-input js-bulk-select-all" aria-label="Pilih semua item">
+          </th>
+        @endif
         <th class="col-name">Nama</th>
         <th class="col-brand">Brand</th>
         <th class="col-family">Family Code</th>
@@ -66,6 +71,16 @@
         @endphp
 
         <tr class="{{ $inactive ? 'text-muted' : '' }}">
+          @if($canManageItems)
+            <td class="col-select text-center">
+              <input
+                type="checkbox"
+                class="form-check-input js-bulk-item-checkbox"
+                data-item-id="{{ $itemId }}"
+                aria-label="Pilih item {{ $row['display_name'] ?? '-' }}"
+              >
+            </td>
+          @endif
           <td class="col-name">
             <div class="d-flex align-items-center gap-2">
               <div class="fw-semibold inventory-name">
@@ -135,7 +150,7 @@
         </tr>
       @empty
         <tr>
-          <td colspan="7" class="text-center text-muted">Tidak ada data untuk filter saat ini.</td>
+          <td colspan="{{ $canManageItems ? 8 : 7 }}" class="text-center text-muted">Tidak ada data untuk filter saat ini.</td>
         </tr>
       @endforelse
     </tbody>
@@ -205,6 +220,16 @@
               </div>
 
               <div class="d-flex align-items-center gap-2">
+                @if($canManageItems)
+                  <div class="form-check m-0">
+                    <input
+                      type="checkbox"
+                      class="form-check-input js-bulk-item-checkbox"
+                      data-item-id="{{ $itemId }}"
+                      aria-label="Pilih item {{ $row['display_name'] ?? '-' }}"
+                    >
+                  </div>
+                @endif
                 <div class="text-muted small">
                   Stok {{ $row['stock_label'] ?? '-' }}
                 </div>

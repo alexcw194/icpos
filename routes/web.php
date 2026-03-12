@@ -418,6 +418,10 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
     Route::resource('project-items', ItemController::class)
         ->parameters(['project-items' => 'item'])
         ->except(['index','show']);
+    Route::post('items/bulk/family-code', [ItemController::class, 'bulkUpdateFamilyCode'])
+        ->name('items.bulk-family-code');
+    Route::post('project-items/bulk/family-code', [ItemController::class, 'bulkUpdateFamilyCode'])
+        ->name('project-items.bulk-family-code');
     Route::post('items/{item}/transfer-to-project', [ItemController::class, 'transferListType'])
         ->name('items.transfer-to-project');
     Route::post('project-items/{item}/transfer-to-retail', [ItemController::class, 'transferListType'])

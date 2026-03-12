@@ -1,8 +1,20 @@
-﻿<div class="table-responsive d-none d-md-block">
+﻿@php
+  $isProjectItems = $isProjectItems ?? false;
+  $itemShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
+  $itemEditRoute = $isProjectItems ? 'project-items.edit' : 'items.edit';
+  $canManageItems = auth()->user()?->hasAnyRole(['SuperAdmin','Admin']) ?? false;
+@endphp
+
+<div class="table-responsive d-none d-md-block">
   <table class="table table-hover align-middle inventory-table">
     <thead>
       <tr>
         <th class="w-1"></th>
+        @if($canManageItems)
+          <th class="w-1 text-center">
+            <input type="checkbox" class="form-check-input js-bulk-select-all" aria-label="Pilih semua item">
+          </th>
+        @endif
         <th>Item</th>
         <th class="text-end">Harga & Stok</th>
         <th class="w-1"></th>
@@ -12,10 +24,6 @@
       @forelse($rows as $row)
         @php
           $item = $row['item'];
-          $isProjectItems = $isProjectItems ?? false;
-          $itemShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
-          $itemEditRoute = $isProjectItems ? 'project-items.edit' : 'items.edit';
-          $canManageItems = auth()->user()?->hasAnyRole(['SuperAdmin','Admin']) ?? false;
           $hasVariants = $row['has_variants'];
           $variantCount = $row['variant_count'];
           $badgeText = $hasVariants ? 'Varian (' . $variantCount . ')' : 'Single';
@@ -40,6 +48,16 @@
               <button class="btn btn-link p-0 text-decoration-none variant-expand" type="button" data-bs-toggle="collapse" data-bs-target="#item-{{ $item->id }}" aria-expanded="false" aria-controls="item-{{ $item->id }}">▸</button>
             @endif
           </td>
+          @if($canManageItems)
+            <td class="text-center">
+              <input
+                type="checkbox"
+                class="form-check-input js-bulk-item-checkbox"
+                data-item-id="{{ $item->id }}"
+                aria-label="Pilih item {{ $item->name }}"
+              >
+            </td>
+          @endif
           <td class="text-wrap">
             <div class="d-flex align-items-center gap-2">
               <span class="badge {{ $badgeClass }} align-self-start">{{ $badgeText }}</span>
@@ -90,7 +108,7 @@
         </tr>
         @if($hasVariants)
           <tr class="collapse" id="item-{{ $item->id }}">
-            <td colspan="4">
+            <td colspan="{{ $canManageItems ? 5 : 4 }}">
               <div class="variant-preview-table table-responsive">
                 <table class="table table-sm mb-0">
                   <thead>
@@ -129,7 +147,7 @@
         @endif
       @empty
         <tr>
-          <td colspan="4" class="text-center text-muted">Tidak ada data.</td>
+          <td colspan="{{ $canManageItems ? 5 : 4 }}" class="text-center text-muted">Tidak ada data.</td>
         </tr>
       @endforelse
     </tbody>
@@ -140,10 +158,6 @@
   @forelse($rows as $row)
     @php
       $item = $row['item'];
-      $isProjectItems = $isProjectItems ?? false;
-      $itemShowRoute = $isProjectItems ? 'project-items.show' : 'items.show';
-      $itemEditRoute = $isProjectItems ? 'project-items.edit' : 'items.edit';
-      $canManageItems = auth()->user()?->hasAnyRole(['SuperAdmin','Admin']) ?? false;
     @endphp
     <div class="card inventory-card mb-3">
       <div class="card-body">
@@ -159,6 +173,19 @@
           </div>
           <span class="badge {{ $row['has_variants'] ? 'bg-primary text-white' : 'bg-light text-muted' }}">{{ $row['has_variants'] ? 'Varian (' . $row['variant_count'] . ')' : 'Single' }}</span>
         </div>
+
+        @if($canManageItems)
+          <div class="mt-2">
+            <div class="form-check m-0">
+              <input
+                type="checkbox"
+                class="form-check-input js-bulk-item-checkbox"
+                data-item-id="{{ $item->id }}"
+                aria-label="Pilih item {{ $item->name }}"
+              >
+            </div>
+          </div>
+        @endif
 
         @if($row['preview']->isNotEmpty())
           <div class="mt-3">

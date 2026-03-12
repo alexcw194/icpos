@@ -5,12 +5,16 @@
   @php
     $isProjectItems = request()->routeIs('project-items.*');
     $pageTitle = $isProjectItems ? 'Project Items' : 'Inventory';
+    $canManageItems = auth()->user()?->hasAnyRole(['SuperAdmin','Admin']) ?? false;
     $createUrl = $isProjectItems
       ? route('project-items.create', ['modal' => 1, 'r' => request()->fullUrl()])
       : route('items.create', ['modal' => 1, 'r' => request()->fullUrl()]);
     $indexUrl = $isProjectItems
       ? route('project-items.index', ['view' => $viewMode])
       : route('items.index', ['view' => $viewMode]);
+    $bulkFamilyCodeUrl = $isProjectItems
+      ? route('project-items.bulk-family-code')
+      : route('items.bulk-family-code');
   @endphp
 
   <div class="card">
@@ -259,6 +263,24 @@
         </div>
       </form>
 
+      @if($canManageItems)
+        <div class="alert alert-info d-none align-items-center justify-content-between gap-2 py-2 mb-3 inventory-bulk-bar" id="bulkFamilyCodeBar">
+          <div>
+            <strong><span id="bulkFamilyCodeSelectedCount">0</span></strong> item dipilih.
+          </div>
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            data-bs-toggle="modal"
+            data-bs-target="#bulkFamilyCodeModal"
+            id="bulkFamilyCodeOpenModalBtn"
+            disabled
+          >
+            Set Family Code
+          </button>
+        </div>
+      @endif
+
       @if($viewMode === 'flat')
         @include('items.partials.inventory_flat', ['rows' => $flatRows, 'filters' => $filters, 'isProjectItems' => $isProjectItems])
       @else
@@ -271,6 +293,43 @@
     </div>
   </div>
 </div>
+
+@if($canManageItems)
+  <div class="modal modal-blur fade" id="bulkFamilyCodeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form method="post" action="{{ $bulkFamilyCodeUrl }}" id="bulkFamilyCodeForm">
+          @csrf
+          <input type="hidden" name="r" value="{{ request()->fullUrl() }}">
+          <div id="bulkFamilyCodeSelectedInputs"></div>
+
+          <div class="modal-header">
+            <h5 class="modal-title">Mass Edit Family Code</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+
+          <div class="modal-body">
+            <label class="form-label">Family Code</label>
+            <select class="form-select" name="family_code" id="bulkFamilyCodeSelect">
+              <option value="">-- Kosongkan Family Code --</option>
+              @foreach($familyCodes as $familyCode)
+                <option value="{{ $familyCode }}">{{ $familyCode }}</option>
+              @endforeach
+            </select>
+            <div class="form-hint mt-2">
+              <span id="bulkFamilyCodeModalCount">0</span> item akan diperbarui.
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" class="btn btn-primary">Simpan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+@endif
 @endsection
 
 @push('styles')
@@ -305,6 +364,11 @@
     .inventory-header .btn-group .btn{ padding-left:.75rem; padding-right:.75rem; }
   }
   @media (min-width: 768px){
+    .inventory-table-desktop th.col-select,
+    .inventory-table-desktop td.col-select{
+      width: 40px;
+      text-align: center;
+    }
     .inventory-table-desktop{ table-layout: fixed; width: 100%; }
     .inventory-table-desktop th,
     .inventory-table-desktop td{
@@ -378,6 +442,9 @@
     .inventory-table-desktop .inv-actions button{
       white-space: nowrap;
     }
+  }
+  .inventory-bulk-bar{
+    border-style: dashed;
   }
 </style>
 @endpush
@@ -606,4 +673,106 @@
   }
 })();
 </script>
+
+@if($canManageItems)
+<script>
+(function () {
+  const barEl = document.getElementById('bulkFamilyCodeBar');
+  const countEl = document.getElementById('bulkFamilyCodeSelectedCount');
+  const modalCountEl = document.getElementById('bulkFamilyCodeModalCount');
+  const openModalBtn = document.getElementById('bulkFamilyCodeOpenModalBtn');
+  const selectedInputsEl = document.getElementById('bulkFamilyCodeSelectedInputs');
+  const modalEl = document.getElementById('bulkFamilyCodeModal');
+  const bulkForm = document.getElementById('bulkFamilyCodeForm');
+  const filterForm = document.getElementById('inventory-filter-form');
+
+  if (!barEl || !countEl || !modalCountEl || !openModalBtn || !selectedInputsEl || !modalEl || !bulkForm) {
+    return;
+  }
+
+  const rowCheckboxes = Array.from(document.querySelectorAll('.js-bulk-item-checkbox'));
+  const selectAllCheckboxes = Array.from(document.querySelectorAll('.js-bulk-select-all'));
+  if (rowCheckboxes.length === 0) {
+    return;
+  }
+
+  const selectedItemIds = () => {
+    const ids = rowCheckboxes
+      .filter((checkbox) => checkbox.checked)
+      .map((checkbox) => Number(checkbox.dataset.itemId))
+      .filter((value) => Number.isInteger(value) && value > 0);
+
+    return Array.from(new Set(ids));
+  };
+
+  const updateSelectAllState = () => {
+    const total = rowCheckboxes.length;
+    const checked = rowCheckboxes.filter((checkbox) => checkbox.checked).length;
+
+    selectAllCheckboxes.forEach((selectAll) => {
+      selectAll.indeterminate = checked > 0 && checked < total;
+      selectAll.checked = total > 0 && checked === total;
+    });
+  };
+
+  const updateBulkUi = () => {
+    const ids = selectedItemIds();
+    const count = ids.length;
+
+    barEl.classList.toggle('d-none', count === 0);
+    barEl.classList.toggle('d-flex', count > 0);
+    countEl.textContent = String(count);
+    modalCountEl.textContent = String(count);
+    openModalBtn.disabled = count === 0;
+
+    updateSelectAllState();
+  };
+
+  const clearSelection = () => {
+    rowCheckboxes.forEach((checkbox) => {
+      checkbox.checked = false;
+    });
+    updateBulkUi();
+  };
+
+  rowCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener('change', updateBulkUi);
+  });
+
+  selectAllCheckboxes.forEach((selectAll) => {
+    selectAll.addEventListener('change', () => {
+      rowCheckboxes.forEach((checkbox) => {
+        checkbox.checked = selectAll.checked;
+      });
+      updateBulkUi();
+    });
+  });
+
+  if (filterForm) {
+    filterForm.addEventListener('submit', clearSelection);
+  }
+
+  document.querySelectorAll('.pagination a').forEach((link) => {
+    link.addEventListener('click', clearSelection);
+  });
+
+  modalEl.addEventListener('show.bs.modal', () => {
+    const ids = selectedItemIds();
+    selectedInputsEl.innerHTML = ids
+      .map((id) => `<input type="hidden" name="item_ids[]" value="${id}">`)
+      .join('');
+    modalCountEl.textContent = String(ids.length);
+  });
+
+  bulkForm.addEventListener('submit', () => {
+    const ids = selectedItemIds();
+    selectedInputsEl.innerHTML = ids
+      .map((id) => `<input type="hidden" name="item_ids[]" value="${id}">`)
+      .join('');
+  });
+
+  updateBulkUi();
+})();
+</script>
+@endif
 @endpush

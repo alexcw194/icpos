@@ -11,6 +11,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
@@ -460,6 +461,70 @@ class ItemController extends Controller
 
         return redirect()->to($returnUrl)->with('success', 'Item updated!');
 
+    }
+
+    public function bulkUpdateFamilyCode(Request $request)
+    {
+        $isProjectItems = $this->isProjectItemsRequest($request);
+        $fallbackIndex = $isProjectItems ? route('project-items.index') : route('items.index');
+        $rawReturnUrl = $request->input('r');
+        $returnUrl = $this->safeReturnUrl(is_array($rawReturnUrl) ? ($rawReturnUrl[0] ?? null) : $rawReturnUrl) ?? $fallbackIndex;
+
+        $validated = $request->validate([
+            'item_ids' => ['required', 'array', 'min:1'],
+            'item_ids.*' => ['integer', Rule::exists('items', 'id')],
+            'family_code' => ['nullable', 'string', 'max:50', Rule::exists('family_codes', 'code')],
+        ]);
+
+        $itemIds = collect($validated['item_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($itemIds->isEmpty()) {
+            return redirect()->to($returnUrl)->with('warning', 'Tidak ada item valid yang dipilih.');
+        }
+
+        $listType = $this->forcedListType($request);
+        $targetFamilyCode = ($validated['family_code'] ?? null) ?: null;
+        $now = now();
+
+        $updatedCount = DB::transaction(function () use ($itemIds, $listType, $targetFamilyCode, $now) {
+            $scopedIds = Item::query()
+                ->whereIn('id', $itemIds->all())
+                ->where('list_type', $listType)
+                ->pluck('id');
+
+            if ($scopedIds->isEmpty()) {
+                return 0;
+            }
+
+            return Item::query()
+                ->whereIn('id', $scopedIds->all())
+                ->update([
+                    'family_code' => $targetFamilyCode,
+                    'updated_at' => $now,
+                ]);
+        });
+
+        Log::info('inventory.bulk_family_code_update', [
+            'user_id' => (int) optional($request->user())->id,
+            'list_type' => $listType,
+            'requested_item_count' => $itemIds->count(),
+            'updated_count' => $updatedCount,
+            'family_code' => $targetFamilyCode,
+        ]);
+
+        if ($updatedCount === 0) {
+            return redirect()->to($returnUrl)->with('warning', 'Tidak ada item yang bisa diperbarui.');
+        }
+
+        $message = $targetFamilyCode
+            ? "{$updatedCount} item berhasil diubah ke Family Code {$targetFamilyCode}."
+            : "{$updatedCount} item berhasil dikosongkan Family Code-nya.";
+
+        return redirect()->to($returnUrl)->with('success', $message);
     }
 
     public function destroy(Request $request, Item $item)
