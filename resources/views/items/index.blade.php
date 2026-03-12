@@ -545,6 +545,35 @@
 })();
 </script>
 
+{{-- Prevent duplicate desktop/mobile filter fields from overriding each other --}}
+<script>
+(function () {
+  const form = document.getElementById('inventory-filter-form');
+  if (!form) return;
+
+  const mq = window.matchMedia('(max-width: 767.98px)');
+
+  const setEnabledByViewport = () => {
+    const isMobile = mq.matches;
+
+    form.querySelectorAll('.d-none.d-md-block, .d-none.d-md-flex').forEach((container) => {
+      container.querySelectorAll('input, select, textarea').forEach((el) => {
+        el.disabled = isMobile;
+      });
+    });
+
+    form.querySelectorAll('.d-md-none').forEach((container) => {
+      container.querySelectorAll('input, select, textarea').forEach((el) => {
+        el.disabled = !isMobile;
+      });
+    });
+  };
+
+  setEnabledByViewport();
+  window.addEventListener('resize', setEnabledByViewport);
+})();
+</script>
+
 {{-- Mobile: auto-apply Quick Filters (Tier 1) --}}
 <script>
 (function () {
