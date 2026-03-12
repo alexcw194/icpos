@@ -21,7 +21,7 @@
           $badgeText = $hasVariants ? 'Varian (' . $variantCount . ')' : 'Single';
           $badgeClass = $hasVariants ? 'bg-primary text-white' : 'bg-light text-muted';
           $chipSize  = $row['chips']['size']  ?? collect();
-          $chipColor = $row['chips']['color'] ?? collect();
+          $familyCode = $item->family_code ?: '-';
 
           $formatChips = function ($collection, $label) {
             if ($collection->isEmpty()) {
@@ -33,7 +33,6 @@
           };
 
           $sizeSummary  = $formatChips($chipSize, 'Size');
-          $colorSummary = $formatChips($chipColor, 'Color');
         @endphp
         <tr class="inventory-row inventory-row--grouped">
           <td class="text-center">
@@ -48,13 +47,12 @@
                 <div class="fw-semibold">
                   <a href="{{ route($itemShowRoute, $item) }}">{{ $item->name }}</a>
                 </div>
-                <div class="text-muted small mt-1">{{ optional($item->brand)->name ?: '-' }} • {{ optional($item->unit)->code ?: optional($item->unit)->name ?: '-' }}</div>
+                <div class="text-muted small mt-1">
+                  {{ optional($item->brand)->name ?: '-' }} • {{ $familyCode }} • {{ optional($item->unit)->code ?: optional($item->unit)->name ?: '-' }}
+                </div>
                 <div class="text-muted small d-flex flex-wrap gap-2 mt-1">
                   @if($sizeSummary)
                     <span>{{ $sizeSummary }}</span>
-                  @endif
-                  @if($colorSummary)
-                    <span>{{ $colorSummary }}</span>
                   @endif
                 </div>
               </div>
@@ -154,7 +152,9 @@
             <div class="fw-semibold">
               <a href="{{ route($itemShowRoute, $item) }}">{{ $item->name }}</a>
             </div>
-            <div class="text-muted small mt-1">{{ optional($item->brand)->name ?: '-' }} • {{ optional($item->unit)->code ?: optional($item->unit)->name ?: '-' }}</div>
+            <div class="text-muted small mt-1">
+              {{ optional($item->brand)->name ?: '-' }} • {{ $item->family_code ?: '-' }} • {{ optional($item->unit)->code ?: optional($item->unit)->name ?: '-' }}
+            </div>
             <div class="text-muted small mt-1">{{ $row['price_label'] }} • Stok {{ $row['stock_label'] }}</div>
           </div>
           <span class="badge {{ $row['has_variants'] ? 'bg-primary text-white' : 'bg-light text-muted' }}">{{ $row['has_variants'] ? 'Varian (' . $row['variant_count'] . ')' : 'Single' }}</span>

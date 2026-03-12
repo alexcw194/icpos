@@ -131,6 +131,16 @@
         </div>
 
         <div class="col-6 col-md-2 d-none d-md-block">
+          <label class="form-label">Family Code</label>
+          <select name="family_code" class="form-select">
+            <option value="">Semua Family Code</option>
+            @foreach($familyCodes as $familyCode)
+              <option value="{{ $familyCode }}" @selected((string)$filters['family_code'] === (string)$familyCode)>{{ $familyCode }}</option>
+            @endforeach
+          </select>
+        </div>
+
+        <div class="col-6 col-md-2 d-none d-md-block">
           <label class="form-label">Unit</label>
           <select name="unit_id" class="form-select">
             <option value="">Semua Unit</option>
@@ -147,15 +157,6 @@
           <select name="sizes[]" class="form-select inventory-select" multiple>
             @foreach($sizesList as $size)
               <option value="{{ $size }}" @selected(in_array($size, $filters['sizes'], true))>{{ $size }}</option>
-            @endforeach
-          </select>
-        </div>
-
-        <div class="col-12 col-md-4 d-none d-md-block">
-          <label class="form-label">Color</label>
-          <select name="colors[]" class="form-select inventory-select" multiple>
-            @foreach($colorsList as $color)
-              <option value="{{ $color }}" @selected(in_array($color, $filters['colors'], true))>{{ $color }}</option>
             @endforeach
           </select>
         </div>
@@ -204,6 +205,16 @@
               </div>
 
               <div class="col-6">
+                <label class="form-label">Family Code</label>
+                <select name="family_code" class="form-select">
+                  <option value="">Semua Family Code</option>
+                  @foreach($familyCodes as $familyCode)
+                    <option value="{{ $familyCode }}" @selected((string)$filters['family_code'] === (string)$familyCode)>{{ $familyCode }}</option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="col-6">
                 <label class="form-label">Unit</label>
                 <select name="unit_id" class="form-select">
                   <option value="">Semua Unit</option>
@@ -220,15 +231,6 @@
                 <select name="sizes[]" class="form-select inventory-select" multiple>
                   @foreach($sizesList as $size)
                     <option value="{{ $size }}" @selected(in_array($size, $filters['sizes'], true))>{{ $size }}</option>
-                  @endforeach
-                </select>
-              </div>
-
-              <div class="col-12">
-                <label class="form-label">Color</label>
-                <select name="colors[]" class="form-select inventory-select" multiple>
-                  @foreach($colorsList as $color)
-                    <option value="{{ $color }}" @selected(in_array($color, $filters['colors'], true))>{{ $color }}</option>
                   @endforeach
                 </select>
               </div>
@@ -315,11 +317,11 @@
     .inventory-table-desktop th.col-name,
     .inventory-table-desktop td.col-name{ width: 42%; }
     .inventory-table-desktop th.col-brand,
-    .inventory-table-desktop td.col-brand{ width: 12%; }
+    .inventory-table-desktop td.col-brand{ width: 11%; }
+    .inventory-table-desktop th.col-family,
+    .inventory-table-desktop td.col-family{ width: 11%; }
     .inventory-table-desktop th.col-size,
-    .inventory-table-desktop td.col-size{ width: 9%; }
-    .inventory-table-desktop th.col-color,
-    .inventory-table-desktop td.col-color{ width: 9%; }
+    .inventory-table-desktop td.col-size{ width: 8%; }
     .inventory-table-desktop th.col-price,
     .inventory-table-desktop td.col-price{ width: 160px; }
     .inventory-table-desktop th.col-stock,
@@ -334,9 +336,7 @@
       white-space: nowrap;
     }
     .inventory-table-desktop.project-items-table th.col-size,
-    .inventory-table-desktop.project-items-table td.col-size{ width: 7.6%; }
-    .inventory-table-desktop.project-items-table th.col-color,
-    .inventory-table-desktop.project-items-table td.col-color{ width: 9.5%; }
+    .inventory-table-desktop.project-items-table td.col-size{ width: 8%; }
 
     .inventory-table-desktop td.col-name{
       overflow: visible;

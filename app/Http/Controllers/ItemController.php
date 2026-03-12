@@ -33,6 +33,7 @@ class ItemController extends Controller
             ])
             ->inUnit($filters['unit_id'])
             ->inBrand($filters['brand_id'])
+            ->when(($filters['family_code'] ?? '') !== '', fn($q) => $q->where('family_code', $filters['family_code']))
             ->where('list_type', $listType);
 
         if ($filters['q'] !== '') {
@@ -58,6 +59,7 @@ class ItemController extends Controller
 
         $units      = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
         $brands     = Brand::orderBy('name')->get(['id','name']);
+        $familyCodes = FamilyCode::query()->orderBy('code')->pluck('code');
         $sizesList  = Size::active()->ordered()->pluck('name')->filter()->values();
         $colorsList = Color::active()->ordered()->pluck('name')->filter()->values();
 
@@ -101,6 +103,7 @@ class ItemController extends Controller
             'items'       => $items,
             'units'       => $units,
             'brands'      => $brands,
+            'familyCodes' => $familyCodes,
             'sizesList'   => $sizesList,
             'colorsList'  => $colorsList,
             'filters'     => $filters,
@@ -862,6 +865,7 @@ class ItemController extends Controller
             'q'                  => $term,
             'unit_id'            => $request->input('unit_id'),
             'brand_id'           => $request->input('brand_id'),
+            'family_code'        => trim((string) $request->input('family_code', '')),
             'type'               => $type,
             'stock'              => $stock,
             'sizes'              => $sizes,

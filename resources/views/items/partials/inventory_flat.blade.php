@@ -31,8 +31,8 @@
       <tr>
         <th class="col-name">Nama</th>
         <th class="col-brand">Brand</th>
+        <th class="col-family">Family Code</th>
         <th class="col-size">Size</th>
-        <th class="col-color">Color</th>
         <th class="text-end col-price">Harga</th>
         <th class="text-end col-stock">Stok</th>
         <th class="text-end col-actions">Aksi</th>
@@ -44,9 +44,9 @@
           $isVariant = ($row['entity'] ?? 'item') === 'variant';
           $inactive  = $row['inactive'] ?? false;
           $lowStock  = $row['low_stock'] ?? false;
+          $familyCode = $row['family_code'] ?? '-';
 
           $size = $row['attributes']['size'] ?? '-';
-          $color = $row['attributes']['color'] ?? '-';
 
           $itemId = $row['item_id'];
           $variantId = $row['variant_id'] ?? null;
@@ -97,8 +97,8 @@
             </div>
           </td>
           <td class="text-muted col-brand">{{ $row['brand'] ?? '-' }}</td>
+          <td class="text-muted col-family">{{ $familyCode ?: '-' }}</td>
           <td class="text-muted col-size">{{ $size }}</td>
-          <td class="text-muted col-color">{{ $color }}</td>
           <td class="text-end col-price">{{ $row['price_label'] ?? '-' }}</td>
           <td class="text-end col-stock">{{ $row['stock_label'] ?? '-' }}</td>
           <td class="text-end col-actions">
@@ -149,9 +149,9 @@
       $isVariant = ($row['entity'] ?? 'item') === 'variant';
       $inactive  = $row['inactive'] ?? false;
       $lowStock  = $row['low_stock'] ?? false;
+      $familyCode = $row['family_code'] ?? '-';
 
       $size = $row['attributes']['size'] ?? '-';
-      $color = $row['attributes']['color'] ?? '-';
 
       $itemId = $row['item_id'];
       $variantId = $row['variant_id'] ?? null;
@@ -219,7 +219,7 @@
 
             <div class="collapse mt-2" id="{{ $detailId }}">
               <div class="text-muted small">
-                Brand: {{ $row['brand'] ?? '-' }} • Size: {{ $size }} • Color: {{ $color }}
+                Brand: {{ $row['brand'] ?? '-' }} • Family: {{ $familyCode ?: '-' }} • Size: {{ $size }}
               </div>
 
               @if($isVariant && !empty($row['parent_name']))
