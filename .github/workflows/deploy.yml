@@ -93,6 +93,21 @@ jobs:
           test -f ./deploy/deploy.sh || (echo "ERROR: deploy/deploy.sh missing"; ls -la; exit 1)
 
       - name: Upload release to server (/tmp)
+        id: upload_release_attempt1
+        uses: appleboy/scp-action@v0.1.7
+        continue-on-error: true
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "release.tar.gz"
+          target: "/tmp"
+          timeout: "120s"
+          command_timeout: "20m"
+
+      - name: Retry upload release to server (/tmp)
+        if: steps.upload_release_attempt1.outcome == 'failure'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -101,8 +116,27 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "release.tar.gz"
           target: "/tmp"
+          timeout: "120s"
+          command_timeout: "20m"
 
       - name: Upload deploy script to /tmp/deploy.sh
+        id: upload_script_attempt1
+        uses: appleboy/scp-action@v0.1.7
+        continue-on-error: true
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "./deploy/deploy.sh"
+          target: "/tmp"
+          strip_components: 1
+          overwrite: true
+          timeout: "120s"
+          command_timeout: "20m"
+
+      - name: Retry upload deploy script to /tmp/deploy.sh
+        if: steps.upload_script_attempt1.outcome == 'failure'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -113,6 +147,8 @@ jobs:
           target: "/tmp"
           strip_components: 1
           overwrite: true
+          timeout: "120s"
+          command_timeout: "20m"
 
       - name: Debug list /tmp on server
         uses: appleboy/ssh-action@v1.0.3
