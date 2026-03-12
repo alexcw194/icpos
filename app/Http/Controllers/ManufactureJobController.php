@@ -20,7 +20,7 @@ class ManufactureJobController extends Controller
 
     public function index()
     {
-        $jobs = ManufactureJob::with('parentItem')->latest()->paginate(20);
+        $jobs = ManufactureJob::with(['parentItem', 'producedBy', 'sourceDelivery'])->latest()->paginate(20);
         return view('manufacture_jobs.index', compact('jobs'));
     }
 
@@ -47,7 +47,7 @@ class ManufactureJobController extends Controller
                 Rule::exists('items', 'id')->whereIn('item_type', $this->kitTypes()),
             ],
             'qty_produced' => ['required', 'numeric', 'min:0.001'],
-            'job_type' => ['required', Rule::in(['cut', 'assembly', 'fill', 'bundle'])],
+            'job_type' => ['required', Rule::in(['cut', 'assembly', 'fill', 'bundle', 'production'])],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -113,7 +113,7 @@ class ManufactureJobController extends Controller
         ];
 
         // Jalankan sebagai 1 transaksi supaya stock + job konsisten
-        $job = DB::transaction(function () use ($data, $parent, $components, $movements) {
+        DB::transaction(function () use ($data, $parent, $components, $movements) {
             StockMovementService::move($movements);
 
             $job = ManufactureJob::create([
@@ -126,10 +126,7 @@ class ManufactureJobController extends Controller
                 'notes'             => $data['notes'] ?? null,
             ]);
 
-            // Posting tambahan (kalau service kamu melakukan jurnal/ledger)
             \App\Services\StockService::postManufactureJob($job);
-
-            return $job;
         });
 
         return redirect()
@@ -139,7 +136,7 @@ class ManufactureJobController extends Controller
 
     public function show(ManufactureJob $manufactureJob)
     {
-        $manufactureJob->load('parentItem');
+        $manufactureJob->load(['parentItem', 'producedBy', 'sourceDelivery', 'sourceLine', 'reversedBy']);
         return view('manufacture_jobs.show', ['job' => $manufactureJob]);
     }
 }

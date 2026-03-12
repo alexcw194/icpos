@@ -25,6 +25,7 @@
         <option value="cut">Cut</option>
         <option value="fill">Fill</option>
         <option value="bundle">Bundle</option>
+        <option value="production">Production</option>
       </select>
     </div>
 

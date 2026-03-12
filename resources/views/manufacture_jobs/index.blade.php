@@ -33,10 +33,24 @@
                 'fill' => 'blue',
                 'assembly' => 'green',
                 'bundle' => 'purple',
+                'production' => 'orange',
                 default => 'gray',
               } }}">
                 {{ ucfirst($job->job_type) }}
               </span>
+              @if($job->is_auto && $job->source_type === 'delivery')
+                <div class="text-muted small mt-1">
+                  Auto from delivery
+                  @if($job->sourceDelivery)
+                    {{ $job->sourceDelivery->number ?? ('#'.$job->sourceDelivery->id) }}
+                  @elseif($job->source_id)
+                    #{{ $job->source_id }}
+                  @endif
+                  @if($job->source_line_id)
+                    (line #{{ $job->source_line_id }})
+                  @endif
+                </div>
+              @endif
             </td>
             <td>{{ $job->producedBy->name ?? '-' }}</td>
             <td class="text-end">

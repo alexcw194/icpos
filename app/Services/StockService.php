@@ -4,13 +4,14 @@ namespace App\Services;
 
 use App\Models\Delivery;
 use App\Models\DeliveryLine;
+use App\Models\Item;
 use App\Models\ItemStock;
+use App\Models\ManufactureJob;
+use App\Models\ManufactureRecipe;
 use App\Models\StockAdjustment;
-use App\Models\StockSummary;
 use App\Models\StockLedger;
+use App\Models\StockSummary;
 use App\Models\Warehouse;
-use App\Models\SalesOrder;
-use App\Services\DocNumberService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
@@ -19,32 +20,33 @@ use RuntimeException;
 
 class StockService
 {
+    private const KIT_ITEM_TYPES = ['kit', 'bundle'];
 
     private static function adjustSalesOrderDelivered(DeliveryLine $line, float $delta): void
     {
-        if (!$line->sales_order_line_id || $delta === 0.0) return;
+        if (!$line->sales_order_line_id || $delta === 0.0) {
+            return;
+        }
 
-        // Lock the SO line, bump delivered qty (bounded ≥ 0)
         $soLine = DB::table('sales_order_lines')
             ->where('id', $line->sales_order_line_id)
             ->lockForUpdate()
             ->first();
-        if (!$soLine) return;
+        if (!$soLine) {
+            return;
+        }
 
-        $newDelivered = max(0, (float)($soLine->qty_delivered ?? 0) + $delta);
+        $newDelivered = max(0, (float) ($soLine->qty_delivered ?? 0) + $delta);
 
         DB::table('sales_order_lines')
             ->where('id', $soLine->id)
             ->update(['qty_delivered' => $newDelivered]);
 
-        // Optional: mirror to quotation_lines if present
         if ($line->quotation_line_id ?? null) {
             DB::table('quotation_lines')
                 ->where('id', $line->quotation_line_id)
-                ->update(['qty_delivered' => $newDelivered]); // or clamp to that doc’s logic
+                ->update(['qty_delivered' => $newDelivered]);
         }
-
-        // NOTE: Delivery progress should not change SO billing status.
     }
 
     public static function postDelivery(Delivery $delivery, ?int $actingUserId = null): void
@@ -57,7 +59,7 @@ class StockService
             $lockedDelivery = Delivery::query()
                 ->whereKey($delivery->getKey())
                 ->lockForUpdate()
-                ->with(['lines', 'warehouse', 'company'])
+                ->with(['lines.item', 'warehouse', 'company'])
                 ->firstOrFail();
 
             $warehouse = $lockedDelivery->warehouse;
@@ -81,15 +83,25 @@ class StockService
             }
 
             foreach ($lockedDelivery->lines as $line) {
+                if (static::isKitLine($line)) {
+                    static::autoManufactureForDeliveryLine(
+                        delivery: $lockedDelivery,
+                        line: $line,
+                        warehouse: $warehouse,
+                        userId: $userId,
+                        movementDate: $movementDate
+                    );
+                }
+
                 static::deductStock(
-                    companyId: $lockedDelivery->company_id,
-                    warehouseId: $warehouse->id,
+                    companyId: (int) $lockedDelivery->company_id,
+                    warehouseId: (int) $warehouse->id,
                     itemId: $line->item_id,
                     variantId: $line->item_variant_id,
                     qty: (float) $line->qty,
                     allowNegative: (bool) $warehouse->allow_negative_stock,
                     referenceType: 'delivery',
-                    referenceId: $lockedDelivery->id,
+                    referenceId: (int) $lockedDelivery->id,
                     userId: $userId,
                     date: $movementDate
                 );
@@ -99,10 +111,10 @@ class StockService
             }
 
             $lockedDelivery->forceFill([
-                'number'     => $lockedDelivery->number,
-                'status'     => Delivery::STATUS_POSTED,
-                'posted_at'  => $timestamp,
-                'posted_by'  => $userId,
+                'number' => $lockedDelivery->number,
+                'status' => Delivery::STATUS_POSTED,
+                'posted_at' => $timestamp,
+                'posted_by' => $userId,
                 'cancelled_at' => null,
                 'cancelled_by' => null,
                 'cancel_reason' => null,
@@ -117,13 +129,17 @@ class StockService
         $delivery->refresh();
     }
 
-    public static function cancelDelivery(Delivery $delivery, ?int $actingUserId = null, ?string $reason = null): void
-    {
+    public static function cancelDelivery(
+        Delivery $delivery,
+        ?int $actingUserId = null,
+        ?string $reason = null,
+        bool $reverseAutoManufacture = false
+    ): void {
         if ($delivery->status === Delivery::STATUS_CANCELLED) {
             return;
         }
 
-        DB::transaction(function () use ($delivery, $actingUserId, $reason) {
+        DB::transaction(function () use ($delivery, $actingUserId, $reason, $reverseAutoManufacture) {
             $lockedDelivery = Delivery::query()
                 ->whereKey($delivery->getKey())
                 ->lockForUpdate()
@@ -142,13 +158,13 @@ class StockService
 
                 foreach ($lockedDelivery->lines as $line) {
                     static::addStock(
-                        companyId: $lockedDelivery->company_id,
-                        warehouseId: $warehouse->id,
+                        companyId: (int) $lockedDelivery->company_id,
+                        warehouseId: (int) $warehouse->id,
                         itemId: $line->item_id,
                         variantId: $line->item_variant_id,
                         qty: (float) $line->qty,
                         referenceType: 'delivery_cancel',
-                        referenceId: $lockedDelivery->id,
+                        referenceId: (int) $lockedDelivery->id,
                         userId: $userId,
                         date: $movementDate
                     );
@@ -156,12 +172,21 @@ class StockService
                     static::adjustDeliveredQuantity($line, -1 * (float) $line->qty);
                     static::adjustSalesOrderDelivered($line, -1 * (float) $line->qty);
                 }
+
+                if ($reverseAutoManufacture) {
+                    static::reverseAutoManufactureJobsForDelivery(
+                        delivery: $lockedDelivery,
+                        userId: $userId,
+                        movementDate: $movementDate,
+                        reason: $reason
+                    );
+                }
             }
 
             $lockedDelivery->forceFill([
-                'status'        => Delivery::STATUS_CANCELLED,
-                'cancelled_at'  => $timestamp,
-                'cancelled_by'  => $userId,
+                'status' => Delivery::STATUS_CANCELLED,
+                'cancelled_at' => $timestamp,
+                'cancelled_by' => $userId,
                 'cancel_reason' => $reason,
             ])->save();
 
@@ -209,16 +234,16 @@ class StockService
             $movementDate = $ledgerDate ? $ledgerDate->copy() : Carbon::now();
 
             StockLedger::create([
-                'company_id'      => $companyId,
-                'warehouse_id'    => $warehouseId,
-                'item_id'         => $itemId,
+                'company_id' => $companyId,
+                'warehouse_id' => $warehouseId,
+                'item_id' => $itemId,
                 'item_variant_id' => $variantId,
-                'ledger_date'     => $movementDate,
-                'qty_change'      => (float) $qtyAdjustment,
-                'balance_after'   => $balance,
-                'reference_type'  => 'manual_adjustment',
-                'reference_id'    => $referenceId,
-                'created_by'      => $userId,
+                'ledger_date' => $movementDate,
+                'qty_change' => (float) $qtyAdjustment,
+                'balance_after' => $balance,
+                'reference_type' => 'manual_adjustment',
+                'reference_id' => $referenceId,
+                'created_by' => $userId,
             ]);
 
             static::syncSummary(
@@ -234,7 +259,7 @@ class StockService
 
     public function deleteManualAdjustment(StockAdjustment $adjustment, ?int $actingUserId = null): void
     {
-        DB::transaction(function () use ($adjustment, $actingUserId) {
+        DB::transaction(function () use ($adjustment) {
             $lockedAdjustment = StockAdjustment::query()
                 ->whereKey($adjustment->getKey())
                 ->lockForUpdate()
@@ -281,31 +306,301 @@ class StockService
         });
     }
 
+    /**
+     * @return array<string,string>
+     */
+    public static function collectDeliveryPreflightErrors(Delivery $delivery): array
+    {
+        $delivery->loadMissing(['lines.item', 'warehouse']);
+
+        $warehouse = $delivery->warehouse;
+        if (!$warehouse) {
+            return ['delivery' => 'Warehouse belum dipilih.'];
+        }
+
+        $errors = [];
+        foreach ($delivery->lines as $i => $line) {
+            try {
+                static::assertSufficientStockForLine($warehouse, $line);
+            } catch (RuntimeException $e) {
+                $errors["lines.$i.qty"] = $e->getMessage();
+            }
+        }
+
+        return $errors;
+    }
+
     public static function ensureSufficientStock(Warehouse $warehouse, EloquentCollection $lines): void
     {
-        $lines->each(function (DeliveryLine $line) use ($warehouse) {
-            if (!$line->item_id) {
-                return;
+        foreach ($lines as $line) {
+            if (!$line instanceof DeliveryLine) {
+                continue;
+            }
+            static::assertSufficientStockForLine($warehouse, $line);
+        }
+    }
+
+    private static function assertSufficientStockForLine(Warehouse $warehouse, DeliveryLine $line): void
+    {
+        if (!$line->item_id || (float) $line->qty <= 0) {
+            return;
+        }
+
+        if (static::isKitLine($line)) {
+            $components = static::buildKitComponentsForLine($line);
+            foreach ($components as $component) {
+                $need = (float) $component['qty_used'];
+                $stockQuery = ItemStock::query()
+                    ->where('company_id', (int) $warehouse->company_id)
+                    ->where('warehouse_id', (int) $warehouse->id)
+                    ->where('item_id', (int) $component['item_id']);
+                static::applyVariantScope($stockQuery, $component['component_variant_id'], 'item_variant_id');
+
+                $available = (float) $stockQuery->sum('qty_on_hand');
+
+                if (!$warehouse->allow_negative_stock && ($available + 1e-9) < $need) {
+                    $componentName = Item::query()->whereKey((int) $component['item_id'])->value('name')
+                        ?? ('#' . (int) $component['item_id']);
+                    $deficit = max(0, round($need - $available, 3));
+                    throw new RuntimeException(
+                        "Stok komponen {$componentName} kurang {$deficit} untuk produksi kit."
+                    );
+                }
             }
 
-            $stockQuery = ItemStock::query()
-                ->where('company_id', $warehouse->company_id)
-                ->where('warehouse_id', $warehouse->id)
-                ->where('item_id', $line->item_id);
-            static::applyVariantScope($stockQuery, $line->item_variant_id, 'item_variant_id');
+            return;
+        }
 
-            $available = (float) $stockQuery->sum('qty_on_hand');
-            if (!$warehouse->allow_negative_stock && $available < (float) $line->qty) {
-                throw new RuntimeException(
-                    sprintf(
-                        'Stok tidak cukup untuk item %s. Tersedia: %s, diminta: %s',
-                        $line->description ?? ('#' . $line->item_id),
-                        $available,
-                        (float) $line->qty
-                    )
+        $stockQuery = ItemStock::query()
+            ->where('company_id', (int) $warehouse->company_id)
+            ->where('warehouse_id', (int) $warehouse->id)
+            ->where('item_id', (int) $line->item_id);
+        static::applyVariantScope($stockQuery, $line->item_variant_id, 'item_variant_id');
+
+        $available = (float) $stockQuery->sum('qty_on_hand');
+        if (!$warehouse->allow_negative_stock && ($available + 1e-9) < (float) $line->qty) {
+            $name = $line->description ?: ($line->item?->name ?: ('#' . (int) $line->item_id));
+            $deficit = max(0, round((float) $line->qty - $available, 3));
+            throw new RuntimeException(
+                "Stok kurang {$deficit} untuk {$name} (tersedia {$available}, diminta " . (float) $line->qty . ').'
+            );
+        }
+    }
+
+    /**
+     * @return array<int,array<string,int|float|null>>
+     */
+    private static function buildKitComponentsForLine(DeliveryLine $line): array
+    {
+        $parentItem = static::resolveLineItem($line);
+        if (!$parentItem || !static::isKitItem($parentItem)) {
+            return [];
+        }
+
+        $recipes = ManufactureRecipe::query()
+            ->where('parent_item_id', (int) $line->item_id)
+            ->with(['componentVariant:id,item_id'])
+            ->orderBy('id')
+            ->get();
+
+        if ($recipes->isEmpty()) {
+            throw new RuntimeException('Belum ada recipe untuk item kit/bundle ini.');
+        }
+
+        $components = [];
+        $qtyProduced = (float) $line->qty;
+
+        foreach ($recipes as $recipe) {
+            $componentItemId = $recipe->component_item_id ?: ($recipe->componentVariant?->item_id);
+            if (!$componentItemId) {
+                throw new RuntimeException('Data recipe invalid: komponen tidak memiliki item/variant.');
+            }
+
+            if ((int) $componentItemId === (int) $line->item_id) {
+                throw new RuntimeException('Data recipe invalid: komponen tidak boleh sama dengan item hasil.');
+            }
+
+            $qtyUsed = (float) $recipe->qty_required * $qtyProduced;
+            if ($qtyUsed <= 0) {
+                continue;
+            }
+
+            $components[] = [
+                'item_id' => (int) $componentItemId,
+                'component_variant_id' => $recipe->component_variant_id ? (int) $recipe->component_variant_id : null,
+                'qty_used' => $qtyUsed,
+                'recipe_id' => (int) $recipe->id,
+            ];
+        }
+
+        if (empty($components)) {
+            throw new RuntimeException('Recipe kit tidak memiliki komponen dengan qty valid.');
+        }
+
+        return $components;
+    }
+
+    private static function autoManufactureForDeliveryLine(
+        Delivery $delivery,
+        DeliveryLine $line,
+        Warehouse $warehouse,
+        ?int $userId,
+        Carbon $movementDate
+    ): ?ManufactureJob {
+        if (!static::isKitLine($line)) {
+            return null;
+        }
+
+        $components = static::buildKitComponentsForLine($line);
+
+        $deliveryNumber = $delivery->number ?: ('#' . $delivery->id);
+        $job = ManufactureJob::create([
+            'parent_item_id' => (int) $line->item_id,
+            'qty_produced' => (float) $line->qty,
+            'job_type' => 'production',
+            'json_components' => $components,
+            'produced_by' => $userId,
+            'produced_at' => $movementDate,
+            'posted_at' => Carbon::now(),
+            'notes' => 'Auto production from delivery ' . $deliveryNumber . ' line #' . $line->id,
+            'source_type' => 'delivery',
+            'source_id' => (int) $delivery->id,
+            'source_line_id' => (int) $line->id,
+            'is_auto' => true,
+        ]);
+
+        foreach ($components as $component) {
+            static::deductStock(
+                companyId: (int) $delivery->company_id,
+                warehouseId: (int) $warehouse->id,
+                itemId: (int) $component['item_id'],
+                variantId: $component['component_variant_id'],
+                qty: (float) $component['qty_used'],
+                allowNegative: (bool) $warehouse->allow_negative_stock,
+                referenceType: 'manufacture',
+                referenceId: (int) $job->id,
+                userId: $userId,
+                date: $movementDate
+            );
+        }
+
+        static::addStock(
+            companyId: (int) $delivery->company_id,
+            warehouseId: (int) $warehouse->id,
+            itemId: (int) $line->item_id,
+            variantId: $line->item_variant_id ? (int) $line->item_variant_id : null,
+            qty: (float) $line->qty,
+            referenceType: 'manufacture',
+            referenceId: (int) $job->id,
+            userId: $userId,
+            date: $movementDate
+        );
+
+        return $job;
+    }
+
+    private static function reverseAutoManufactureJobsForDelivery(
+        Delivery $delivery,
+        ?int $userId,
+        Carbon $movementDate,
+        ?string $reason = null
+    ): void {
+        if (!$delivery->warehouse_id) {
+            throw new RuntimeException('Warehouse is required to reverse auto manufacture jobs.');
+        }
+
+        $jobs = ManufactureJob::query()
+            ->where('source_type', 'delivery')
+            ->where('source_id', (int) $delivery->id)
+            ->where('is_auto', true)
+            ->whereNull('reversed_at')
+            ->lockForUpdate()
+            ->orderBy('id')
+            ->get();
+
+        if ($jobs->isEmpty()) {
+            return;
+        }
+
+        $lineVariantMap = DeliveryLine::query()
+            ->whereIn('id', $jobs->pluck('source_line_id')->filter()->map(fn ($id) => (int) $id)->all())
+            ->pluck('item_variant_id', 'id')
+            ->map(fn ($value) => $value ? (int) $value : null);
+
+        foreach ($jobs as $job) {
+            $parentVariantId = $job->source_line_id ? ($lineVariantMap[(int) $job->source_line_id] ?? null) : null;
+
+            static::deductStock(
+                companyId: (int) $delivery->company_id,
+                warehouseId: (int) $delivery->warehouse_id,
+                itemId: (int) $job->parent_item_id,
+                variantId: $parentVariantId,
+                qty: (float) $job->qty_produced,
+                allowNegative: true,
+                referenceType: 'manufacture_reverse',
+                referenceId: (int) $job->id,
+                userId: $userId,
+                date: $movementDate
+            );
+
+            foreach ((array) $job->json_components as $component) {
+                $componentItemId = (int) ($component['item_id'] ?? 0);
+                $qtyUsed = (float) ($component['qty_used'] ?? 0);
+                $componentVariantId = isset($component['component_variant_id'])
+                    ? ((int) $component['component_variant_id'] ?: null)
+                    : null;
+
+                if ($componentItemId <= 0 || $qtyUsed <= 0) {
+                    continue;
+                }
+
+                static::addStock(
+                    companyId: (int) $delivery->company_id,
+                    warehouseId: (int) $delivery->warehouse_id,
+                    itemId: $componentItemId,
+                    variantId: $componentVariantId,
+                    qty: $qtyUsed,
+                    referenceType: 'manufacture_reverse',
+                    referenceId: (int) $job->id,
+                    userId: $userId,
+                    date: $movementDate
                 );
             }
-        });
+
+            $job->forceFill([
+                'reversed_at' => Carbon::now(),
+                'reversed_by' => $userId,
+                'reversal_notes' => $reason,
+            ])->save();
+        }
+    }
+
+    private static function isKitLine(DeliveryLine $line): bool
+    {
+        $item = static::resolveLineItem($line);
+        return static::isKitItem($item);
+    }
+
+    private static function resolveLineItem(DeliveryLine $line): ?Item
+    {
+        if ($line->relationLoaded('item')) {
+            return $line->item;
+        }
+
+        if (!$line->item_id) {
+            return null;
+        }
+
+        return Item::query()->find((int) $line->item_id);
+    }
+
+    private static function isKitItem(?Item $item): bool
+    {
+        if (!$item) {
+            return false;
+        }
+
+        return in_array((string) $item->item_type, self::KIT_ITEM_TYPES, true);
     }
 
     private static function deductStock(
@@ -320,7 +615,7 @@ class StockService
         ?int $userId,
         Carbon $date
     ): void {
-        if (!$itemId) {
+        if (!$itemId || $qty <= 0) {
             return;
         }
 
@@ -335,16 +630,16 @@ class StockService
         $stock->save();
 
         StockLedger::create([
-            'company_id'      => $companyId,
-            'warehouse_id'    => $warehouseId,
-            'item_id'         => $itemId,
+            'company_id' => $companyId,
+            'warehouse_id' => $warehouseId,
+            'item_id' => $itemId,
             'item_variant_id' => $variantId,
-            'ledger_date'     => $date,
-            'qty_change'      => -abs($qty),
-            'balance_after'   => $balance,
-            'reference_type'  => $referenceType,
-            'reference_id'    => $referenceId,
-            'created_by'      => $userId,
+            'ledger_date' => $date,
+            'qty_change' => -abs($qty),
+            'balance_after' => $balance,
+            'reference_type' => $referenceType,
+            'reference_id' => $referenceId,
+            'created_by' => $userId,
         ]);
 
         static::syncSummary(
@@ -368,7 +663,7 @@ class StockService
         ?int $userId,
         Carbon $date
     ): void {
-        if (!$itemId) {
+        if (!$itemId || $qty <= 0) {
             return;
         }
 
@@ -379,16 +674,16 @@ class StockService
         $stock->save();
 
         StockLedger::create([
-            'company_id'      => $companyId,
-            'warehouse_id'    => $warehouseId,
-            'item_id'         => $itemId,
+            'company_id' => $companyId,
+            'warehouse_id' => $warehouseId,
+            'item_id' => $itemId,
             'item_variant_id' => $variantId,
-            'ledger_date'     => $date,
-            'qty_change'      => abs($qty),
-            'balance_after'   => $balance,
-            'reference_type'  => $referenceType,
-            'reference_id'    => $referenceId,
-            'created_by'      => $userId,
+            'ledger_date' => $date,
+            'qty_change' => abs($qty),
+            'balance_after' => $balance,
+            'reference_type' => $referenceType,
+            'reference_id' => $referenceId,
+            'created_by' => $userId,
         ]);
 
         static::syncSummary(
@@ -418,9 +713,9 @@ class StockService
 
         if (!$stock) {
             $stock = new ItemStock([
-                'company_id'      => $companyId,
-                'warehouse_id'    => $warehouseId,
-                'item_id'         => $itemId,
+                'company_id' => $companyId,
+                'warehouse_id' => $warehouseId,
+                'item_id' => $itemId,
                 'item_variant_id' => $variantId,
             ]);
             $stock->qty_on_hand = 0;
@@ -464,12 +759,12 @@ class StockService
         $summary = $rows->first();
         if (!$summary) {
             StockSummary::create([
-                'company_id'   => $companyId,
+                'company_id' => $companyId,
                 'warehouse_id' => $warehouseId,
-                'item_id'      => $itemId,
-                'variant_id'   => $variantId,
-                'qty_balance'  => $balance,
-                'uom'          => $uom,
+                'item_id' => $itemId,
+                'variant_id' => $variantId,
+                'qty_balance' => $balance,
+                'uom' => $uom,
             ]);
             return;
         }
@@ -562,35 +857,14 @@ class StockService
         return auth()->id();
     }
 
-    public static function postManufactureJob(ManufactureJob $job)
+    public static function postManufactureJob(ManufactureJob $job): void
     {
-        DB::transaction(function () use ($job) {
-            // Loop komponen & kurangi stok
-            foreach ($job->json_components as $c) {
-                $component = Item::findOrFail($c['item_id']);
-                $qty = $c['qty_used'];
+        if ($job->posted_at) {
+            return;
+        }
 
-                static::decreaseStock(
-                    $component,
-                    $qty,
-                    referenceType: 'manufacture',
-                    referenceId: $job->id,
-                    notes: "Used in manufacture job #{$job->id}"
-                );
-            }
-
-            // Tambah stok hasil produksi
-            $item = Item::findOrFail($job->parent_item_id);
-            static::increaseStock(
-                $item,
-                $job->qty_produced,
-                referenceType: 'manufacture',
-                referenceId: $job->id,
-                notes: "Result of manufacture job #{$job->id}"
-            );
-
-            $job->update(['posted_at' => now()]);
-        });
+        $job->forceFill([
+            'posted_at' => Carbon::now(),
+        ])->save();
     }
-
 }

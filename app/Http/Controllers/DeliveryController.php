@@ -332,30 +332,9 @@ class DeliveryController extends Controller
                 ->with('error', 'Tidak bisa posting delivery tanpa item.');
         }
 
-        // === PRE-FLIGHT: request dulu, baru delivery ===
+        // Pre-flight stock check, including kit component requirements.
         $delivery->load(['lines.item', 'warehouse']);
-        $errors = [];
-        foreach ($delivery->lines as $i => $line) {
-            // stok on-hand dari stock summary (agar konsisten dengan halaman summary)
-            $q = StockSummary::query()
-                ->where('warehouse_id', $delivery->warehouse_id)
-                ->where('item_id', $line->item_id);
-
-            if ($line->item_variant_id) {
-                $q->where('variant_id', $line->item_variant_id);
-            } else {
-                $q->whereNull('variant_id');
-            }
-
-            $available = (float) $q->sum('qty_balance');
-            $need = (float) $line->qty;
-
-            // kalau warehouse tidak mengizinkan minus, blokir + beri deficit
-            if (!$delivery->warehouse->allow_negative_stock && $available + 1e-9 < $need) {
-                $def = max(0, round($need - $available, 3));
-                $errors["lines.$i.qty"] = "Stok kurang {$def} untuk {$line->item->name} (tersedia {$available}, diminta {$need}).";
-            }
-        }
+        $errors = StockService::collectDeliveryPreflightErrors($delivery);
 
         if (!empty($errors)) {
             $firstError = reset($errors) ?: null;
@@ -369,7 +348,6 @@ class DeliveryController extends Controller
                 ->with('error', $message);
         }
 
-        // === EXECUTION: aman, lanjut posting ===
         StockService::postDelivery($delivery, auth()->id());
 
         return redirect()
@@ -384,9 +362,15 @@ class DeliveryController extends Controller
 
         $request->validate([
             'reason' => 'nullable|string|max:500',
+            'reverse_auto_manufacture' => 'nullable|boolean',
         ]);
 
-        StockService::cancelDelivery($delivery, auth()->id(), $request->input('reason'));
+        StockService::cancelDelivery(
+            delivery: $delivery,
+            actingUserId: auth()->id(),
+            reason: $request->input('reason'),
+            reverseAutoManufacture: $request->boolean('reverse_auto_manufacture')
+        );
 
         return redirect()->route('deliveries.show', $delivery)
             ->with('success', 'Delivery telah dibatalkan.');

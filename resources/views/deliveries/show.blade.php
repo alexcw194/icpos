@@ -234,6 +234,10 @@
             <label class="form-label">Reason (optional)</label>
             <textarea class="form-control" name="reason" rows="3"></textarea>
           </div>
+          <label class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="reverse_auto_manufacture" value="1">
+            <span class="form-check-label">Reverse auto-manufacture dari delivery ini</span>
+          </label>
           <div class="alert alert-warning mb-0">
             Membatalkan delivery akan mengembalikan stok ke gudang terkait.
           </div>

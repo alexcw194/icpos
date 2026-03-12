@@ -8,8 +8,34 @@
         <strong>Tipe:</strong> {{ ucfirst($job->job_type) }} <br>
         <strong>Tanggal:</strong> {{ $job->produced_at->format('d M Y H:i') }} <br>
         <strong>Jumlah:</strong> {{ number_format($job->qty_produced, 3) }} <br>
-        <strong>Dibuat Oleh:</strong> {{ $job->producedBy->name ?? '-' }}
+        <strong>Dibuat Oleh:</strong> {{ $job->producedBy->name ?? '-' }} <br>
+        <strong>Sumber:</strong>
+        @if($job->is_auto && $job->source_type === 'delivery')
+          Delivery
+          @if($job->sourceDelivery)
+            {{ $job->sourceDelivery->number ?? ('#'.$job->sourceDelivery->id) }}
+          @elseif($job->source_id)
+            #{{ $job->source_id }}
+          @endif
+          @if($job->source_line_id)
+            (line #{{ $job->source_line_id }})
+          @endif
+        @else
+          Manual
+        @endif
       </p>
+
+      @if($job->reversed_at)
+        <div class="alert alert-warning py-2">
+          Reversed at {{ $job->reversed_at->format('d M Y H:i') }}
+          @if($job->reversedBy)
+            by {{ $job->reversedBy->name }}
+          @endif
+          @if($job->reversal_notes)
+            <div class="small text-muted">{{ $job->reversal_notes }}</div>
+          @endif
+        </div>
+      @endif
 
       <h4>Komponen</h4>
       <table class="table table-sm">
