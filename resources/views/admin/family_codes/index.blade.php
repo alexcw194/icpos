@@ -50,7 +50,7 @@
           </tbody>
         </table>
       </div>
-      <div class="card-footer d-flex align-items-center">
+      <div class="card-footer">
         {{ $rows->links() }}
       </div>
     </div>
