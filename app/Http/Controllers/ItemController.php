@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Item;
 use App\Models\Unit;
 use App\Models\Brand;
+use App\Models\FamilyCode;
 use App\Models\{Size, Color};
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -119,8 +120,9 @@ class ItemController extends Controller
         $colors = Color::active()->ordered()->get(['id','name','hex']);
 
         $parents = Item::orderBy('name')->get(['id','name']);
-        $familyCodes = Item::whereNotNull('family_code')
-            ->orderBy('family_code')->distinct()->pluck('family_code');
+        $familyCodes = FamilyCode::query()
+            ->orderBy('code')
+            ->pluck('code');
 
         $item = new Item([
         'sellable' => true,
@@ -163,10 +165,9 @@ class ItemController extends Controller
             $colors = Color::active()->ordered()->get(['id','name','hex']);
 
             $parents = Item::orderBy('name')->get(['id','name']);
-            $familyCodes = Item::whereNotNull('family_code')
-                ->orderBy('family_code')
-                ->distinct()
-                ->pluck('family_code');
+            $familyCodes = FamilyCode::query()
+                ->orderBy('code')
+                ->pluck('code');
 
             // supaya default checkbox tetap ON saat pertama kali / rerender
             $item = new Item();
@@ -233,7 +234,7 @@ class ItemController extends Controller
 
             'item_type'           => ['required', Rule::in($allowedItemTypes)],
             'parent_id'           => ['nullable','exists:items,id'],
-            'family_code'         => ['nullable','string','max:50'],
+            'family_code'         => ['nullable','string','max:50', Rule::exists('family_codes','code')],
             'sellable'            => ['nullable','boolean'],
             'purchasable'         => ['nullable','boolean'],
             'default_roll_length' => ['nullable','numeric','min:0','required_if:item_type,cut_raw'],
@@ -357,8 +358,9 @@ class ItemController extends Controller
         $parents = Item::orderBy('name')
             ->when(isset($item), fn($q) => $q->whereKeyNot($item->id))
             ->get(['id','name']);
-        $familyCodes = Item::whereNotNull('family_code')
-            ->orderBy('family_code')->distinct()->pluck('family_code');
+        $familyCodes = FamilyCode::query()
+            ->orderBy('code')
+            ->pluck('code');
 
         $listType = $this->forcedListType($request);
         return view('items.edit', compact('item','sizes','colors','units','brands','parents','familyCodes','listType'));
@@ -400,7 +402,7 @@ class ItemController extends Controller
 
             'item_type'           => ['required', Rule::in($allowedItemTypes)],
             'parent_id'           => ['nullable','exists:items,id'],
-            'family_code'         => ['nullable','string','max:50'],
+            'family_code'         => ['nullable','string','max:50', Rule::exists('family_codes','code')],
             'sellable'            => ['nullable','boolean'],
             'purchasable'         => ['nullable','boolean'],
             'default_roll_length' => ['nullable','numeric','min:0','required_if:item_type,cut_raw'],

@@ -204,6 +204,7 @@
                               || request()->routeIs('units.*')
                               || request()->routeIs('jenis.*')
                               || request()->routeIs('brands.*')
+                              || request()->routeIs('family-codes.*')
                               || request()->routeIs('bq-line-catalogs.*')
                               || request()->routeIs('bq-csv-conversions.*')
                               || request()->routeIs('term-of-payments.*')
@@ -236,6 +237,7 @@
                   <li><a href="{{ route('units.index') }}" class="dropdown-item {{ request()->routeIs('units.*') ? 'active' : '' }}">Units</a></li>
                   <li><a href="{{ route('jenis.index') }}" class="dropdown-item {{ request()->routeIs('jenis.*') ? 'active' : '' }}">Jenis</a></li>
                   <li><a href="{{ route('brands.index') }}" class="dropdown-item {{ request()->routeIs('brands.*') ? 'active' : '' }}">Brands</a></li>
+                  <li><a href="{{ route('family-codes.index') }}" class="dropdown-item {{ request()->routeIs('family-codes.*') ? 'active' : '' }}">Family Codes</a></li>
                   <li><a href="{{ route('sizes.index') }}" class="dropdown-item {{ request()->routeIs('sizes.*') ? 'active' : '' }}">Sizes</a></li>
                   <li><a href="{{ route('colors.index') }}" class="dropdown-item {{ request()->routeIs('colors.*') ? 'active' : '' }}">Colors</a></li>
                   <li><a href="{{ route('warehouses.index') }}" class="dropdown-item {{ request()->routeIs('warehouses.*') ? 'active' : '' }}">Warehouses</a></li>

@@ -137,16 +137,14 @@
 
     <div class="col-md-4">
       <label class="form-label">Family Code (opsional)</label>
-      <input type="text" name="family_code" value="{{ $v('family_code') }}" class="form-control" list="familyCodeList" placeholder="mis. FIREHOSE / TSHIRT">
+      <select name="family_code" id="family_code" class="form-select">
+        <option value="">-- Tanpa Family Code --</option>
+        @foreach(($familyCodes ?? collect()) as $code)
+          <option value="{{ $code }}" @selected((string) $v('family_code') === (string) $code)>{{ $code }}</option>
+        @endforeach
+      </select>
       @error('family_code')<div class="text-danger small">{{ $message }}</div>@enderror
-      <div class="form-hint">Kode pendek untuk mengelompokkan lini produk (ringan, seperti “keluarga”).</div>
-      @isset($familyCodes)
-        <datalist id="familyCodeList">
-          @foreach($familyCodes as $code)
-            <option value="{{ $code }}">
-          @endforeach
-        </datalist>
-      @endisset
+      <div class="form-hint">Pilih dari Master Family Code di menu Admin.</div>
     </div>
 
     <div class="col-md-4">
@@ -248,7 +246,7 @@
 
   // Tom Select (jangan ubah urutan -> gunakan $order bawaan)
   if (window.TomSelect) {
-    ['size_id','color_id','unit_id','brand_id','parent_id'].forEach(id => {
+    ['size_id','color_id','unit_id','brand_id','family_code','parent_id'].forEach(id => {
       const el = document.getElementById(id) || document.querySelector(`[name="${id}"]`);
       if (el) new TomSelect(el, {
         allowEmptyOption:true,

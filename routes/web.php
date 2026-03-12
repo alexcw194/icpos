@@ -25,6 +25,7 @@ use App\Http\Controllers\{
     UnitController,
     JenisController,
     BrandController,
+    FamilyCodeController,
     SalesOrderController,
     SalesOrderAttachmentController as SOAtt,
     WarehouseController,
@@ -455,6 +456,7 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
         ->parameters(['jenis' => 'jeni']) // sesuaikan dgn controller edit(Jenis $jeni)
         ->except(['show']);
     Route::resource('brands', BrandController::class)->except(['show']);
+    Route::resource('family-codes', FamilyCodeController::class)->except(['show']);
 
     Route::resource('sizes',  \App\Http\Controllers\SizeController::class)->except(['show']);
     Route::resource('colors', \App\Http\Controllers\ColorController::class)->except(['show']);
