@@ -2,8 +2,6 @@
 
 @section('content')
 <div class="container-xl">
-  @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
-
   @php
     $isProjectItems = request()->routeIs('project-items.*');
     $pageTitle = $isProjectItems ? 'Project Items' : 'Inventory';
