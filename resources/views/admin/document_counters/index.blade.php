@@ -15,15 +15,6 @@
     <h2 class="page-title m-0">Document Counters</h2>
   </div>
 
-  @if(session('success'))
-    <div class="alert alert-success alert-dismissible mb-3" role="alert">
-      <div class="d-flex">
-        <div>{{ session('success') }}</div>
-        <a class="ms-auto btn-close" data-bs-dismiss="alert" aria-label="Close"></a>
-      </div>
-    </div>
-  @endif
-
   <div class="card mb-3">
     <div class="card-body">
       <form class="row g-2" method="get">

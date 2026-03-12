@@ -10,12 +10,6 @@
 
 <div class="page-body">
   <div class="container-xl">
-
-    {{-- Flash messages (kompatibel lama & baru) --}}
-    @if(session('ok'))       <div class="alert alert-success">{{ session('ok') }}</div> @endif
-    @if(session('success'))  <div class="alert alert-success">{{ session('success') }}</div> @endif
-    @if(session('error'))    <div class="alert alert-danger">{{ session('error') }}</div> @endif
-
     {{-- Pencarian --}}
     <form class="mb-3" method="get" action="{{ route('units.index') }}">
       <div class="input-group">

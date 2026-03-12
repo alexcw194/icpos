@@ -22,11 +22,6 @@
 @endphp
 
 <div class="container-xl">
-  @if(session('success') || session('ok'))
-    <div class="alert alert-success mb-3">
-      {{ session('success') ?? session('ok') }}
-    </div>
-  @endif
   @if($errors->any())
     <div class="alert alert-danger mb-3">
       <ul class="mb-0">

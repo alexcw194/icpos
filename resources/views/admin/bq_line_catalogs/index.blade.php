@@ -10,10 +10,6 @@
 
 <div class="page-body">
   <div class="container-xl">
-    @if(session('ok'))       <div class="alert alert-success">{{ session('ok') }}</div> @endif
-    @if(session('success'))  <div class="alert alert-success">{{ session('success') }}</div> @endif
-    @if(session('error'))    <div class="alert alert-danger">{{ session('error') }}</div> @endif
-
     <form class="mb-3" method="get" action="{{ route('bq-line-catalogs.index') }}">
       <div class="row g-2">
         <div class="col-md-6">

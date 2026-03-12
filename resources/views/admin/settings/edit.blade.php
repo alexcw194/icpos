@@ -26,9 +26,6 @@
 
     <div class="card-header d-flex justify-content-between align-items-center">
       <div class="card-title">Global Settings</div>
-      @if(session('ok'))
-        <span class="badge bg-success">{{ session('ok') }}</span>
-      @endif
     </div>
 
     <div class="card-body">

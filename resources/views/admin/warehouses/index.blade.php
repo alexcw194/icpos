@@ -7,11 +7,6 @@
 
     <a class="btn btn-primary mb-3" href="{{ route('warehouses.create') }}">Tambah</a>
 
-    {{-- Flash messages --}}
-    @if(session('ok'))      <div class="alert alert-success">{{ session('ok') }}</div> @endif
-    @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
-    @if(session('error'))   <div class="alert alert-danger">{{ session('error') }}</div> @endif
-
     {{-- Form pencarian dan filter --}}
     <form method="GET" action="{{ route('warehouses.index') }}" class="row g-2 mb-3">
         <div class="col-auto">

@@ -14,9 +14,6 @@
     </div>
 
     <div class="card-body">
-      @if(session('ok'))    <div class="alert alert-success js-flash">{{ session('ok') }}</div> @endif
-      @if(session('error')) <div class="alert alert-danger js-flash">{{ session('error') }}</div> @endif
-
       <div class="table-responsive">
         <table class="table card-table table-vcenter text-nowrap">
           <thead>

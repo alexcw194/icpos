@@ -10,9 +10,6 @@
 
 <div class="page-body">
   <div class="container-xl">
-    @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
-    @if(session('error')) <div class="alert alert-danger">{{ session('error') }}</div> @endif
-
     <form class="mb-3" method="get" action="{{ route('family-codes.index') }}">
       <div class="input-group">
         <input type="text" name="q" class="form-control" placeholder="Cari code..." value="{{ $q ?? '' }}">
@@ -60,4 +57,3 @@
   </div>
 </div>
 @endsection
-

@@ -17,10 +17,6 @@
         </div>
       @endif
 
-      @if (session('ok'))
-        <div class="alert alert-success">{{ session('ok') }}</div>
-      @endif
-
       @unless (auth()->user()->must_change_password)
         <div class="mb-3">
           <label class="form-label">Current Password</label>

@@ -5,7 +5,6 @@
     <h2 class="mb-0">Manage Users</h2>
     <a href="{{ route('users.create') }}" class="btn btn-primary">Add User</a>
   </div>
-  @if(session('ok')) <div class="alert alert-success">{{ session('ok') }}</div> @endif
 
   <div class="card">
     <div class="table-responsive">

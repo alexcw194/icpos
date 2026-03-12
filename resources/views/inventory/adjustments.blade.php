@@ -4,16 +4,6 @@
 <div class="container-xl">
   @php $scope = $listType ?? request('list_type', ''); @endphp
   @php $canDeleteAdjustment = auth()->user()?->hasAnyRole(['Admin','SuperAdmin']) ?? false; @endphp
-  @if(session('success'))
-    <div class="alert alert-success mb-3">
-      {{ session('success') }}
-    </div>
-  @endif
-  @if(session('error'))
-    <div class="alert alert-danger mb-3">
-      {{ session('error') }}
-    </div>
-  @endif
   <div class="card">
     <div class="card-header d-flex">
       <h3 class="card-title">Stock Adjustments</h3>

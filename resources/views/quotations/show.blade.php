@@ -2,24 +2,6 @@
 
 @section('content')
 <div class="container-xl">
-  @if(session('ok'))
-    <div class="alert alert-success alert-dismissible mb-3" role="alert">
-      <div class="d-flex">
-        <div>✅ {{ session('ok') }}</div>
-        <a class="ms-auto btn-close" data-bs-dismiss="alert" aria-label="Close"></a>
-      </div>
-    </div>
-  @endif
-
-  @if(session('error'))
-    <div class="alert alert-danger alert-dismissible mb-3" role="alert">
-      <div class="d-flex">
-        <div>⚠️ {{ session('error') }}</div>
-        <a class="ms-auto btn-close" data-bs-dismiss="alert" aria-label="Close"></a>
-      </div>
-    </div>
-  @endif
-
   <div class="card">
     <div class="card-header">
       <div>

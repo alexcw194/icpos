@@ -35,10 +35,6 @@
       </div>
     @endif
 
-    @if (session('success'))
-      <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
-
     <form method="POST" action="{{ route('manufacture-recipes.bulk-update', $parentItem) }}">
       @csrf
       @method('PUT')

@@ -3,10 +3,6 @@
 
 @section('content')
 <div class="container-xl">
-  @if(session('ok'))
-    <div class="alert alert-success">{{ session('ok') }}</div>
-  @endif
-
   <div class="card">
     <div class="card-body">
 

@@ -17,11 +17,6 @@
 
 <div class="page-body">
   <div class="container-xl">
-
-    @if(session('ok'))
-      <div class="alert alert-success">{{ session('ok') }}</div>
-    @endif
-
     <form action="{{ route('units.update', $unit) }}" method="POST" class="card">
       @csrf
       @method('PUT')
