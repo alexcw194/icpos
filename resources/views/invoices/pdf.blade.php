@@ -43,7 +43,6 @@
 </head>
 <body>
 @php
-  $isPosted = strtolower((string)$invoice->status) === 'posted';
   $mode = $mode ?? 'invoice';
   $docTitle = $mode === 'proforma' ? 'PROFORMA INVOICE' : 'INVOICE';
   $docNo = $invoice->number ?? 'DRAFT-'.$invoice->id;
@@ -113,11 +112,9 @@
 
 {{-- Watermark rules:
    - mode=proforma  : tampil "PROFORMA"
-   - mode=invoice   : jika posted => "COPY"; jika draft => tanpa watermark --}}
+   - mode=invoice   : tanpa watermark --}}
 @if(($mode ?? 'invoice') === 'proforma')
   <div class="wm">PROFORMA</div>
-@elseif(($mode ?? 'invoice') === 'invoice' && $isPosted)
-  <div class="wm">COPY</div>
 @endif
 
 <table class="hdr">
