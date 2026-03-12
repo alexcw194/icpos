@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Delivery;
 use App\Models\DeliveryLine;
 use App\Models\ItemStock;
+use App\Models\StockAdjustment;
 use App\Models\StockSummary;
 use App\Models\StockLedger;
 use App\Models\Warehouse;
@@ -231,6 +232,55 @@ class StockService
         });
     }
 
+    public function deleteManualAdjustment(StockAdjustment $adjustment, ?int $actingUserId = null): void
+    {
+        DB::transaction(function () use ($adjustment, $actingUserId) {
+            $lockedAdjustment = StockAdjustment::query()
+                ->whereKey($adjustment->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (empty($lockedAdjustment->warehouse_id)) {
+                throw new RuntimeException('Warehouse is required to delete stock adjustment.');
+            }
+
+            $companyId = (int) $lockedAdjustment->company_id;
+            $warehouseId = (int) $lockedAdjustment->warehouse_id;
+            $itemId = (int) $lockedAdjustment->item_id;
+            $variantId = $lockedAdjustment->variant_id ? (int) $lockedAdjustment->variant_id : null;
+            $qtyAdjustment = (float) $lockedAdjustment->qty_adjustment;
+
+            $stock = static::getStockForUpdate($companyId, $warehouseId, $itemId, $variantId);
+            $newBalance = (float) $stock->qty_on_hand - $qtyAdjustment;
+            $stock->qty_on_hand = $newBalance;
+            $stock->save();
+
+            StockLedger::query()
+                ->where('reference_type', 'manual_adjustment')
+                ->where('reference_id', (int) $lockedAdjustment->id)
+                ->delete();
+
+            static::syncSummary(
+                companyId: $companyId,
+                warehouseId: $warehouseId,
+                itemId: $itemId,
+                variantId: $variantId,
+                balance: $newBalance,
+                uom: $stock->item->unit->code ?? null
+            );
+
+            static::recomputeLedgerBalancesForScope(
+                companyId: $companyId,
+                warehouseId: $warehouseId,
+                itemId: $itemId,
+                variantId: $variantId,
+                currentBalance: $newBalance
+            );
+
+            $lockedAdjustment->delete();
+        });
+    }
+
     public static function ensureSufficientStock(Warehouse $warehouse, EloquentCollection $lines): void
     {
         $lines->each(function (DeliveryLine $line) use ($warehouse) {
@@ -431,6 +481,42 @@ class StockService
         $duplicateIds = $rows->skip(1)->pluck('id')->all();
         if (!empty($duplicateIds)) {
             StockSummary::query()->whereIn('id', $duplicateIds)->delete();
+        }
+    }
+
+    private static function recomputeLedgerBalancesForScope(
+        int $companyId,
+        int $warehouseId,
+        int $itemId,
+        ?int $variantId,
+        float $currentBalance
+    ): void {
+        $query = StockLedger::query()
+            ->where('company_id', $companyId)
+            ->where('warehouse_id', $warehouseId)
+            ->where('item_id', $itemId);
+        static::applyVariantScope($query, $variantId, 'item_variant_id');
+
+        $rows = $query
+            ->lockForUpdate()
+            ->orderBy('ledger_date')
+            ->orderBy('id')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        $totalChange = (float) $rows->sum(fn (StockLedger $row) => (float) $row->qty_change);
+        $runningBalance = (float) $currentBalance - $totalChange;
+
+        foreach ($rows as $row) {
+            $runningBalance += (float) $row->qty_change;
+            if (abs(((float) $row->balance_after) - $runningBalance) < 0.000001) {
+                continue;
+            }
+            $row->balance_after = $runningBalance;
+            $row->save();
         }
     }
 

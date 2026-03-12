@@ -12,6 +12,7 @@ use App\Services\StockService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class StockAdjustmentController extends Controller
 {
@@ -257,6 +258,26 @@ class StockAdjustmentController extends Controller
             'qty_balance' => $qtyBalance,
             'uom' => $summary->uom ?? null,
         ]);
+    }
+
+    public function destroy(Request $request, StockAdjustment $adjustment)
+    {
+        try {
+            app(StockService::class)->deleteManualAdjustment(
+                adjustment: $adjustment,
+                actingUserId: auth()->id()
+            );
+
+            return redirect()
+                ->route('inventory.adjustments.index', $request->only('list_type'))
+                ->with('success', 'Adjustment deleted and stock summary updated.');
+        } catch (Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('inventory.adjustments.index', $request->only('list_type'))
+                ->with('error', 'Failed to delete adjustment. Please try again.');
+        }
     }
 
     private function isVariantActiveValue($isActive): bool

@@ -3,9 +3,15 @@
 @section('content')
 <div class="container-xl">
   @php $scope = $listType ?? request('list_type', ''); @endphp
+  @php $canDeleteAdjustment = auth()->user()?->hasAnyRole(['Admin','SuperAdmin']) ?? false; @endphp
   @if(session('success'))
     <div class="alert alert-success mb-3">
       {{ session('success') }}
+    </div>
+  @endif
+  @if(session('error'))
+    <div class="alert alert-danger mb-3">
+      {{ session('error') }}
     </div>
   @endif
   <div class="card">
@@ -35,6 +41,9 @@
         <thead><tr>
           <th>Date</th><th>Item</th>
           <th>Warehouse</th><th class="text-end">Qty Adj.</th><th>Reason</th><th>By</th>
+          @if($canDeleteAdjustment)
+            <th class="text-end">Action</th>
+          @endif
         </tr></thead>
         <tbody>
           @forelse($adjustments as $adj)
@@ -52,9 +61,18 @@
               <td class="text-end">{{ number_format($adj->qty_adjustment, 2, ',', '.') }}</td>
               <td>{{ $adj->reason }}</td>
               <td>{{ $adj->created_by }}</td>
+              @if($canDeleteAdjustment)
+                <td class="text-end">
+                  <form action="{{ route('inventory.adjustments.destroy', ['adjustment' => $adj->id] + request()->only('list_type')) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus adjustment ini? Stok dan summary akan ikut terkoreksi.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                  </form>
+                </td>
+              @endif
             </tr>
           @empty
-            <tr><td colspan="6" class="text-center text-muted">No adjustment history.</td></tr>
+            <tr><td colspan="{{ $canDeleteAdjustment ? 7 : 6 }}" class="text-center text-muted">No adjustment history.</td></tr>
           @endforelse
         </tbody>
       </table>
