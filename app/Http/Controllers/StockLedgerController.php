@@ -44,7 +44,7 @@ class StockLedgerController extends Controller
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
-        $ledgers = $query->paginate(50);
+        $ledgers = $query->paginate($this->resolvePerPage());
         $warehouses = Warehouse::query()
             ->orderBy('name')
             ->get();

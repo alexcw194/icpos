@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 class ColorController extends Controller
 {
     public function index(){
-        $colors = Color::orderBy('sort_order')->orderBy('name')->paginate(20);
+        $colors = Color::orderBy('sort_order')->orderBy('name')->paginate($this->resolvePerPage());
         return view('colors.index', compact('colors'));
     }
     public function create(Request $r){

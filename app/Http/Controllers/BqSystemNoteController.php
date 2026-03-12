@@ -28,7 +28,7 @@ class BqSystemNoteController extends Controller
             ->when($status === 'active', fn ($qq) => $qq->where('is_active', true))
             ->when($status === 'inactive', fn ($qq) => $qq->where('is_active', false))
             ->orderBy('system_key')
-            ->paginate(20)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('admin.bq_system_notes.index', compact('rows', 'q', 'status', 'systems'));

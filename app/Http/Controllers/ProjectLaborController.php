@@ -28,11 +28,7 @@ class ProjectLaborController extends Controller
         $type = (string) $request->input('type', 'item');
         $type = in_array($type, ['item', 'project'], true) ? $type : 'item';
         $q = trim((string) $request->input('q', ''));
-        $perPageOptions = [25, 50, 75, 100, 150];
-        $perPage = (int) $request->input('per_page', 25);
-        if (!in_array($perPage, $perPageOptions, true)) {
-            $perPage = 25;
-        }
+        $perPage = $this->resolvePerPage($request);
 
         $itemsQuery = Item::query()
             ->select('id', 'name', 'sku', 'item_type', 'list_type')
@@ -176,8 +172,7 @@ class ProjectLaborController extends Controller
             'selectedSubContractorId',
             'defaultSubContractorId',
             'laborCosts',
-            'perPage',
-            'perPageOptions'
+            'perPage'
         ));
     }
 

@@ -31,7 +31,7 @@ class SupplierController extends Controller
                    ->orWhere('email', 'like', "%{$q}%");
             })
             ->orderBy('name')
-            ->paginate(15)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('admin.suppliers.index', compact('rows', 'q'));

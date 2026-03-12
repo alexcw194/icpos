@@ -14,6 +14,7 @@
   <div class="card mb-3">
     <div class="card-body">
       <form method="get" class="row g-2 align-items-end">
+        <input type="hidden" name="per_page" value="{{ (int) request('per_page', $perPage ?? 20) }}">
         <div class="col-md-4">
           <label class="form-label">Search</label>
           <input type="search" name="q" class="form-control" placeholder="Name/place/address" value="{{ request('q') }}">
@@ -39,15 +40,6 @@
             </select>
           </div>
         @endif
-
-        <div class="col-md-2">
-          <label class="form-label">Per Page</label>
-          <select name="per_page" class="form-select">
-            @foreach([25, 50, 75, 100, 150] as $option)
-              <option value="{{ $option }}" @selected((int) $perPage === $option)>{{ $option }} / page</option>
-            @endforeach
-          </select>
-        </div>
 
         <div class="col-md-2 d-flex gap-2">
           <button class="btn btn-primary w-100">Filter</button>

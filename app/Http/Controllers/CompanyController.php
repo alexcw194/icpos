@@ -13,7 +13,7 @@ class CompanyController extends Controller
 {
     public function index(): View
     {
-        $companies = Company::orderBy('name')->paginate(12);
+        $companies = Company::orderBy('name')->paginate($this->resolvePerPage());
         return view('companies.index', compact('companies'));
     }
 
@@ -39,7 +39,7 @@ class CompanyController extends Controller
             'phone'               => 'nullable|string|max:64',
             'logo'                => 'nullable|image|max:2048',
             'is_default'          => 'nullable|boolean',
-            // NEW: default masa berlaku quotation (hari). Boleh kosong → fallback 30 di sisi Quotation.
+            // NEW: default masa berlaku quotation (hari). Boleh kosong, fallback 30 di sisi Quotation.
             'default_valid_days'  => 'nullable|integer|min:1|max:365',
             'banks'               => 'nullable|array',
             'banks.*.id'          => 'nullable|integer',
@@ -62,7 +62,7 @@ class CompanyController extends Controller
             ? ($data['default_tax_percent'] ?? 0)
             : 0;
 
-        // Normalisasi default_valid_days (kosong → null)
+        // Normalisasi default_valid_days (kosong => null)
         $data['default_valid_days'] = $request->filled('default_valid_days')
             ? (int) $request->input('default_valid_days')
             : null;
@@ -134,7 +134,7 @@ class CompanyController extends Controller
             ? ($data['default_tax_percent'] ?? 0)
             : 0;
 
-        // Normalisasi default_valid_days (kosong → null)
+        // Normalisasi default_valid_days (kosong => null)
         $data['default_valid_days'] = $request->filled('default_valid_days')
             ? (int) $request->input('default_valid_days')
             : null;

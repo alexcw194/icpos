@@ -13,13 +13,13 @@
 
   <ul class="nav nav-tabs mb-3">
     <li class="nav-item">
-      <a class="nav-link {{ $tab === 'runtime' ? 'active' : '' }}" href="{{ route('admin.lead-discovery.config', ['tab' => 'runtime']) }}">Runtime/Scheduler</a>
+      <a class="nav-link {{ $tab === 'runtime' ? 'active' : '' }}" href="{{ route('admin.lead-discovery.config', ['tab' => 'runtime', 'per_page' => request('per_page', $perPage ?? 20)]) }}">Runtime/Scheduler</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link {{ $tab === 'keywords' ? 'active' : '' }}" href="{{ route('admin.lead-discovery.config', ['tab' => 'keywords']) }}">Keywords</a>
+      <a class="nav-link {{ $tab === 'keywords' ? 'active' : '' }}" href="{{ route('admin.lead-discovery.config', ['tab' => 'keywords', 'per_page' => request('per_page', $perPage ?? 20)]) }}">Keywords</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link {{ $tab === 'cells' ? 'active' : '' }}" href="{{ route('admin.lead-discovery.config', ['tab' => 'cells']) }}">Grid Cells</a>
+      <a class="nav-link {{ $tab === 'cells' ? 'active' : '' }}" href="{{ route('admin.lead-discovery.config', ['tab' => 'cells', 'per_page' => request('per_page', $perPage ?? 20)]) }}">Grid Cells</a>
     </li>
   </ul>
 

@@ -19,7 +19,7 @@ class SubContractorController extends Controller
             ->when($status === 'active', fn ($qq) => $qq->where('is_active', true))
             ->when($status === 'inactive', fn ($qq) => $qq->where('is_active', false))
             ->orderBy('name')
-            ->paginate(20)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('admin.sub_contractors.index', compact('rows', 'q', 'status'));

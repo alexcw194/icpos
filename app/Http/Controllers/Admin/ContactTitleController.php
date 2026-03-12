@@ -11,7 +11,7 @@ class ContactTitleController extends Controller
 {
     public function index()
     {
-        $rows = ContactTitle::ordered()->paginate(20);
+        $rows = ContactTitle::ordered()->paginate($this->resolvePerPage());
 
         return view('admin.contact_titles.index', compact('rows'));
     }

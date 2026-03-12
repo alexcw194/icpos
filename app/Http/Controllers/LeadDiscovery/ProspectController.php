@@ -24,11 +24,7 @@ class ProspectController extends Controller
     {
         $this->authorize('viewAny', Prospect::class);
 
-        $perPageOptions = [25, 50, 75, 100, 150];
-        $perPage = (int) $request->input('per_page', 25);
-        if (!in_array($perPage, $perPageOptions, true)) {
-            $perPage = 25;
-        }
+        $perPage = $this->resolvePerPage($request);
 
         $statuses = [
             Prospect::STATUS_NEW,
@@ -144,7 +140,6 @@ class ProspectController extends Controller
             'selectedCity' => $selectedCity,
             'cityOptionsByProvince' => ['__all' => $cityOptionsAll] + $cityOptionsByProvince,
             'perPage' => $perPage,
-            'perPageOptions' => $perPageOptions,
         ]);
     }
 

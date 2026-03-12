@@ -24,10 +24,11 @@ class IncomeReportController extends Controller
 
         $filters = $this->filtersFromRequest($request);
         $normalized = $this->incomeReportService->normalizeFilters($filters);
+        $perPage = $this->resolvePerPage($request);
 
         $summary = $this->incomeReportService->reportSummary($filters);
         $dailyRows = $this->incomeReportService->dailySummary($filters);
-        $invoices = $this->incomeReportService->paginatedDetails($filters, 50);
+        $invoices = $this->incomeReportService->paginatedDetails($filters, $perPage);
         $salesItems = $this->incomeReportService->salesItemDetails($filters, 500);
         $salesSummary = $this->salesItemSummary($salesItems);
 

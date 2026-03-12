@@ -32,7 +32,7 @@ class ProjectController extends Controller
             })
             ->when($status, fn($query) => $query->where('status', $status))
             ->orderByDesc('updated_at')
-            ->paginate(15)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('projects.index', compact('projects', 'q', 'status'));
@@ -198,4 +198,3 @@ class ProjectController extends Controller
         return redirect()->route('projects.index')->with('success', 'Project dihapus.');
     }
 }
-

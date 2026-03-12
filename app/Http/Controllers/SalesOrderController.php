@@ -97,7 +97,7 @@ class SalesOrderController extends Controller
             empty($npwp['number']) || empty($npwp['name']) || empty($npwp['address'])
         );
 
-        // ⚠️ TIDAK ADA SalesOrder::create DI SINI
+        // Tidak ada SalesOrder::create di method ini
         return view('sales_orders.create_from_quotation', compact(
             'quotation', 'npwpRequired', 'npwpMissing', 'npwp', 'items', 'variants', 'projects', 'topOptions'
         ));
@@ -136,7 +136,7 @@ class SalesOrderController extends Controller
         $companies = Company::orderBy('name')->get(['id','name','alias','is_taxable','default_tax_percent','is_default']);
         $sales     = User::orderBy('name')->get(['id','name']);
 
-        // Tentukan company terpilih di awal: old() → is_default → first()
+        // Tentukan company terpilih di awal: old() => is_default => first()
         $selectedCompanyId = old('company_id')
             ?? optional($companies->firstWhere('is_default', true))->id
             ?? optional($companies->first())->id;
@@ -377,7 +377,7 @@ class SalesOrderController extends Controller
                 'so_number'           => $number,
                 'order_date'          => now()->toDateString(),
                 'deadline'            => $data['deadline'] ?? null,
-                'sales_user_id'       => $salesUserId, // ✅ JANGAN pakai $request di sini
+                'sales_user_id'       => $salesUserId, // jangan pakai $request di sini
                 'customer_po_number'  => $poNumber,
                 'customer_po_date'    => $data['customer_po_date'] ?? null,
                 'customer_ref_type'   => $customerRefType,
@@ -465,7 +465,7 @@ class SalesOrderController extends Controller
             }
         }
 
-        // ✅ HABISKAN TOKEN SESSION DI SINI
+        // Habiskan token session di sini
         session()->forget('so_draft_token');
 
         return redirect()->route('sales-orders.show', $so)->with('success', 'Sales Order dibuat.');
@@ -499,7 +499,7 @@ class SalesOrderController extends Controller
             })
             ->latest();
 
-        $orders = $q->paginate(15)->withQueryString();
+        $orders = $q->paginate($this->resolvePerPage())->withQueryString();
         return view('sales_orders.index', compact('orders','status','search'));
     }
 
@@ -1271,7 +1271,7 @@ class SalesOrderController extends Controller
             'ship_to'        => ['nullable','string'],
             'bill_to'        => ['nullable','string'],
             'notes'          => ['nullable','string'],
-            'sales_user_id'  => ['nullable','exists:users,id'], // ✅ PERBAIKI INI
+            'sales_user_id'  => ['nullable','exists:users,id'], // perbaiki validasi ini
 
             'private_notes'  => ['nullable','string'],
             'fee_amount'     => ['nullable','numeric','min:0'],
@@ -1379,7 +1379,7 @@ class SalesOrderController extends Controller
 
                 'discount_mode'       => $discountMode,
                 'tax_percent'         => $taxPct,
-                'sales_user_id'       => $salesUserId, // ✅ simpan agent
+                'sales_user_id'       => $salesUserId, // simpan agent
             ]);
 
             // Copy lines dari quotation
@@ -1521,7 +1521,7 @@ class SalesOrderController extends Controller
                 'contract_value'        => $total,
             ]);
 
-            // Pindahkan lampiran draft → final (kalau ada)
+            // Pindahkan lampiran draft ke final SO (jika ada)
             if (!empty($data['draft_token'])) {
                 if (method_exists(SOAtt::class, 'attachFromDraft')) {
                     SOAtt::attachFromDraft($data['draft_token'], $so);
@@ -1570,7 +1570,7 @@ class SalesOrderController extends Controller
     }
 
 
-    /** Ubah "1.234,56" → 1234.56; "1.234" → 1234 ; null → 0 */
+    /** Ubah "1.234,56" => 1234.56; "1.234" => 1234 ; null => 0 */
     private function toNumber($val): float
     {
         if ($val === null || $val === '') return 0.0;
@@ -1930,4 +1930,3 @@ class SalesOrderController extends Controller
     }
 
 }
-

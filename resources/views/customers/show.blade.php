@@ -1,4 +1,4 @@
-﻿{{-- resources/views/customers/show.blade.php --}}
+{{-- resources/views/customers/show.blade.php --}}
 @extends('layouts.tabler')
 
 @section('content')
@@ -26,37 +26,37 @@
       <div class="card subrail-card position-sticky" style="top: 76px">
         <div class="list-group list-group-flush">
 
-          <a href="{{ route('customers.show', [$customer,'tab'=>'profile']) }}"
+          <a href="{{ route('customers.show', [$customer,'tab'=>'profile', 'per_page' => request('per_page', 20)]) }}"
              class="list-group-item subrail-link d-flex align-items-center {{ $tab==='profile' ? 'active' : '' }}">
             <i class="ti ti-id-badge me-2"></i> <span>Profile</span>
           </a>
 
-          <a href="{{ route('customers.show', [$customer,'tab'=>'contacts']) }}"
+          <a href="{{ route('customers.show', [$customer,'tab'=>'contacts', 'per_page' => request('per_page', 20)]) }}"
              class="list-group-item subrail-link d-flex align-items-center justify-content-between {{ $tab==='contacts' ? 'active' : '' }}">
             <span><i class="ti ti-users me-2"></i> Contacts</span>
             <span class="badge subrail-badge">{{ $customer->contacts_count ?? 0 }}</span>
           </a>
 
-          <a href="{{ route('customers.show', [$customer,'tab'=>'notes']) }}"
+          <a href="{{ route('customers.show', [$customer,'tab'=>'notes', 'per_page' => request('per_page', 20)]) }}"
              class="list-group-item subrail-link d-flex align-items-center {{ $tab==='notes' ? 'active' : '' }}">
             <i class="ti ti-notes me-2"></i> <span>Notes</span>
           </a>
 
-          <a href="{{ route('customers.show', [$customer,'tab'=>'quotations']) }}"
+          <a href="{{ route('customers.show', [$customer,'tab'=>'quotations', 'per_page' => request('per_page', 20)]) }}"
              class="list-group-item subrail-link d-flex align-items-center justify-content-between {{ $tab==='quotations' ? 'active' : '' }}">
             <span><i class="ti ti-file-description me-2"></i> Quotations</span>
             <span class="badge subrail-badge">{{ $customer->quotations_count ?? 0 }}</span>
           </a>
 
           {{-- Sales Orders tab --}}
-          <a href="{{ route('customers.show', [$customer,'tab'=>'sales_orders']) }}"
+          <a href="{{ route('customers.show', [$customer,'tab'=>'sales_orders', 'per_page' => request('per_page', 20)]) }}"
              class="list-group-item subrail-link d-flex align-items-center justify-content-between {{ $tab==='sales_orders' ? 'active' : '' }}">
             <span><i class="ti ti-file-invoice me-2"></i> Sales Orders</span>
             <span class="badge subrail-badge">{{ $customer->sales_orders_count ?? 0 }}</span>
           </a>
 
           {{-- Projects tab --}}
-          <a href="{{ route('customers.show', [$customer,'tab'=>'projects']) }}"
+          <a href="{{ route('customers.show', [$customer,'tab'=>'projects', 'per_page' => request('per_page', 20)]) }}"
              class="list-group-item subrail-link d-flex align-items-center justify-content-between {{ $tab==='projects' ? 'active' : '' }}">
             <span><i class="ti ti-briefcase me-2"></i> Projects</span>
             <span class="badge subrail-badge">{{ $customer->projects_count ?? 0 }}</span>
@@ -221,6 +221,7 @@
           <div class="card-body border-bottom">
             <form id="customer-qtn-search" class="row g-2" method="get" action="{{ route('customers.show',$customer) }}">
               <input type="hidden" name="tab" value="quotations">
+              <input type="hidden" name="per_page" value="{{ (int) request('per_page', 20) }}">
 
               <div class="col-12 col-md-6">
                 <div class="input-group">
@@ -354,6 +355,7 @@
           <div class="card-body border-bottom">
             <form id="customer-so-search" class="row g-2" method="get" action="{{ route('customers.show',$customer) }}">
               <input type="hidden" name="tab" value="sales_orders">
+              <input type="hidden" name="per_page" value="{{ (int) request('per_page', 20) }}">
 
               <div class="col-12 col-md-6">
                 <div class="input-group">
@@ -477,6 +479,7 @@
           <div class="card-body border-bottom">
             <form id="customer-prj-search" class="row g-2" method="get" action="{{ route('customers.show',$customer) }}">
               <input type="hidden" name="tab" value="projects">
+              <input type="hidden" name="per_page" value="{{ (int) request('per_page', 20) }}">
               <div class="col-12 col-md-6">
                 <div class="input-group">
                   <input

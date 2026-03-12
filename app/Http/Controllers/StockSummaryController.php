@@ -55,7 +55,7 @@ class StockSummaryController extends Controller
             $query->where('i.list_type', $listType);
         }
 
-        $summaries = $query->paginate(50);
+        $summaries = $query->paginate($this->resolvePerPage());
         $warehouses = Warehouse::query()
             ->orderBy('name')
             ->get();

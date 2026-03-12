@@ -73,7 +73,7 @@ class QuotationController extends Controller
             });
         }
 
-        $quotations = $query->paginate(15)->withQueryString();
+        $quotations = $query->paginate($this->resolvePerPage())->withQueryString();
         $companies  = Company::orderBy('name')->get(['id','alias','name']);
 
         // Data untuk panel preview (kanan) - wajib ikut visibleTo
@@ -765,5 +765,3 @@ class QuotationController extends Controller
         return view('quotations._preview', compact('quotation'));
     }
 }
-
-

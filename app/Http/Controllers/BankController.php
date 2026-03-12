@@ -13,7 +13,7 @@ class BankController extends Controller
         $banks = Bank::with('company')
             ->orderBy('company_id')
             ->orderBy('name')
-            ->paginate(20);
+            ->paginate($this->resolvePerPage());
 
         return view('banks.index', compact('banks'));
     }

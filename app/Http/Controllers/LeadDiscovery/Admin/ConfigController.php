@@ -18,18 +18,19 @@ class ConfigController extends Controller
         $this->ensureAdminAccess($request);
 
         $tab = (string) $request->input('tab', 'runtime');
+        $perPage = $this->resolvePerPage($request);
 
         $keywords = LdKeyword::query()
             ->orderBy('priority')
             ->orderBy('id')
-            ->paginate(15, ['*'], 'keywords_page')
+            ->paginate($perPage, ['*'], 'keywords_page')
             ->withQueryString();
 
         $gridCells = LdGridCell::query()
             ->orderBy('province')
             ->orderBy('city')
             ->orderBy('name')
-            ->paginate(15, ['*'], 'cells_page')
+            ->paginate($perPage, ['*'], 'cells_page')
             ->withQueryString();
 
         $scanRuns = LdScanRun::query()
@@ -55,6 +56,7 @@ class ConfigController extends Controller
             'gridCells',
             'scanRuns',
             'settings',
+            'perPage',
             'gridProvinceOptions',
             'gridCityOptionsByProvince',
             'gridCityOptionsAll',

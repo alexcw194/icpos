@@ -38,7 +38,7 @@ class WarehouseController extends Controller
         }
 
         $rows = $rowsQuery
-            ->paginate(20)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('admin.warehouses.index', compact('rows', 'q', 'status', 'supportsCompanyWarehouse'));

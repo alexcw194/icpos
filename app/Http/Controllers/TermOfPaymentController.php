@@ -29,7 +29,7 @@ class TermOfPaymentController extends Controller
             ->when($status === 'active', fn ($qq) => $qq->where('is_active', true))
             ->when($status === 'inactive', fn ($qq) => $qq->where('is_active', false))
             ->orderBy('code')
-            ->paginate(20)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('admin.term_of_payments.index', compact('rows', 'q', 'status'));

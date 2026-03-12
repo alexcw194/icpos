@@ -17,7 +17,7 @@ class FamilyCodeController extends Controller
         $rows = FamilyCode::query()
             ->when($q !== '', fn ($query) => $query->where('code', 'like', "%{$q}%"))
             ->orderBy('code')
-            ->paginate(20)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('admin.family_codes.index', compact('rows', 'q'));
@@ -89,4 +89,3 @@ class FamilyCodeController extends Controller
         return redirect()->route('family-codes.index')->with('success', 'Family Code deleted.');
     }
 }
-

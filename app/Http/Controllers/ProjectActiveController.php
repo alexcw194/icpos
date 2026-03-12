@@ -65,7 +65,7 @@ class ProjectActiveController extends Controller
                 });
             })
             ->orderByDesc('projects.updated_at')
-            ->paginate(15)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('projects.active.index', compact('projects', 'q'));

@@ -43,7 +43,7 @@ class PurchaseOrderController extends Controller
                 'warehouse:id,name',
             ])
             ->latest()
-            ->paginate(20)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('po.index', compact('pos'));
@@ -800,4 +800,3 @@ class PurchaseOrderController extends Controller
         return $clean;
     }
 }
-

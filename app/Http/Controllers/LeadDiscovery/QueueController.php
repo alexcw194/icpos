@@ -38,7 +38,7 @@ class QueueController extends Controller
                 ]);
             })
             ->latest('id')
-            ->simplePaginate(15, ['*'], 'analyses_page')
+            ->paginate($this->resolvePerPage(), ['*'], 'analyses_page')
             ->withQueryString();
 
         $apolloEnrichments = ProspectApolloEnrichment::query()
@@ -56,7 +56,7 @@ class QueueController extends Controller
                 ]);
             })
             ->latest('id')
-            ->simplePaginate(15, ['*'], 'apollo_page')
+            ->paginate($this->resolvePerPage(), ['*'], 'apollo_page')
             ->withQueryString();
 
         $scanRuns = LdScanRun::query()
@@ -69,7 +69,7 @@ class QueueController extends Controller
                 ]);
             })
             ->latest('id')
-            ->simplePaginate(15, ['*'], 'scans_page')
+            ->paginate($this->resolvePerPage(), ['*'], 'scans_page')
             ->withQueryString();
 
         $summary = [

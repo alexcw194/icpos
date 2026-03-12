@@ -14,7 +14,7 @@ class BrandController extends Controller
         $rows = Brand::query()
             ->when($q, fn($x) => $x->where('name', 'like', "%{$q}%"))
             ->orderBy('name')
-            ->paginate(15)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('admin.brands.index', compact('rows','q'));

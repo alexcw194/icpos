@@ -20,7 +20,7 @@ class ManufactureJobController extends Controller
 
     public function index()
     {
-        $jobs = ManufactureJob::with(['parentItem', 'producedBy', 'sourceDelivery'])->latest()->paginate(20);
+        $jobs = ManufactureJob::with(['parentItem', 'producedBy', 'sourceDelivery'])->latest()->paginate($this->resolvePerPage());
         return view('manufacture_jobs.index', compact('jobs'));
     }
 

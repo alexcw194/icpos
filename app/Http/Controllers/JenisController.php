@@ -14,7 +14,7 @@ class JenisController extends Controller
         $rows = Jenis::query()
             ->when($q, fn($x) => $x->where('name', 'like', "%{$q}%"))
             ->orderBy('name')
-            ->paginate(15)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('admin.jenis.index', compact('rows','q'));

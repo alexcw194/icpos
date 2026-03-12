@@ -396,6 +396,27 @@
     })();
     </script>
 
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const perPage = params.get('per_page');
+      if (!perPage) return;
+
+      const forms = document.querySelectorAll('form');
+      forms.forEach((form) => {
+        const method = (form.getAttribute('method') || 'get').toLowerCase();
+        if (method !== 'get') return;
+        if (form.querySelector('input[name="per_page"], select[name="per_page"]')) return;
+
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'per_page';
+        hidden.value = perPage;
+        form.appendChild(hidden);
+      });
+    })();
+  </script>
+
   {{-- Mobile: auto-close sidebar offcanvas hanya untuk navigasi final --}}
   <script>
     document.addEventListener('click', function (e) {

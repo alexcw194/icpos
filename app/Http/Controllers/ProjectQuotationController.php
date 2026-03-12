@@ -63,7 +63,7 @@ class ProjectQuotationController extends Controller
             ->visibleTo(auth()->user())
             ->orderByDesc('quotation_date')
             ->orderByDesc('id')
-            ->paginate(15)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('projects.quotations.index', compact('project', 'quotations'));
@@ -1230,5 +1230,3 @@ class ProjectQuotationController extends Controller
             ]);
     }
 }
-
-

@@ -31,7 +31,7 @@ class InvoiceController extends Controller
             $query->where('company_id', $cid);
         }
 
-        $invoices  = $query->paginate(12)->withQueryString();
+        $invoices  = $query->paginate($this->resolvePerPage())->withQueryString();
         $companies = Company::orderBy('name')->get(['id','alias','name']);
 
         return view('invoices.index', compact('invoices','companies','cid'));
@@ -356,7 +356,7 @@ class InvoiceController extends Controller
             ->whereNull('receipt_path')
             ->orderByDesc('date');
 
-        $invoices = $q->paginate(25);
+        $invoices = $q->paginate($this->resolvePerPage());
         return view('invoices.tt-pending', compact('invoices'));
     }
 

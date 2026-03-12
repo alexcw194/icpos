@@ -26,7 +26,7 @@ class StockAdjustmentController extends Controller
         $adjustments = StockAdjustment::with(['item','variant','warehouse'])
             ->when($listType !== '', fn ($q) => $q->whereHas('item', fn ($w) => $w->where('list_type', $listType)))
             ->latest()
-            ->paginate(50)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('inventory.adjustments', compact('adjustments', 'listType'));
@@ -285,4 +285,3 @@ class StockAdjustmentController extends Controller
         return $isActive === null || (bool) $isActive;
     }
 }
-

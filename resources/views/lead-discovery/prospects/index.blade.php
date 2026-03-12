@@ -14,6 +14,7 @@
   <div class="card mb-3">
     <div class="card-body">
       <form method="get" class="row g-2" id="prospect-filter-form">
+        <input type="hidden" name="per_page" value="{{ (int) request('per_page', $perPage ?? 20) }}">
         <div class="col-md-3">
           <input type="search" name="q" class="form-control" placeholder="Search name/place/address" value="{{ request('q') }}">
         </div>
@@ -80,13 +81,6 @@
         </div>
         <div class="col-md-2">
           <input type="date" name="discovered_to" class="form-control" value="{{ request('discovered_to') }}">
-        </div>
-        <div class="col-md-2">
-          <select name="per_page" class="form-select">
-            @foreach($perPageOptions as $option)
-              <option value="{{ $option }}" @selected((int) request('per_page', $perPage) === $option)>{{ $option }} / page</option>
-            @endforeach
-          </select>
         </div>
         <div class="col-md-2 d-flex gap-2">
           <button class="btn btn-primary w-100">Filter</button>

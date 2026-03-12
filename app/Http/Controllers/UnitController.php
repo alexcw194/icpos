@@ -24,10 +24,10 @@ class UnitController extends Controller
             ->when($status === 'active',   fn($qw) => $qw->where('is_active', true))
             ->when($status === 'inactive', fn($qw) => $qw->where('is_active', false))
             ->orderBy('code')
-            ->paginate(20)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
-        // ⬇️ render ke admin view, bukan resources/views/units/*
+        // render ke admin view, bukan resources/views/units/*
         return view('admin.units.index', compact('rows', 'q', 'status'));
     }
 

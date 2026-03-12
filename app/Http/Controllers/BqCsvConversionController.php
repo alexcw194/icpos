@@ -30,7 +30,7 @@ class BqCsvConversionController extends Controller
             ->when($status === 'inactive', fn ($query) => $query->where('is_active', false))
             ->orderBy('source_category')
             ->orderBy('source_item')
-            ->paginate(25)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('admin.bq_csv_conversions.index', compact('rows', 'q', 'status'));

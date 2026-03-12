@@ -67,7 +67,7 @@ class DeliveryController extends Controller
             $query->whereDate('date', '<=', $to);
         }
 
-        $deliveries = $query->paginate(20)->withQueryString();
+        $deliveries = $query->paginate($this->resolvePerPage())->withQueryString();
 
         $customers = Customer::orderBy('name')->get(['id', 'name']);
         $warehouses = Warehouse::orderBy('name')->get(['id', 'name']);
@@ -108,13 +108,13 @@ class DeliveryController extends Controller
     {
         $this->authorizePermission('deliveries.create');
 
-        // ❌ Tidak boleh dari Invoice
+        // Tidak boleh dari Invoice
         if ($request->filled('invoice_id')) {
             return redirect()->route('deliveries.index')
                 ->with('error', 'Delivery hanya dapat dibuat dari Sales Order.');
         }
 
-        // ✅ Wajib punya sales_order_id
+        // Wajib punya sales_order_id
         if (!$request->filled('sales_order_id')) {
             return redirect()->route('deliveries.index')
                 ->with('error', 'Silakan pilih Sales Order terlebih dulu sebelum membuat Delivery Note.');

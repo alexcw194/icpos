@@ -47,7 +47,7 @@ class ManufactureRecipeController extends Controller
                 }
             ])
             ->orderBy('name')
-            ->paginate(12)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('manufacture_recipes.index', compact('kits', 'q'));

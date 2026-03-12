@@ -27,7 +27,7 @@ class DocumentController extends Controller
             ->where('created_by_user_id', $user->id)
             ->with(['customer', 'creator'])
             ->latest('updated_at')
-            ->paginate(15)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('documents.index', [
@@ -46,7 +46,7 @@ class DocumentController extends Controller
         $documents = Document::query()
             ->with(['customer', 'creator'])
             ->latest('updated_at')
-            ->paginate(20)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('documents.index', [
@@ -67,7 +67,7 @@ class DocumentController extends Controller
             ->where('status', Document::STATUS_SUBMITTED)
             ->with(['customer', 'creator'])
             ->latest('submitted_at')
-            ->paginate(20)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         return view('documents.index', [

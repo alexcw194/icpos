@@ -55,7 +55,7 @@ class ItemController extends Controller
 
         $items = $itemsQuery
             ->ordered()
-            ->paginate(20)
+            ->paginate($this->resolvePerPage())
             ->withQueryString();
 
         $units      = Unit::active()->orderBy('code')->get(['id','code','name','is_active']);
@@ -199,7 +199,7 @@ class ItemController extends Controller
         // Helper: response sukses (modal => JSON redirect_url, normal => redirect)
         $respondSuccess = function (string $url, string $message) use ($isModal) {
             if ($isModal) {
-                session()->flash('success', $message); // <— TAMBAH INI
+                session()->flash('success', $message); // flash message untuk flow modal
                 return response()->json([
                     'redirect_url' => $url,
                     'message'      => $message,
@@ -634,7 +634,7 @@ class ItemController extends Controller
             // strict variant-first: if any active variants exist, treat as variants
             $displayVariants = $activeVariants->isNotEmpty();
 
-            // Tidak pakai varian → kirim 1 baris item
+            // Tidak pakai varian: kirim 1 baris item
             if (!$displayVariants) {
                 $label = $it->name;
                 $price = (float)$it->price;
@@ -676,7 +676,7 @@ class ItemController extends Controller
                 continue;
             }
 
-            // Pakai varian → petakan varian aktif
+            // Pakai varian: petakan varian aktif
             foreach ($activeVariants as $v) {
                 $attrs = is_array($v->attributes) ? $v->attributes : [];
                 $displayLabel = $it->renderVariantDisplayName($attrs, $v->sku);
@@ -868,7 +868,7 @@ class ItemController extends Controller
     }
 
     /**
-     * Terima angka format Indonesia (1.234,56) → "1234.56"
+     * Terima angka format Indonesia (1.234,56) => "1234.56"
      * Kembalikan null jika kosong.
      */
     private function normalizeIdNumber($value): ?string

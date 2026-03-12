@@ -37,7 +37,7 @@ class CustomerController extends Controller
             ->inJenis($request->get('jenis_id'))
             ->ordered();
 
-        $customers = $q->paginate(20)->withQueryString();
+        $customers = $q->paginate($this->resolvePerPage())->withQueryString();
 
         $jenisList = Jenis::query()->active()->ordered()->get();
 
@@ -70,7 +70,7 @@ class CustomerController extends Controller
             'name' => ['required', 'string', 'max:190'],
             'jenis_id' => ['required', 'exists:jenis,id'],
 
-            // ✅ owner (privileged boleh pilih, Sales akan di-lock)
+            // owner (privileged boleh pilih, Sales akan di-lock)
             'sales_user_id' => [
                 $isPrivileged ? 'required' : 'nullable',
                 'nullable',
@@ -134,6 +134,7 @@ class CustomerController extends Controller
         // tab & query (selaras dengan view)
         $tab = request('tab', 'profile');
         $q   = trim((string) request('q', ''));
+        $perPage = $this->resolvePerPage($request);
 
         // Load data inti + counts untuk badge rail kiri (contacts/quotations/sales_orders)
         $customer->load(['contacts', 'jenis', 'creator', 'salesOwner'])
@@ -154,7 +155,7 @@ class CustomerController extends Controller
             })
             ->orderByDesc('date')
             ->orderByDesc('id')
-            ->paginate(10)
+            ->paginate($perPage, ['*'], 'quotations_page')
             ->withQueryString();
 
         $salesOrders = $customer->salesOrders()
@@ -166,7 +167,7 @@ class CustomerController extends Controller
             })
             ->orderByDesc('order_date')
             ->orderByDesc('id')
-            ->paginate(10)
+            ->paginate($perPage, ['*'], 'sales_orders_page')
             ->withQueryString();
 
         $projects = $customer->projects()
@@ -183,7 +184,7 @@ class CustomerController extends Controller
                 });
             })
             ->orderByDesc('updated_at')
-            ->paginate(10)
+            ->paginate($perPage, ['*'], 'projects_page')
             ->withQueryString();
 
         $contactTitles = ContactTitle::active()->ordered()->get(['id', 'name']);
@@ -838,4 +839,3 @@ class CustomerController extends Controller
         }
     }
 }
-

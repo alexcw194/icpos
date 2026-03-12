@@ -23,10 +23,7 @@ class NewLeadController extends Controller
         $q = trim((string) $request->input('q', ''));
         $status = trim((string) $request->input('status', ''));
         $ownerId = $request->filled('owner_user_id') ? (int) $request->input('owner_user_id') : null;
-        $perPage = (int) $request->input('per_page', 25);
-        if (!in_array($perPage, [25, 50, 75, 100, 150], true)) {
-            $perPage = 25;
-        }
+        $perPage = $this->resolvePerPage($request);
 
         $rows = Prospect::query()
             ->with([
