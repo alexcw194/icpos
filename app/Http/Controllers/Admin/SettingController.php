@@ -46,6 +46,12 @@ class SettingController extends Controller
 
             // ===== Default Sub-Contractor =====
             'default_sub_contractor_id' => ['nullable', 'exists:sub_contractors,id'],
+
+            // ===== Sales Commission =====
+            'sales_commission_default_rate_percent' => ['required', 'numeric', 'min:0'],
+            'sales_commission_project_fire_alarm_rate_percent' => ['required', 'numeric', 'min:0'],
+            'sales_commission_project_fire_hydrant_rate_percent' => ['required', 'numeric', 'min:0'],
+            'sales_commission_project_maintenance_rate_percent' => ['required', 'numeric', 'min:0'],
         ]);
 
         // Upload logo
@@ -109,6 +115,12 @@ class SettingController extends Controller
 
             // Default Sub-Contractor
             'default_sub_contractor_id' => (string) ($validated['default_sub_contractor_id'] ?? ''),
+
+            // Sales Commission
+            'sales.commission.default_rate_percent' => (string) ($validated['sales_commission_default_rate_percent'] ?? '5'),
+            'sales.commission.project.fire_alarm_rate_percent' => (string) ($validated['sales_commission_project_fire_alarm_rate_percent'] ?? '5'),
+            'sales.commission.project.fire_hydrant_rate_percent' => (string) ($validated['sales_commission_project_fire_hydrant_rate_percent'] ?? '1.5'),
+            'sales.commission.project.maintenance_rate_percent' => (string) ($validated['sales_commission_project_maintenance_rate_percent'] ?? '5'),
         ]);
 
         return redirect()

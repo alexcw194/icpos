@@ -16,6 +16,11 @@
       </div>
     @endunless
 
+    <div class="alert alert-info">
+      Halaman ini hanya untuk override berdasarkan Brand atau Family Code.
+      Global default rate dan project system rate diatur dari Global Settings.
+    </div>
+
     <form class="mb-3" method="get" action="{{ route('sales-commission-rules.index') }}">
       <div class="input-group">
         <input type="text" name="q" class="form-control" placeholder="Cari brand atau family..." value="{{ $q ?? '' }}">

@@ -3,12 +3,11 @@
 namespace App\Services;
 
 use App\Models\SalesCommissionRule;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Schema;
 
 class SalesCommissionRateResolver
 {
-    private const DEFAULT_RATE = 5.0;
-
     private ?array $brandRules = null;
     private ?array $familyRules = null;
 
@@ -56,10 +55,10 @@ class SalesCommissionRateResolver
         }
 
         return [
-            'rate_percent' => self::DEFAULT_RATE,
+            'rate_percent' => $this->defaultRate(),
             'project_scope' => null,
             'rate_source' => 'default',
-            'rate_label' => 'Default 5%',
+            'rate_label' => 'Global default',
             'is_unresolved' => false,
         ];
     }
@@ -75,10 +74,10 @@ class SalesCommissionRateResolver
 
         if ($poType === 'maintenance') {
             return [
-                'rate_percent' => 5.0,
+                'rate_percent' => $this->projectRate('maintenance', 5.0),
                 'project_scope' => 'maintenance',
                 'rate_source' => 'project_override',
-                'rate_label' => 'Maintenance 5%',
+                'rate_label' => 'Project: Maintenance',
                 'is_unresolved' => false,
             ];
         }
@@ -94,39 +93,39 @@ class SalesCommissionRateResolver
         if ($familyCode === 'HYDRANT') {
             if ($systems->contains('fire_hydrant')) {
                 return [
-                    'rate_percent' => 1.5,
+                    'rate_percent' => $this->projectRate('fire_hydrant', 1.5),
                     'project_scope' => 'fire_hydrant',
                     'rate_source' => 'project_override',
-                    'rate_label' => 'Project: Fire Hydrant 1.5%',
+                    'rate_label' => 'Project: Fire Hydrant',
                     'is_unresolved' => false,
                 ];
             }
 
             return [
-                'rate_percent' => self::DEFAULT_RATE,
+                'rate_percent' => $this->defaultRate(),
                 'project_scope' => null,
                 'rate_source' => 'default',
-                'rate_label' => 'Fallback default 5% (project unresolved)',
+                'rate_label' => 'Fallback global default (project unresolved)',
                 'is_unresolved' => true,
             ];
         }
 
         if ($systems->contains('fire_alarm')) {
             return [
-                'rate_percent' => 5.0,
+                'rate_percent' => $this->projectRate('fire_alarm', 5.0),
                 'project_scope' => 'fire_alarm',
                 'rate_source' => 'project_override',
-                'rate_label' => 'Project: Fire Alarm 5%',
+                'rate_label' => 'Project: Fire Alarm',
                 'is_unresolved' => false,
             ];
         }
 
         if ($systems->contains('maintenance')) {
             return [
-                'rate_percent' => 5.0,
+                'rate_percent' => $this->projectRate('maintenance', 5.0),
                 'project_scope' => 'maintenance',
                 'rate_source' => 'project_override',
-                'rate_label' => 'Project: Maintenance 5%',
+                'rate_label' => 'Project: Maintenance',
                 'is_unresolved' => false,
             ];
         }
@@ -176,5 +175,24 @@ class SalesCommissionRateResolver
             ->all();
 
         return $this->familyRules;
+    }
+
+    private function defaultRate(): float
+    {
+        return $this->settingRate('sales.commission.default_rate_percent', 5.0);
+    }
+
+    private function projectRate(string $scope, float $fallback): float
+    {
+        return $this->settingRate("sales.commission.project.{$scope}_rate_percent", $fallback);
+    }
+
+    private function settingRate(string $key, float $fallback): float
+    {
+        if (!Schema::hasTable('settings')) {
+            return $fallback;
+        }
+
+        return max(0, (float) Setting::get($key, $fallback));
     }
 }

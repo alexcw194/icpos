@@ -17,6 +17,10 @@
   $encView  = $encSaved === '' ? 'null' : $encSaved;
 
   $policy   = $s['mail.username_policy'] ?? 'default_email';
+  $salesCommissionDefaultRate = (float) ($s['sales.commission.default_rate_percent'] ?? 5);
+  $salesCommissionFireAlarmRate = (float) ($s['sales.commission.project.fire_alarm_rate_percent'] ?? 5);
+  $salesCommissionFireHydrantRate = (float) ($s['sales.commission.project.fire_hydrant_rate_percent'] ?? 1.5);
+  $salesCommissionMaintenanceRate = (float) ($s['sales.commission.project.maintenance_rate_percent'] ?? 5);
 @endphp
 
 <div class="container-xl">
@@ -138,6 +142,37 @@
             @endforeach
           </select>
           @error('default_sub_contractor_id')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+      </div>
+
+      <hr class="my-4">
+
+      <h3 class="card-title mb-2">Sales Commission</h3>
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Global Default Rate (%)</label>
+          <input type="number" step="0.01" min="0" name="sales_commission_default_rate_percent" class="form-control"
+                 value="{{ old('sales_commission_default_rate_percent', $salesCommissionDefaultRate) }}">
+          @error('sales_commission_default_rate_percent')<div class="text-danger small">{{ $message }}</div>@enderror
+          <div class="form-hint">Dipakai jika tidak ada override project, brand, atau family.</div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Project Fire Alarm Rate (%)</label>
+          <input type="number" step="0.01" min="0" name="sales_commission_project_fire_alarm_rate_percent" class="form-control"
+                 value="{{ old('sales_commission_project_fire_alarm_rate_percent', $salesCommissionFireAlarmRate) }}">
+          @error('sales_commission_project_fire_alarm_rate_percent')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Project Fire Hydrant Rate (%)</label>
+          <input type="number" step="0.01" min="0" name="sales_commission_project_fire_hydrant_rate_percent" class="form-control"
+                 value="{{ old('sales_commission_project_fire_hydrant_rate_percent', $salesCommissionFireHydrantRate) }}">
+          @error('sales_commission_project_fire_hydrant_rate_percent')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Maintenance Rate (%)</label>
+          <input type="number" step="0.01" min="0" name="sales_commission_project_maintenance_rate_percent" class="form-control"
+                 value="{{ old('sales_commission_project_maintenance_rate_percent', $salesCommissionMaintenanceRate) }}">
+          @error('sales_commission_project_maintenance_rate_percent')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
       </div>
 
