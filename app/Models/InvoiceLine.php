@@ -3,6 +3,7 @@ namespace App\Models;
 
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 
 class InvoiceLine extends Model
@@ -25,4 +26,6 @@ protected $casts = [
 
 
 public function invoice(){ return $this->belongsTo(Invoice::class); }
+public function item(): BelongsTo { return $this->belongsTo(Item::class); }
+public function salesOrderLine(): BelongsTo { return $this->belongsTo(SalesOrderLine::class); }
 }

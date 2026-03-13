@@ -108,6 +108,23 @@
   $poDate = $billing->salesOrder?->customer_po_date
     ? \Illuminate\Support\Carbon::parse($billing->salesOrder->customer_po_date)->format('d-m-Y')
     : '';
+  $billingLineDisplay = function ($line) {
+    $poItemName = trim((string) ($line->po_item_name ?? ''));
+    $itemName = trim((string) ($line->name ?? ''));
+    $description = trim((string) ($line->description ?? ''));
+
+    $primary = $poItemName !== '' ? $poItemName : ($itemName !== '' ? $itemName : $description);
+    $note = $description;
+
+    if ($note !== '' && preg_replace('/\s+/u', ' ', $note) === preg_replace('/\s+/u', ' ', $primary)) {
+      $note = '';
+    }
+
+    return [
+      'primary' => $primary !== '' ? $primary : '-',
+      'note' => $note,
+    ];
+  };
 @endphp
 
 @if($mode === 'proforma')
@@ -183,9 +200,15 @@
   </thead>
   <tbody>
   @foreach(($billing->lines ?? []) as $i => $ln)
+    @php($lineDisplay = $billingLineDisplay($ln))
     <tr>
       <td class="text-end">{{ $i+1 }}</td>
-      <td>{{ $ln->description ?: $ln->name }}</td>
+      <td>
+        {{ $lineDisplay['primary'] }}
+        @if($lineDisplay['note'])
+          <div class="small" style="white-space: pre-line; margin-top:4px;">{{ $lineDisplay['note'] }}</div>
+        @endif
+      </td>
       <td class="text-end">{{ number_format((float)$ln->qty, 2) }}</td>
       <td>{{ strtoupper($ln->unit ?? '-') }}</td>
       <td class="text-end">{{ number_format((float)$ln->unit_price, 2) }}</td>

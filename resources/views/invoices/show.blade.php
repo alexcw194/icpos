@@ -32,6 +32,39 @@
       $paymentState = 'Unpaid';
       $paymentClass = 'bg-yellow-lt text-dark';
     }
+    $normalizeLineText = function ($value) {
+      return preg_replace('/\s+/u', ' ', trim((string) $value));
+    };
+    $invoiceLineDisplay = function ($line) use ($normalizeLineText) {
+      $snapshot = is_array($line->snapshot_json ?? null) ? $line->snapshot_json : [];
+      $poItemName = $normalizeLineText($snapshot['po_item_name'] ?? $line->salesOrderLine?->po_item_name);
+      $itemName = $normalizeLineText(
+        $snapshot['name']
+          ?? $line->salesOrderLine?->name
+          ?? $line->item?->name
+      );
+      $description = trim((string) (
+        $snapshot['description']
+          ?? $line->salesOrderLine?->description
+          ?? ''
+      ));
+      $fallbackDescription = trim((string) ($line->description ?? ''));
+
+      $primary = $poItemName !== '' ? $poItemName : ($itemName !== '' ? $itemName : $fallbackDescription);
+      $note = $description;
+
+      if ($note === '' && $fallbackDescription !== '') {
+        $normalizedFallback = $normalizeLineText($fallbackDescription);
+        if ($normalizedFallback !== '' && $normalizedFallback !== $primary) {
+          $note = $fallbackDescription;
+        }
+      }
+
+      return [
+        'primary' => $primary !== '' ? $primary : '-',
+        'note' => $note,
+      ];
+    };
   @endphp
 
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -234,7 +267,7 @@
           <thead>
           <tr>
             <th>#</th>
-            <th>Description</th>
+            <th>Item</th>
             <th class="text-end">Qty</th>
             <th>Unit</th>
             <th class="text-end">Price</th>
@@ -245,9 +278,15 @@
           </thead>
           <tbody>
           @foreach($invoice->lines as $i => $ln)
+            @php($lineDisplay = $invoiceLineDisplay($ln))
             <tr>
               <td>{{ $i + 1 }}</td>
-              <td>{{ $ln->description }}</td>
+              <td>
+                <div class="fw-semibold">{{ $lineDisplay['primary'] }}</div>
+                @if($lineDisplay['note'])
+                  <div class="text-muted small mt-1" style="white-space: pre-line;">{{ $lineDisplay['note'] }}</div>
+                @endif
+              </td>
               <td class="text-end">{{ number_format((float) $ln->qty, 2) }}</td>
               <td>{{ strtoupper((string) ($ln->unit ?? '-')) }}</td>
               <td class="text-end">{{ number_format((float) $ln->unit_price, 2) }}</td>

@@ -89,6 +89,11 @@ class BillingInvoiceSyncService
                         'sales_order_id' => $billing->sales_order_id,
                         'sales_order_line_id' => $line->sales_order_line_id,
                         'description' => $line->description ?: $line->name,
+                        'snapshot_json' => [
+                            'name' => $line->name,
+                            'po_item_name' => $line->po_item_name ?? null,
+                            'description' => $line->description,
+                        ],
                         'unit' => $line->unit ?: 'pcs',
                         'qty' => (float) $line->qty,
                         'unit_price' => (float) $line->unit_price,

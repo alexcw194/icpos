@@ -83,6 +83,11 @@ class InvoiceBuilderFromSO
                     'item_id'             => $src?->item_id,
                     'item_variant_id'     => $src?->item_variant_id,
                     'description'         => trim(($src?->name ?? 'Item').' '.($src?->description ?? '')),
+                    'snapshot_json'       => [
+                        'name' => $src?->name,
+                        'po_item_name' => $src?->po_item_name,
+                        'description' => $src?->description,
+                    ],
                     'unit'                => $src?->unit ?? 'pcs',
                     'qty'                 => $qty,
                     'unit_price'          => $unitPrice,

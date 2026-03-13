@@ -108,6 +108,39 @@
   $poDate = $invoice->salesOrder?->customer_po_date
     ? \Illuminate\Support\Carbon::parse($invoice->salesOrder->customer_po_date)->format('d-m-Y')
     : '';
+  $normalizeLineText = function ($value) {
+    return preg_replace('/\s+/u', ' ', trim((string) $value));
+  };
+  $invoiceLineDisplay = function ($line) use ($normalizeLineText) {
+    $snapshot = is_array($line->snapshot_json ?? null) ? $line->snapshot_json : [];
+    $poItemName = $normalizeLineText($snapshot['po_item_name'] ?? $line->salesOrderLine?->po_item_name);
+    $itemName = $normalizeLineText(
+      $snapshot['name']
+        ?? $line->salesOrderLine?->name
+        ?? $line->item?->name
+    );
+    $description = trim((string) (
+      $snapshot['description']
+        ?? $line->salesOrderLine?->description
+        ?? ''
+    ));
+    $fallbackDescription = trim((string) ($line->description ?? ''));
+
+    $primary = $poItemName !== '' ? $poItemName : ($itemName !== '' ? $itemName : $fallbackDescription);
+    $note = $description;
+
+    if ($note === '' && $fallbackDescription !== '') {
+      $normalizedFallback = $normalizeLineText($fallbackDescription);
+      if ($normalizedFallback !== '' && $normalizedFallback !== $primary) {
+        $note = $fallbackDescription;
+      }
+    }
+
+    return [
+      'primary' => $primary !== '' ? $primary : '-',
+      'note' => $note,
+    ];
+  };
 @endphp
 
 {{-- Watermark rules:
@@ -213,9 +246,15 @@
   </thead>
   <tbody>
   @foreach(($invoice->lines ?? []) as $i => $ln)
+    @php($lineDisplay = $invoiceLineDisplay($ln))
     <tr>
       <td class="text-end">{{ $i+1 }}</td>
-      <td>{{ $ln->description }}</td>
+      <td>
+        {{ $lineDisplay['primary'] }}
+        @if($lineDisplay['note'])
+          <div class="small" style="white-space: pre-line; margin-top:4px;">{{ $lineDisplay['note'] }}</div>
+        @endif
+      </td>
       <td class="text-end">{{ number_format((float)$ln->qty, 2) }}</td>
       <td>{{ strtoupper($ln->unit ?? '-') }}</td>
       <td class="text-end">{{ number_format((float)$ln->unit_price, 2) }}</td>
