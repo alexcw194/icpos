@@ -58,12 +58,6 @@
         </div>
       </form>
 
-      {{-- RESULT COUNT --}}
-      <div class="mb-2 small text-muted">
-        Menampilkan {{ $customers->firstItem() ?? 0 }}–{{ $customers->lastItem() ?? 0 }}
-        dari {{ $customers->total() }} pelanggan
-      </div>
-
       {{-- TABLE --}}
       <div class="table-responsive">
         <table class="table table-vcenter">
@@ -120,11 +114,10 @@
         </table>
       </div>
 
-      {{-- PAGINATION --}}
-      <div class="mt-3">
-        {{ $customers->withQueryString()->links() }}
-      </div>
+    </div>
 
+    <div class="card-footer">
+      {{ $customers->withQueryString()->links() }}
     </div>
   </div>
 </div>

@@ -286,10 +286,10 @@
       @else
         @include('items.partials.inventory_grouped', ['rows' => $groupedRows, 'isProjectItems' => $isProjectItems])
       @endif
+    </div>
 
-      <div class="card-footer d-flex justify-content-end">
-        {{ $items->appends(request()->except('page'))->onEachSide(0)->links('vendor.pagination.items') }}
-      </div>
+    <div class="card-footer">
+      {{ $items->appends(request()->except('page'))->onEachSide(0)->links('vendor.pagination.items') }}
     </div>
   </div>
 </div>

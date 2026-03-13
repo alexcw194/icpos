@@ -142,7 +142,7 @@
       </table>
     </div>
 
-    <div class="card-footer d-flex justify-content-end">
+    <div class="card-footer">
       {{ $orders->links() }}
     </div>
   </div>
