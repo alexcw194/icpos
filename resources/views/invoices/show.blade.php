@@ -278,7 +278,9 @@
           </thead>
           <tbody>
           @foreach($invoice->lines as $i => $ln)
-            @php($lineDisplay = $invoiceLineDisplay($ln))
+            @php
+              $lineDisplay = $invoiceLineDisplay($ln);
+            @endphp
             <tr>
               <td>{{ $i + 1 }}</td>
               <td>

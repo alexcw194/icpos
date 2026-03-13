@@ -246,7 +246,9 @@
   </thead>
   <tbody>
   @foreach(($invoice->lines ?? []) as $i => $ln)
-    @php($lineDisplay = $invoiceLineDisplay($ln))
+    @php
+      $lineDisplay = $invoiceLineDisplay($ln);
+    @endphp
     <tr>
       <td class="text-end">{{ $i+1 }}</td>
       <td>

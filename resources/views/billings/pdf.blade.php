@@ -200,7 +200,9 @@
   </thead>
   <tbody>
   @foreach(($billing->lines ?? []) as $i => $ln)
-    @php($lineDisplay = $billingLineDisplay($ln))
+    @php
+      $lineDisplay = $billingLineDisplay($ln);
+    @endphp
     <tr>
       <td class="text-end">{{ $i+1 }}</td>
       <td>
