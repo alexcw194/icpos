@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\FamilyPerformanceReportService;
 use Illuminate\Http\Request;
 
-class AparReportController extends Controller
+class FamilyReportController extends Controller
 {
     public function __construct(
         private readonly FamilyPerformanceReportService $familyPerformanceReportService
@@ -23,7 +23,7 @@ class AparReportController extends Controller
 
         $report = $this->familyPerformanceReportService->buildReport($filters);
 
-        return view('reports.apar', [
+        return view('reports.family', [
             'filters' => $report['filters'],
             'summaryRows' => $report['summary_rows'],
             'totals' => $report['totals'],

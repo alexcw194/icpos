@@ -27,7 +27,7 @@
     || request()->is('lead-discovery*')
     || request()->is('crm/new-leads*')
     || ((!$financeOnly && request()->is('quotations*')) || request()->is('sales-orders*'));
-  $isFinanceActive = request()->is('deliveries*') || request()->is('invoices*') || request()->routeIs('reports.income.*') || request()->routeIs('reports.apar*');
+  $isFinanceActive = request()->is('deliveries*') || request()->is('invoices*') || request()->routeIs('reports.income.*') || request()->routeIs('reports.family*') || request()->routeIs('reports.apar*');
   $isProjectsActive = request()->is('projects*') || request()->is('projects-active*') || request()->is('project-items*') || request()->is('project-deliveries*');
   $isDocumentsActive = request()->is('documents*');
   $isPurchaseActive = request()->routeIs('po.*') || request()->routeIs('suppliers.*');
@@ -176,8 +176,8 @@
                   @if(Route::has('reports.income.index'))
                     <li><a class="nav-link {{ request()->routeIs('reports.income.*') ? 'active' : '' }}" href="{{ route('reports.income.index') }}">Income Report</a></li>
                   @endif
-                  @if(Route::has('reports.apar'))
-                    <li><a class="nav-link {{ request()->routeIs('reports.apar*') ? 'active' : '' }}" href="{{ route('reports.apar') }}">APAR Report</a></li>
+                  @if(Route::has('reports.family'))
+                    <li><a class="nav-link {{ request()->routeIs('reports.family*') ? 'active' : '' }}" href="{{ route('reports.family') }}">Family Report</a></li>
                   @endif
                 @endhasanyrole
               </ul>

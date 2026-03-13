@@ -16,8 +16,8 @@
   <div class="page-header d-print-none mb-3">
     <div class="row align-items-center">
       <div class="col">
-        <div class="page-pretitle">Family Performance Report</div>
-        <h2 class="page-title">APAR Report</h2>
+        <div class="page-pretitle">Family Performance</div>
+        <h2 class="page-title">Family Report</h2>
         <div class="text-muted">Revenue, Cost, Margin by Family Code</div>
       </div>
     </div>
@@ -47,7 +47,7 @@
           <button class="btn btn-primary w-100">Apply</button>
         </div>
         <div class="col-md-2">
-          <a href="{{ route('reports.apar') }}" class="btn btn-outline-secondary w-100">Reset</a>
+          <a href="{{ route('reports.family') }}" class="btn btn-outline-secondary w-100">Reset</a>
         </div>
       </form>
     </div>

@@ -47,7 +47,7 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\Admin\ContactTitleController;
 use App\Http\Controllers\Admin\DocumentCounterController;
-use App\Http\Controllers\Report\AparReportController;
+use App\Http\Controllers\Report\FamilyReportController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureDokumenScope;
 use App\Http\Middleware\EnsureSuperAdmin;
@@ -411,8 +411,10 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
         ->name('reports.income.export.csv');
     Route::get('reports/income/export.pdf', [IncomeReportController::class, 'exportPdf'])
         ->name('reports.income.export.pdf');
-    Route::get('reports/apar', [AparReportController::class, 'index'])
+    Route::redirect('reports/apar', '/reports/family')
         ->name('reports.apar');
+    Route::get('reports/family', [FamilyReportController::class, 'index'])
+        ->name('reports.family');
 
     // =======================
     // Items (WRITE untuk Admin/SuperAdmin)
