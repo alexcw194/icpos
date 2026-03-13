@@ -205,7 +205,7 @@
           <div class="ms-auto">
             @can('manageCommission', $o)
               <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalCommissionSo">
-                Update Komisi
+                Update Under
               </button>
             @endcan
           </div>
@@ -218,6 +218,7 @@
               <div class="small {{ $o->fee_paid_at ? 'text-success' : 'text-muted' }}">
                 {{ $o->fee_paid_at ? ('Paid: ' . $o->fee_paid_at->format('d-m-Y')) : 'Belum dibayar' }}
               </div>
+              <div class="small text-muted">Dikelola otomatis dari Sales Commission Notes.</div>
             </div>
             <div class="col-md-3">
               <div class="text-muted">Under</div>
@@ -747,20 +748,14 @@
         @csrf
         @method('PATCH')
         <div class="modal-header">
-          <h5 class="modal-title">Update Komisi SO</h5>
+          <h5 class="modal-title">Update Under SO</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label">Fee (Rp)</label>
-            <input type="number" step="0.01" min="0" name="fee_amount" class="form-control"
-                   value="{{ old('fee_amount', (float) ($o->fee_amount ?? 0)) }}">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Tanggal Bayar Fee</label>
-            <input type="date" name="fee_paid_at" class="form-control"
-                   value="{{ old('fee_paid_at', optional($o->fee_paid_at)->toDateString()) }}">
-            <div class="form-text">Akan dikosongkan otomatis bila nilai fee = 0.</div>
+            <input type="text" class="form-control" value="{{ number_format((float) ($o->fee_amount ?? 0), 2, ',', '.') }}" readonly>
+            <div class="form-text">Nilai fee disinkron otomatis dari Sales Commission Notes.</div>
           </div>
           <hr>
           <div class="mb-3">

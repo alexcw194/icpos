@@ -367,8 +367,11 @@
 
           <div class="mb-3">
             <label class="form-label">Fee (Rp)</label>
-            <input type="text" name="fee_amount" class="form-control text-end"
-                  value="{{ old('fee_amount', $so->fee_amount) }}">
+            <input type="text" class="form-control text-end"
+                  value="{{ number_format((float) old('fee_amount', $so->fee_amount), 2, ',', '.') }}"
+                  readonly>
+            <input type="hidden" name="fee_amount" value="{{ old('fee_amount', $so->fee_amount) }}">
+            <div class="form-text">Fee dikelola otomatis dari Sales Commission Notes.</div>
           </div>
 
           <div class="mb-3">

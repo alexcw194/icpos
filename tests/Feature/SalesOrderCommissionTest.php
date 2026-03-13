@@ -53,16 +53,18 @@ class SalesOrderCommissionTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_update_commission_and_payment_dates(): void
+    public function test_admin_can_update_under_without_touching_fee_fields(): void
     {
         $admin = $this->makeUser('Admin');
         $so = $this->makeSalesOrder();
+        $so->update([
+            'fee_amount' => 100000,
+            'fee_paid_at' => '2026-03-01',
+        ]);
 
         $this->actingAs($admin)
             ->patch(route('sales-orders.commission.update', $so), [
-                'fee_amount' => 100000,
                 'under_amount' => 25000,
-                'fee_paid_at' => '2026-03-01',
                 'under_paid_at' => '2026-03-02',
             ])
             ->assertRedirect(route('sales-orders.show', $so));
@@ -76,16 +78,18 @@ class SalesOrderCommissionTest extends TestCase
         ]);
     }
 
-    public function test_superadmin_can_update_commission_even_when_so_not_open(): void
+    public function test_superadmin_can_update_under_even_when_so_not_open(): void
     {
         $superAdmin = $this->makeUser('SuperAdmin');
         $so = $this->makeSalesOrder('delivered');
+        $so->update([
+            'fee_amount' => 50000,
+            'fee_paid_at' => '2026-03-03',
+        ]);
 
         $this->actingAs($superAdmin)
             ->patch(route('sales-orders.commission.update', $so), [
-                'fee_amount' => 50000,
                 'under_amount' => 0,
-                'fee_paid_at' => '2026-03-03',
                 'under_paid_at' => '2026-03-03',
             ])
             ->assertRedirect(route('sales-orders.show', $so));
@@ -97,20 +101,19 @@ class SalesOrderCommissionTest extends TestCase
         $this->assertNull($so->under_paid_at);
     }
 
-    public function test_finance_user_cannot_update_commission(): void
+    public function test_finance_user_can_update_under(): void
     {
         $finance = $this->makeUser('Finance');
         $so = $this->makeSalesOrder();
 
         $this->actingAs($finance)
             ->patch(route('sales-orders.commission.update', $so), [
-                'fee_amount' => 1000,
                 'under_amount' => 1000,
             ])
-            ->assertStatus(403);
+            ->assertRedirect(route('sales-orders.show', $so));
     }
 
-    public function test_zero_amount_will_clear_paid_dates(): void
+    public function test_zero_under_will_clear_under_paid_date_without_touching_fee_paid_date(): void
     {
         $admin = $this->makeUser('Admin');
         $so = $this->makeSalesOrder();
@@ -123,17 +126,15 @@ class SalesOrderCommissionTest extends TestCase
 
         $this->actingAs($admin)
             ->patch(route('sales-orders.commission.update', $so), [
-                'fee_amount' => 0,
                 'under_amount' => 0,
-                'fee_paid_at' => '2026-03-05',
                 'under_paid_at' => '2026-03-05',
             ])
             ->assertRedirect(route('sales-orders.show', $so));
 
         $so->refresh();
-        $this->assertSame('0.00', (string) $so->fee_amount);
+        $this->assertSame('2000.00', (string) $so->fee_amount);
         $this->assertSame('0.00', (string) $so->under_amount);
-        $this->assertNull($so->fee_paid_at);
+        $this->assertSame('2026-03-01', optional($so->fee_paid_at)->toDateString());
         $this->assertNull($so->under_paid_at);
     }
 }

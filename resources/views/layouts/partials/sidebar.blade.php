@@ -26,6 +26,9 @@
   $isSalesActive = request()->is('customers*')
     || request()->is('lead-discovery*')
     || request()->is('crm/new-leads*')
+    || request()->is('sales-commission-fees*')
+    || request()->is('sales-commission-notes*')
+    || request()->is('sales-commission-rules*')
     || ((!$financeOnly && request()->is('quotations*')) || request()->is('sales-orders*'));
   $isFinanceActive = request()->is('deliveries*') || request()->is('invoices*') || request()->routeIs('reports.income.*') || request()->routeIs('reports.family*') || request()->routeIs('reports.apar*');
   $isProjectsActive = request()->is('projects*') || request()->is('projects-active*') || request()->is('project-items*') || request()->is('project-deliveries*');
@@ -143,6 +146,17 @@
                 @if(Route::has('sales-orders.index'))
                   <li><a class="nav-link {{ request()->is('sales-orders*') ? 'active' : '' }}" href="{{ route('sales-orders.index') }}">Sales Orders</a></li>
                 @endif
+                @hasanyrole('Admin|SuperAdmin')
+                  @if(Route::has('sales-commission-fees.index'))
+                    <li><a class="nav-link {{ request()->is('sales-commission-fees*') ? 'active' : '' }}" href="{{ route('sales-commission-fees.index') }}">Sales Commission</a></li>
+                  @endif
+                  @if(Route::has('sales-commission-notes.index'))
+                    <li><a class="nav-link {{ request()->is('sales-commission-notes*') ? 'active' : '' }}" href="{{ route('sales-commission-notes.index') }}">Sales Commission Notes</a></li>
+                  @endif
+                  @if(Route::has('sales-commission-rules.index'))
+                    <li><a class="nav-link {{ request()->is('sales-commission-rules*') ? 'active' : '' }}" href="{{ route('sales-commission-rules.index') }}">Sales Commission Rules</a></li>
+                  @endif
+                @endhasanyrole
                 @if($hasLeadDiscovery && $isAdminLike)
                   <li><a class="nav-link {{ request()->routeIs('lead-discovery.prospects.*') ? 'active' : '' }}" href="{{ route('lead-discovery.prospects.index') }}">Lead Discovery</a></li>
                 @endif

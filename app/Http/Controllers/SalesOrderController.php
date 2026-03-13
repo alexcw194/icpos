@@ -969,7 +969,9 @@ class SalesOrderController extends Controller
                 'tax_amount'            => $ppn,
                 'total'                 => $grand,
                 'contract_value'        => $nextContractValue,
-                'fee_amount'            => (float) ($data['fee_amount'] ?? 0),
+                'fee_amount'            => array_key_exists('fee_amount', $data)
+                    ? (float) ($data['fee_amount'] ?? 0)
+                    : (float) ($salesOrder->fee_amount ?? 0),
                 'under_amount'          => (float) ($data['under_amount'] ?? 0),
             ]);
 
@@ -1122,32 +1124,23 @@ class SalesOrderController extends Controller
         $this->authorize('manageCommission', $salesOrder);
 
         $data = $request->validate([
-            'fee_amount' => ['nullable', 'numeric', 'min:0'],
             'under_amount' => ['nullable', 'numeric', 'min:0'],
-            'fee_paid_at' => ['nullable', 'date'],
             'under_paid_at' => ['nullable', 'date'],
         ]);
 
-        $feeAmount = (float) ($data['fee_amount'] ?? 0);
         $underAmount = (float) ($data['under_amount'] ?? 0);
-        $feePaidAt = $data['fee_paid_at'] ?? null;
         $underPaidAt = $data['under_paid_at'] ?? null;
 
-        if ($feeAmount <= 0) {
-            $feePaidAt = null;
-        }
         if ($underAmount <= 0) {
             $underPaidAt = null;
         }
 
         $salesOrder->update([
-            'fee_amount' => $feeAmount,
             'under_amount' => $underAmount,
-            'fee_paid_at' => $feePaidAt,
             'under_paid_at' => $underPaidAt,
         ]);
 
-        return redirect()->route('sales-orders.show', $salesOrder)->with('ok', 'Komisi SO berhasil diperbarui.');
+        return redirect()->route('sales-orders.show', $salesOrder)->with('ok', 'Under SO berhasil diperbarui.');
     }
 
     /** Cancel SO (status -> cancelled) dengan alasan. */

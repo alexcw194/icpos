@@ -35,6 +35,9 @@ use App\Http\Controllers\{
     ManufactureJobController,
     ManufactureFeeController,
     ManufactureCommissionNoteController,
+    SalesCommissionFeeController,
+    SalesCommissionNoteController,
+    SalesCommissionRuleController,
     ManufactureRecipeController,
     BqLineCatalogController,
     BqCsvConversionController,
@@ -419,6 +422,8 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
         ->name('reports.family');
     Route::get('manufacture-fees', [ManufactureFeeController::class, 'index'])
         ->name('manufacture-fees.index');
+    Route::get('sales-commission-fees', [SalesCommissionFeeController::class, 'index'])
+        ->name('sales-commission-fees.index');
     Route::get('manufacture-commission-notes', [ManufactureCommissionNoteController::class, 'index'])
         ->name('manufacture-commission-notes.index');
     Route::post('manufacture-commission-notes', [ManufactureCommissionNoteController::class, 'store'])
@@ -431,6 +436,18 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
         ->name('manufacture-commission-notes.mark-unpaid');
     Route::delete('manufacture-commission-notes/{manufactureCommissionNote}', [ManufactureCommissionNoteController::class, 'destroy'])
         ->name('manufacture-commission-notes.destroy');
+    Route::get('sales-commission-notes', [SalesCommissionNoteController::class, 'index'])
+        ->name('sales-commission-notes.index');
+    Route::post('sales-commission-notes', [SalesCommissionNoteController::class, 'store'])
+        ->name('sales-commission-notes.store');
+    Route::get('sales-commission-notes/{salesCommissionNote}', [SalesCommissionNoteController::class, 'show'])
+        ->name('sales-commission-notes.show');
+    Route::patch('sales-commission-notes/{salesCommissionNote}/mark-paid', [SalesCommissionNoteController::class, 'markPaid'])
+        ->name('sales-commission-notes.mark-paid');
+    Route::patch('sales-commission-notes/{salesCommissionNote}/mark-unpaid', [SalesCommissionNoteController::class, 'markUnpaid'])
+        ->name('sales-commission-notes.mark-unpaid');
+    Route::delete('sales-commission-notes/{salesCommissionNote}', [SalesCommissionNoteController::class, 'destroy'])
+        ->name('sales-commission-notes.destroy');
 
     // =======================
     // Items (WRITE untuk Admin/SuperAdmin)
@@ -482,6 +499,7 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
         ->except(['show']);
     Route::resource('brands', BrandController::class)->except(['show']);
     Route::resource('family-codes', FamilyCodeController::class)->except(['show']);
+    Route::resource('sales-commission-rules', SalesCommissionRuleController::class)->except(['show']);
 
     Route::resource('sizes',  \App\Http\Controllers\SizeController::class)->except(['show']);
     Route::resource('colors', \App\Http\Controllers\ColorController::class)->except(['show']);

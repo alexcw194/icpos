@@ -324,8 +324,9 @@
 
           <div class="mb-3">
             <label class="form-label">Fee (Rp)</label>
-            <input type="text" name="fee_amount" class="form-control text-end"
-                  value="{{ old('fee_amount', 0) }}">
+            <input type="text" class="form-control text-end" value="Otomatis dari Sales Commission Notes" readonly>
+            <input type="hidden" name="fee_amount" value="{{ old('fee_amount', 0) }}">
+            <div class="form-text">Fee tidak diinput manual. Sistem akan sinkron dari Sales Commission Notes setelah invoice final tersedia.</div>
           </div>
 
           <div class="mb-3">
