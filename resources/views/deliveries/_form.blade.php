@@ -10,6 +10,8 @@
     return [
       'item_id'           => $line->item_id,
       'item_variant_id'   => $line->item_variant_id,
+      'item_name'         => $line->salesOrderLine?->name ?? $line->item?->name,
+      'po_item_name'      => $line->salesOrderLine?->po_item_name,
       'description'       => $line->description,
       'unit'              => $line->unit,
       'qty'               => (float) $line->qty,
@@ -25,6 +27,8 @@
     $lineRows->push([
       'item_id' => null,
       'item_variant_id' => null,
+      'item_name' => null,
+      'po_item_name' => null,
       'description' => null,
       'unit' => null,
       'qty' => 1,

@@ -86,6 +86,23 @@
     $poCustomer = $salesOrder->customer_po_number ?? null;
     $poDate = $salesOrder->customer_po_date ?? null;
     $fmtDate = fn($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '-';
+    $deliveryLineDisplay = function ($line) {
+      $poItemName = trim((string) ($line->salesOrderLine?->po_item_name ?? ''));
+      $itemName = trim((string) ($line->salesOrderLine?->name ?? $line->item?->name ?? ''));
+      $description = trim((string) ($line->salesOrderLine?->description ?? $line->description ?? ''));
+
+      $primary = $poItemName !== '' ? $poItemName : ($itemName !== '' ? $itemName : $description);
+      $note = $description;
+
+      if ($note !== '' && preg_replace('/\s+/u', ' ', $note) === preg_replace('/\s+/u', ' ', $primary)) {
+        $note = '';
+      }
+
+      return [
+        'primary' => $primary !== '' ? $primary : '-',
+        'note' => $note,
+      ];
+    };
   @endphp
 
   <table class="hdr">
@@ -155,9 +172,17 @@
     </thead>
     <tbody>
       @foreach($delivery->lines as $index => $line)
+        @php
+          $lineDisplay = $deliveryLineDisplay($line);
+        @endphp
         <tr>
           <td class="right">{{ $index + 1 }}</td>
-          <td>{{ $line->description ?: ($line->item->name ?? '-') }}</td>
+          <td>
+            {{ $lineDisplay['primary'] }}
+            @if($lineDisplay['note'])
+              <div class="small" style="white-space: pre-line; margin-top:4px;">{{ $lineDisplay['note'] }}</div>
+            @endif
+          </td>
           <td>{{ $line->variant->name ?? '-' }}</td>
           <td class="right">{{ number_format((float) $line->qty, 2) }}</td>
           <td>{{ $line->unit ?? '-' }}</td>

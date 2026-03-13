@@ -2,6 +2,8 @@
   // Extract line parameters from the existing row or default values
   $itemId           = $row['item_id']           ?? null;
   $variantId        = $row['item_variant_id']   ?? null;
+  $rowItemName      = $row['item_name']         ?? null;
+  $poItemName       = $row['po_item_name']      ?? null;
   $description      = $row['description']       ?? null;
   $unit             = $row['unit']              ?? null;
   $qty              = $row['qty']               ?? 1;
@@ -37,13 +39,16 @@
   $itemName = '';
   foreach ($items as $itm) {
     if ($itm->id == $itemId) {
-      $itemName = $itm->name;
+      $itemName = $rowItemName ?: $itm->name;
       break;
     }
   }
+  if ($itemName === '' && $rowItemName) {
+    $itemName = $rowItemName;
+  }
 
-  // Use variant label directly (already includes parent) to avoid duplicate parent name.
-  $combinedName = $variantName ? trim((string) $variantName) : trim((string) $itemName);
+  $primaryName = trim((string) ($poItemName ?: $itemName));
+  $combinedName = $primaryName !== '' ? $primaryName : ($variantName ? trim((string) $variantName) : trim((string) $itemName));
 
   // Fallback: jika combinedName kosong tetapi deskripsi ada (nama barang lama), gunakan deskripsi sebagai label item
   if (empty($combinedName) && !empty($description)) {

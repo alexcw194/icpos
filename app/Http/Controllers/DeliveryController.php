@@ -209,7 +209,7 @@ class DeliveryController extends Controller
     public function edit(Delivery $delivery)
     {
         $this->authorizePermission('deliveries.update');
-        $delivery->load(['lines.item', 'lines.variant', 'customer', 'company', 'salesOrder']);
+        $delivery->load(['lines.item', 'lines.variant', 'lines.salesOrderLine', 'customer', 'company', 'salesOrder']);
 
         if (!$delivery->is_editable) {
             return redirect()->route('deliveries.show', $delivery)
@@ -260,7 +260,7 @@ class DeliveryController extends Controller
     {
         $this->authorizePermission('deliveries.view');
 
-        $delivery->load(['company', 'customer', 'warehouse', 'lines.item', 'lines.variant', 'invoice', 'quotation', 'salesOrder']);
+        $delivery->load(['company', 'customer', 'warehouse', 'lines.item', 'lines.variant', 'lines.salesOrderLine', 'invoice', 'quotation', 'salesOrder']);
 
         $currentStocks = collect();
         $lineItemIds = $delivery->lines->pluck('item_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
@@ -428,7 +428,7 @@ class DeliveryController extends Controller
 
     private function renderPdfResponse(Delivery $delivery, bool $download)
     {
-        $delivery->load(['company', 'customer', 'warehouse', 'salesOrder', 'lines.item', 'lines.variant']);
+        $delivery->load(['company', 'customer', 'warehouse', 'salesOrder', 'lines.item', 'lines.variant', 'lines.salesOrderLine']);
 
         $options = new Options();
         $options->set('isRemoteEnabled', true);
@@ -748,6 +748,8 @@ class DeliveryController extends Controller
                 'sales_order_line_id' => null,
                 'item_id'           => $line->item_id,
                 'item_variant_id'   => $line->item_variant_id,
+                'item_name'         => $line->name,
+                'po_item_name'      => null,
                 'description'       => $line->description,
                 'unit'              => $line->unit,
                 'qty_requested'     => (float) $line->qty,
@@ -774,7 +776,9 @@ class DeliveryController extends Controller
                     'sales_order_line_id' => $line->id,
                     'item_id'           => $line->item_id,
                     'item_variant_id'   => $line->item_variant_id,
-                    'description'       => $line->po_item_name ?: $line->description,
+                    'item_name'         => $line->name,
+                    'po_item_name'      => $line->po_item_name,
+                    'description'       => $line->description,
                     'unit'              => $line->unit,
                     'qty_requested'     => $ordered,
                     'qty'               => $remaining,

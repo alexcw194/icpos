@@ -6,6 +6,23 @@
   $pdfViewUrl = route('deliveries.pdf', $delivery);
   $pdfDownloadUrl = route('deliveries.pdf-download', $delivery);
   $shareTitle = $delivery->number ? ('Delivery ' . $delivery->number) : ('Delivery Draft #' . $delivery->id);
+  $deliveryLineDisplay = function ($line) {
+    $poItemName = trim((string) ($line->salesOrderLine?->po_item_name ?? ''));
+    $itemName = trim((string) ($line->salesOrderLine?->name ?? $line->item?->name ?? ''));
+    $description = trim((string) ($line->salesOrderLine?->description ?? $line->description ?? ''));
+
+    $primary = $poItemName !== '' ? $poItemName : ($itemName !== '' ? $itemName : $description);
+    $note = $description;
+
+    if ($note !== '' && preg_replace('/\s+/u', ' ', $note) === preg_replace('/\s+/u', ' ', $primary)) {
+      $note = '';
+    }
+
+    return [
+      'primary' => $primary !== '' ? $primary : '-',
+      'note' => $note,
+    ];
+  };
 @endphp
 <div class="container-xl">
   @if($errors->any())
@@ -130,6 +147,7 @@
             <tbody>
               @forelse($delivery->lines as $line)
                 @php
+                  $lineDisplay = $deliveryLineDisplay($line);
                   $stockKey  = ($line->item_id ?? 'x').'-'.($line->item_variant_id ?? 0);
                   $stock     = (float) ($currentStocks[$stockKey]->qty_on_hand ?? 0); // default 0
                   $requested = (float) ($line->qty_requested ?? $line->qty ?? 0);
@@ -141,7 +159,12 @@
                              : 'text-muted');
                 @endphp
                 <tr>
-                  <td>{{ $line->description ?: ($line->item->name ?? '-') }}</td>
+                  <td>
+                    <div class="fw-semibold">{{ $lineDisplay['primary'] }}</div>
+                    @if($lineDisplay['note'])
+                      <div class="text-muted small mt-1" style="white-space: pre-line;">{{ $lineDisplay['note'] }}</div>
+                    @endif
+                  </td>
                   <td>{{ $line->variant->name ?? '-' }}</td>
                   <td class="text-end">{{ number_format((float) $line->qty, 2) }}</td>
                   <td>{{ $line->unit ?? '-' }}</td>
