@@ -19,6 +19,7 @@ class ManufactureFeeService
         $month = !empty($filters['month'])
             ? Carbon::createFromFormat('Y-m', (string) $filters['month'])->startOfMonth()
             : now()->startOfMonth();
+        $rowStatus = (string) ($filters['row_status'] ?? 'all');
 
         return [
             'month' => $month,
@@ -26,8 +27,8 @@ class ManufactureFeeService
             'to' => $month->copy()->endOfMonth(),
             'apar_fee_rate' => max(0, (float) ($filters['apar_fee_rate'] ?? 10000)),
             'firehose_fee_rate' => max(0, (float) ($filters['firehose_fee_rate'] ?? 15000)),
-            'row_status' => in_array(($filters['row_status'] ?? 'all'), ['all', 'available', 'in_unpaid_note', 'in_paid_note'], true)
-                ? (string) $filters['row_status']
+            'row_status' => in_array($rowStatus, ['all', 'available', 'in_unpaid_note', 'in_paid_note'], true)
+                ? $rowStatus
                 : 'all',
         ];
     }
