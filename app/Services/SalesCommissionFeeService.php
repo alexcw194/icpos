@@ -35,7 +35,8 @@ class SalesCommissionFeeService
     public function buildReport(array $filters): array
     {
         $normalized = $this->normalizeFilters($filters);
-        $rows = $this->sourceRows($normalized);
+        $lineRows = $this->sourceRows($normalized);
+        $rows = $this->aggregateSalesOrderRows($lineRows);
         $rows = $this->filterRowsByStatus($rows, $normalized['row_status']);
 
         if ($normalized['sales_user_id']) {
@@ -67,21 +68,37 @@ class SalesCommissionFeeService
     public function availableSourceRowsForNote(array $filters, array $sourceKeys): Collection
     {
         $normalized = $this->normalizeFilters($filters);
-        $allRows = $this->sourceRows($normalized)->keyBy('source_key');
+        $allRows = $this->sourceRows($normalized);
+        $allRowsByKey = $allRows->keyBy('source_key');
 
         return collect($sourceKeys)
             ->map(fn ($key) => trim((string) $key))
             ->filter(fn ($key) => $key !== '')
             ->unique()
-            ->map(function (string $key) use ($allRows) {
-                $row = $allRows->get($key);
-                if (!$row || !$row->selectable || $row->source_status !== 'available') {
-                    return null;
+            ->flatMap(function (string $key) use ($allRows, $allRowsByKey) {
+                if (preg_match('/^sales-order\|(\d+)$/', $key, $matches)) {
+                    $salesOrderId = (int) $matches[1];
+                    $rows = $allRows
+                        ->where('sales_order_id', $salesOrderId)
+                        ->values();
+
+                    if ($rows->isEmpty()) {
+                        return [];
+                    }
+
+                    $allSelectable = $rows->every(fn ($row) => $row->selectable && $row->source_status === 'available');
+
+                    return $allSelectable ? $rows->all() : [];
                 }
 
-                return $row;
+                $row = $allRowsByKey->get($key);
+                if (!$row || !$row->selectable || $row->source_status !== 'available') {
+                    return [];
+                }
+
+                return [$row];
             })
-            ->filter()
+            ->unique('source_key')
             ->values();
     }
 
@@ -224,6 +241,78 @@ class SalesCommissionFeeService
                 'fee_amount' => $feeAmount,
             ]);
         })->values();
+    }
+
+    private function aggregateSalesOrderRows(Collection $lineRows): Collection
+    {
+        return $lineRows
+            ->groupBy(fn ($row) => $row->sales_order_id ? 'sales-order|'.$row->sales_order_id : $row->source_key)
+            ->map(function (Collection $group, string $groupKey) {
+                $first = $group->first();
+                $statuses = $group->pluck('source_status')->unique()->values();
+                $hasSingleStatus = $statuses->count() === 1;
+                $status = $hasSingleStatus ? (string) $statuses->first() : 'mixed';
+                $statusLabel = match ($status) {
+                    'in_paid_note' => 'Paid',
+                    'in_unpaid_note' => 'In Unpaid Note',
+                    'available' => 'Available',
+                    default => 'Mixed Status',
+                };
+                $projectScopes = $group->pluck('project_scope_label')
+                    ->filter(fn ($value) => $value && $value !== '-')
+                    ->unique()
+                    ->values();
+                $projectScopeLabel = $projectScopes->isEmpty()
+                    ? '-'
+                    : ($projectScopes->count() === 1 ? (string) $projectScopes->first() : 'Mixed');
+                $noteIds = $group->pluck('note_id')->filter()->unique()->values();
+                $noteNumbers = $group->pluck('note_number')->filter()->unique()->values();
+
+                return (object) [
+                    'source_key' => $groupKey,
+                    'sales_order_id' => $first->sales_order_id,
+                    'sales_order_number' => $first->sales_order_number,
+                    'finalized_date' => $first->finalized_date,
+                    'po_type' => $first->po_type,
+                    'project_scope_label' => $projectScopeLabel,
+                    'sales_user_id' => $first->sales_user_id,
+                    'sales_user_name' => $first->sales_user_name,
+                    'customer_id' => $first->customer_id,
+                    'customer_name' => $first->customer_name,
+                    'item_count' => $group->count(),
+                    'qty_total' => (float) $group->sum('qty_sold'),
+                    'revenue' => round((float) $group->sum('revenue'), 2),
+                    'under_allocated' => round((float) $group->sum('under_allocated'), 2),
+                    'commissionable_base' => round((float) $group->sum('commissionable_base'), 2),
+                    'fee_amount' => round((float) $group->sum('fee_amount'), 2),
+                    'is_unresolved' => $group->contains(fn ($row) => $row->is_unresolved),
+                    'source_status' => $status,
+                    'source_status_label' => $statusLabel,
+                    'note_id' => $noteIds->count() === 1 ? (int) $noteIds->first() : null,
+                    'note_number' => $noteNumbers->count() === 1 ? (string) $noteNumbers->first() : null,
+                    'selectable' => $status === 'available' && (bool) $first->sales_user_id,
+                    'detail_rows' => $group->map(function ($row) {
+                        return (object) [
+                            'item_name' => $row->item_name,
+                            'brand_name' => $row->brand_name,
+                            'family_code' => $row->family_code,
+                            'qty_sold' => $row->qty_sold,
+                            'revenue' => $row->revenue,
+                            'under_allocated' => $row->under_allocated,
+                            'commissionable_base' => $row->commissionable_base,
+                            'rate_percent' => $row->rate_percent,
+                            'rate_label' => $row->rate_label,
+                            'fee_amount' => $row->fee_amount,
+                        ];
+                    })->values(),
+                ];
+            })
+            ->sortBy([
+                fn ($row) => mb_strtolower((string) $row->sales_user_name, 'UTF-8'),
+                fn ($row) => (string) $row->finalized_date,
+                fn ($row) => mb_strtolower((string) $row->sales_order_number, 'UTF-8'),
+            ])
+            ->values();
     }
 
     private function attachNoteStatuses(Collection $rows): Collection

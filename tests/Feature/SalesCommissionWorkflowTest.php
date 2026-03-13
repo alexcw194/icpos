@@ -403,39 +403,43 @@ class SalesCommissionWorkflowTest extends TestCase
         $this->assertCount(4, $report['rows']);
         $this->assertSame(1, $report['summary']['unassigned_sales_count']);
 
-        $rosenRow = $report['rows']->firstWhere('sales_order_line_id', $goodsLineA->id);
-        $this->assertNotNull($rosenRow);
-        $this->assertEqualsWithDelta(540.00, (float) $rosenRow->revenue, 0.01);
-        $this->assertEqualsWithDelta(54.00, (float) $rosenRow->under_allocated, 0.01);
-        $this->assertEqualsWithDelta(486.00, (float) $rosenRow->commissionable_base, 0.01);
-        $this->assertEqualsWithDelta(3.00, (float) $rosenRow->rate_percent, 0.01);
-        $this->assertEqualsWithDelta(14.58, (float) $rosenRow->fee_amount, 0.01);
-        $this->assertSame(sprintf('so-line|%d', $goodsLineA->id), $rosenRow->source_key);
+        $goodsRow = $report['rows']->firstWhere('sales_order_id', $goodsSo->id);
+        $this->assertNotNull($goodsRow);
+        $this->assertSame('sales-order|'.$goodsSo->id, $goodsRow->source_key);
+        $this->assertEqualsWithDelta(900.00, (float) $goodsRow->revenue, 0.01);
+        $this->assertEqualsWithDelta(90.00, (float) $goodsRow->under_allocated, 0.01);
+        $this->assertEqualsWithDelta(810.00, (float) $goodsRow->commissionable_base, 0.01);
+        $this->assertEqualsWithDelta(37.26, (float) $goodsRow->fee_amount, 0.01);
+        $this->assertCount(2, $goodsRow->detail_rows);
 
-        $refillRow = $report['rows']->firstWhere('sales_order_line_id', $goodsLineB->id);
-        $this->assertNotNull($refillRow);
-        $this->assertEqualsWithDelta(7.00, (float) $refillRow->rate_percent, 0.01);
-        $this->assertEqualsWithDelta(22.68, (float) $refillRow->fee_amount, 0.01);
+        $rosenDetail = collect($goodsRow->detail_rows)->firstWhere('item_name', $rosenbauerItem->name);
+        $this->assertNotNull($rosenDetail);
+        $this->assertEqualsWithDelta(3.00, (float) $rosenDetail->rate_percent, 0.01);
+        $this->assertEqualsWithDelta(14.58, (float) $rosenDetail->fee_amount, 0.01);
 
-        $hydrantRow = $report['rows']->firstWhere('sales_order_line_id', $projectLine->id);
-        $this->assertNotNull($hydrantRow);
-        $this->assertSame('fire_hydrant', $hydrantRow->project_scope);
-        $this->assertEqualsWithDelta(1.50, (float) $hydrantRow->rate_percent, 0.01);
-        $this->assertEqualsWithDelta(2.70, (float) $hydrantRow->fee_amount, 0.01);
+        $refillDetail = collect($goodsRow->detail_rows)->firstWhere('item_name', $refillItem->name);
+        $this->assertNotNull($refillDetail);
+        $this->assertEqualsWithDelta(7.00, (float) $refillDetail->rate_percent, 0.01);
+        $this->assertEqualsWithDelta(22.68, (float) $refillDetail->fee_amount, 0.01);
 
-        $maintenanceRow = $report['rows']->firstWhere('sales_order_line_id', $maintenanceLine->id);
+        $projectRow = $report['rows']->firstWhere('sales_order_id', $projectSo->id);
+        $this->assertNotNull($projectRow);
+        $this->assertSame('Fire Hydrant', $projectRow->project_scope_label);
+        $this->assertEqualsWithDelta(2.70, (float) $projectRow->fee_amount, 0.01);
+
+        $maintenanceRow = $report['rows']->firstWhere('sales_order_id', $maintenanceSo->id);
         $this->assertNotNull($maintenanceRow);
-        $this->assertSame('maintenance', $maintenanceRow->project_scope);
-        $this->assertEqualsWithDelta(5.00, (float) $maintenanceRow->rate_percent, 0.01);
+        $this->assertSame('Maintenance', $maintenanceRow->project_scope_label);
+        $this->assertEqualsWithDelta(5.00, (float) $maintenanceRow->fee_amount, 0.01);
 
-        $unassignedRow = $report['rows']->firstWhere('sales_order_line_id', $unassignedLine->id);
+        $unassignedRow = $report['rows']->firstWhere('sales_order_id', $unassignedSo->id);
         $this->assertFalse($unassignedRow->selectable);
 
         $this->actingAs($admin)
             ->post(route('sales-commission-notes.store'), [
                 'month' => now()->format('Y-m'),
                 'note_date' => now()->toDateString(),
-                'source_keys' => [$rosenRow->source_key, $maintenanceRow->source_key],
+                'source_keys' => [$goodsRow->source_key, $maintenanceRow->source_key],
             ])
             ->assertSessionHasErrors('source_keys');
 
@@ -443,7 +447,7 @@ class SalesCommissionWorkflowTest extends TestCase
             ->post(route('sales-commission-notes.store'), [
                 'month' => now()->format('Y-m'),
                 'note_date' => now()->toDateString(),
-                'source_keys' => [$rosenRow->source_key, $refillRow->source_key, $hydrantRow->source_key],
+                'source_keys' => [$goodsRow->source_key, $projectRow->source_key],
             ]);
 
         $note = SalesCommissionNote::query()->firstOrFail();
@@ -462,7 +466,7 @@ class SalesCommissionWorkflowTest extends TestCase
         $this->assertNull($projectSo->fee_paid_at);
 
         $reportAfterNote = $service->buildReport(['month' => now()->format('Y-m')]);
-        $this->assertSame('in_unpaid_note', $reportAfterNote['rows']->firstWhere('sales_order_line_id', $goodsLineA->id)->source_status);
+        $this->assertSame('in_unpaid_note', $reportAfterNote['rows']->firstWhere('sales_order_id', $goodsSo->id)->source_status);
 
         $this->actingAs($admin)
             ->patch(route('sales-commission-notes.mark-paid', $note), [

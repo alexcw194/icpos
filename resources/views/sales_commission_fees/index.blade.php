@@ -14,7 +14,7 @@
       <div class="col">
         <div class="page-pretitle">Sales</div>
         <h2 class="page-title">Sales Commission</h2>
-        <div class="text-muted">Monthly commission fee from finalized sales orders, with project, brand, and family overrides.</div>
+        <div class="text-muted">Monthly commission fee per finalized sales order. Item-level calculation is available from the detail modal.</div>
       </div>
     </div>
   </div>
@@ -91,7 +91,7 @@
         <div>{{ number_format($summary['unresolved_count'], 0, ',', '.') }} row project tidak bisa diklasifikasikan spesifik, jadi fallback ke rule generic.</div>
       @endif
       @if($summary['unassigned_sales_count'] > 0)
-        <div>{{ number_format($summary['unassigned_sales_count'], 0, ',', '.') }} row tidak punya salesperson, jadi tidak bisa dipilih ke commission note.</div>
+        <div>{{ number_format($summary['unassigned_sales_count'], 0, ',', '.') }} SO tidak punya salesperson, jadi tidak bisa dipilih ke commission note.</div>
       @endif
     </div>
   @endif
@@ -120,7 +120,7 @@
             <input type="text" name="notes" class="form-control" value="{{ old('notes') }}" placeholder="Optional note for this commission batch">
           </div>
           <div class="col-md-3 text-end">
-            <div class="text-muted small mb-1"><span id="selected-count">0</span> row dipilih</div>
+            <div class="text-muted small mb-1"><span id="selected-count">0</span> SO dipilih</div>
             <div class="text-muted small mb-2">Salesperson: <span id="selected-salesperson">-</span></div>
             <button type="submit" class="btn btn-primary w-100" @disabled(!($features['commission_notes_ready'] ?? false))>Create Commission Note</button>
           </div>
@@ -138,16 +138,14 @@
               <th>SO</th>
               <th>SO Type</th>
               <th>Customer</th>
-              <th>Item</th>
-              <th>Brand</th>
-              <th>Family</th>
+              <th class="text-end">Items</th>
               <th>Project/System</th>
               <th class="text-end">Revenue</th>
               <th class="text-end">Under</th>
               <th class="text-end">Base</th>
-              <th class="text-end">Rate</th>
               <th class="text-end">Fee</th>
               <th>Status</th>
+              <th class="text-end">Detail</th>
             </tr>
           </thead>
           <tbody>
@@ -181,17 +179,11 @@
                 </td>
                 <td>{{ ucfirst($row->po_type) }}</td>
                 <td>{{ $row->customer_name }}</td>
-                <td>
-                  <div class="fw-semibold">{{ $row->item_name }}</div>
-                  <div class="text-muted small">{{ $row->rate_label }}</div>
-                </td>
-                <td>{{ $row->brand_name }}</td>
-                <td>{{ $row->family_code ?: '-' }}</td>
+                <td class="text-end">{{ number_format($row->item_count, 0, ',', '.') }}</td>
                 <td>{{ $row->project_scope_label }}</td>
                 <td class="text-end">{{ $money($row->revenue) }}</td>
                 <td class="text-end">{{ $money($row->under_allocated) }}</td>
                 <td class="text-end">{{ $money($row->commissionable_base) }}</td>
-                <td class="text-end">{{ $percent($row->rate_percent) }}</td>
                 <td class="text-end">{{ $money($row->fee_amount) }}</td>
                 <td>
                   @if($row->note_id)
@@ -202,10 +194,15 @@
                     <span class="badge bg-azure-lt text-azure">{{ $row->source_status_label }}</span>
                   @endif
                 </td>
+                <td class="text-end">
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#so-detail-{{ $row->sales_order_id }}">
+                    Detail
+                  </button>
+                </td>
               </tr>
             @empty
               <tr>
-                <td colspan="15" class="text-center text-muted">No data.</td>
+                <td colspan="13" class="text-center text-muted">No data.</td>
               </tr>
             @endforelse
           </tbody>
@@ -214,6 +211,72 @@
     </div>
   </form>
 </div>
+
+@foreach($rows as $row)
+  <div class="modal modal-blur fade" id="so-detail-{{ $row->sales_order_id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title mb-1">SO {{ $row->sales_order_number }}</h5>
+            <div class="text-muted small">{{ $row->customer_name }} - {{ ucfirst($row->po_type) }}</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-3"><div class="text-muted small">Revenue</div><div class="fw-semibold">{{ $money($row->revenue) }}</div></div>
+            <div class="col-md-3"><div class="text-muted small">Under</div><div class="fw-semibold">{{ $money($row->under_allocated) }}</div></div>
+            <div class="col-md-3"><div class="text-muted small">Base</div><div class="fw-semibold">{{ $money($row->commissionable_base) }}</div></div>
+            <div class="col-md-3"><div class="text-muted small">Fee</div><div class="fw-semibold">{{ $money($row->fee_amount) }}</div></div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-vcenter card-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Brand</th>
+                  <th>Family</th>
+                  <th class="text-end">Qty</th>
+                  <th class="text-end">Revenue</th>
+                  <th class="text-end">Under</th>
+                  <th class="text-end">Base</th>
+                  <th class="text-end">Rate</th>
+                  <th class="text-end">Fee</th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach($row->detail_rows as $detail)
+                  <tr>
+                    <td>
+                      <div class="fw-semibold">{{ $detail->item_name }}</div>
+                      <div class="text-muted small">{{ $detail->rate_label }}</div>
+                    </td>
+                    <td>{{ $detail->brand_name ?: '-' }}</td>
+                    <td>{{ $detail->family_code ?: '-' }}</td>
+                    <td class="text-end">{{ number_format((float) $detail->qty_sold, 2, ',', '.') }}</td>
+                    <td class="text-end">{{ $money($detail->revenue) }}</td>
+                    <td class="text-end">{{ $money($detail->under_allocated) }}</td>
+                    <td class="text-end">{{ $money($detail->commissionable_base) }}</td>
+                    <td class="text-end">{{ $percent($detail->rate_percent) }}</td>
+                    <td class="text-end">{{ $money($detail->fee_amount) }}</td>
+                  </tr>
+                @endforeach
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          @if($row->sales_order_id)
+            <a href="{{ route('sales-orders.show', $row->sales_order_id) }}" class="btn btn-outline-secondary">Open SO</a>
+          @endif
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+@endforeach
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
