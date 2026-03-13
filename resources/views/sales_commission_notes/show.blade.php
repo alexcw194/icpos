@@ -86,7 +86,6 @@
       <table class="table table-sm table-vcenter card-table">
         <thead>
           <tr>
-            <th>Invoice</th>
             <th>SO</th>
             <th>Customer</th>
             <th>Item</th>
@@ -101,8 +100,13 @@
         <tbody>
           @foreach($note->lines as $line)
             <tr>
-              <td>{{ $line->invoice_number_snapshot ?: '-' }}</td>
-              <td>{{ $line->sales_order_number_snapshot ?: '-' }}</td>
+              <td>
+                @if($line->sales_order_id)
+                  <a href="{{ route('sales-orders.show', $line->sales_order_id) }}" class="text-decoration-none fw-semibold">{{ $line->sales_order_number_snapshot ?: '-' }}</a>
+                @else
+                  <span class="fw-semibold">{{ $line->sales_order_number_snapshot ?: '-' }}</span>
+                @endif
+              </td>
               <td>{{ $line->customer_name_snapshot }}</td>
               <td class="fw-semibold">{{ $line->item_name_snapshot }}</td>
               <td>{{ $line->project_scope ? str_replace('_', ' ', ucfirst($line->project_scope)) : '-' }}</td>
@@ -116,7 +120,7 @@
         </tbody>
         <tfoot>
           <tr>
-            <th colspan="5" class="text-end">Total</th>
+            <th colspan="4" class="text-end">Total</th>
             <th class="text-end">{{ $money($totals['revenue']) }}</th>
             <th class="text-end">{{ $money($totals['under']) }}</th>
             <th class="text-end">{{ $money($totals['base']) }}</th>

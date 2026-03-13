@@ -14,7 +14,7 @@
       <div class="col">
         <div class="page-pretitle">Sales</div>
         <h2 class="page-title">Sales Commission</h2>
-        <div class="text-muted">Monthly commission fee from posted and paid invoices, with project, brand, and family overrides.</div>
+        <div class="text-muted">Monthly commission fee from finalized sales orders, with project, brand, and family overrides.</div>
       </div>
     </div>
   </div>
@@ -78,7 +78,7 @@
       <div class="card card-sm"><div class="card-body"><div class="subheader">Fee Total</div><div class="h3 m-0">{{ $money($summary['fee_total']) }}</div></div></div>
     </div>
     <div class="col-6 col-md-2">
-      <div class="card card-sm"><div class="card-body"><div class="subheader">Rows / Invoices</div><div class="h3 m-0">{{ number_format($summary['row_count'], 0, ',', '.') }} / {{ number_format($summary['invoice_count'], 0, ',', '.') }}</div></div></div>
+      <div class="card card-sm"><div class="card-body"><div class="subheader">Rows / SO</div><div class="h3 m-0">{{ number_format($summary['row_count'], 0, ',', '.') }} / {{ number_format($summary['sales_order_count'], 0, ',', '.') }}</div></div></div>
     </div>
     <div class="col-6 col-md-2">
       <div class="card card-sm"><div class="card-body"><div class="subheader">Warnings</div><div class="h3 m-0">{{ number_format($summary['unresolved_count'] + $summary['unassigned_sales_count'], 0, ',', '.') }}</div></div></div>
@@ -135,7 +135,6 @@
             <tr>
               <th style="width:36px;"><input type="checkbox" class="form-check-input" id="select-all-rows"></th>
               <th>Salesperson</th>
-              <th>Invoice</th>
               <th>SO</th>
               <th>SO Type</th>
               <th>Customer</th>
@@ -171,10 +170,15 @@
                   @endif
                 </td>
                 <td>
-                  <div class="fw-semibold">{{ $row->invoice_number }}</div>
-                  <div class="text-muted small">{{ \Carbon\Carbon::parse($row->invoice_date)->format('d M Y') }}</div>
+                  @if($row->sales_order_id)
+                    <a href="{{ route('sales-orders.show', $row->sales_order_id) }}" class="fw-semibold text-decoration-none">{{ $row->sales_order_number }}</a>
+                  @else
+                    <span class="fw-semibold">{{ $row->sales_order_number }}</span>
+                  @endif
+                  @if($row->finalized_date)
+                    <div class="text-muted small">{{ \Carbon\Carbon::parse($row->finalized_date)->format('d M Y') }}</div>
+                  @endif
                 </td>
-                <td>{{ $row->sales_order_number }}</td>
                 <td>{{ ucfirst($row->po_type) }}</td>
                 <td>{{ $row->customer_name }}</td>
                 <td>
@@ -201,7 +205,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="16" class="text-center text-muted">No data.</td>
+                <td colspan="15" class="text-center text-muted">No data.</td>
               </tr>
             @endforelse
           </tbody>

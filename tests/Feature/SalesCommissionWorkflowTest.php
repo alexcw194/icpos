@@ -403,31 +403,32 @@ class SalesCommissionWorkflowTest extends TestCase
         $this->assertCount(4, $report['rows']);
         $this->assertSame(1, $report['summary']['unassigned_sales_count']);
 
-        $rosenRow = $report['rows']->firstWhere('invoice_line_id', $goodsInvoiceLineA->id);
+        $rosenRow = $report['rows']->firstWhere('sales_order_line_id', $goodsLineA->id);
         $this->assertNotNull($rosenRow);
         $this->assertEqualsWithDelta(540.00, (float) $rosenRow->revenue, 0.01);
         $this->assertEqualsWithDelta(54.00, (float) $rosenRow->under_allocated, 0.01);
         $this->assertEqualsWithDelta(486.00, (float) $rosenRow->commissionable_base, 0.01);
         $this->assertEqualsWithDelta(3.00, (float) $rosenRow->rate_percent, 0.01);
         $this->assertEqualsWithDelta(14.58, (float) $rosenRow->fee_amount, 0.01);
+        $this->assertSame(sprintf('so-line|%d', $goodsLineA->id), $rosenRow->source_key);
 
-        $refillRow = $report['rows']->firstWhere('invoice_line_id', $goodsInvoiceLineB->id);
+        $refillRow = $report['rows']->firstWhere('sales_order_line_id', $goodsLineB->id);
         $this->assertNotNull($refillRow);
         $this->assertEqualsWithDelta(7.00, (float) $refillRow->rate_percent, 0.01);
         $this->assertEqualsWithDelta(22.68, (float) $refillRow->fee_amount, 0.01);
 
-        $hydrantRow = $report['rows']->firstWhere('invoice_line_id', $projectInvoiceLine->id);
+        $hydrantRow = $report['rows']->firstWhere('sales_order_line_id', $projectLine->id);
         $this->assertNotNull($hydrantRow);
         $this->assertSame('fire_hydrant', $hydrantRow->project_scope);
         $this->assertEqualsWithDelta(1.50, (float) $hydrantRow->rate_percent, 0.01);
         $this->assertEqualsWithDelta(2.70, (float) $hydrantRow->fee_amount, 0.01);
 
-        $maintenanceRow = $report['rows']->firstWhere('invoice_line_id', $maintenanceInvoiceLine->id);
+        $maintenanceRow = $report['rows']->firstWhere('sales_order_line_id', $maintenanceLine->id);
         $this->assertNotNull($maintenanceRow);
         $this->assertSame('maintenance', $maintenanceRow->project_scope);
         $this->assertEqualsWithDelta(5.00, (float) $maintenanceRow->rate_percent, 0.01);
 
-        $unassignedRow = $report['rows']->firstWhere('invoice_id', $unassignedInvoice->id);
+        $unassignedRow = $report['rows']->firstWhere('sales_order_line_id', $unassignedLine->id);
         $this->assertFalse($unassignedRow->selectable);
 
         $this->actingAs($admin)
@@ -461,7 +462,7 @@ class SalesCommissionWorkflowTest extends TestCase
         $this->assertNull($projectSo->fee_paid_at);
 
         $reportAfterNote = $service->buildReport(['month' => now()->format('Y-m')]);
-        $this->assertSame('in_unpaid_note', $reportAfterNote['rows']->firstWhere('invoice_line_id', $goodsInvoiceLineA->id)->source_status);
+        $this->assertSame('in_unpaid_note', $reportAfterNote['rows']->firstWhere('sales_order_line_id', $goodsLineA->id)->source_status);
 
         $this->actingAs($admin)
             ->patch(route('sales-commission-notes.mark-paid', $note), [

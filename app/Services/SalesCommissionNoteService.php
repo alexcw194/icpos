@@ -81,7 +81,7 @@ class SalesCommissionNoteService
                     'commissionable_base' => $row->commissionable_base,
                     'rate_percent' => $row->rate_percent,
                     'fee_amount' => $row->fee_amount,
-                    'invoice_number_snapshot' => $row->invoice_number,
+                    'invoice_number_snapshot' => null,
                     'sales_order_number_snapshot' => $row->sales_order_number,
                     'salesperson_name_snapshot' => $row->sales_user_name,
                     'item_name_snapshot' => $row->item_name,
