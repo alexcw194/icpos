@@ -32,7 +32,7 @@
   $isDocumentsActive = request()->is('documents*');
   $isPurchaseActive = request()->routeIs('po.*') || request()->routeIs('suppliers.*');
   $isInventoryActive = request()->is('inventory*');
-  $isManufactureActive = request()->is('manufacture-*') || request()->is('manufacture-jobs*') || request()->is('manufacture-recipes*');
+  $isManufactureActive = request()->is('manufacture-*') || request()->is('manufacture-jobs*') || request()->is('manufacture-recipes*') || request()->is('manufacture-commission-notes*');
 @endphp
 
 <style>
@@ -345,6 +345,14 @@
                 @if(Route::has('manufacture-recipes.index'))
                   <li><a class="nav-link {{ request()->is('manufacture-recipes*') ? 'active' : '' }}" href="{{ route('manufacture-recipes.index') }}">Manufacture Recipes</a></li>
                 @endif
+                @hasanyrole('Admin|SuperAdmin')
+                  @if(Route::has('manufacture-fees.index'))
+                    <li><a class="nav-link {{ request()->is('manufacture-fees*') ? 'active' : '' }}" href="{{ route('manufacture-fees.index') }}">Manufacture Fee</a></li>
+                  @endif
+                  @if(Route::has('manufacture-commission-notes.index'))
+                    <li><a class="nav-link {{ request()->is('manufacture-commission-notes*') ? 'active' : '' }}" href="{{ route('manufacture-commission-notes.index') }}">Manufacture Commission Notes</a></li>
+                  @endif
+                @endhasanyrole
               </ul>
             </li>
           @endif

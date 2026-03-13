@@ -33,6 +33,8 @@ use App\Http\Controllers\{
     PurchaseOrderController, 
     GoodsReceiptController,
     ManufactureJobController,
+    ManufactureFeeController,
+    ManufactureCommissionNoteController,
     ManufactureRecipeController,
     BqLineCatalogController,
     BqCsvConversionController,
@@ -415,6 +417,20 @@ Route::middleware(['auth', EnsureAdmin::class])->group(function () {
         ->name('reports.apar');
     Route::get('reports/family', [FamilyReportController::class, 'index'])
         ->name('reports.family');
+    Route::get('manufacture-fees', [ManufactureFeeController::class, 'index'])
+        ->name('manufacture-fees.index');
+    Route::get('manufacture-commission-notes', [ManufactureCommissionNoteController::class, 'index'])
+        ->name('manufacture-commission-notes.index');
+    Route::post('manufacture-commission-notes', [ManufactureCommissionNoteController::class, 'store'])
+        ->name('manufacture-commission-notes.store');
+    Route::get('manufacture-commission-notes/{manufactureCommissionNote}', [ManufactureCommissionNoteController::class, 'show'])
+        ->name('manufacture-commission-notes.show');
+    Route::patch('manufacture-commission-notes/{manufactureCommissionNote}/mark-paid', [ManufactureCommissionNoteController::class, 'markPaid'])
+        ->name('manufacture-commission-notes.mark-paid');
+    Route::patch('manufacture-commission-notes/{manufactureCommissionNote}/mark-unpaid', [ManufactureCommissionNoteController::class, 'markUnpaid'])
+        ->name('manufacture-commission-notes.mark-unpaid');
+    Route::delete('manufacture-commission-notes/{manufactureCommissionNote}', [ManufactureCommissionNoteController::class, 'destroy'])
+        ->name('manufacture-commission-notes.destroy');
 
     // =======================
     // Items (WRITE untuk Admin/SuperAdmin)
