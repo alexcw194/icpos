@@ -118,6 +118,12 @@
     </div>
   </div>
 
+  @unless($features['commission_notes_ready'] ?? false)
+    <div class="alert alert-warning mb-3">
+      Commission Note belum aktif di server ini. Jalankan migration terbaru untuk mengaktifkan create note dan status paid/unpaid.
+    </div>
+  @endunless
+
   <form method="POST" action="{{ route('manufacture-commission-notes.store') }}" id="commission-note-form">
     @csrf
     <input type="hidden" name="month" value="{{ $filters['month']->format('Y-m') }}">
@@ -137,7 +143,7 @@
           </div>
           <div class="col-md-3 text-end">
             <div class="text-muted small mb-1"><span id="selected-count">0</span> pekerjaan dipilih</div>
-            <button type="submit" class="btn btn-primary w-100">Create Commission Note</button>
+            <button type="submit" class="btn btn-primary w-100" @disabled(!($features['commission_notes_ready'] ?? false))>Create Commission Note</button>
           </div>
         </div>
       </div>
@@ -244,10 +250,11 @@
     const countEl = document.getElementById('selected-count');
     const checkboxes = Array.from(document.querySelectorAll('.js-source-checkbox'));
     const selectAll = Array.from(document.querySelectorAll('.js-select-all'));
+    const notesReady = @json((bool) ($features['commission_notes_ready'] ?? false));
 
     const refreshSelection = () => {
       const checkedCount = checkboxes.filter((el) => el.checked).length;
-      actionCard.style.display = checkedCount > 0 ? '' : 'none';
+      actionCard.style.display = notesReady && checkedCount > 0 ? '' : 'none';
       countEl.textContent = checkedCount;
     };
 

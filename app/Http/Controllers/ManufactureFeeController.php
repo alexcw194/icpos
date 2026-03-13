@@ -26,6 +26,7 @@ class ManufactureFeeController extends Controller
 
         return view('manufacture_fees.index', [
             'filters' => $report['filters'],
+            'features' => $report['features'],
             'summary' => $report['summary'],
             'categories' => $report['categories'],
             'activity' => $report['activity'],

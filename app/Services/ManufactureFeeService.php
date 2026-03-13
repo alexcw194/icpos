@@ -5,6 +5,7 @@ namespace App\Services;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ManufactureFeeService
 {
@@ -61,6 +62,10 @@ class ManufactureFeeService
 
         return [
             'filters' => $normalized,
+            'features' => [
+                'commission_notes_ready' => Schema::hasTable('manufacture_commission_note_lines')
+                    && Schema::hasTable('manufacture_commission_notes'),
+            ],
             'summary' => [
                 'apar_new_qty' => $qtyApar,
                 'refill_tube_qty' => $qtyRefill,
@@ -272,6 +277,18 @@ class ManufactureFeeService
             return collect();
         }
 
+        if (!Schema::hasTable('manufacture_commission_note_lines') || !Schema::hasTable('manufacture_commission_notes')) {
+            return $rows->map(function ($row) {
+                $row->source_status = 'available';
+                $row->source_status_label = 'Available';
+                $row->note_id = null;
+                $row->note_number = null;
+                $row->selectable = true;
+
+                return $row;
+            });
+        }
+
         $refs = DB::table('manufacture_commission_note_lines as line')
             ->join('manufacture_commission_notes as note', 'note.id', '=', 'line.manufacture_commission_note_id')
             ->whereIn('line.source_key', $rows->pluck('source_key')->all())
@@ -316,6 +333,25 @@ class ManufactureFeeService
 
     private function manufactureActivity(array $filters): array
     {
+        if (!Schema::hasTable('manufacture_jobs')) {
+            return [
+                'teams' => [
+                    [
+                        'key' => 'apar',
+                        'label' => 'Tim APAR',
+                        'job_count' => 0,
+                        'operators' => collect(),
+                    ],
+                    [
+                        'key' => 'selang',
+                        'label' => 'Tim Selang',
+                        'job_count' => 0,
+                        'operators' => collect(),
+                    ],
+                ],
+            ];
+        }
+
         $jobs = DB::table('manufacture_jobs as job')
             ->join('items as item', 'item.id', '=', 'job.parent_item_id')
             ->leftJoin('users as operator', 'operator.id', '=', 'job.produced_by')
