@@ -9,6 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('sales_commission_rules')) {
+            return;
+        }
+
         Schema::create('sales_commission_rules', function (Blueprint $table) {
             $table->id();
             $table->enum('scope_type', ['brand', 'family']);

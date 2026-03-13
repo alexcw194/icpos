@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('manufacture_commission_notes')) {
+            return;
+        }
+
         Schema::create('manufacture_commission_notes', function (Blueprint $table) {
             $table->id();
             $table->string('number', 50)->unique();
