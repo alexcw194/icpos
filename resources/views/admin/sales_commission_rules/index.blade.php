@@ -3,13 +3,19 @@
 @section('content')
 <div class="page-header d-print-none">
   <div class="container-xl d-flex align-items-center">
-    <h2 class="page-title">Master • Sales Commission Rules</h2>
-    <a href="{{ route('sales-commission-rules.create') }}" class="btn btn-primary ms-auto">Tambah</a>
+    <h2 class="page-title">Master - Sales Commission Rules</h2>
+    <a href="{{ route('sales-commission-rules.create') }}" class="btn btn-primary ms-auto" @if(!($tableReady ?? true)) aria-disabled="true" onclick="return false;" @endif>Tambah</a>
   </div>
 </div>
 
 <div class="page-body">
   <div class="container-xl">
+    @unless($tableReady ?? true)
+      <div class="alert alert-warning">
+        Sales Commission Rules belum aktif di server ini. Jalankan migration terbaru terlebih dahulu.
+      </div>
+    @endunless
+
     <form class="mb-3" method="get" action="{{ route('sales-commission-rules.index') }}">
       <div class="input-group">
         <input type="text" name="q" class="form-control" placeholder="Cari brand atau family..." value="{{ $q ?? '' }}">
