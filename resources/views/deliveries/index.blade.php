@@ -118,7 +118,7 @@
       </table>
     </div>
 
-    <div class="card-footer d-flex justify-content-center">
+    <div class="card-footer">
       {{ $deliveries->links() }}
     </div>
   </div>

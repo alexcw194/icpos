@@ -59,8 +59,10 @@
           </tbody>
         </table>
       </div>
+    </div>
 
-      <div class="mt-3">{{ $sizes->links() }}</div>
+    <div class="card-footer">
+      {{ $sizes->links() }}
     </div>
   </div>
 </div>

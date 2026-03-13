@@ -27,62 +27,66 @@
         </div>
     </form>
 
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Kode</th>
-                    <th>Nama</th>
-                    <th>Companies</th>
-                    <th>Alamat</th>
-                    <th>Allow -</th>
-                    <th>Aktif</th>
-                    <th>Updated</th>
-                    <th>Aksi</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($rows as $i => $row)
-                <tr>
-                    <td>{{ $rows->firstItem() + $i }}</td>
-                    <td>{{ $row->code }}</td>
-                    <td>{{ $row->name }}</td>
-                    <td>
-                        @php
-                            $companyNames = collect();
-                            if (!empty($supportsCompanyWarehouse)) {
-                                $companyNames = $row->companies->map(fn($c) => $c->alias ?? $c->name)->filter()->values();
-                            }
-                            if ($companyNames->isEmpty() && $row->company) {
-                                $companyNames = collect([$row->company->alias ?? $row->company->name])->filter()->values();
-                            }
-                        @endphp
-                        @if($companyNames->isNotEmpty())
-                            {{ $companyNames->implode(', ') }}
-                        @else
-                            -
-                        @endif
-                    </td>
-                    <td>{{ $row->address }}</td>
-                    <td>{{ $row->allow_negative_stock ? 'Ya' : 'Tidak' }}</td>
-                    <td>{{ $row->is_active ? 'Ya' : 'Tidak' }}</td>
-                    <td>{{ $row->updated_at?->format('d M Y H:i') }}</td>
-                    <td>
-                        <a href="{{ route('warehouses.edit', $row) }}" class="btn btn-sm btn-warning">Edit</a>
-                        <form action="{{ route('warehouses.destroy', $row) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus warehouse?')">
-                            @csrf @method('DELETE')
-                            <button class="btn btn-sm btn-danger">Hapus</button>
-                        </form>
-                    </td>
-                </tr>
-                @empty
-                <tr><td colspan="9">Tidak ada data</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-striped card-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Kode</th>
+                        <th>Nama</th>
+                        <th>Companies</th>
+                        <th>Alamat</th>
+                        <th>Allow -</th>
+                        <th>Aktif</th>
+                        <th>Updated</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($rows as $i => $row)
+                    <tr>
+                        <td>{{ $rows->firstItem() + $i }}</td>
+                        <td>{{ $row->code }}</td>
+                        <td>{{ $row->name }}</td>
+                        <td>
+                            @php
+                                $companyNames = collect();
+                                if (!empty($supportsCompanyWarehouse)) {
+                                    $companyNames = $row->companies->map(fn($c) => $c->alias ?? $c->name)->filter()->values();
+                                }
+                                if ($companyNames->isEmpty() && $row->company) {
+                                    $companyNames = collect([$row->company->alias ?? $row->company->name])->filter()->values();
+                                }
+                            @endphp
+                            @if($companyNames->isNotEmpty())
+                                {{ $companyNames->implode(', ') }}
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td>{{ $row->address }}</td>
+                        <td>{{ $row->allow_negative_stock ? 'Ya' : 'Tidak' }}</td>
+                        <td>{{ $row->is_active ? 'Ya' : 'Tidak' }}</td>
+                        <td>{{ $row->updated_at?->format('d M Y H:i') }}</td>
+                        <td>
+                            <a href="{{ route('warehouses.edit', $row) }}" class="btn btn-sm btn-warning">Edit</a>
+                            <form action="{{ route('warehouses.destroy', $row) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus warehouse?')">
+                                @csrf @method('DELETE')
+                                <button class="btn btn-sm btn-danger">Hapus</button>
+                            </form>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="9">Tidak ada data</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
 
-    {{ $rows->links() }}
+        <div class="card-footer">
+            {{ $rows->links() }}
+        </div>
+    </div>
 </div>
 @endsection

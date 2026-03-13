@@ -66,7 +66,9 @@
       </div>
     @endif
   </div>
-</div>
 
-{{ $documents->links() }}
+  <div class="card-footer">
+    {{ $documents->links() }}
+  </div>
+</div>
 @endsection

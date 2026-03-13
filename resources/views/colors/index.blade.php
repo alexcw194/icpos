@@ -73,8 +73,10 @@
           </tbody>
         </table>
       </div>
+    </div>
 
-      <div class="mt-3">{{ $colors->links() }}</div>
+    <div class="card-footer">
+      {{ $colors->links() }}
     </div>
   </div>
 </div>
