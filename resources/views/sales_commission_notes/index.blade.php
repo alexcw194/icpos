@@ -17,6 +17,12 @@
     </div>
   </div>
 
+  @unless($tableReady ?? true)
+    <div class="alert alert-warning mb-3">
+      Sales Commission Notes belum aktif di server ini. Jalankan migration terbaru terlebih dahulu.
+    </div>
+  @endunless
+
   <div class="card mb-3">
     <div class="card-body">
       <form method="GET" class="row g-2 align-items-end">

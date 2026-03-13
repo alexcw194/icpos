@@ -7,6 +7,8 @@ use App\Models\User;
 use App\Services\SalesCommissionNoteService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class SalesCommissionNoteController extends Controller
@@ -28,6 +30,30 @@ class SalesCommissionNoteController extends Controller
         $status = $filters['status'] ?? 'all';
         $salesUserId = !empty($filters['sales_user_id']) ? (int) $filters['sales_user_id'] : null;
         $monthDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+
+        if (!$this->notesTablesReady()) {
+            $notes = new LengthAwarePaginator(
+                [],
+                0,
+                $this->resolvePerPage($request),
+                1,
+                [
+                    'path' => route('sales-commission-notes.index'),
+                    'query' => $request->query(),
+                ]
+            );
+
+            return view('sales_commission_notes.index', [
+                'notes' => $notes,
+                'filters' => [
+                    'month' => $monthDate,
+                    'status' => $status,
+                    'sales_user_id' => $salesUserId,
+                ],
+                'salesUsers' => collect(),
+                'tableReady' => false,
+            ]);
+        }
 
         $notes = SalesCommissionNote::query()
             ->with(['creator', 'salesUser'])
@@ -60,11 +86,14 @@ class SalesCommissionNoteController extends Controller
                 'sales_user_id' => $salesUserId,
             ],
             'salesUsers' => $salesUsers,
+            'tableReady' => true,
         ]);
     }
 
     public function store(Request $request)
     {
+        $this->ensureNotesTablesReady();
+
         $data = $request->validate([
             'month' => ['required', 'date_format:Y-m'],
             'sales_user_id' => ['nullable', 'integer', 'exists:users,id'],
@@ -95,6 +124,8 @@ class SalesCommissionNoteController extends Controller
 
     public function show(SalesCommissionNote $salesCommissionNote)
     {
+        $this->ensureNotesTablesReady();
+
         $salesCommissionNote->load(['creator', 'salesUser', 'lines']);
 
         return view('sales_commission_notes.show', [
@@ -110,6 +141,8 @@ class SalesCommissionNoteController extends Controller
 
     public function markPaid(Request $request, SalesCommissionNote $salesCommissionNote)
     {
+        $this->ensureNotesTablesReady();
+
         $data = $request->validate([
             'paid_at' => ['required', 'date'],
         ]);
@@ -123,6 +156,8 @@ class SalesCommissionNoteController extends Controller
 
     public function markUnpaid(SalesCommissionNote $salesCommissionNote)
     {
+        $this->ensureNotesTablesReady();
+
         $this->salesCommissionNoteService->markUnpaid($salesCommissionNote);
 
         return redirect()
@@ -132,6 +167,8 @@ class SalesCommissionNoteController extends Controller
 
     public function destroy(SalesCommissionNote $salesCommissionNote)
     {
+        $this->ensureNotesTablesReady();
+
         $this->salesCommissionNoteService->deleteUnpaid($salesCommissionNote);
 
         return redirect()
@@ -141,5 +178,16 @@ class SalesCommissionNoteController extends Controller
                 'sales_user_id' => $salesCommissionNote->sales_user_id,
             ])
             ->with('success', 'Sales commission note dihapus.');
+    }
+
+    private function notesTablesReady(): bool
+    {
+        return Schema::hasTable('sales_commission_notes')
+            && Schema::hasTable('sales_commission_note_lines');
+    }
+
+    private function ensureNotesTablesReady(): void
+    {
+        abort_unless($this->notesTablesReady(), 503, 'Sales commission notes table belum tersedia. Jalankan migration terbaru.');
     }
 }
