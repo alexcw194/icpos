@@ -38,19 +38,7 @@ class ItemController extends Controller
             ->where('list_type', $listType);
 
         if ($filters['q'] !== '') {
-            $term = $filters['q'];
-            $itemsQuery->where(function ($query) use ($term) {
-                $like = '%' . $term . '%';
-                $query->where('name', 'like', $like)
-                    ->orWhere('sku', 'like', $like)
-                    ->orWhereHas('brand', fn($b) => $b->where('name', 'like', $like))
-                    ->orWhereHas('variants', function ($v) use ($like) {
-                        $v->where('sku', 'like', $like)
-                          ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color')) LIKE ?", [$like])
-                          ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size')) LIKE ?",  [$like])
-                          ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length')) LIKE ?",[$like]);
-                    });
-            });
+            $this->applyItemSearchFilter($itemsQuery, $filters['q'], true);
         }
 
         $items = $itemsQuery
@@ -583,15 +571,7 @@ class ItemController extends Controller
             ])
             ->when($listType !== '', fn($qq) => $qq->where('list_type', $listType))
             ->when($itemType !== '', fn($qq) => $qq->where('item_type', $itemType))
-            ->when($q !== '', function ($qq) use ($q) {
-                $qq->where(function ($w) use ($q) {
-                    $w->where('name', 'like', "%{$q}%")
-                      ->orWhere('sku',  'like', "%{$q}%")
-                      ->orWhereHas('variants', function ($v) use ($q) {
-                          $v->where('sku', 'like', "%{$q}%");
-                      });
-                });
-            })
+            ->when($q !== '', fn($qq) => $this->applyItemSearchFilter($qq, $q, false))
             ->orderBy('name')
             ->limit(40) // ambil agak longgar, nanti dipotong lagi di output
             ->get([
@@ -742,6 +722,81 @@ class ItemController extends Controller
 
         return response()->json($out);
     }
+
+    private function applyItemSearchFilter($query, string $term, bool $includeBrand): void
+    {
+        $term = trim($term);
+        if ($term === '') {
+            return;
+        }
+
+        $tokens = collect(preg_split('/[\s\-\/]+/u', mb_strtolower($term, 'UTF-8')))
+            ->map(fn ($token) => trim((string) $token))
+            ->filter(fn ($token) => $token !== '')
+            ->unique()
+            ->values();
+
+        $query->where(function ($outer) use ($term, $tokens, $includeBrand) {
+            $this->applySingleItemSearchToken($outer, $term, $includeBrand);
+
+            if ($tokens->count() > 1) {
+                $outer->orWhere(function ($tokenQuery) use ($tokens, $includeBrand) {
+                    foreach ($tokens as $token) {
+                        $tokenQuery->where(function ($segment) use ($token, $includeBrand) {
+                            $this->applySingleItemSearchToken($segment, $token, $includeBrand);
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    private function applySingleItemSearchToken($query, string $token, bool $includeBrand): void
+    {
+        $like = '%'.$token.'%';
+        $normalizedLike = '%'.$this->normalizeSearchToken($token).'%';
+
+        $query->where('name', 'like', $like)
+            ->orWhere('sku', 'like', $like)
+            ->orWhere('name_template', 'like', $like)
+            ->orWhereRaw($this->normalizedSearchExpression('name').' LIKE ?', [$normalizedLike])
+            ->orWhereRaw($this->normalizedSearchExpression('sku').' LIKE ?', [$normalizedLike])
+            ->orWhereRaw($this->normalizedSearchExpression('name_template').' LIKE ?', [$normalizedLike])
+            ->orWhereHas('variants', function ($variantQuery) use ($like) {
+                $variantQuery->where('sku', 'like', $like)
+                    ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color')) LIKE ?", [$like])
+                    ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size')) LIKE ?", [$like])
+                    ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length')) LIKE ?", [$like]);
+            });
+
+        $query->orWhereHas('variants', function ($variantQuery) use ($like, $normalizedLike) {
+            $variantQuery->where('sku', 'like', $like)
+                ->orWhereRaw($this->normalizedSearchExpression('sku').' LIKE ?', [$normalizedLike])
+                ->orWhereRaw($this->normalizedSearchExpression("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color'))").' LIKE ?', [$normalizedLike])
+                ->orWhereRaw($this->normalizedSearchExpression("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size'))").' LIKE ?', [$normalizedLike])
+                ->orWhereRaw($this->normalizedSearchExpression("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length'))").' LIKE ?', [$normalizedLike]);
+        });
+
+        if ($includeBrand) {
+            $query->orWhereHas('brand', function ($brandQuery) use ($like, $normalizedLike) {
+                $brandQuery->where('name', 'like', $like)
+                    ->orWhereRaw($this->normalizedSearchExpression('name').' LIKE ?', [$normalizedLike]);
+            });
+        }
+    }
+
+    private function normalizeSearchToken(string $token): string
+    {
+        $normalized = mb_strtolower($token, 'UTF-8');
+
+        return str_replace([' ', '-', '/'], '', $normalized);
+    }
+
+    private function normalizedSearchExpression(string $expression): string
+    {
+        return "REPLACE(REPLACE(REPLACE(LOWER(COALESCE({$expression}, '')), ' ', ''), '-', ''), '/', '')";
+    }
+
     public function latestPrice(Request $request)
     {
         $data = $request->validate([

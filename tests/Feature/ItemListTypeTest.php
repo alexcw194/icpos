@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Item;
+use App\Models\ItemVariant;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -158,6 +159,38 @@ class ItemListTypeTest extends TestCase
         $this->assertDatabaseHas('items', [
             'id' => $item->id,
             'list_type' => 'project',
+        ]);
+    }
+
+    public function test_quick_search_matches_variant_size_suffix_without_exact_spacing(): void
+    {
+        $unit = $this->makeUnit();
+
+        $item = Item::create([
+            'name' => 'Refill ABC Powder PYROS',
+            'sku' => 'REFILL-ABC-5KG',
+            'price' => 1000,
+            'unit_id' => $unit->id,
+            'list_type' => 'retail',
+            'variant_type' => 'size',
+        ]);
+
+        ItemVariant::create([
+            'item_id' => $item->id,
+            'sku' => 'REFILL-ABC-5KG-V1',
+            'price' => 1000,
+            'stock' => 0,
+            'attributes' => ['size' => '5 kg'],
+            'is_active' => true,
+        ]);
+
+        $response = $this->getJson('/api/items/search?q='.urlencode('Refill ABC Powder PYROS - 5kg'));
+
+        $response->assertOk();
+        $response->assertJsonFragment([
+            'type' => 'variant',
+            'item_id' => $item->id,
+            'name' => 'Refill ABC Powder PYROS - 5 kg',
         ]);
     }
 }
