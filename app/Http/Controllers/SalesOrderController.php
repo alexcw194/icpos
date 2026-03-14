@@ -273,8 +273,12 @@ class SalesOrderController extends Controller
         $computedLines = [];
         $grossSubtotal = 0.0;
         $afterPerItem  = 0.0;
+        $supportsCommissionBasisUnitPrice = $this->salesOrderLineSupportsCommissionBasis();
 
         $linesInput = collect($data['lines'] ?? [])->values();
+        $commissionBasisPriceMap = $this->commissionBasisPriceMap(
+            $linesInput->pluck('item_id')->filter()->map(fn ($id) => (int) $id)->all()
+        );
         $this->enforceVariantSelectionForLines($linesInput->all(), $disableInventoryLink);
         foreach ($linesInput as $idx => $ln) {
             $qty = max($toNum($ln['qty'] ?? 0), 0);
@@ -312,7 +316,7 @@ class SalesOrderController extends Controller
 
             $lineTotal = max($lineSubtotal - $discAmt, 0);
 
-            $computedLines[] = [
+            $linePayload = [
                 'position'        => $idx + 1,
                 'item_id'         => $disableInventoryLink ? null : ($ln['item_id'] ?? null),
                 'item_variant_id' => $disableInventoryLink ? null : ($ln['item_variant_id'] ?? null),
@@ -341,6 +345,15 @@ class SalesOrderController extends Controller
                 'baseline_labor_total' => $laborTotal,
                 'baseline_line_total' => $lineTotal,
             ];
+            if ($supportsCommissionBasisUnitPrice) {
+                $linePayload['commission_basis_unit_price'] = $this->resolveCommissionBasisUnitPrice(
+                    $disableInventoryLink ? null : ($ln['item_id'] ?? null),
+                    $price,
+                    $commissionBasisPriceMap
+                );
+            }
+
+            $computedLines[] = $linePayload;
 
             $afterPerItem += $lineTotal;
         }
@@ -401,7 +414,7 @@ class SalesOrderController extends Controller
             ]);
 
             foreach ($computedLines as $ln) {
-                SalesOrderLine::create([
+                $linePayload = [
                     'sales_order_id'   => $so->id,
                     'position'         => $ln['position'],
                     'name'             => $ln['name'],
@@ -430,7 +443,12 @@ class SalesOrderController extends Controller
                     'baseline_material_total' => $ln['baseline_material_total'] ?? null,
                     'baseline_labor_total' => $ln['baseline_labor_total'] ?? null,
                     'baseline_line_total' => $ln['baseline_line_total'] ?? null,
-                ]);
+                ];
+                if (array_key_exists('commission_basis_unit_price', $ln)) {
+                    $linePayload['commission_basis_unit_price'] = $ln['commission_basis_unit_price'];
+                }
+
+                SalesOrderLine::create($linePayload);
             }
 
             foreach ($billingTerms as $term) {
@@ -806,6 +824,11 @@ class SalesOrderController extends Controller
         $billingTerms = $this->normalizeBillingTerms($data['billing_terms'] ?? [], $data['po_type'] ?? 'goods');
 
         $sub = 0; $perLineDc = 0;
+        $supportsCommissionBasisUnitPrice = $this->salesOrderLineSupportsCommissionBasis();
+        $existingLinesById = $salesOrder->lines()->get()->keyBy('id');
+        $commissionBasisPriceMap = $this->commissionBasisPriceMap(
+            collect($data['lines'] ?? [])->pluck('item_id')->filter()->map(fn ($id) => (int) $id)->all()
+        );
         $cleanLines = [];
         foreach ($data['lines'] as $i => $ln) {
             $qty = max($parse($ln['qty'] ?? 0), 0);
@@ -850,7 +873,10 @@ class SalesOrderController extends Controller
             $lineTotal = max($lineSub - $dcAmt, 0);
             $sub += $lineSub; $perLineDc += $dcAmt;
 
-            $cleanLines[] = [
+            $incomingItemId = $disableInventoryLink ? null : ($ln['item_id'] ?? null);
+            $existingLine = !empty($ln['id']) ? $existingLinesById->get((int) $ln['id']) : null;
+
+            $linePayload = [
                 'id'              => $ln['id'] ?? null,
                 'position'        => $i,
                 'name'            => $ln['name'],
@@ -868,7 +894,7 @@ class SalesOrderController extends Controller
                 'material_total'  => $materialTotal,
                 'labor_total'     => $laborTotal,
 
-                'item_id'         => $disableInventoryLink ? null : ($ln['item_id'] ?? null),
+                'item_id'         => $incomingItemId,
                 'item_variant_id' => $disableInventoryLink ? null : ($ln['item_variant_id'] ?? null),
                 'baseline_name' => null,
                 'baseline_description' => null,
@@ -879,6 +905,16 @@ class SalesOrderController extends Controller
                 'baseline_unit_price' => null,
                 'baseline_line_total' => null,
             ];
+            if ($supportsCommissionBasisUnitPrice) {
+                $linePayload['commission_basis_unit_price'] = $this->resolveUpdatedCommissionBasisUnitPrice(
+                    $existingLine,
+                    $incomingItemId,
+                    $price,
+                    $commissionBasisPriceMap
+                );
+            }
+
+            $cleanLines[] = $linePayload;
         }
         $this->enforceVariantSelectionForLines($cleanLines, $disableInventoryLink);
 
@@ -1377,6 +1413,15 @@ class SalesOrderController extends Controller
 
             // Copy lines dari quotation
             $linesSubtotal = 0.0;
+            $supportsCommissionBasisUnitPrice = $this->salesOrderLineSupportsCommissionBasis();
+            $commissionBasisPriceMap = $this->commissionBasisPriceMap(
+                $quotation->lines
+                    ->pluck('item_id')
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+                    ->all()
+            );
+
             foreach ($quotation->lines as $idx => $ql) {
                 $qty       = (float)($ql->qty ?? $ql->quantity ?? 0);
                 $materialTotal = max((float) ($ql->material_total ?? 0), 0);
@@ -1438,7 +1483,7 @@ class SalesOrderController extends Controller
                 }
                 $lineTotal = max(0, $lineSub - $lineDcAmt);
 
-                SalesOrderLine::create([
+                $linePayload = [
                     'sales_order_id'   => $so->id,
                     'position'         => $idx,
                     'name'             => $ql->name,
@@ -1467,7 +1512,16 @@ class SalesOrderController extends Controller
                     'baseline_material_total' => $materialTotal,
                     'baseline_labor_total' => $laborTotal,
                     'baseline_line_total' => $lineTotal,
-                ]);
+                ];
+                if ($supportsCommissionBasisUnitPrice) {
+                    $linePayload['commission_basis_unit_price'] = $this->resolveCommissionBasisUnitPrice(
+                        $disableInventoryLink ? null : ($ql->item_id ?? null),
+                        $unitPrice,
+                        $commissionBasisPriceMap
+                    );
+                }
+
+                SalesOrderLine::create($linePayload);
 
                 $linesSubtotal += $lineTotal;
             }
@@ -1654,6 +1708,59 @@ class SalesOrderController extends Controller
     private function isVariantActiveValue($isActive): bool
     {
         return $isActive === null || (bool) $isActive;
+    }
+
+    private function commissionBasisPriceMap(array $itemIds): array
+    {
+        $ids = collect($itemIds)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return Item::query()
+            ->whereIn('id', $ids->all())
+            ->pluck('price', 'id')
+            ->map(fn ($price) => round(max((float) $price, 0), 2))
+            ->all();
+    }
+
+    private function resolveCommissionBasisUnitPrice(?int $itemId, float $fallbackUnitPrice, array $priceMap): float
+    {
+        $basis = $itemId && array_key_exists($itemId, $priceMap)
+            ? (float) $priceMap[$itemId]
+            : $fallbackUnitPrice;
+
+        return round(max($basis, 0), 2);
+    }
+
+    private function resolveUpdatedCommissionBasisUnitPrice(?SalesOrderLine $existingLine, ?int $incomingItemId, float $fallbackUnitPrice, array $priceMap): float
+    {
+        if (
+            $existingLine
+            && (int) ($existingLine->item_id ?? 0) === (int) ($incomingItemId ?? 0)
+            && $existingLine->commission_basis_unit_price !== null
+        ) {
+            return round(max((float) $existingLine->commission_basis_unit_price, 0), 2);
+        }
+
+        return $this->resolveCommissionBasisUnitPrice($incomingItemId, $fallbackUnitPrice, $priceMap);
+    }
+
+    private function salesOrderLineSupportsCommissionBasis(): bool
+    {
+        static $supported;
+
+        if ($supported === null) {
+            $supported = Schema::hasTable('sales_order_lines')
+                && Schema::hasColumn('sales_order_lines', 'commission_basis_unit_price');
+        }
+
+        return $supported;
     }
 
     private function normalizeBillingTerms(array $terms, ?string $poType = null): array

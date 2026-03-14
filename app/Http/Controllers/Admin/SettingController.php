@@ -52,6 +52,7 @@ class SettingController extends Controller
             'sales_commission_project_fire_alarm_rate_percent' => ['required', 'numeric', 'min:0'],
             'sales_commission_project_fire_hydrant_rate_percent' => ['required', 'numeric', 'min:0'],
             'sales_commission_project_maintenance_rate_percent' => ['required', 'numeric', 'min:0'],
+            'sales_commission_freelance_icpos_discount_percent' => ['required', 'numeric', 'min:0', 'max:100'],
         ]);
 
         // Upload logo
@@ -121,6 +122,7 @@ class SettingController extends Controller
             'sales.commission.project.fire_alarm_rate_percent' => (string) ($validated['sales_commission_project_fire_alarm_rate_percent'] ?? '5'),
             'sales.commission.project.fire_hydrant_rate_percent' => (string) ($validated['sales_commission_project_fire_hydrant_rate_percent'] ?? '1.5'),
             'sales.commission.project.maintenance_rate_percent' => (string) ($validated['sales_commission_project_maintenance_rate_percent'] ?? '5'),
+            'sales.commission.freelance.icpos_discount_percent' => (string) ($validated['sales_commission_freelance_icpos_discount_percent'] ?? '35'),
         ]);
 
         return redirect()

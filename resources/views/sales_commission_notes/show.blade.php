@@ -44,7 +44,7 @@
             <div class="col-md-3"><div class="text-muted">Paid Date</div><div class="fw-semibold">{{ optional($note->paid_at)->format('d M Y') ?? '-' }}</div></div>
             <div class="col-md-3"><div class="text-muted">Revenue</div><div class="fw-semibold">{{ $money($totals['revenue']) }}</div></div>
             <div class="col-md-3"><div class="text-muted">Under</div><div class="fw-semibold">{{ $money($totals['under']) }}</div></div>
-            <div class="col-md-3"><div class="text-muted">Commissionable</div><div class="fw-semibold">{{ $money($totals['base']) }}</div></div>
+            <div class="col-md-3"><div class="text-muted">Base / Net</div><div class="fw-semibold">{{ $money($totals['base']) }}</div></div>
             <div class="col-md-3"><div class="text-muted">Fee</div><div class="fw-semibold">{{ $money($totals['fee']) }}</div></div>
             <div class="col-md-12"><div class="text-muted">Notes</div><div class="fw-semibold">{{ $note->notes ?: '-' }}</div></div>
           </div>
@@ -92,8 +92,10 @@
             <th>Project/System</th>
             <th class="text-end">Revenue</th>
             <th class="text-end">Under</th>
-            <th class="text-end">Base</th>
-            <th class="text-end">Rate</th>
+            <th class="text-end">Base / Net</th>
+            <th class="text-end">ICPOS</th>
+            <th class="text-end">Basis Net</th>
+            <th class="text-end">Rate / Formula</th>
             <th class="text-end">Fee</th>
           </tr>
         </thead>
@@ -108,12 +110,37 @@
                 @endif
               </td>
               <td>{{ $line->customer_name_snapshot }}</td>
-              <td class="fw-semibold">{{ $line->item_name_snapshot }}</td>
+              <td>
+                <div class="fw-semibold">{{ $line->item_name_snapshot }}</div>
+                @if($line->formula_label_snapshot)
+                  <div class="text-muted small">{{ $line->formula_label_snapshot }}</div>
+                @endif
+              </td>
               <td>{{ $line->project_scope ? str_replace('_', ' ', ucfirst($line->project_scope)) : '-' }}</td>
               <td class="text-end">{{ $money($line->revenue) }}</td>
               <td class="text-end">{{ $money($line->under_allocated) }}</td>
-              <td class="text-end">{{ $money($line->commissionable_base) }}</td>
-              <td class="text-end">{{ $percent($line->rate_percent) }}</td>
+              <td class="text-end">{{ $money($line->commission_mode === 'freelance_net' ? ($line->actual_net_amount ?? 0) : $line->commissionable_base) }}</td>
+              <td class="text-end">
+                @if($line->commission_mode === 'freelance_net')
+                  {{ $money($line->basis_unit_price_snapshot ?? 0) }}
+                @else
+                  -
+                @endif
+              </td>
+              <td class="text-end">
+                @if($line->commission_mode === 'freelance_net')
+                  {{ $money($line->basis_net_amount ?? 0) }}
+                @else
+                  -
+                @endif
+              </td>
+              <td class="text-end">
+                @if($line->commission_mode === 'freelance_net')
+                  <span class="text-muted">{{ $line->formula_label_snapshot }}</span>
+                @else
+                  {{ $percent($line->rate_percent) }}
+                @endif
+              </td>
               <td class="text-end">{{ $money($line->fee_amount) }}</td>
             </tr>
           @endforeach
@@ -124,6 +151,8 @@
             <th class="text-end">{{ $money($totals['revenue']) }}</th>
             <th class="text-end">{{ $money($totals['under']) }}</th>
             <th class="text-end">{{ $money($totals['base']) }}</th>
+            <th></th>
+            <th></th>
             <th></th>
             <th class="text-end">{{ $money($totals['fee']) }}</th>
           </tr>

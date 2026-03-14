@@ -13,6 +13,7 @@ use App\Models\SalesCommissionNote;
 use App\Models\SalesCommissionRule;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\SalesCommissionFeeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -498,5 +499,156 @@ class SalesCommissionWorkflowTest extends TestCase
         $projectSo->refresh();
         $this->assertEqualsWithDelta(0.00, (float) $goodsSo->fee_amount, 0.01);
         $this->assertEqualsWithDelta(0.00, (float) $projectSo->fee_amount, 0.01);
+    }
+
+    public function test_freelance_goods_uses_net_formula_while_project_stays_percentage(): void
+    {
+        $admin = $this->makeUserWithRole('Admin');
+        $sales = $this->makeUserWithRole('Sales');
+        $sales->assignRole(Role::firstOrCreate(['name' => 'Freelance', 'guard_name' => 'web']));
+
+        Setting::setMany([
+            'sales.commission.freelance.icpos_discount_percent' => '35',
+            'sales.commission.default_rate_percent' => '5',
+            'sales.commission.project.fire_alarm_rate_percent' => '5',
+            'sales.commission.project.fire_hydrant_rate_percent' => '1.5',
+            'sales.commission.project.maintenance_rate_percent' => '5',
+        ]);
+
+        $company = Company::create(['name' => 'Freelance Co', 'alias' => 'FLC']);
+        $customer = Customer::create(['name' => 'Freelance Customer']);
+        $item = Item::create([
+            'name' => 'Freelance Goods',
+            'sku' => 'FR-GOODS',
+            'price' => 100,
+            'family_code' => 'APAR',
+        ]);
+        $hydrantItem = Item::create([
+            'name' => 'Freelance Project Hydrant',
+            'sku' => 'FR-HYDRANT',
+            'price' => 200,
+            'family_code' => 'HYDRANT',
+        ]);
+
+        $goodsSo = SalesOrder::create([
+            'company_id' => $company->id,
+            'customer_id' => $customer->id,
+            'sales_user_id' => $sales->id,
+            'so_number' => 'SO-FR-001',
+            'order_date' => now()->toDateString(),
+            'customer_po_number' => 'PO-FR-001',
+            'customer_po_date' => now()->toDateString(),
+            'po_type' => 'goods',
+            'discount_mode' => 'total',
+            'tax_percent' => 0,
+            'tax_amount' => 0,
+            'taxable_base' => 120,
+            'total' => 120,
+            'status' => 'open',
+            'under_amount' => 10,
+            'fee_amount' => 0,
+        ]);
+        SalesOrderLine::create([
+            'sales_order_id' => $goodsSo->id,
+            'position' => 1,
+            'name' => $item->name,
+            'qty_ordered' => 1,
+            'unit' => 'pcs',
+            'unit_price' => 120,
+            'discount_type' => 'amount',
+            'discount_value' => 0,
+            'discount_amount' => 0,
+            'line_subtotal' => 120,
+            'line_total' => 120,
+            'item_id' => $item->id,
+            'commission_basis_unit_price' => 100,
+        ]);
+
+        $project = Project::create([
+            'company_id' => $company->id,
+            'customer_id' => $customer->id,
+            'code' => 'PRJ-FR-001',
+            'name' => 'Freelance Project',
+            'systems_json' => ['fire_hydrant'],
+            'status' => 'open',
+            'sales_owner_user_id' => $sales->id,
+        ]);
+
+        $projectSo = SalesOrder::create([
+            'company_id' => $company->id,
+            'customer_id' => $customer->id,
+            'sales_user_id' => $sales->id,
+            'so_number' => 'SO-FR-002',
+            'order_date' => now()->toDateString(),
+            'customer_po_number' => 'PO-FR-002',
+            'customer_po_date' => now()->toDateString(),
+            'po_type' => 'project',
+            'project_id' => $project->id,
+            'discount_mode' => 'total',
+            'tax_percent' => 0,
+            'tax_amount' => 0,
+            'taxable_base' => 200,
+            'total' => 200,
+            'status' => 'open',
+            'under_amount' => 20,
+            'fee_amount' => 0,
+        ]);
+        SalesOrderLine::create([
+            'sales_order_id' => $projectSo->id,
+            'position' => 1,
+            'name' => $hydrantItem->name,
+            'qty_ordered' => 1,
+            'unit' => 'pcs',
+            'unit_price' => 200,
+            'discount_type' => 'amount',
+            'discount_value' => 0,
+            'discount_amount' => 0,
+            'line_subtotal' => 200,
+            'line_total' => 200,
+            'item_id' => $hydrantItem->id,
+            'commission_basis_unit_price' => 200,
+        ]);
+
+        foreach ([$goodsSo, $projectSo] as $salesOrder) {
+            Invoice::create([
+                'company_id' => $company->id,
+                'customer_id' => $customer->id,
+                'sales_order_id' => $salesOrder->id,
+                'number' => 'INV-'.$salesOrder->so_number,
+                'date' => now()->toDateString(),
+                'status' => 'posted',
+                'subtotal' => (float) $salesOrder->taxable_base,
+                'discount' => 0,
+                'tax_percent' => 0,
+                'tax_amount' => 0,
+                'total' => (float) $salesOrder->total,
+                'currency' => 'IDR',
+                'posted_at' => now(),
+            ]);
+        }
+
+        $this->actingAs($admin);
+
+        $report = app(SalesCommissionFeeService::class)->buildReport(['month' => now()->format('Y-m')]);
+
+        $goodsRow = $report['rows']->firstWhere('sales_order_id', $goodsSo->id);
+        $this->assertNotNull($goodsRow);
+        $this->assertTrue($goodsRow->salesperson_is_freelance);
+        $this->assertEqualsWithDelta(45.00, (float) $goodsRow->fee_amount, 0.01);
+
+        $goodsDetail = collect($goodsRow->detail_rows)->first();
+        $this->assertSame('freelance_net', $goodsDetail->commission_mode);
+        $this->assertEqualsWithDelta(100.00, (float) $goodsDetail->basis_unit_price_snapshot, 0.01);
+        $this->assertEqualsWithDelta(65.00, (float) $goodsDetail->basis_net_amount, 0.01);
+        $this->assertEqualsWithDelta(110.00, (float) $goodsDetail->actual_net_amount, 0.01);
+        $this->assertEqualsWithDelta(45.00, (float) $goodsDetail->fee_amount, 0.01);
+
+        $projectRow = $report['rows']->firstWhere('sales_order_id', $projectSo->id);
+        $this->assertNotNull($projectRow);
+        $this->assertEqualsWithDelta(2.70, (float) $projectRow->fee_amount, 0.01);
+
+        $projectDetail = collect($projectRow->detail_rows)->first();
+        $this->assertSame('percentage', $projectDetail->commission_mode);
+        $this->assertEqualsWithDelta(1.50, (float) $projectDetail->rate_percent, 0.01);
     }
 }

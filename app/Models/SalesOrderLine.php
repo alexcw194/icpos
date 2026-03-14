@@ -16,6 +16,7 @@ class SalesOrderLine extends Model
         'line_subtotal','line_total',
         // NEW
         'item_id','item_variant_id',
+        'commission_basis_unit_price',
         'baseline_project_quotation_line_id',
         'baseline_name',
         'baseline_description',
@@ -42,6 +43,7 @@ class SalesOrderLine extends Model
         // (opsional) bantu casting id
         'item_id'         => 'integer',
         'item_variant_id' => 'integer',
+        'commission_basis_unit_price' => 'decimal:2',
         'baseline_project_quotation_line_id' => 'integer',
         'baseline_item_id' => 'integer',
         'baseline_item_variant_id' => 'integer',

@@ -105,6 +105,11 @@ class User extends Authenticatable
         return !$this->hasAnyRole(['Sales', 'Admin', 'SuperAdmin']);
     }
 
+    public function isFreelance(): bool
+    {
+        return $this->hasRole('Freelance');
+    }
+
     public function isDokumenOnly(): bool
     {
         if (!$this->hasRole('Dokumen')) {

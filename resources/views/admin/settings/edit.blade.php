@@ -21,6 +21,7 @@
   $salesCommissionFireAlarmRate = (float) ($s['sales.commission.project.fire_alarm_rate_percent'] ?? 5);
   $salesCommissionFireHydrantRate = (float) ($s['sales.commission.project.fire_hydrant_rate_percent'] ?? 1.5);
   $salesCommissionMaintenanceRate = (float) ($s['sales.commission.project.maintenance_rate_percent'] ?? 5);
+  $salesCommissionFreelanceIcposDiscountPercent = (float) ($s['sales.commission.freelance.icpos_discount_percent'] ?? 35);
 @endphp
 
 <div class="container-xl">
@@ -173,6 +174,13 @@
           <input type="number" step="0.01" min="0" name="sales_commission_project_maintenance_rate_percent" class="form-control"
                  value="{{ old('sales_commission_project_maintenance_rate_percent', $salesCommissionMaintenanceRate) }}">
           @error('sales_commission_project_maintenance_rate_percent')<div class="text-danger small">{{ $message }}</div>@enderror
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Freelance ICPOS Discount (%)</label>
+          <input type="number" step="0.01" min="0" max="100" name="sales_commission_freelance_icpos_discount_percent" class="form-control"
+                 value="{{ old('sales_commission_freelance_icpos_discount_percent', $salesCommissionFreelanceIcposDiscountPercent) }}">
+          @error('sales_commission_freelance_icpos_discount_percent')<div class="text-danger small">{{ $message }}</div>@enderror
+          <div class="form-hint">Net basis freelance = 100% - discount ini. Default 35% berarti net basis 65%.</div>
         </div>
       </div>
 

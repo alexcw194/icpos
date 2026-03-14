@@ -37,7 +37,19 @@ class SalesCommissionNoteService
             ]);
         }
 
-        if ($rows->count() !== $uniqueSourceKeys->count()) {
+        $resolvedSourceKeys = $rows
+            ->map(function ($row) {
+                if ($row->sales_order_id) {
+                    return 'sales-order|'.$row->sales_order_id;
+                }
+
+                return $row->source_key;
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($resolvedSourceKeys->count() !== $uniqueSourceKeys->count()) {
             throw ValidationException::withMessages([
                 'source_keys' => 'Sebagian row sudah masuk note lain atau tidak bisa dipilih.',
             ]);
@@ -52,8 +64,9 @@ class SalesCommissionNoteService
 
         $month = Carbon::createFromFormat('Y-m', (string) $filters['month'])->startOfMonth();
         $noteDate = Carbon::parse((string) $payload['note_date'])->startOfDay();
+        $supportsFreelanceSnapshot = $this->supportsFreelanceSnapshotColumns();
 
-        $note = DB::transaction(function () use ($rows, $month, $noteDate, $payload, $salesUserIds) {
+        $note = DB::transaction(function () use ($rows, $month, $noteDate, $payload, $salesUserIds, $supportsFreelanceSnapshot) {
             $note = SalesCommissionNote::create([
                 'number' => $this->nextNumber($noteDate),
                 'month' => $month->toDateString(),
@@ -66,7 +79,8 @@ class SalesCommissionNoteService
             ]);
 
             $note->lines()->createMany(
-                $rows->map(fn ($row) => [
+                $rows->map(function ($row) use ($month, $supportsFreelanceSnapshot) {
+                    $payload = [
                     'source_key' => $row->source_key,
                     'invoice_id' => $row->invoice_id,
                     'invoice_line_id' => $row->invoice_line_id,
@@ -86,7 +100,18 @@ class SalesCommissionNoteService
                     'salesperson_name_snapshot' => $row->sales_user_name,
                     'item_name_snapshot' => $row->item_name,
                     'customer_name_snapshot' => $row->customer_name,
-                ])->all()
+                    ];
+
+                    if ($supportsFreelanceSnapshot) {
+                        $payload['commission_mode'] = $row->commission_mode ?? 'percentage';
+                        $payload['basis_unit_price_snapshot'] = $row->basis_unit_price_snapshot;
+                        $payload['basis_net_amount'] = $row->basis_net_amount;
+                        $payload['actual_net_amount'] = $row->actual_net_amount;
+                        $payload['formula_label_snapshot'] = $row->formula_label ?? $row->rate_label;
+                    }
+
+                    return $payload;
+                })->all()
             );
 
             $this->salesCommissionSyncService->syncSalesOrders($rows->pluck('sales_order_id')->all());
@@ -156,5 +181,26 @@ class SalesCommissionNoteService
 
             return sprintf('SCN/%d/%05d', (int) $noteDate->format('Y'), $lastSeq + 1);
         });
+    }
+
+    private function supportsFreelanceSnapshotColumns(): bool
+    {
+        if (!Schema::hasTable('sales_commission_note_lines')) {
+            return false;
+        }
+
+        foreach ([
+            'commission_mode',
+            'basis_unit_price_snapshot',
+            'basis_net_amount',
+            'actual_net_amount',
+            'formula_label_snapshot',
+        ] as $column) {
+            if (!Schema::hasColumn('sales_commission_note_lines', $column)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

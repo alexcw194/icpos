@@ -104,6 +104,10 @@ class SalesCommissionFeeService
 
     private function sourceRows(array $filters): Collection
     {
+        $commissionBasisSelect = Schema::hasColumn('sales_order_lines', 'commission_basis_unit_price')
+            ? 'COALESCE(line.commission_basis_unit_price, 0)'
+            : '0';
+
         $finalizedSalesOrders = DB::table('invoices as invoice')
             ->whereIn('invoice.status', ['posted', 'paid'])
             ->whereNotNull('invoice.sales_order_id')
@@ -121,7 +125,7 @@ class SalesCommissionFeeService
             ->leftJoin('brands as brand', 'brand.id', '=', 'item.brand_id')
             ->leftJoin('users as sales_user', 'sales_user.id', '=', 'so.sales_user_id')
             ->whereBetween('finalized_so.finalized_date', [$filters['from']->toDateString(), $filters['to']->toDateString()])
-            ->selectRaw('
+            ->selectRaw("
                 line.id as sales_order_line_id,
                 so.id as sales_order_id,
                 so.so_number as sales_order_number,
@@ -135,24 +139,34 @@ class SalesCommissionFeeService
                 so.customer_id,
                 customer.name as customer_name,
                 item.id as item_id,
-                COALESCE(NULLIF(line.po_item_name, ""), NULLIF(line.name, ""), item.name, "-") as item_name,
+                COALESCE(NULLIF(line.po_item_name, ''), NULLIF(line.name, ''), item.name, '-') as item_name,
                 item.brand_id as brand_id,
                 brand.name as brand_name,
                 item.family_code as family_code,
+                {$commissionBasisSelect} as commission_basis_unit_price,
                 COALESCE(line.qty_ordered, 0) as qty_sold,
                 COALESCE(line.line_total, 0) as line_total,
                 project.systems_json as project_systems_json
-            ')
-            ->get()
-            ->map(function ($row) {
+            ")
+            ->get();
+
+        $freelanceSalesUserIds = $this->freelanceSalesUserIds(
+            collect($rows)->pluck('sales_user_id')->filter()->map(fn ($id) => (int) $id)->unique()->values()
+        );
+
+        $rows = collect($rows)
+            ->map(function ($row) use ($freelanceSalesUserIds) {
                 $familyCode = strtoupper(trim((string) ($row->family_code ?? '')));
                 $projectSystems = $this->normalizeJsonArray($row->project_systems_json ?? []);
+                $salesUserId = $row->sales_user_id ? (int) $row->sales_user_id : null;
+                $isFreelance = $salesUserId && isset($freelanceSalesUserIds[$salesUserId]);
                 $resolvedRate = $this->rateResolver->resolve((object) [
                     'brand_id' => $row->brand_id,
                     'brand_name' => $row->brand_name,
                     'family_code' => $familyCode,
                     'po_type' => $row->po_type,
                     'project_systems' => $projectSystems,
+                    'salesperson_is_freelance' => $isFreelance,
                 ]);
 
                 return (object) [
@@ -171,8 +185,9 @@ class SalesCommissionFeeService
                     'sales_order_under_amount' => (float) ($row->sales_order_under_amount ?? 0),
                     'project_scope' => $resolvedRate['project_scope'],
                     'project_scope_label' => $this->projectScopeLabel($resolvedRate['project_scope']),
-                    'sales_user_id' => $row->sales_user_id ? (int) $row->sales_user_id : null,
+                    'sales_user_id' => $salesUserId,
                     'sales_user_name' => (string) ($row->sales_user_name ?? '-'),
+                    'salesperson_is_freelance' => (bool) $isFreelance,
                     'customer_id' => (int) $row->customer_id,
                     'customer_name' => (string) ($row->customer_name ?? '-'),
                     'item_id' => $row->item_id ? (int) $row->item_id : null,
@@ -180,11 +195,16 @@ class SalesCommissionFeeService
                     'brand_id' => $row->brand_id ? (int) $row->brand_id : null,
                     'brand_name' => (string) ($row->brand_name ?? '-'),
                     'family_code' => $familyCode,
+                    'commission_basis_unit_price' => (float) ($row->commission_basis_unit_price ?? 0),
                     'qty_sold' => (float) ($row->qty_sold ?? 0),
                     'line_total' => (float) ($row->line_total ?? 0),
+                    'commission_mode' => (string) ($resolvedRate['commission_mode'] ?? 'percentage'),
                     'rate_percent' => (float) $resolvedRate['rate_percent'],
                     'rate_label' => $resolvedRate['rate_label'],
+                    'formula_label' => $resolvedRate['formula_label'] ?? $resolvedRate['rate_label'],
                     'rate_source' => $resolvedRate['rate_source'],
+                    'basis_discount_percent' => $resolvedRate['basis_discount_percent'],
+                    'basis_net_percent' => $resolvedRate['basis_net_percent'],
                     'is_unresolved' => (bool) $resolvedRate['is_unresolved'],
                 ];
             })
@@ -231,13 +251,33 @@ class SalesCommissionFeeService
                 $revenue = round(max((float) $row->line_total, 0), 2);
             }
 
-            $commissionableBase = max($revenue - $underAllocated, 0);
-            $feeAmount = round($commissionableBase * ((float) $row->rate_percent / 100), 2);
+            $actualNetAmount = max($revenue - $underAllocated, 0);
+            $commissionableBase = $actualNetAmount;
+            $basisUnitPriceSnapshot = round(max((float) ($row->commission_basis_unit_price ?? 0), 0), 2);
+            $basisNetAmount = null;
+            $feeAmount = 0.0;
+            $formulaLabel = (string) ($row->formula_label ?? $row->rate_label ?? '');
+
+            if (($row->commission_mode ?? 'percentage') === 'freelance_net') {
+                $basisNetPercent = max(0, min(100, (float) ($row->basis_net_percent ?? 65)));
+                $basisIcposAmount = round($basisUnitPriceSnapshot * max((float) $row->qty_sold, 0), 2);
+                $basisNetAmount = round($basisIcposAmount * ($basisNetPercent / 100), 2);
+                $feeAmount = round(max($actualNetAmount - $basisNetAmount, 0), 2);
+                if ($formulaLabel === '') {
+                    $formulaLabel = 'Freelance net';
+                }
+            } else {
+                $feeAmount = round($commissionableBase * ((float) $row->rate_percent / 100), 2);
+            }
 
             return (object) array_merge((array) $row, [
                 'revenue' => $revenue,
                 'under_allocated' => $underAllocated,
                 'commissionable_base' => $commissionableBase,
+                'actual_net_amount' => $actualNetAmount,
+                'basis_unit_price_snapshot' => $basisUnitPriceSnapshot,
+                'basis_net_amount' => $basisNetAmount,
+                'formula_label' => $formulaLabel,
                 'fee_amount' => $feeAmount,
             ]);
         })->values();
@@ -277,6 +317,7 @@ class SalesCommissionFeeService
                     'project_scope_label' => $projectScopeLabel,
                     'sales_user_id' => $first->sales_user_id,
                     'sales_user_name' => $first->sales_user_name,
+                    'salesperson_is_freelance' => $group->contains(fn ($row) => (bool) ($row->salesperson_is_freelance ?? false)),
                     'customer_id' => $first->customer_id,
                     'customer_name' => $first->customer_name,
                     'item_count' => $group->count(),
@@ -297,11 +338,16 @@ class SalesCommissionFeeService
                             'brand_name' => $row->brand_name,
                             'family_code' => $row->family_code,
                             'qty_sold' => $row->qty_sold,
+                            'commission_mode' => $row->commission_mode,
+                            'basis_unit_price_snapshot' => $row->basis_unit_price_snapshot,
+                            'basis_net_amount' => $row->basis_net_amount,
+                            'actual_net_amount' => $row->actual_net_amount,
                             'revenue' => $row->revenue,
                             'under_allocated' => $row->under_allocated,
                             'commissionable_base' => $row->commissionable_base,
                             'rate_percent' => $row->rate_percent,
                             'rate_label' => $row->rate_label,
+                            'formula_label' => $row->formula_label,
                             'fee_amount' => $row->fee_amount,
                         ];
                     })->values(),
@@ -403,5 +449,25 @@ class SalesCommissionFeeService
             'maintenance' => 'Maintenance',
             default => '-',
         };
+    }
+
+    private function freelanceSalesUserIds(Collection $salesUserIds): array
+    {
+        if ($salesUserIds->isEmpty() || !Schema::hasTable('model_has_roles') || !Schema::hasTable('roles')) {
+            return [];
+        }
+
+        $ids = DB::table('model_has_roles as mhr')
+            ->join('roles as role', 'role.id', '=', 'mhr.role_id')
+            ->where('mhr.model_type', \App\Models\User::class)
+            ->where('role.guard_name', 'web')
+            ->where('role.name', 'Freelance')
+            ->whereIn('mhr.model_id', $salesUserIds->all())
+            ->pluck('mhr.model_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->all();
+
+        return array_fill_keys($ids, true);
     }
 }

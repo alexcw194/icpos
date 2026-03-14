@@ -72,7 +72,7 @@
       <div class="card card-sm"><div class="card-body"><div class="subheader">Under Allocated</div><div class="h3 m-0">{{ $money($summary['under_total']) }}</div></div></div>
     </div>
     <div class="col-6 col-md-2">
-      <div class="card card-sm"><div class="card-body"><div class="subheader">Commissionable</div><div class="h3 m-0">{{ $money($summary['commissionable_total']) }}</div></div></div>
+      <div class="card card-sm"><div class="card-body"><div class="subheader">Base / Net</div><div class="h3 m-0">{{ $money($summary['commissionable_total']) }}</div></div></div>
     </div>
     <div class="col-6 col-md-2">
       <div class="card card-sm"><div class="card-body"><div class="subheader">Fee Total</div><div class="h3 m-0">{{ $money($summary['fee_total']) }}</div></div></div>
@@ -163,6 +163,9 @@
                 </td>
                 <td>
                   <div class="fw-semibold">{{ $row->sales_user_name ?: '-' }}</div>
+                  @if($row->salesperson_is_freelance ?? false)
+                    <div class="text-muted small">Freelance</div>
+                  @endif
                   @if(!$row->sales_user_id)
                     <div class="text-danger small">Salesperson missing</div>
                   @endif
@@ -227,7 +230,7 @@
           <div class="row g-3 mb-3">
             <div class="col-md-3"><div class="text-muted small">Revenue</div><div class="fw-semibold">{{ $money($row->revenue) }}</div></div>
             <div class="col-md-3"><div class="text-muted small">Under</div><div class="fw-semibold">{{ $money($row->under_allocated) }}</div></div>
-            <div class="col-md-3"><div class="text-muted small">Base</div><div class="fw-semibold">{{ $money($row->commissionable_base) }}</div></div>
+            <div class="col-md-3"><div class="text-muted small">Base / Net</div><div class="fw-semibold">{{ $money($row->commissionable_base) }}</div></div>
             <div class="col-md-3"><div class="text-muted small">Fee</div><div class="fw-semibold">{{ $money($row->fee_amount) }}</div></div>
           </div>
 
@@ -241,8 +244,10 @@
                   <th class="text-end">Qty</th>
                   <th class="text-end">Revenue</th>
                   <th class="text-end">Under</th>
-                  <th class="text-end">Base</th>
-                  <th class="text-end">Rate</th>
+                  <th class="text-end">Base / Net</th>
+                  <th class="text-end">ICPOS</th>
+                  <th class="text-end">Basis Net</th>
+                  <th class="text-end">Rate / Formula</th>
                   <th class="text-end">Fee</th>
                 </tr>
               </thead>
@@ -251,15 +256,35 @@
                   <tr>
                     <td>
                       <div class="fw-semibold">{{ $detail->item_name }}</div>
-                      <div class="text-muted small">{{ $detail->rate_label }}</div>
+                      <div class="text-muted small">{{ $detail->formula_label }}</div>
                     </td>
                     <td>{{ $detail->brand_name ?: '-' }}</td>
                     <td>{{ $detail->family_code ?: '-' }}</td>
                     <td class="text-end">{{ number_format((float) $detail->qty_sold, 2, ',', '.') }}</td>
                     <td class="text-end">{{ $money($detail->revenue) }}</td>
                     <td class="text-end">{{ $money($detail->under_allocated) }}</td>
-                    <td class="text-end">{{ $money($detail->commissionable_base) }}</td>
-                    <td class="text-end">{{ $percent($detail->rate_percent) }}</td>
+                    <td class="text-end">{{ $money($detail->commission_mode === 'freelance_net' ? ($detail->actual_net_amount ?? 0) : $detail->commissionable_base) }}</td>
+                    <td class="text-end">
+                      @if($detail->commission_mode === 'freelance_net')
+                        {{ $money($detail->basis_unit_price_snapshot ?? 0) }}
+                      @else
+                        -
+                      @endif
+                    </td>
+                    <td class="text-end">
+                      @if($detail->commission_mode === 'freelance_net')
+                        {{ $money($detail->basis_net_amount ?? 0) }}
+                      @else
+                        -
+                      @endif
+                    </td>
+                    <td class="text-end">
+                      @if($detail->commission_mode === 'freelance_net')
+                        <span class="text-muted">{{ $detail->formula_label }}</span>
+                      @else
+                        {{ $percent($detail->rate_percent) }}
+                      @endif
+                    </td>
                     <td class="text-end">{{ $money($detail->fee_amount) }}</td>
                   </tr>
                 @endforeach
