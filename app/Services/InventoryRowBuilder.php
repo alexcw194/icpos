@@ -11,7 +11,7 @@ class InventoryRowBuilder
     public function buildFlatRows(Collection $items, array $filters): Collection
     {
         $rows = collect();
-        $term = Str::lower($filters['q']);
+        $term = trim((string) ($filters['q'] ?? ''));
         $sizeFilters  = array_map(fn($v) => Str::lower($v), $filters['sizes']);
         $colorFilters = array_map(fn($v) => Str::lower($v), $filters['colors']);
         $lengthMin = $filters['length_min'];
@@ -124,7 +124,7 @@ class InventoryRowBuilder
             $rows = $rows->filter(function ($row) use ($term) {
                 if ($row['relevance'] > 0) return true;
                 if ($row['entity'] === 'item') {
-                    return Str::contains(Str::lower($row['display_name']), $term);
+                    return $this->matchesInventorySearchTerm((string) ($row['display_name'] ?? ''), $term);
                 }
                 return false;
             });
@@ -245,34 +245,95 @@ class InventoryRowBuilder
 
     private function computeInventoryRelevance(Item $item, $variant, string $term): int
     {
+        $term = trim($term);
         if ($term === '') return 0;
 
         $score = 0;
-        $term = Str::lower($term);
+        $tokens = collect(preg_split('/[\s\-\/]+/u', mb_strtolower($term, 'UTF-8')))
+            ->map(fn ($token) => trim((string) $token))
+            ->filter(fn ($token) => $token !== '')
+            ->unique()
+            ->values();
 
-        if (Str::contains(Str::lower($item->name), $term)) {
-            $score += 200;
-        }
-        if ($item->sku && Str::contains(Str::lower($item->sku), $term)) {
-            $score += 150;
-        }
-        if ($item->brand && Str::contains(Str::lower($item->brand->name), $term)) {
-            $score += 80;
-        }
-
-        if ($variant) {
-            if ($variant->sku && Str::contains(Str::lower($variant->sku), $term)) {
-                $score += 1000;
+        foreach ($this->inventorySearchCandidates($item, $variant) as $candidate => $candidateWeight) {
+            if ($this->matchesInventorySearchTerm($candidate, $term)) {
+                $score += $candidateWeight;
             }
-            $attrs = $variant->attributes ?? [];
-            foreach ($attrs as $value) {
-                if (is_string($value) && Str::contains(Str::lower($value), $term)) {
-                    $score += 500;
+
+            if ($tokens->count() > 1) {
+                $tokenMatches = 0;
+                foreach ($tokens as $token) {
+                    if ($this->matchesInventorySearchTerm($candidate, $token)) {
+                        $tokenMatches++;
+                    }
+                }
+
+                if ($tokenMatches === $tokens->count()) {
+                    $score += (int) round($candidateWeight * 0.75);
+                } elseif ($tokenMatches > 0) {
+                    $score += (int) round(($candidateWeight * 0.4) * ($tokenMatches / $tokens->count()));
                 }
             }
         }
 
         return $score;
+    }
+
+    private function inventorySearchCandidates(Item $item, $variant): array
+    {
+        $candidates = [];
+
+        if ((string) $item->name !== '') {
+            $candidates[(string) $item->name] = 200;
+        }
+        if ((string) ($item->sku ?? '') !== '') {
+            $candidates[(string) $item->sku] = 150;
+        }
+        if ($item->brand && (string) $item->brand->name !== '') {
+            $candidates[(string) $item->brand->name] = 80;
+        }
+
+        if ($variant) {
+            if ((string) ($variant->sku ?? '') !== '') {
+                $candidates[(string) $variant->sku] = 1000;
+            }
+            $attrs = $variant->computed_attributes ?? ($variant->attributes ?? []);
+            $displayName = $item->renderVariantDisplayName(is_array($attrs) ? $attrs : [], $variant->sku);
+            if ($displayName !== '') {
+                $candidates[$displayName] = 1200;
+            }
+            foreach ($attrs as $value) {
+                if (is_scalar($value) && trim((string) $value) !== '') {
+                    $candidates[(string) $value] = 500;
+                }
+            }
+        }
+
+        return $candidates;
+    }
+
+    private function matchesInventorySearchTerm(string $value, string $term): bool
+    {
+        $value = trim($value);
+        $term = trim($term);
+
+        if ($value === '' || $term === '') {
+            return false;
+        }
+
+        $valueLower = mb_strtolower($value, 'UTF-8');
+        $termLower = mb_strtolower($term, 'UTF-8');
+        if (Str::contains($valueLower, $termLower)) {
+            return true;
+        }
+
+        return $this->normalizeInventorySearchText($valueLower) !== ''
+            && Str::contains($this->normalizeInventorySearchText($valueLower), $this->normalizeInventorySearchText($termLower));
+    }
+
+    private function normalizeInventorySearchText(string $value): string
+    {
+        return str_replace([' ', '-', '/'], '', $value);
     }
 
     private function variantMatchesFilters($variant, Item $item, array $filters, array $sizeFilters, array $colorFilters, ?float $lengthMin, ?float $lengthMax): bool

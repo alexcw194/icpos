@@ -121,7 +121,10 @@ class SalesCommissionFeeService
             })
             ->join('customers as customer', 'customer.id', '=', 'so.customer_id')
             ->leftJoin('projects as project', 'project.id', '=', 'so.project_id')
-            ->leftJoin('items as item', 'item.id', '=', 'line.item_id')
+            ->leftJoin('item_variants as variant', 'variant.id', '=', 'line.item_variant_id')
+            ->leftJoin('items as item', function ($join) {
+                $join->on('item.id', '=', DB::raw('COALESCE(line.item_id, variant.item_id)'));
+            })
             ->leftJoin('brands as brand', 'brand.id', '=', 'item.brand_id')
             ->leftJoin('users as sales_user', 'sales_user.id', '=', 'so.sales_user_id')
             ->whereBetween('finalized_so.finalized_date', [$filters['from']->toDateString(), $filters['to']->toDateString()])
@@ -138,9 +141,13 @@ class SalesCommissionFeeService
                 sales_user.name as sales_user_name,
                 so.customer_id,
                 customer.name as customer_name,
-                item.id as item_id,
+                line.name as line_name,
+                line.po_item_name as line_po_item_name,
+                line.description as line_description,
+                COALESCE(line.item_id, variant.item_id, item.id) as item_id,
+                line.item_variant_id as item_variant_id,
                 COALESCE(NULLIF(line.po_item_name, ''), NULLIF(line.name, ''), item.name, '-') as item_name,
-                COALESCE(item.price, 0) as current_item_price,
+                COALESCE(variant.price, item.price, 0) as current_item_price,
                 item.brand_id as brand_id,
                 brand.name as brand_name,
                 item.family_code as family_code,
@@ -150,6 +157,8 @@ class SalesCommissionFeeService
                 project.systems_json as project_systems_json
             ")
             ->get();
+
+        $fallbackCurrentPrices = $this->resolveFallbackCurrentItemPrices(collect($rows));
 
         $freelanceSalesUserIds = $this->freelanceSalesUserIds(
             collect($rows)->pluck('sales_user_id')->filter()->map(fn ($id) => (int) $id)->unique()->values()
@@ -192,8 +201,11 @@ class SalesCommissionFeeService
                     'customer_id' => (int) $row->customer_id,
                     'customer_name' => (string) ($row->customer_name ?? '-'),
                     'item_id' => $row->item_id ? (int) $row->item_id : null,
+                    'item_variant_id' => $row->item_variant_id ? (int) $row->item_variant_id : null,
                     'item_name' => (string) ($row->item_name ?? '-'),
-                    'current_item_price' => (float) ($row->current_item_price ?? 0),
+                    'current_item_price' => (float) (($row->current_item_price ?? 0) > 0
+                        ? $row->current_item_price
+                        : ($fallbackCurrentPrices[(int) $row->sales_order_line_id] ?? 0)),
                     'brand_id' => $row->brand_id ? (int) $row->brand_id : null,
                     'brand_name' => (string) ($row->brand_name ?? '-'),
                     'family_code' => $familyCode,
@@ -474,5 +486,71 @@ class SalesCommissionFeeService
             ->all();
 
         return array_fill_keys($ids, true);
+    }
+
+    private function resolveFallbackCurrentItemPrices(Collection $rows): array
+    {
+        $needsFallback = $rows->filter(function ($row) {
+            return ((float) ($row->current_item_price ?? 0)) <= 0;
+        })->values();
+
+        if ($needsFallback->isEmpty()) {
+            return [];
+        }
+
+        $items = DB::table('items')
+            ->where('price', '>', 0)
+            ->get(['name', 'price']);
+
+        $priceMap = [];
+        foreach ($items as $item) {
+            $normalized = $this->normalizeCommissionItemText((string) ($item->name ?? ''));
+            if ($normalized === '' || isset($priceMap[$normalized])) {
+                continue;
+            }
+            $priceMap[$normalized] = (float) ($item->price ?? 0);
+        }
+
+        $resolved = [];
+        foreach ($needsFallback as $row) {
+            $candidates = [
+                (string) ($row->line_name ?? ''),
+                (string) ($row->line_description ?? ''),
+                (string) ($row->item_name ?? ''),
+            ];
+
+            foreach ($candidates as $candidate) {
+                foreach ($this->commissionItemNameCandidates($candidate) as $candidateKey) {
+                    if (!isset($priceMap[$candidateKey])) {
+                        continue;
+                    }
+
+                    $resolved[(int) $row->sales_order_line_id] = (float) $priceMap[$candidateKey];
+                    break 2;
+                }
+            }
+        }
+
+        return $resolved;
+    }
+
+    private function commissionItemNameCandidates(string $value): array
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return [];
+        }
+
+        $candidates = [$this->normalizeCommissionItemText($value)];
+        if (str_contains($value, ' - ')) {
+            $candidates[] = $this->normalizeCommissionItemText((string) str($value)->beforeLast(' - '));
+        }
+
+        return array_values(array_unique(array_filter($candidates, fn ($candidate) => $candidate !== '')));
+    }
+
+    private function normalizeCommissionItemText(string $value): string
+    {
+        return str_replace([' ', '-', '/'], '', mb_strtolower(trim($value), 'UTF-8'));
     }
 }

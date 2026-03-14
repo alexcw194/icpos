@@ -30,8 +30,6 @@ class InventoryRowController extends Controller
         $allowedListTypes = ['retail','project'];
         $listType = in_array($listType, $allowedListTypes, true) ? $listType : '';
 
-        $like = '%' . $q . '%';
-
         $hasItemMinStock = Schema::hasColumn('items', 'min_stock');
         $hasVariantMinStock = Schema::hasColumn('item_variants', 'min_stock');
 
@@ -58,18 +56,7 @@ class InventoryRowController extends Controller
             ])
             ->when($listType !== '', fn($q) => $q->where('list_type', $listType))
             ->when($itemType !== '', fn($q) => $q->where('item_type', $itemType))
-            ->when($q !== '', function ($query) use ($like) {
-                $query->where(function ($w) use ($like) {
-                    $w->where('name', 'like', $like)
-                      ->orWhere('sku',  'like', $like)
-                      ->orWhereHas('variants', function ($v) use ($like) {
-                          $v->where('sku', 'like', $like)
-                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color')) LIKE ?", [$like])
-                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size')) LIKE ?",  [$like])
-                            ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length')) LIKE ?",[$like]);
-                      });
-                });
-            })
+            ->when($q !== '', fn ($query) => $this->applyInventorySearchFilter($query, $q))
             ->orderBy('name')
             ->limit($limit)
             ->get($itemSelect);
@@ -120,5 +107,64 @@ class InventoryRowController extends Controller
         })->values();
 
         return response()->json($options);
+    }
+
+    private function applyInventorySearchFilter($query, string $term): void
+    {
+        $term = trim($term);
+        if ($term === '') {
+            return;
+        }
+
+        $tokens = collect(preg_split('/[\s\-\/]+/u', mb_strtolower($term, 'UTF-8')))
+            ->map(fn ($token) => trim((string) $token))
+            ->filter(fn ($token) => $token !== '')
+            ->unique()
+            ->values();
+
+        $query->where(function ($outer) use ($term, $tokens) {
+            $this->applyInventorySearchToken($outer, $term);
+
+            if ($tokens->count() > 1) {
+                $outer->orWhere(function ($tokenQuery) use ($tokens) {
+                    foreach ($tokens as $token) {
+                        $tokenQuery->where(function ($segment) use ($token) {
+                            $this->applyInventorySearchToken($segment, $token);
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    private function applyInventorySearchToken($query, string $token): void
+    {
+        $like = '%'.$token.'%';
+        $normalizedLike = '%'.$this->normalizeInventorySearchToken($token).'%';
+
+        $query->where('name', 'like', $like)
+            ->orWhere('sku', 'like', $like)
+            ->orWhereRaw($this->normalizedInventorySearchExpression('name').' LIKE ?', [$normalizedLike])
+            ->orWhereRaw($this->normalizedInventorySearchExpression('sku').' LIKE ?', [$normalizedLike])
+            ->orWhereHas('variants', function ($variantQuery) use ($like, $normalizedLike) {
+                $variantQuery->where('sku', 'like', $like)
+                    ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color')) LIKE ?", [$like])
+                    ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size')) LIKE ?", [$like])
+                    ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length')) LIKE ?", [$like])
+                    ->orWhereRaw($this->normalizedInventorySearchExpression('sku').' LIKE ?', [$normalizedLike])
+                    ->orWhereRaw($this->normalizedInventorySearchExpression("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.color'))").' LIKE ?', [$normalizedLike])
+                    ->orWhereRaw($this->normalizedInventorySearchExpression("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.size'))").' LIKE ?', [$normalizedLike])
+                    ->orWhereRaw($this->normalizedInventorySearchExpression("JSON_UNQUOTE(JSON_EXTRACT(attributes, '$.length'))").' LIKE ?', [$normalizedLike]);
+            });
+    }
+
+    private function normalizeInventorySearchToken(string $token): string
+    {
+        return str_replace([' ', '-', '/'], '', mb_strtolower($token, 'UTF-8'));
+    }
+
+    private function normalizedInventorySearchExpression(string $expression): string
+    {
+        return "REPLACE(REPLACE(REPLACE(LOWER(COALESCE({$expression}, '')), ' ', ''), '-', ''), '/', '')";
     }
 }

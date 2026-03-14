@@ -193,4 +193,35 @@ class ItemListTypeTest extends TestCase
             'name' => 'Refill ABC Powder PYROS - 5 kg',
         ]);
     }
+
+    public function test_inventory_row_search_matches_variant_size_suffix_without_exact_spacing(): void
+    {
+        $unit = $this->makeUnit();
+
+        $item = Item::create([
+            'name' => 'Refill ABC Powder PYROS',
+            'sku' => 'REFILL-ABC-5KG-ROW',
+            'price' => 1000,
+            'unit_id' => $unit->id,
+            'list_type' => 'retail',
+            'variant_type' => 'size',
+        ]);
+
+        ItemVariant::create([
+            'item_id' => $item->id,
+            'sku' => 'REFILL-ABC-5KG-ROW-V1',
+            'price' => 1000,
+            'stock' => 0,
+            'attributes' => ['size' => '5 kg'],
+            'is_active' => true,
+        ]);
+
+        $response = $this->getJson('/api/inventory/rows/search?q='.urlencode('Refill ABC Powder PYROS - 5kg').'&entity=all&limit=50');
+
+        $response->assertOk();
+        $response->assertJsonFragment([
+            'item_id' => $item->id,
+            'name' => 'Refill ABC Powder PYROS - 5 kg',
+        ]);
+    }
 }

@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\Item;
+use App\Models\ItemVariant;
 use App\Models\Project;
 use App\Models\SalesCommissionNote;
 use App\Models\SalesCommissionRule;
@@ -650,5 +651,105 @@ class SalesCommissionWorkflowTest extends TestCase
         $projectDetail = collect($projectRow->detail_rows)->first();
         $this->assertSame('percentage', $projectDetail->commission_mode);
         $this->assertEqualsWithDelta(1.50, (float) $projectDetail->rate_percent, 0.01);
+    }
+
+    public function test_freelance_goods_falls_back_to_variant_price_when_parent_price_is_zero(): void
+    {
+        $admin = $this->makeUserWithRole('Admin');
+        $sales = $this->makeUserWithRole('Sales');
+        $sales->assignRole(Role::firstOrCreate(['name' => 'Freelance', 'guard_name' => 'web']));
+
+        Setting::setMany([
+            'sales.commission.freelance.icpos_discount_percent' => '35',
+            'sales.commission.default_rate_percent' => '5',
+            'sales.commission.project.fire_alarm_rate_percent' => '5',
+            'sales.commission.project.fire_hydrant_rate_percent' => '1.5',
+            'sales.commission.project.maintenance_rate_percent' => '5',
+        ]);
+
+        $company = Company::create(['name' => 'Freelance Var Co', 'alias' => 'FVC']);
+        $customer = Customer::create(['name' => 'Freelance Variant Customer']);
+        $item = Item::create([
+            'name' => 'Refill ABC Powder PYROS',
+            'sku' => 'FR-VAR-PARENT',
+            'price' => 0,
+            'family_code' => 'REFILL',
+            'variant_type' => 'size',
+        ]);
+        $variant = ItemVariant::create([
+            'item_id' => $item->id,
+            'sku' => 'FR-VAR-5KG',
+            'price' => 400000,
+            'stock' => 0,
+            'attributes' => ['size' => '5 kg'],
+            'is_active' => true,
+        ]);
+
+        $salesOrder = SalesOrder::create([
+            'company_id' => $company->id,
+            'customer_id' => $customer->id,
+            'sales_user_id' => $sales->id,
+            'so_number' => 'SO-FR-VAR-001',
+            'order_date' => now()->toDateString(),
+            'customer_po_number' => 'PO-FR-VAR-001',
+            'customer_po_date' => now()->toDateString(),
+            'po_type' => 'goods',
+            'discount_mode' => 'total',
+            'tax_percent' => 0,
+            'tax_amount' => 0,
+            'taxable_base' => 574000,
+            'total' => 574000,
+            'status' => 'open',
+            'under_amount' => 74000,
+            'fee_amount' => 0,
+        ]);
+        SalesOrderLine::create([
+            'sales_order_id' => $salesOrder->id,
+            'position' => 1,
+            'name' => 'Refill ABC Powder PYROS - 5kg',
+            'qty_ordered' => 1,
+            'unit' => 'pcs',
+            'unit_price' => 574000,
+            'discount_type' => 'amount',
+            'discount_value' => 0,
+            'discount_amount' => 0,
+            'line_subtotal' => 574000,
+            'line_total' => 574000,
+            'item_id' => $item->id,
+            'item_variant_id' => $variant->id,
+            'commission_basis_unit_price' => 0,
+        ]);
+
+        Invoice::create([
+            'company_id' => $company->id,
+            'customer_id' => $customer->id,
+            'sales_order_id' => $salesOrder->id,
+            'number' => 'INV-SO-FR-VAR-001',
+            'date' => now()->toDateString(),
+            'status' => 'posted',
+            'subtotal' => 574000,
+            'discount' => 0,
+            'tax_percent' => 0,
+            'tax_amount' => 0,
+            'total' => 574000,
+            'currency' => 'IDR',
+            'posted_at' => now(),
+        ]);
+
+        $this->actingAs($admin);
+
+        $report = app(SalesCommissionFeeService::class)->buildReport(['month' => now()->format('Y-m')]);
+        $row = $report['rows']->firstWhere('sales_order_id', $salesOrder->id);
+
+        $this->assertNotNull($row);
+        $this->assertEqualsWithDelta(500000.00, (float) $row->commissionable_base, 0.01);
+        $this->assertEqualsWithDelta(240000.00, (float) $row->fee_amount, 0.01);
+
+        $detail = collect($row->detail_rows)->first();
+        $this->assertSame('freelance_net', $detail->commission_mode);
+        $this->assertEqualsWithDelta(400000.00, (float) $detail->basis_unit_price_snapshot, 0.01);
+        $this->assertEqualsWithDelta(260000.00, (float) $detail->basis_net_amount, 0.01);
+        $this->assertEqualsWithDelta(500000.00, (float) $detail->actual_net_amount, 0.01);
+        $this->assertEqualsWithDelta(240000.00, (float) $detail->fee_amount, 0.01);
     }
 }
