@@ -561,7 +561,7 @@ class SalesCommissionWorkflowTest extends TestCase
             'line_subtotal' => 120,
             'line_total' => 120,
             'item_id' => $item->id,
-            'commission_basis_unit_price' => 100,
+            'commission_basis_unit_price' => 0,
         ]);
 
         $project = Project::create([

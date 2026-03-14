@@ -140,6 +140,7 @@ class SalesCommissionFeeService
                 customer.name as customer_name,
                 item.id as item_id,
                 COALESCE(NULLIF(line.po_item_name, ''), NULLIF(line.name, ''), item.name, '-') as item_name,
+                COALESCE(item.price, 0) as current_item_price,
                 item.brand_id as brand_id,
                 brand.name as brand_name,
                 item.family_code as family_code,
@@ -192,6 +193,7 @@ class SalesCommissionFeeService
                     'customer_name' => (string) ($row->customer_name ?? '-'),
                     'item_id' => $row->item_id ? (int) $row->item_id : null,
                     'item_name' => (string) ($row->item_name ?? '-'),
+                    'current_item_price' => (float) ($row->current_item_price ?? 0),
                     'brand_id' => $row->brand_id ? (int) $row->brand_id : null,
                     'brand_name' => (string) ($row->brand_name ?? '-'),
                     'family_code' => $familyCode,
@@ -254,6 +256,9 @@ class SalesCommissionFeeService
             $actualNetAmount = max($revenue - $underAllocated, 0);
             $commissionableBase = $actualNetAmount;
             $basisUnitPriceSnapshot = round(max((float) ($row->commission_basis_unit_price ?? 0), 0), 2);
+            if ($basisUnitPriceSnapshot <= 0) {
+                $basisUnitPriceSnapshot = round(max((float) ($row->current_item_price ?? 0), 0), 2);
+            }
             $basisNetAmount = null;
             $feeAmount = 0.0;
             $formulaLabel = (string) ($row->formula_label ?? $row->rate_label ?? '');
